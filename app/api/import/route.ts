@@ -12,12 +12,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await updateSheetData(sheetName, data);
+    // Filter out empty rows
+    const cleanedData = data.filter((row: any[]) => {
+      return row.some(cell => cell !== null && cell !== undefined && cell !== '');
+    });
 
-    return NextResponse.json({ success: true });
+    if (cleanedData.length === 0) {
+      return NextResponse.json(
+        { error: 'No valid data to import' },
+        { status: 400 }
+      );
+    }
+
+    await updateSheetData(sheetName, cleanedData);
+
+    return NextResponse.json({ 
+      success: true, 
+      rowsImported: cleanedData.length 
+    });
   } catch (error) {
+    console.error('Import error:', error);
     return NextResponse.json(
-      { error: 'Failed to import data' },
+      { error: 'Failed to import data', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

@@ -18,8 +18,12 @@ export default function OrderReportPage() {
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [importType, setImportType] = useState<'powerbiz' | 'delivery_note' | 'sales_invoice'>('powerbiz');
   const [importing, setImporting] = useState(false);
+  
+  // State untuk 3 file inputs
+  const [powerbizFile, setPowerbizFile] = useState<File | null>(null);
+  const [deliveryFile, setDeliveryFile] = useState<File | null>(null);
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -107,63 +111,147 @@ export default function OrderReportPage() {
     );
   };
 
-  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setImporting(true);
-
-    try {
-      let parsedData: any[] = [];
-
+  const parseFile = async (file: File): Promise<any[]> => {
+    return new Promise((resolve, reject) => {
       if (file.name.endsWith(".csv")) {
         Papa.parse(file, {
-          complete: async (results) => {
-            parsedData = results.data.slice(1);
-            await uploadToSheet(parsedData);
+          complete: (results) => {
+            const parsedData = (results.data as any[])
+              .slice(1)
+              .filter(row => Array.isArray(row) && row.some(cell => cell !== null && cell !== undefined && cell !== ''));
+            resolve(parsedData);
           },
           header: false,
+          skipEmptyLines: true,
+          error: (error) => {
+            reject(error);
+          }
         });
       } else if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
         const reader = new FileReader();
-        reader.onload = async (e) => {
-          const data = e.target?.result;
-          const workbook = XLSX.read(data, { type: "binary" });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-          parsedData = jsonData.slice(1);
-          await uploadToSheet(parsedData);
+        reader.onload = (e) => {
+          try {
+            const data = e.target?.result;
+            const workbook = XLSX.read(data, { type: "binary" });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+            
+            const parsedData = jsonData
+              .slice(1)
+              .filter(row => Array.isArray(row) && row.some(cell => cell !== null && cell !== undefined && cell !== ''));
+            
+            resolve(parsedData);
+          } catch (error) {
+            reject(error);
+          }
+        };
+        reader.onerror = () => {
+          reject(new Error("Failed to read file"));
         };
         reader.readAsBinaryString(file);
+      } else {
+        reject(new Error("Unsupported file format"));
       }
-    } catch (error) {
-      alert("Failed to import file");
-    } finally {
-      setImporting(false);
-    }
+    });
   };
 
-  const uploadToSheet = async (importData: any[]) => {
-    try {
-      const response = await fetch("/api/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sheetName: importType,
-          data: importData,
-        }),
-      });
+  const uploadToSheet = async (sheetName: string, importData: any[]) => {
+    const response = await fetch("/api/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sheetName: sheetName,
+        data: importData,
+      }),
+    });
 
-      if (response.ok) {
-        alert("Data imported successfully");
+    if (!response.ok) {
+      const result = await response.json();
+      throw new Error(result.error || 'Import failed');
+    }
+
+    return await response.json();
+  };
+
+  const handleImportAll = async () => {
+    if (!powerbizFile && !deliveryFile && !invoiceFile) {
+      alert("Please select at least one file to import");
+      return;
+    }
+
+    setImporting(true);
+    const results: string[] = [];
+    const errors: string[] = [];
+
+    try {
+      // Import PowerBiz Sales Order
+      if (powerbizFile) {
+        try {
+          const parsedData = await parseFile(powerbizFile);
+          if (parsedData.length === 0) {
+            errors.push("PowerBiz: No valid data found");
+          } else {
+            const result = await uploadToSheet('powerbiz_salesorder', parsedData);
+            results.push(`PowerBiz: ${result.rowsImported} rows imported`);
+          }
+        } catch (error) {
+          errors.push(`PowerBiz: ${error instanceof Error ? error.message : 'Import failed'}`);
+        }
+      }
+
+      // Import Delivery Note
+      if (deliveryFile) {
+        try {
+          const parsedData = await parseFile(deliveryFile);
+          if (parsedData.length === 0) {
+            errors.push("Delivery Note: No valid data found");
+          } else {
+            const result = await uploadToSheet('delivery_note', parsedData);
+            results.push(`Delivery Note: ${result.rowsImported} rows imported`);
+          }
+        } catch (error) {
+          errors.push(`Delivery Note: ${error instanceof Error ? error.message : 'Import failed'}`);
+        }
+      }
+
+      // Import Sales Invoice
+      if (invoiceFile) {
+        try {
+          const parsedData = await parseFile(invoiceFile);
+          if (parsedData.length === 0) {
+            errors.push("Sales Invoice: No valid data found");
+          } else {
+            const result = await uploadToSheet('sales_invoice', parsedData);
+            results.push(`Sales Invoice: ${result.rowsImported} rows imported`);
+          }
+        } catch (error) {
+          errors.push(`Sales Invoice: ${error instanceof Error ? error.message : 'Import failed'}`);
+        }
+      }
+
+      // Show results
+      let message = "";
+      if (results.length > 0) {
+        message += "✅ Success:\n" + results.join("\n");
+      }
+      if (errors.length > 0) {
+        message += (message ? "\n\n" : "") + "❌ Errors:\n" + errors.join("\n");
+      }
+      
+      alert(message || "Import completed");
+      
+      if (results.length > 0) {
         setShowImportModal(false);
+        setPowerbizFile(null);
+        setDeliveryFile(null);
+        setInvoiceFile(null);
         fetchData(); // Refresh data
-      } else {
-        alert("Failed to import data");
       }
     } catch (error) {
-      alert("Failed to import data");
+      alert("Failed to import data. Please try again.");
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -183,7 +271,7 @@ export default function OrderReportPage() {
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Order Report");
-    XLSX.writeFile(wb, "order_report.xlsx");
+    XLSX.writeFile(wb, `order_report_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   // Pagination calculations
@@ -383,55 +471,107 @@ export default function OrderReportPage() {
         </div>
       </div>
 
-      {/* Import Modal */}
+      {/* Import Modal - Single Form with 3 File Inputs */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-primary mb-4">Import Data</h2>
             
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Import Type
-                </label>
-                <select
-                  value={importType}
-                  onChange={(e) => setImportType(e.target.value as any)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="powerbiz_salesorder">PowerBiz Sales Order</option>
-                  <option value="delivery_note">Delivery Note</option>
-                  <option value="sales_invoice">Sales Invoice</option>
-                </select>
-              </div>
+              <p className="text-sm text-gray-600 mb-4">
+                Upload files for PowerBiz Sales Order, Delivery Note, and/or Sales Invoice. 
+                You can upload one, two, or all three files at once.
+              </p>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Choose File (CSV or Excel)
+              {/* PowerBiz Sales Order */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  1. PowerBiz Sales Order
                 </label>
                 <input
                   type="file"
                   accept=".csv,.xlsx,.xls"
-                  onChange={handleFileImport}
+                  onChange={(e) => setPowerbizFile(e.target.files?.[0] || null)}
                   disabled={importing}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90"
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90 disabled:opacity-50"
                 />
+                {powerbizFile && (
+                  <p className="text-xs text-green-600 mt-2 flex items-center">
+                    ✓ Selected: {powerbizFile.name}
+                  </p>
+                )}
+              </div>
+
+              {/* Delivery Note */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  2. Delivery Note
+                </label>
+                <input
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  onChange={(e) => setDeliveryFile(e.target.files?.[0] || null)}
+                  disabled={importing}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90 disabled:opacity-50"
+                />
+                {deliveryFile && (
+                  <p className="text-xs text-green-600 mt-2 flex items-center">
+                    ✓ Selected: {deliveryFile.name}
+                  </p>
+                )}
+              </div>
+
+              {/* Sales Invoice */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  3. Sales Invoice
+                </label>
+                <input
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  onChange={(e) => setInvoiceFile(e.target.files?.[0] || null)}
+                  disabled={importing}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90 disabled:opacity-50"
+                />
+                {invoiceFile && (
+                  <p className="text-xs text-green-600 mt-2 flex items-center">
+                    ✓ Selected: {invoiceFile.name}
+                  </p>
+                )}
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded p-3 mt-4">
+                <p className="text-xs text-blue-800">
+                  <strong>Note:</strong> Files should be CSV or Excel format with headers in row 1 and data starting from row 2.
+                </p>
               </div>
 
               {importing && (
-                <div className="text-sm text-gray-600 text-center">
-                  Importing...
+                <div className="text-sm text-gray-600 text-center py-3">
+                  <div className="animate-pulse">Importing files... Please wait.</div>
                 </div>
               )}
             </div>
 
             <div className="flex gap-2 mt-6">
               <button
-                onClick={() => setShowImportModal(false)}
+                onClick={() => {
+                  setShowImportModal(false);
+                  setPowerbizFile(null);
+                  setDeliveryFile(null);
+                  setInvoiceFile(null);
+                }}
                 disabled={importing}
                 className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
               >
                 Cancel
+              </button>
+              <button
+                onClick={handleImportAll}
+                disabled={importing || (!powerbizFile && !deliveryFile && !invoiceFile)}
+                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
+              >
+                {importing ? "Importing..." : "Import Selected Files"}
               </button>
             </div>
           </div>
