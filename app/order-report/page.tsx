@@ -25,6 +25,9 @@ export default function OrderReportPage() {
   const [deliveryFile, setDeliveryFile] = useState<File | null>(null);
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   
+  // NEW: Option to replace headers
+  const [replaceHeaders, setReplaceHeaders] = useState(false);
+  
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
@@ -111,14 +114,23 @@ export default function OrderReportPage() {
     );
   };
 
-  const parseFile = async (file: File): Promise<any[]> => {
+  const parseFile = async (file: File, includeHeader: boolean): Promise<any[]> => {
     return new Promise((resolve, reject) => {
       if (file.name.endsWith(".csv")) {
         Papa.parse(file, {
           complete: (results) => {
-            const parsedData = (results.data as any[])
-              .slice(1)
-              .filter(row => Array.isArray(row) && row.some(cell => cell !== null && cell !== undefined && cell !== ''));
+            let parsedData = results.data as any[];
+            
+            // Filter empty rows
+            parsedData = parsedData.filter(row => 
+              Array.isArray(row) && row.some(cell => cell !== null && cell !== undefined && cell !== '')
+            );
+            
+            // Skip header if not replacing
+            if (!includeHeader && parsedData.length > 0) {
+              parsedData = parsedData.slice(1);
+            }
+            
             resolve(parsedData);
           },
           header: false,
@@ -135,13 +147,19 @@ export default function OrderReportPage() {
             const workbook = XLSX.read(data, { type: "binary" });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+            let jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
             
-            const parsedData = jsonData
-              .slice(1)
-              .filter(row => Array.isArray(row) && row.some(cell => cell !== null && cell !== undefined && cell !== ''));
+            // Filter empty rows
+            jsonData = jsonData.filter(row => 
+              Array.isArray(row) && row.some(cell => cell !== null && cell !== undefined && cell !== '')
+            );
             
-            resolve(parsedData);
+            // Skip header if not replacing
+            if (!includeHeader && jsonData.length > 0) {
+              jsonData = jsonData.slice(1);
+            }
+            
+            resolve(jsonData);
           } catch (error) {
             reject(error);
           }
@@ -156,13 +174,14 @@ export default function OrderReportPage() {
     });
   };
 
-  const uploadToSheet = async (sheetName: string, importData: any[]) => {
+  const uploadToSheet = async (sheetName: string, importData: any[], includeHeader: boolean) => {
     const response = await fetch("/api/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         sheetName: sheetName,
         data: importData,
+        includeHeader: includeHeader,
       }),
     });
 
@@ -188,12 +207,12 @@ export default function OrderReportPage() {
       // Import PowerBiz Sales Order
       if (powerbizFile) {
         try {
-          const parsedData = await parseFile(powerbizFile);
+          const parsedData = await parseFile(powerbizFile, replaceHeaders);
           if (parsedData.length === 0) {
             errors.push("PowerBiz: No valid data found");
           } else {
-            const result = await uploadToSheet('powerbiz_salesorder', parsedData);
-            results.push(`PowerBiz: ${result.rowsImported} rows imported`);
+            const result = await uploadToSheet('powerbiz_salesorder', parsedData, replaceHeaders);
+            results.push(`PowerBiz: ${result.rowsImported} rows imported${replaceHeaders ? ' (including header)' : ''}`);
           }
         } catch (error) {
           errors.push(`PowerBiz: ${error instanceof Error ? error.message : 'Import failed'}`);
@@ -203,12 +222,12 @@ export default function OrderReportPage() {
       // Import Delivery Note
       if (deliveryFile) {
         try {
-          const parsedData = await parseFile(deliveryFile);
+          const parsedData = await parseFile(deliveryFile, replaceHeaders);
           if (parsedData.length === 0) {
             errors.push("Delivery Note: No valid data found");
           } else {
-            const result = await uploadToSheet('delivery_note', parsedData);
-            results.push(`Delivery Note: ${result.rowsImported} rows imported`);
+            const result = await uploadToSheet('delivery_note', parsedData, replaceHeaders);
+            results.push(`Delivery Note: ${result.rowsImported} rows imported${replaceHeaders ? ' (including header)' : ''}`);
           }
         } catch (error) {
           errors.push(`Delivery Note: ${error instanceof Error ? error.message : 'Import failed'}`);
@@ -218,12 +237,12 @@ export default function OrderReportPage() {
       // Import Sales Invoice
       if (invoiceFile) {
         try {
-          const parsedData = await parseFile(invoiceFile);
+          const parsedData = await parseFile(invoiceFile, replaceHeaders);
           if (parsedData.length === 0) {
             errors.push("Sales Invoice: No valid data found");
           } else {
-            const result = await uploadToSheet('sales_invoice', parsedData);
-            results.push(`Sales Invoice: ${result.rowsImported} rows imported`);
+            const result = await uploadToSheet('sales_invoice', parsedData, replaceHeaders);
+            results.push(`Sales Invoice: ${result.rowsImported} rows imported${replaceHeaders ? ' (including header)' : ''}`);
           }
         } catch (error) {
           errors.push(`Sales Invoice: ${error instanceof Error ? error.message : 'Import failed'}`);
@@ -246,6 +265,7 @@ export default function OrderReportPage() {
         setPowerbizFile(null);
         setDeliveryFile(null);
         setInvoiceFile(null);
+        setReplaceHeaders(false);
         fetchData(); // Refresh data
       }
     } catch (error) {
@@ -471,7 +491,7 @@ export default function OrderReportPage() {
         </div>
       </div>
 
-      {/* Import Modal - Single Form with 3 File Inputs */}
+      {/* Import Modal - Single Form with 3 File Inputs + Header Option */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -482,6 +502,26 @@ export default function OrderReportPage() {
                 Upload files for PowerBiz Sales Order, Delivery Note, and/or Sales Invoice. 
                 You can upload one, two, or all three files at once.
               </p>
+
+              {/* Header Replace Option */}
+              <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 mb-4">
+                <label className="flex items-center text-sm font-semibold text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={replaceHeaders}
+                    onChange={(e) => setReplaceHeaders(e.target.checked)}
+                    className="mr-3 w-4 h-4"
+                  />
+                  <span>Replace Headers (Ganti seluruh sheet termasuk header)</span>
+                </label>
+                <p className="text-xs text-gray-600 mt-2 ml-7">
+                  {replaceHeaders ? (
+                    <span className="text-red-600">⚠️ WARNING: Header akan diganti! Seluruh sheet akan ter-replace dengan data dari file.</span>
+                  ) : (
+                    <span className="text-green-600">✓ Header tetap. Hanya data yang diganti.</span>
+                  )}
+                </p>
+              </div>
 
               {/* PowerBiz Sales Order */}
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
@@ -542,7 +582,11 @@ export default function OrderReportPage() {
 
               <div className="bg-blue-50 border border-blue-200 rounded p-3 mt-4">
                 <p className="text-xs text-blue-800">
-                  <strong>Note:</strong> Files should be CSV or Excel format with headers in row 1 and data starting from row 2.
+                  <strong>Note:</strong> Files should be CSV or Excel format. 
+                  {replaceHeaders 
+                    ? " File harus include header di row 1."
+                    : " Header in row 1 will be skipped, only data rows will be imported."
+                  }
                 </p>
               </div>
 
@@ -560,6 +604,7 @@ export default function OrderReportPage() {
                   setPowerbizFile(null);
                   setDeliveryFile(null);
                   setInvoiceFile(null);
+                  setReplaceHeaders(false);
                 }}
                 disabled={importing}
                 className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateSheetData } from '@/lib/sheets';
+import { updateSheetDataWithHeader } from '@/lib/sheets';
 
 export async function POST(request: NextRequest) {
   try {
-    const { sheetName, data } = await request.json();
+    const { sheetName, data, includeHeader } = await request.json();
 
     if (!['powerbiz_salesorder', 'delivery_note', 'sales_invoice'].includes(sheetName)) {
       return NextResponse.json(
@@ -24,11 +24,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await updateSheetData(sheetName, cleanedData);
+    // Jika includeHeader true, replace semua termasuk header
+    // Jika false, skip row pertama (header) dari data upload
+    const dataToUpload = includeHeader ? cleanedData : cleanedData;
+    
+    await updateSheetDataWithHeader(sheetName, dataToUpload);
 
     return NextResponse.json({ 
       success: true, 
-      rowsImported: cleanedData.length 
+      rowsImported: cleanedData.length,
+      headerIncluded: includeHeader 
     });
   } catch (error) {
     console.error('Import error:', error);
