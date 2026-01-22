@@ -4,6 +4,32 @@ const PARENT_FOLDER_ID = process.env.DRIVE_PARENT_FOLDER_ID || '';
 
 const userFolderCache = new Map<string, string>();
 
+function getGoogleCredentials() {
+  const credsEnv = process.env.GOOGLE_CREDENTIALS;
+  
+  if (!credsEnv) {
+    throw new Error('GOOGLE_CREDENTIALS environment variable is not set');
+  }
+
+  try {
+    const credentials = JSON.parse(credsEnv);
+    
+    if (!credentials.client_email) {
+      throw new Error('GOOGLE_CREDENTIALS missing client_email field');
+    }
+    if (!credentials.private_key) {
+      throw new Error('GOOGLE_CREDENTIALS missing private_key field');
+    }
+    
+    return credentials;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error('GOOGLE_CREDENTIALS is not valid JSON');
+    }
+    throw error;
+  }
+}
+
 async function getUserFolder(username: string, drive: any): Promise<string> {
   if (userFolderCache.has(username)) {
     return userFolderCache.get(username)!;
@@ -50,8 +76,10 @@ export async function uploadToGoogleDrive(
   username: string
 ): Promise<string> {
   try {
+    const credentials = getGoogleCredentials();
+    
     const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
+      credentials,
       scopes: [
         'https://www.googleapis.com/auth/drive.file',
         'https://www.googleapis.com/auth/drive'
@@ -95,8 +123,10 @@ export async function uploadToGoogleDrive(
 
 export async function getFileContentFromDrive(fileId: string): Promise<Buffer> {
   try {
+    const credentials = getGoogleCredentials();
+    
     const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
+      credentials,
       scopes: ['https://www.googleapis.com/auth/drive.readonly'],
     });
 

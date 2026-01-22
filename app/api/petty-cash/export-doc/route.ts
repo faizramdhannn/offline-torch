@@ -2,6 +2,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell, AlignmentType, WidthType, BorderStyle, HeadingLevel } from 'docx';
 import { google } from 'googleapis';
 
+function getGoogleCredentials() {
+  const credsEnv = process.env.GOOGLE_CREDENTIALS;
+  
+  if (!credsEnv) {
+    throw new Error('GOOGLE_CREDENTIALS environment variable is not set');
+  }
+
+  try {
+    const credentials = JSON.parse(credsEnv);
+    
+    if (!credentials.client_email) {
+      throw new Error('GOOGLE_CREDENTIALS missing client_email field');
+    }
+    if (!credentials.private_key) {
+      throw new Error('GOOGLE_CREDENTIALS missing private_key field');
+    }
+    
+    return credentials;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error('GOOGLE_CREDENTIALS is not valid JSON');
+    }
+    throw error;
+  }
+}
+
 async function downloadImageFromDrive(fileUrl: string): Promise<Buffer | null> {
   try {
     const fileIdMatch = fileUrl.match(/\/d\/([^\/]+)/);
@@ -12,8 +38,10 @@ async function downloadImageFromDrive(fileUrl: string): Promise<Buffer | null> {
     
     const fileId = fileIdMatch[1];
     
+    const credentials = getGoogleCredentials();
+    
     const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GOOGLE_SHEETS_CREDENTIALS || '{}'),
+      credentials,
       scopes: ['https://www.googleapis.com/auth/drive.readonly'],
     });
 
