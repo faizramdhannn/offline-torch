@@ -39,6 +39,10 @@ export async function POST(request: NextRequest) {
       registration_request: user.registration_request === 'TRUE',
       user_setting: user.user_setting === 'TRUE',
       petty_cash: user.petty_cash === 'TRUE',
+      petty_cash_add: user.petty_cash_add === 'TRUE',
+      petty_cash_export: user.petty_cash_export === 'TRUE',
+      order_report_import: user.order_report_import === 'TRUE',
+      order_report_export: user.order_report_export === 'TRUE',
     });
   } catch (error) {
     return NextResponse.json(
