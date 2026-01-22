@@ -9,6 +9,10 @@ export interface User {
   registration_request: boolean;
   user_setting: boolean;
   petty_cash: boolean;
+  petty_cash_add: boolean;
+  petty_cash_export: boolean;
+  order_report_import: boolean;
+  order_report_export: boolean;
   last_activity: string;
 }
 

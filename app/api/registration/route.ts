@@ -18,10 +18,8 @@ export async function POST(request: NextRequest) {
   try {
     const { name, username, password } = await request.json();
 
-    // Hash password dengan bcrypt
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Generate ID sederhana (timestamp + random)
     const id = Date.now().toString();
     const requestAt = new Date().toLocaleString('id-ID', {
       day: '2-digit',
@@ -56,46 +54,37 @@ export async function PUT(request: NextRequest) {
     const { id, status, permissions } = await request.json();
 
     if (status === 'approved') {
-      // Get registration request data
       const requests = await getSheetData('registration_request');
-      const request = requests.find((r: any) => r.id === id);
+      const requestData = requests.find((r: any) => r.id === id);
 
-      if (!request) {
+      if (!requestData) {
         return NextResponse.json(
           { error: 'Request not found' },
           { status: 404 }
         );
       }
 
-      // Add to users sheet
       const newUser = [
-        request.id,
-        request.name,
-        request.user_name,
-        request.password, // Already hashed
+        requestData.id,
+        requestData.name,
+        requestData.user_name,
+        requestData.password,
         permissions.dashboard ? 'TRUE' : 'FALSE',
         permissions.order_report ? 'TRUE' : 'FALSE',
         permissions.stock ? 'TRUE' : 'FALSE',
         permissions.registration_request ? 'TRUE' : 'FALSE',
         permissions.user_setting ? 'TRUE' : 'FALSE',
         permissions.petty_cash ? 'TRUE' : 'FALSE',
+        permissions.petty_cash_add ? 'TRUE' : 'FALSE',
+        permissions.petty_cash_export ? 'TRUE' : 'FALSE',
+        permissions.order_report_import ? 'TRUE' : 'FALSE',
+        permissions.order_report_export ? 'TRUE' : 'FALSE',
         new Date().toISOString()
       ];
 
       await appendSheetData('users', [newUser]);
     }
 
-    // Update status in registration_request
-    const allRequests = await getSheetData('registration_request');
-    const updatedRequests = allRequests.map((r: any) => {
-      if (r.id === id) {
-        return { ...r, status };
-      }
-      return r;
-    });
-
-    // You'll need to implement updateAllSheetData for this
-    // For now, return success
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json(

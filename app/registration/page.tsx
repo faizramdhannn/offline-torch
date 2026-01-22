@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import Popup from "@/components/Popup";
 import { RegistrationRequest } from "@/types";
 
 export default function RegistrationPage() {
@@ -12,6 +13,9 @@ export default function RegistrationPage() {
   const [loading, setLoading] = useState(true);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<RegistrationRequest | null>(null);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
+  const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [permissions, setPermissions] = useState({
     dashboard: false,
     order_report: false,
@@ -19,6 +23,10 @@ export default function RegistrationPage() {
     registration_request: false,
     user_setting: false,
     petty_cash: false,
+    petty_cash_add: false,
+    petty_cash_export: false,
+    order_report_import: false,
+    order_report_export: false,
   });
 
   useEffect(() => {
@@ -36,13 +44,19 @@ export default function RegistrationPage() {
     fetchData();
   }, []);
 
+  const showMessage = (message: string, type: "success" | "error") => {
+    setPopupMessage(message);
+    setPopupType(type);
+    setShowPopup(true);
+  };
+
   const fetchData = async () => {
     try {
       const response = await fetch("/api/registration");
       const result = await response.json();
       setData(result);
     } catch (error) {
-      console.error("Failed to fetch data");
+      showMessage("Failed to fetch data", "error");
     } finally {
       setLoading(false);
     }
@@ -57,6 +71,10 @@ export default function RegistrationPage() {
       registration_request: false,
       user_setting: false,
       petty_cash: false,
+      petty_cash_add: false,
+      petty_cash_export: false,
+      order_report_import: false,
+      order_report_export: false,
     });
     setShowApprovalModal(true);
   };
@@ -72,13 +90,13 @@ export default function RegistrationPage() {
       });
 
       if (response.ok) {
-        alert("Registrasi ditolak");
+        showMessage("Registrasi ditolak", "success");
         fetchData();
       } else {
-        alert("Gagal menolak registrasi");
+        showMessage("Gagal menolak registrasi", "error");
       }
     } catch (error) {
-      alert("Gagal menolak registrasi");
+      showMessage("Gagal menolak registrasi", "error");
     }
   };
 
@@ -97,15 +115,15 @@ export default function RegistrationPage() {
       });
 
       if (response.ok) {
-        alert("Registrasi disetujui");
+        showMessage("Registrasi disetujui", "success");
         setShowApprovalModal(false);
         setSelectedRequest(null);
         fetchData();
       } else {
-        alert("Gagal menyetujui registrasi");
+        showMessage("Gagal menyetujui registrasi", "error");
       }
     } catch (error) {
-      alert("Gagal menyetujui registrasi");
+      showMessage("Gagal menyetujui registrasi", "error");
     }
   };
 
@@ -186,10 +204,9 @@ export default function RegistrationPage() {
         </div>
       </div>
 
-      {/* Approval Modal */}
       {showApprovalModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 my-8">
             <h2 className="text-lg font-bold text-primary mb-4">Set User Permissions</h2>
             
             <div className="mb-4">
@@ -201,7 +218,7 @@ export default function RegistrationPage() {
               </p>
             </div>
 
-            <div className="space-y-2 mb-6">
+            <div className="space-y-2 mb-6 max-h-96 overflow-y-auto">
               <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
                 <input
                   type="checkbox"
@@ -211,15 +228,38 @@ export default function RegistrationPage() {
                 />
                 Dashboard
               </label>
-              <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
-                <input
-                  type="checkbox"
-                  checked={permissions.order_report}
-                  onChange={(e) => setPermissions({...permissions, order_report: e.target.checked})}
-                  className="mr-2"
-                />
-                Order Report
-              </label>
+              
+              <div className="border-t pt-2">
+                <p className="text-xs font-semibold text-gray-700 mb-2">Order Report</p>
+                <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded ml-4">
+                  <input
+                    type="checkbox"
+                    checked={permissions.order_report}
+                    onChange={(e) => setPermissions({...permissions, order_report: e.target.checked})}
+                    className="mr-2"
+                  />
+                  View Order Report
+                </label>
+                <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded ml-4">
+                  <input
+                    type="checkbox"
+                    checked={permissions.order_report_import}
+                    onChange={(e) => setPermissions({...permissions, order_report_import: e.target.checked})}
+                    className="mr-2"
+                  />
+                  Import Data
+                </label>
+                <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded ml-4">
+                  <input
+                    type="checkbox"
+                    checked={permissions.order_report_export}
+                    onChange={(e) => setPermissions({...permissions, order_report_export: e.target.checked})}
+                    className="mr-2"
+                  />
+                  Export Data
+                </label>
+              </div>
+
               <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
                 <input
                   type="checkbox"
@@ -229,15 +269,38 @@ export default function RegistrationPage() {
                 />
                 Stock
               </label>
-              <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
-                <input
-                  type="checkbox"
-                  checked={permissions.petty_cash}
-                  onChange={(e) => setPermissions({...permissions, petty_cash: e.target.checked})}
-                  className="mr-2"
-                />
-                Petty Cash
-              </label>
+
+              <div className="border-t pt-2">
+                <p className="text-xs font-semibold text-gray-700 mb-2">Petty Cash</p>
+                <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded ml-4">
+                  <input
+                    type="checkbox"
+                    checked={permissions.petty_cash}
+                    onChange={(e) => setPermissions({...permissions, petty_cash: e.target.checked})}
+                    className="mr-2"
+                  />
+                  View Petty Cash
+                </label>
+                <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded ml-4">
+                  <input
+                    type="checkbox"
+                    checked={permissions.petty_cash_add}
+                    onChange={(e) => setPermissions({...permissions, petty_cash_add: e.target.checked})}
+                    className="mr-2"
+                  />
+                  Add Entry
+                </label>
+                <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded ml-4">
+                  <input
+                    type="checkbox"
+                    checked={permissions.petty_cash_export}
+                    onChange={(e) => setPermissions({...permissions, petty_cash_export: e.target.checked})}
+                    className="mr-2"
+                  />
+                  Export Data
+                </label>
+              </div>
+
               <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
                 <input
                   type="checkbox"
@@ -278,6 +341,13 @@ export default function RegistrationPage() {
           </div>
         </div>
       )}
+
+      <Popup 
+        show={showPopup}
+        message={popupMessage}
+        type={popupType}
+        onClose={() => setShowPopup(false)}
+      />
     </div>
   );
 }

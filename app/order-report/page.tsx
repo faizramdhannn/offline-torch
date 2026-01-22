@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import Popup from "@/components/Popup";
 import { OrderReport } from "@/types";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
@@ -19,16 +20,14 @@ export default function OrderReportPage() {
   const [statuses, setStatuses] = useState<string[]>([]);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
+  const [popupType, setPopupType] = useState<"success" | "error">("success");
   
-  // State untuk 3 file inputs
   const [powerbizFile, setPowerbizFile] = useState<File | null>(null);
   const [deliveryFile, setDeliveryFile] = useState<File | null>(null);
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   
-  // NEW: Option to replace headers
-  const [replaceHeaders, setReplaceHeaders] = useState(false);
-  
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -57,10 +56,16 @@ export default function OrderReportPage() {
       const uniqueStatuses = [...new Set(result.map((item: OrderReport) => item.status))].filter(Boolean);
       setStatuses(uniqueStatuses as string[]);
     } catch (error) {
-      console.error("Failed to fetch data");
+      showMessage("Failed to fetch data", "error");
     } finally {
       setLoading(false);
     }
+  };
+
+  const showMessage = (message: string, type: "success" | "error") => {
+    setPopupMessage(message);
+    setPopupType(type);
+    setShowPopup(true);
   };
 
   const formatDate = (dateString: string) => {
@@ -114,23 +119,15 @@ export default function OrderReportPage() {
     );
   };
 
-  const parseFile = async (file: File, includeHeader: boolean): Promise<any[]> => {
+  const parseFile = async (file: File): Promise<any[]> => {
     return new Promise((resolve, reject) => {
       if (file.name.endsWith(".csv")) {
         Papa.parse(file, {
           complete: (results) => {
             let parsedData = results.data as any[];
-            
-            // Filter empty rows
             parsedData = parsedData.filter(row => 
               Array.isArray(row) && row.some(cell => cell !== null && cell !== undefined && cell !== '')
             );
-            
-            // Skip header if not replacing
-            if (!includeHeader && parsedData.length > 0) {
-              parsedData = parsedData.slice(1);
-            }
-            
             resolve(parsedData);
           },
           header: false,
@@ -148,17 +145,9 @@ export default function OrderReportPage() {
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             let jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
-            
-            // Filter empty rows
             jsonData = jsonData.filter(row => 
               Array.isArray(row) && row.some(cell => cell !== null && cell !== undefined && cell !== '')
             );
-            
-            // Skip header if not replacing
-            if (!includeHeader && jsonData.length > 0) {
-              jsonData = jsonData.slice(1);
-            }
-            
             resolve(jsonData);
           } catch (error) {
             reject(error);
@@ -174,14 +163,13 @@ export default function OrderReportPage() {
     });
   };
 
-  const uploadToSheet = async (sheetName: string, importData: any[], includeHeader: boolean) => {
+  const uploadToSheet = async (sheetName: string, importData: any[]) => {
     const response = await fetch("/api/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         sheetName: sheetName,
         data: importData,
-        includeHeader: includeHeader,
       }),
     });
 
@@ -195,7 +183,7 @@ export default function OrderReportPage() {
 
   const handleImportAll = async () => {
     if (!powerbizFile && !deliveryFile && !invoiceFile) {
-      alert("Please select at least one file to import");
+      showMessage("Please select at least one file to import", "error");
       return;
     }
 
@@ -204,52 +192,48 @@ export default function OrderReportPage() {
     const errors: string[] = [];
 
     try {
-      // Import PowerBiz Sales Order
       if (powerbizFile) {
         try {
-          const parsedData = await parseFile(powerbizFile, replaceHeaders);
+          const parsedData = await parseFile(powerbizFile);
           if (parsedData.length === 0) {
             errors.push("PowerBiz: No valid data found");
           } else {
-            const result = await uploadToSheet('powerbiz_salesorder', parsedData, replaceHeaders);
-            results.push(`PowerBiz: ${result.rowsImported} rows imported${replaceHeaders ? ' (including header)' : ''}`);
+            const result = await uploadToSheet('powerbiz_salesorder', parsedData);
+            results.push(`PowerBiz: ${result.rowsImported} rows imported`);
           }
         } catch (error) {
           errors.push(`PowerBiz: ${error instanceof Error ? error.message : 'Import failed'}`);
         }
       }
 
-      // Import Delivery Note
       if (deliveryFile) {
         try {
-          const parsedData = await parseFile(deliveryFile, replaceHeaders);
+          const parsedData = await parseFile(deliveryFile);
           if (parsedData.length === 0) {
             errors.push("Delivery Note: No valid data found");
           } else {
-            const result = await uploadToSheet('delivery_note', parsedData, replaceHeaders);
-            results.push(`Delivery Note: ${result.rowsImported} rows imported${replaceHeaders ? ' (including header)' : ''}`);
+            const result = await uploadToSheet('delivery_note', parsedData);
+            results.push(`Delivery Note: ${result.rowsImported} rows imported`);
           }
         } catch (error) {
           errors.push(`Delivery Note: ${error instanceof Error ? error.message : 'Import failed'}`);
         }
       }
 
-      // Import Sales Invoice
       if (invoiceFile) {
         try {
-          const parsedData = await parseFile(invoiceFile, replaceHeaders);
+          const parsedData = await parseFile(invoiceFile);
           if (parsedData.length === 0) {
             errors.push("Sales Invoice: No valid data found");
           } else {
-            const result = await uploadToSheet('sales_invoice', parsedData, replaceHeaders);
-            results.push(`Sales Invoice: ${result.rowsImported} rows imported${replaceHeaders ? ' (including header)' : ''}`);
+            const result = await uploadToSheet('sales_invoice', parsedData);
+            results.push(`Sales Invoice: ${result.rowsImported} rows imported`);
           }
         } catch (error) {
           errors.push(`Sales Invoice: ${error instanceof Error ? error.message : 'Import failed'}`);
         }
       }
 
-      // Show results
       let message = "";
       if (results.length > 0) {
         message += "✅ Success:\n" + results.join("\n");
@@ -258,18 +242,17 @@ export default function OrderReportPage() {
         message += (message ? "\n\n" : "") + "❌ Errors:\n" + errors.join("\n");
       }
       
-      alert(message || "Import completed");
+      showMessage(message || "Import completed", results.length > 0 && errors.length === 0 ? "success" : "error");
       
       if (results.length > 0) {
         setShowImportModal(false);
         setPowerbizFile(null);
         setDeliveryFile(null);
         setInvoiceFile(null);
-        setReplaceHeaders(false);
-        fetchData(); // Refresh data
+        fetchData();
       }
     } catch (error) {
-      alert("Failed to import data. Please try again.");
+      showMessage("Failed to import data. Please try again.", "error");
     } finally {
       setImporting(false);
     }
@@ -294,7 +277,6 @@ export default function OrderReportPage() {
     XLSX.writeFile(wb, `order_report_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  // Pagination calculations
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
@@ -310,7 +292,6 @@ export default function OrderReportPage() {
         <div className="p-6">
           <h1 className="text-2xl font-bold text-primary mb-6">Order Report</h1>
 
-          {/* Filter Section */}
           <div className="bg-white rounded-lg shadow p-4 mb-4">
             <div className="grid grid-cols-4 gap-3 mb-3">
               <div>
@@ -367,22 +348,25 @@ export default function OrderReportPage() {
               >
                 Reset
               </button>
-              <button
-                onClick={() => setShowImportModal(true)}
-                className="px-4 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
-              >
-                Import
-              </button>
-              <button
-                onClick={exportToExcel}
-                className="px-4 py-1.5 bg-secondary text-primary rounded text-xs hover:bg-secondary/90 ml-auto"
-              >
-                Export to Excel
-              </button>
+              {user.order_report_import && (
+                <button
+                  onClick={() => setShowImportModal(true)}
+                  className="px-4 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                >
+                  Import
+                </button>
+              )}
+              {user.order_report_export && (
+                <button
+                  onClick={exportToExcel}
+                  className="px-4 py-1.5 bg-secondary text-primary rounded text-xs hover:bg-secondary/90 ml-auto"
+                >
+                  Export to Excel
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Table */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             {loading ? (
               <div className="p-8 text-center">Loading...</div>
@@ -436,7 +420,6 @@ export default function OrderReportPage() {
                   )}
                 </div>
 
-                {/* Pagination */}
                 {totalPages > 1 && (
                   <div className="flex justify-between items-center px-4 py-3 border-t">
                     <div className="text-xs text-gray-600">
@@ -491,7 +474,6 @@ export default function OrderReportPage() {
         </div>
       </div>
 
-      {/* Import Modal - Single Form with 3 File Inputs + Header Option */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -503,27 +485,6 @@ export default function OrderReportPage() {
                 You can upload one, two, or all three files at once.
               </p>
 
-              {/* Header Replace Option */}
-              <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 mb-4">
-                <label className="flex items-center text-sm font-semibold text-gray-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={replaceHeaders}
-                    onChange={(e) => setReplaceHeaders(e.target.checked)}
-                    className="mr-3 w-4 h-4"
-                  />
-                  <span>Replace Headers (Ganti seluruh sheet termasuk header)</span>
-                </label>
-                <p className="text-xs text-gray-600 mt-2 ml-7">
-                  {replaceHeaders ? (
-                    <span className="text-red-600">⚠️ WARNING: Header akan diganti! Seluruh sheet akan ter-replace dengan data dari file.</span>
-                  ) : (
-                    <span className="text-green-600">✓ Header tetap. Hanya data yang diganti.</span>
-                  )}
-                </p>
-              </div>
-
-              {/* PowerBiz Sales Order */}
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   1. PowerBiz Sales Order
@@ -542,7 +503,6 @@ export default function OrderReportPage() {
                 )}
               </div>
 
-              {/* Delivery Note */}
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   2. Delivery Note
@@ -561,7 +521,6 @@ export default function OrderReportPage() {
                 )}
               </div>
 
-              {/* Sales Invoice */}
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   3. Sales Invoice
@@ -582,11 +541,7 @@ export default function OrderReportPage() {
 
               <div className="bg-blue-50 border border-blue-200 rounded p-3 mt-4">
                 <p className="text-xs text-blue-800">
-                  <strong>Note:</strong> Files should be CSV or Excel format. 
-                  {replaceHeaders 
-                    ? " File harus include header di row 1."
-                    : " Header in row 1 will be skipped, only data rows will be imported."
-                  }
+                  <strong>Note:</strong> Files should be CSV or Excel format. All data including headers will be replaced.
                 </p>
               </div>
 
@@ -604,7 +559,6 @@ export default function OrderReportPage() {
                   setPowerbizFile(null);
                   setDeliveryFile(null);
                   setInvoiceFile(null);
-                  setReplaceHeaders(false);
                 }}
                 disabled={importing}
                 className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
@@ -622,6 +576,13 @@ export default function OrderReportPage() {
           </div>
         </div>
       )}
+
+      <Popup 
+        show={showPopup}
+        message={popupMessage}
+        type={popupType}
+        onClose={() => setShowPopup(false)}
+      />
     </div>
   );
 }

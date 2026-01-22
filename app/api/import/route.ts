@@ -3,7 +3,7 @@ import { updateSheetDataWithHeader } from '@/lib/sheets';
 
 export async function POST(request: NextRequest) {
   try {
-    const { sheetName, data, includeHeader } = await request.json();
+    const { sheetName, data } = await request.json();
 
     if (!['powerbiz_salesorder', 'delivery_note', 'sales_invoice'].includes(sheetName)) {
       return NextResponse.json(
@@ -12,7 +12,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Filter out empty rows
     const cleanedData = data.filter((row: any[]) => {
       return row.some(cell => cell !== null && cell !== undefined && cell !== '');
     });
@@ -23,17 +22,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Jika includeHeader true, replace semua termasuk header
-    // Jika false, skip row pertama (header) dari data upload
-    const dataToUpload = includeHeader ? cleanedData : cleanedData;
     
-    await updateSheetDataWithHeader(sheetName, dataToUpload);
+    await updateSheetDataWithHeader(sheetName, cleanedData);
 
     return NextResponse.json({ 
       success: true, 
       rowsImported: cleanedData.length,
-      headerIncluded: includeHeader 
     });
   } catch (error) {
     console.error('Import error:', error);

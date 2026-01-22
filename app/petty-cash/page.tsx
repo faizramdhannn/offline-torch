@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import Popup from "@/components/Popup";
 import * as XLSX from "xlsx";
 
 interface PettyCash {
@@ -29,18 +30,18 @@ export default function PettyCashPage() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
+  const [popupType, setPopupType] = useState<"success" | "error">("success");
   
-  // Filters
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedStores, setSelectedStores] = useState<string[]>([]);
   
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
-  // Form state
   const [formData, setFormData] = useState({
     description: "",
     category: "",
@@ -67,6 +68,12 @@ export default function PettyCashPage() {
     fetchCategories();
   }, []);
 
+  const showMessage = (message: string, type: "success" | "error") => {
+    setPopupMessage(message);
+    setPopupType(type);
+    setShowPopup(true);
+  };
+
   const fetchData = async () => {
     try {
       const response = await fetch("/api/petty-cash");
@@ -74,11 +81,10 @@ export default function PettyCashPage() {
       setData(result);
       setFilteredData(result);
       
-      // Extract unique stores
       const uniqueStores = [...new Set(result.map((item: PettyCash) => item.store))].filter(Boolean);
       setStores(uniqueStores as string[]);
     } catch (error) {
-      console.error("Failed to fetch data");
+      showMessage("Failed to fetch data", "error");
     } finally {
       setLoading(false);
     }
@@ -90,7 +96,7 @@ export default function PettyCashPage() {
       const result = await response.json();
       setCategories(result);
     } catch (error) {
-      console.error("Failed to fetch categories");
+      showMessage("Failed to fetch categories", "error");
     }
   };
 
@@ -185,7 +191,7 @@ export default function PettyCashPage() {
       });
 
       if (response.ok) {
-        alert("Entry added successfully");
+        showMessage("Entry added successfully", "success");
         setShowAddModal(false);
         setFormData({
           description: "",
@@ -197,10 +203,10 @@ export default function PettyCashPage() {
         });
         fetchData();
       } else {
-        alert("Failed to add entry");
+        showMessage("Failed to add entry", "error");
       }
     } catch (error) {
-      alert("Failed to add entry");
+      showMessage("Failed to add entry", "error");
     } finally {
       setSubmitting(false);
     }
@@ -252,30 +258,27 @@ export default function PettyCashPage() {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
+        showMessage("Document exported successfully", "success");
       } else {
-        alert("Failed to export document");
+        showMessage("Failed to export document", "error");
       }
     } catch (error) {
-      alert("Failed to export document");
+      showMessage("Failed to export document", "error");
     } finally {
       setExporting(false);
     }
   };
 
-  // Pagination calculations
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
-  // Calculate total value
   const totalValue = filteredData.reduce((sum, item) => {
     return sum + parseInt(item.value.replace(/[^0-9]/g, ''));
   }, 0);
 
   if (!user) return null;
-
-  const canExport = user.registration_request === true;
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -285,15 +288,16 @@ export default function PettyCashPage() {
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-primary">Petty Cash</h1>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90"
-            >
-              Add Entry
-            </button>
+            {user.petty_cash_add && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90"
+              >
+                Add Entry
+              </button>
+            )}
           </div>
 
-          {/* Filter Section */}
           <div className="bg-white rounded-lg shadow p-4 mb-4">
             <div className="grid grid-cols-4 gap-3 mb-3">
               <div>
@@ -368,7 +372,7 @@ export default function PettyCashPage() {
               >
                 Reset
               </button>
-              {canExport && (
+              {user.petty_cash_export && (
                 <>
                   <button
                     onClick={exportToExcel}
@@ -388,7 +392,6 @@ export default function PettyCashPage() {
             </div>
           </div>
 
-          {/* Table */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             {loading ? (
               <div className="p-8 text-center">Loading...</div>
@@ -448,7 +451,6 @@ export default function PettyCashPage() {
                   )}
                 </div>
 
-                {/* Pagination */}
                 {totalPages > 1 && (
                   <div className="flex justify-between items-center px-4 py-3 border-t">
                     <div className="text-xs text-gray-600">
@@ -503,7 +505,6 @@ export default function PettyCashPage() {
         </div>
       </div>
 
-      {/* Add Entry Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 my-8">
@@ -641,6 +642,13 @@ export default function PettyCashPage() {
           </div>
         </div>
       )}
+
+      <Popup 
+        show={showPopup}
+        message={popupMessage}
+        type={popupType}
+        onClose={() => setShowPopup(false)}
+      />
     </div>
   );
 }

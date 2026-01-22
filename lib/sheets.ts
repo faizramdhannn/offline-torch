@@ -1,18 +1,31 @@
 import { google } from 'googleapis';
 
-const SPREADSHEET_ID = '138koS7r12ceG4Pzasnl9eHmp7DnGKb94XU0zZANuCxQ';
+const SPREADSHEET_MAP: Record<string, string> = {
+  users: process.env.SPREADSHEET_USERS || '',
+  registration_request: process.env.SPREADSHEET_REGISTRATION || '',
+  order_report: process.env.SPREADSHEET_ORDER_REPORT || '',
+  powerbiz_salesorder: process.env.SPREADSHEET_ORDER_REPORT || '',
+  delivery_note: process.env.SPREADSHEET_ORDER_REPORT || '',
+  sales_invoice: process.env.SPREADSHEET_ORDER_REPORT || '',
+  petty_cash: process.env.SPREADSHEET_PETTY_CASH || '',
+  master_dropdown: process.env.SPREADSHEET_MASTER || '',
+};
+
+function getSpreadsheetId(sheetName: string): string {
+  return SPREADSHEET_MAP[sheetName] || '';
+}
 
 export async function getSheetData(sheetName: string) {
   try {
     const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GOOGLE_SHEETS_CREDENTIALS || '{}'),
+      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
     
     const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
+      spreadsheetId: getSpreadsheetId(sheetName),
       range: `${sheetName}!A1:Z`,
     });
 
@@ -33,64 +46,24 @@ export async function getSheetData(sheetName: string) {
   }
 }
 
-// OPSI 1: Replace ALL (termasuk header)
-// Gunakan ini jika ingin header juga bisa berubah dari file upload
 export async function updateSheetDataWithHeader(sheetName: string, data: any[][]) {
   try {
     const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GOOGLE_SHEETS_CREDENTIALS || '{}'),
+      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // Clear SEMUA termasuk header (dari A1)
     await sheets.spreadsheets.values.clear({
-      spreadsheetId: SPREADSHEET_ID,
+      spreadsheetId: getSpreadsheetId(sheetName),
       range: `${sheetName}!A1:Z`,
     });
 
-    // Write semua data termasuk header (mulai dari A1)
     if (data.length > 0) {
       await sheets.spreadsheets.values.update({
-        spreadsheetId: SPREADSHEET_ID,
+        spreadsheetId: getSpreadsheetId(sheetName),
         range: `${sheetName}!A1`,
-        valueInputOption: 'RAW',
-        requestBody: {
-          values: data,
-        },
-      });
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error updating sheet data:', error);
-    throw error;
-  }
-}
-
-// OPSI 2: Preserve Header (RECOMMENDED)
-// Header tetap, hanya data yang diganti
-export async function updateSheetData(sheetName: string, data: any[][]) {
-  try {
-    const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GOOGLE_SHEETS_CREDENTIALS || '{}'),
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-
-    const sheets = google.sheets({ version: 'v4', auth });
-
-    // Clear hanya data (dari A2), header tetap
-    await sheets.spreadsheets.values.clear({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${sheetName}!A2:Z`,
-    });
-
-    // Append data baru mulai dari A2
-    if (data.length > 0) {
-      await sheets.spreadsheets.values.append({
-        spreadsheetId: SPREADSHEET_ID,
-        range: `${sheetName}!A2`,
         valueInputOption: 'RAW',
         requestBody: {
           values: data,
@@ -108,14 +81,14 @@ export async function updateSheetData(sheetName: string, data: any[][]) {
 export async function appendSheetData(sheetName: string, data: any[][]) {
   try {
     const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GOOGLE_SHEETS_CREDENTIALS || '{}'),
+      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
 
     await sheets.spreadsheets.values.append({
-      spreadsheetId: SPREADSHEET_ID,
+      spreadsheetId: getSpreadsheetId(sheetName),
       range: `${sheetName}!A2`,
       valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
