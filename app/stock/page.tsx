@@ -12,13 +12,22 @@ interface StockItem {
   image_url?: string;
   warehouse?: string;
   sku: string;
+  SKU?: string;
   stock: string;
+  Stock?: string;
   item_name: string;
+  Product_name?: string;
   category: string;
+  Category?: string;
   grade: string;
+  Grade?: string;
   hpp: string;
+  HPP?: string;
   hpt: string;
+  HPT?: string;
   hpj: string;
+  HPJ?: string;
+  Artikel?: string;
 }
 
 interface LastUpdate {
@@ -97,22 +106,42 @@ export default function StockPage() {
       if (selectedView === 'pca') sheetName = 'pca_stock';
       if (selectedView === 'master') sheetName = 'master_item';
       
+      console.log('Fetching data for:', sheetName);
       const response = await fetch(`/api/stock?type=${sheetName}`);
       const result = await response.json();
-      setData(result);
-      setFilteredData(result);
+      console.log('Data received:', result.length, 'items');
+      console.log('Sample data:', result[0]);
       
-      const uniqueCategories = [...new Set(result.map((item: StockItem) => item.category))].filter(Boolean);
+      // Normalize data structure untuk master_item
+      const normalizedData = result.map((item: any) => ({
+        ...item,
+        sku: item.sku || item.SKU || '',
+        stock: item.stock || item.Stock || '',
+        item_name: item.item_name || item.Product_name || '',
+        category: item.category || item.Category || '',
+        grade: item.grade || item.Grade || '',
+        hpp: item.hpp || item.HPP || '',
+        hpt: item.hpt || item.HPT || '',
+        hpj: item.hpj || item.HPJ || '',
+      }));
+      
+      setData(normalizedData);
+      setFilteredData(normalizedData);
+      
+      const uniqueCategories = [...new Set(normalizedData.map((item: StockItem) => item.category))].filter(Boolean);
       setCategories(uniqueCategories as string[]);
+      console.log('Categories:', uniqueCategories);
       
-      const uniqueGrades = [...new Set(result.map((item: StockItem) => item.grade))].filter(Boolean);
+      const uniqueGrades = [...new Set(normalizedData.map((item: StockItem) => item.grade))].filter(Boolean);
       setGrades(uniqueGrades as string[]);
+      console.log('Grades:', uniqueGrades);
       
       if (selectedView === 'store') {
-        const uniqueWarehouses = [...new Set(result.map((item: StockItem) => item.warehouse))].filter(Boolean);
+        const uniqueWarehouses = [...new Set(normalizedData.map((item: StockItem) => item.warehouse))].filter(Boolean);
         setWarehouses(uniqueWarehouses as string[]);
       }
     } catch (error) {
+      console.error('Fetch error:', error);
       showMessage("Failed to fetch data", "error");
     } finally {
       setLoading(false);
@@ -127,6 +156,15 @@ export default function StockPage() {
     } catch (error) {
       console.error('Failed to fetch last update');
     }
+  };
+
+  const toProperCase = (str: string) => {
+    if (!str) return '';
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   };
 
   const applyFilters = () => {
@@ -343,18 +381,22 @@ export default function StockPage() {
     const exportData = filteredData.map((item) => {
       const base: any = {
         "SKU": item.sku,
-        "Product Name": item.item_name,
-        "Category": item.category,
-        "Grade": item.grade,
-        "Stock": item.stock,
-        "HPP": item.hpp,
-        "HPT": item.hpt,
-        "HPJ": item.hpj,
+        "Product Name": toProperCase(item.item_name),
+        "Category": toProperCase(item.category),
+        "Grade": toProperCase(item.grade),
       };
+      
+      if (selectedView !== 'master') {
+        base["Stock"] = item.stock;
+      }
       
       if (selectedView === 'store') {
         base["Warehouse"] = item.warehouse;
       }
+      
+      base["HPP"] = item.hpp;
+      base["HPT"] = item.hpt;
+      base["HPJ"] = item.hpj;
       
       return base;
     });
@@ -592,7 +634,9 @@ export default function StockPage() {
                         <th className="px-2 py-2 text-left font-semibold text-gray-700">Product Name</th>
                         <th className="px-2 py-2 text-left font-semibold text-gray-700">Category</th>
                         <th className="px-2 py-2 text-left font-semibold text-gray-700">Grade</th>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">Stock</th>
+                        {selectedView !== 'master' && (
+                          <th className="px-2 py-2 text-left font-semibold text-gray-700">Stock</th>
+                        )}
                         {selectedView === 'store' && (
                           <th className="px-2 py-2 text-left font-semibold text-gray-700">Warehouse</th>
                         )}
@@ -621,10 +665,12 @@ export default function StockPage() {
                             )}
                           </td>
                           <td className="px-2 py-2">{item.sku}</td>
-                          <td className="px-2 py-2">{item.item_name}</td>
-                          <td className="px-2 py-2">{item.category}</td>
-                          <td className="px-2 py-2">{item.grade}</td>
-                          <td className="px-2 py-2">{item.stock}</td>
+                          <td className="px-2 py-2">{toProperCase(item.item_name)}</td>
+                          <td className="px-2 py-2">{toProperCase(item.category)}</td>
+                          <td className="px-2 py-2">{toProperCase(item.grade)}</td>
+                          {selectedView !== 'master' && (
+                            <td className="px-2 py-2">{item.stock}</td>
+                          )}
                           {selectedView === 'store' && (
                             <td className="px-2 py-2">{item.warehouse}</td>
                           )}
