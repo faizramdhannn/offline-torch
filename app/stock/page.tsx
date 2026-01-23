@@ -640,9 +640,9 @@ export default function StockPage() {
                         {selectedView === 'store' && (
                           <th className="px-2 py-2 text-left font-semibold text-gray-700">Warehouse</th>
                         )}
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">HPJ</th>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">HPT</th>
                         <th className="px-2 py-2 text-left font-semibold text-gray-700">HPP</th>
+                        <th className="px-2 py-2 text-left font-semibold text-gray-700">HPT</th>
+                        <th className="px-2 py-2 text-left font-semibold text-gray-700">HPJ</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -674,9 +674,9 @@ export default function StockPage() {
                           {selectedView === 'store' && (
                             <td className="px-2 py-2">{item.warehouse}</td>
                           )}
-                          <td className="px-2 py-2">{item.hpj}</td>
-                          <td className="px-2 py-2">{item.hpt}</td>
                           <td className="px-2 py-2">{item.hpp}</td>
+                          <td className="px-2 py-2">{item.hpt}</td>
+                          <td className="px-2 py-2">{item.hpj}</td>
                         </tr>
                       ))}
                     </tbody>
