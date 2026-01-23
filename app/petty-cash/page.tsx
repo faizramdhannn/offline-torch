@@ -39,6 +39,9 @@ export default function PettyCashPage() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedStores, setSelectedStores] = useState<string[]>([]);
   
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [showStoreDropdown, setShowStoreDropdown] = useState(false);
+  
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -67,6 +70,10 @@ export default function PettyCashPage() {
     fetchData();
     fetchCategories();
   }, []);
+
+  useEffect(() => {
+    applyFilters();
+  }, [dateFrom, dateTo, selectedCategories, selectedStores, data]);
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);
@@ -322,50 +329,80 @@ export default function PettyCashPage() {
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
-              <div>
+              <div className="relative">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Category
                 </label>
-                <div className="border border-gray-300 rounded p-2 max-h-32 overflow-y-auto">
-                  {categories.map((category) => (
-                    <label key={category} className="flex items-center text-xs mb-1 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={selectedCategories.includes(category)}
-                        onChange={() => toggleCategory(category)}
-                        className="mr-2"
-                      />
-                      {category}
-                    </label>
-                  ))}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
+                  >
+                    <span className="text-gray-500">
+                      {selectedCategories.length === 0 
+                        ? "Select category..." 
+                        : `${selectedCategories.length} selected`}
+                    </span>
+                    <span className="text-gray-400">▼</span>
+                  </button>
+                  {showCategoryDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                      {categories.map((category) => (
+                        <label 
+                          key={category} 
+                          className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedCategories.includes(category)}
+                            onChange={() => toggleCategory(category)}
+                            className="mr-2"
+                          />
+                          {category}
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
-              <div>
+              <div className="relative">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Store
                 </label>
-                <div className="border border-gray-300 rounded p-2 max-h-32 overflow-y-auto">
-                  {stores.map((store) => (
-                    <label key={store} className="flex items-center text-xs mb-1 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={selectedStores.includes(store)}
-                        onChange={() => toggleStore(store)}
-                        className="mr-2"
-                      />
-                      {store}
-                    </label>
-                  ))}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowStoreDropdown(!showStoreDropdown)}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
+                  >
+                    <span className="text-gray-500">
+                      {selectedStores.length === 0 
+                        ? "Select store..." 
+                        : `${selectedStores.length} selected`}
+                    </span>
+                    <span className="text-gray-400">▼</span>
+                  </button>
+                  {showStoreDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                      {stores.map((store) => (
+                        <label 
+                          key={store} 
+                          className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedStores.includes(store)}
+                            onChange={() => toggleStore(store)}
+                            className="mr-2"
+                          />
+                          {store}
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={applyFilters}
-                className="px-4 py-1.5 bg-primary text-white rounded text-xs hover:bg-primary/90"
-              >
-                Apply Filter
-              </button>
               <button
                 onClick={resetFilters}
                 className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"

@@ -23,6 +23,7 @@ export default function OrderReportPage() {
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   
   const [powerbizFile, setPowerbizFile] = useState<File | null>(null);
   const [deliveryFile, setDeliveryFile] = useState<File | null>(null);
@@ -45,6 +46,10 @@ export default function OrderReportPage() {
     setUser(parsedUser);
     fetchData();
   }, []);
+
+  useEffect(() => {
+    applyFilters();
+  }, [dateFrom, dateTo, statusFilter, data]);
 
   const fetchData = async () => {
     try {
@@ -316,32 +321,44 @@ export default function OrderReportPage() {
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
-              <div className="col-span-2">
+              <div className="col-span-2 relative">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Status
                 </label>
-                <div className="border border-gray-300 rounded p-2 max-h-32 overflow-y-auto">
-                  {statuses.map((status) => (
-                    <label key={status} className="flex items-center text-xs mb-1 cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={statusFilter.includes(status)}
-                        onChange={() => toggleStatus(status)}
-                        className="mr-2"
-                      />
-                      {status}
-                    </label>
-                  ))}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
+                  >
+                    <span className="text-gray-500">
+                      {statusFilter.length === 0 
+                        ? "Select status..." 
+                        : `${statusFilter.length} selected`}
+                    </span>
+                    <span className="text-gray-400">▼</span>
+                  </button>
+                  {showStatusDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                      {statuses.map((status) => (
+                        <label 
+                          key={status} 
+                          className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={statusFilter.includes(status)}
+                            onChange={() => toggleStatus(status)}
+                            className="mr-2"
+                          />
+                          {status}
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={applyFilters}
-                className="px-4 py-1.5 bg-primary text-white rounded text-xs hover:bg-primary/90"
-              >
-                Apply Filter
-              </button>
               <button
                 onClick={resetFilters}
                 className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"

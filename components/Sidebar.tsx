@@ -48,8 +48,10 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
             <button
               key={item.path}
               onClick={() => router.push(item.path)}
-              className={`w-full text-left px-4 py-2.5 hover:bg-primary/80 transition-colors ${
-                pathname === item.path ? "bg-secondary/20 text-secondary" : ""
+              className={`w-full text-left px-4 py-2.5 transition-colors ${
+                pathname === item.path 
+                  ? "bg-secondary/20 text-secondary" 
+                  : "hover:bg-white/10"
               }`}
             >
               {item.name}

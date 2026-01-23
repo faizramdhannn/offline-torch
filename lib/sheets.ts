@@ -9,6 +9,12 @@ const SPREADSHEET_MAP: Record<string, string> = {
   sales_invoice: process.env.SPREADSHEET_ORDER_REPORT || '',
   petty_cash: process.env.SPREADSHEET_PETTY_CASH || '',
   master_dropdown: process.env.SPREADSHEET_MASTER || '',
+  master_item: process.env.SPREADSHEET_STOCK || '',
+  erp_stock_balance: process.env.SPREADSHEET_STOCK || '',
+  javelin: process.env.SPREADSHEET_STOCK || '',
+  result_stock: process.env.SPREADSHEET_STOCK || '',
+  pca_stock: process.env.SPREADSHEET_STOCK || '',
+  last_update: process.env.SPREADSHEET_STOCK || '',
 };
 
 function getSpreadsheetId(sheetName: string): string {
