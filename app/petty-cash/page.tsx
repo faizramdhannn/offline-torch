@@ -298,9 +298,9 @@ export default function PettyCashPage() {
             {user.petty_cash_add && (
               <button
                 onClick={() => setShowAddModal(true)}
-                className="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90"
+                className="px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-primary/90"
               >
-                Add Entry
+                Add Petty Cash
               </button>
             )}
           </div>
@@ -413,14 +413,14 @@ export default function PettyCashPage() {
                 <>
                   <button
                     onClick={exportToExcel}
-                    className="px-4 py-1.5 bg-secondary text-primary rounded text-xs hover:bg-secondary/90 ml-auto"
+                    className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-secondary/90 ml-auto"
                   >
                     Export XLSX
                   </button>
                   <button
                     onClick={exportToDoc}
                     disabled={exporting}
-                    className="px-4 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
+                    className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
                   >
                     {exporting ? "Exporting..." : "Export DOC"}
                   </button>
@@ -551,7 +551,7 @@ export default function PettyCashPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description *
+                    Description*
                   </label>
                   <input
                     type="text"
@@ -564,7 +564,7 @@ export default function PettyCashPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Category *
+                    Category*
                   </label>
                   <select
                     value={formData.category}
@@ -581,7 +581,7 @@ export default function PettyCashPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Value (Rp) *
+                    Value*
                   </label>
                   <input
                     type="text"
@@ -598,7 +598,7 @@ export default function PettyCashPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Store (Auto)
+                    Store
                   </label>
                   <input
                     type="text"
@@ -634,7 +634,7 @@ export default function PettyCashPage() {
 
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Upload Receipt (JPG, PNG, PDF)
+                    Upload Receipt
                   </label>
                   <input
                     type="file"

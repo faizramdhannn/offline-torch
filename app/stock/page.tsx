@@ -428,13 +428,13 @@ export default function StockPage() {
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowImportModal(true)}
-                  className="px-4 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                  className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-blue-700"
                 >
                   Import Data
                 </button>
                 <button
                   onClick={exportToExcel}
-                  className="px-4 py-1.5 bg-secondary text-primary rounded text-xs hover:bg-secondary/90"
+                  className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-secondary/90"
                 >
                   Export Stock
                 </button>
@@ -598,7 +598,7 @@ export default function StockPage() {
 
               <div className={selectedView === 'store' ? 'col-span-2' : 'col-span-3'}>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Search (SKU or Product Name)
+                  Search
                 </label>
                 <input
                   type="text"
@@ -748,7 +748,7 @@ export default function StockPage() {
             
             <div className="space-y-4">
               <p className="text-sm text-gray-600 mb-4">
-                Upload files for ERP Stock Balance and/or Javelin. All existing data in the selected sheets will be replaced.
+                Upload files for ERP Stock Balance and/or Javelin.
               </p>
 
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
@@ -785,12 +785,6 @@ export default function StockPage() {
                     ✓ Selected: {javelinFile.name}
                   </p>
                 )}
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded p-3">
-                <p className="text-xs text-blue-800">
-                  <strong>Note:</strong> Files should be CSV or Excel format. All existing data will be replaced.
-                </p>
               </div>
 
               {importing && (
