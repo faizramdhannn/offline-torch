@@ -11,6 +11,8 @@ interface SidebarProps {
     registration_request: boolean;
     user_setting: boolean;
     petty_cash?: boolean;
+    customer?: boolean;
+    voucher?: boolean;
   };
 }
 
@@ -28,6 +30,8 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     { name: "Order Report", path: "/order-report", permission: "order_report" },
     { name: "Stock", path: "/stock", permission: "stock" },
     { name: "Petty Cash", path: "/petty-cash", permission: "petty_cash" },
+    { name: "Customer", path: "/customer", permission: "customer" },
+    { name: "Voucher", path: "/voucher", permission: "voucher" },
     { name: "Registration Requests", path: "/registration", permission: "registration_request" },
     { name: "Settings", path: "/settings", permission: "user_setting" },
   ];

@@ -15,6 +15,21 @@ const SPREADSHEET_MAP: Record<string, string> = {
   result_stock: process.env.SPREADSHEET_STOCK || '',
   pca_stock: process.env.SPREADSHEET_STOCK || '',
   last_update: process.env.SPREADSHEET_STOCK || '',
+  'Torch Cirebon': process.env.SPREADSHEET_CUSTOMER || '',
+  'Torch Jogja': process.env.SPREADSHEET_CUSTOMER || '',
+  'Torch Karawaci': process.env.SPREADSHEET_CUSTOMER || '',
+  'Torch Karawang': process.env.SPREADSHEET_CUSTOMER || '',
+  'Torch Lampung': process.env.SPREADSHEET_CUSTOMER || '',
+  'Torch Lembong': process.env.SPREADSHEET_CUSTOMER || '',
+  'Torch Makassar': process.env.SPREADSHEET_CUSTOMER || '',
+  'Torch Malang': process.env.SPREADSHEET_CUSTOMER || '',
+  'Torch Margonda': process.env.SPREADSHEET_CUSTOMER || '',
+  'Torch Medan': process.env.SPREADSHEET_CUSTOMER || '',
+  'Torch Pekalongan': process.env.SPREADSHEET_CUSTOMER || '',
+  'Torch Purwokerto': process.env.SPREADSHEET_CUSTOMER || '',
+  'Torch Surabaya': process.env.SPREADSHEET_CUSTOMER || '',
+  'Torch Tambun': process.env.SPREADSHEET_CUSTOMER || '',
+  voucher_list: process.env.SPREADSHEET_VOUCHER || '',
 };
 
 function getSpreadsheetId(sheetName: string): string {
@@ -106,6 +121,31 @@ export async function appendSheetData(sheetName: string, data: any[][]) {
     return { success: true };
   } catch (error) {
     console.error('Error appending sheet data:', error);
+    throw error;
+  }
+}
+
+export async function updateSheetRow(sheetName: string, rowIndex: number, data: any[]) {
+  try {
+    const auth = new google.auth.GoogleAuth({
+      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: getSpreadsheetId(sheetName),
+      range: `${sheetName}!A${rowIndex}:Z${rowIndex}`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [data],
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating sheet row:', error);
     throw error;
   }
 }

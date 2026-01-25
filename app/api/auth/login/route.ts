@@ -43,6 +43,8 @@ export async function POST(request: NextRequest) {
       petty_cash_export: user.petty_cash_export === 'TRUE',
       order_report_import: user.order_report_import === 'TRUE',
       order_report_export: user.order_report_export === 'TRUE',
+      customer: user.customer === 'TRUE',
+      voucher: user.voucher === 'TRUE',
     });
   } catch (error) {
     return NextResponse.json(

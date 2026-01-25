@@ -79,6 +79,8 @@ export async function PUT(request: NextRequest) {
         permissions.petty_cash_export ? 'TRUE' : 'FALSE',
         permissions.order_report_import ? 'TRUE' : 'FALSE',
         permissions.order_report_export ? 'TRUE' : 'FALSE',
+        permissions.customer ? 'TRUE' : 'FALSE',
+        permissions.voucher ? 'TRUE' : 'FALSE',
         new Date().toISOString()
       ];
 

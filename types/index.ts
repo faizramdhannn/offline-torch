@@ -13,6 +13,8 @@ export interface User {
   petty_cash_export: boolean;
   order_report_import: boolean;
   order_report_export: boolean;
+  customer: boolean;
+  voucher: boolean;
   last_activity: string;
 }
 
@@ -47,6 +49,28 @@ export interface PettyCash {
   ket: string;
   transfer: string;
   link_url: string;
+  created_at: string;
+  update_at: string;
+}
+
+export interface Customer {
+  phone_number: string;
+  customer_name: string;
+  location_store: string;
+  total_order: string;
+  total_value: string;
+  average_value: string;
+  followup: string;
+  link_url: string;
+  update_by: string;
+  update_at: string;
+}
+
+export interface Voucher {
+  id: string;
+  voucher_name: string;
+  category: string;
+  description: string;
   created_at: string;
   update_at: string;
 }

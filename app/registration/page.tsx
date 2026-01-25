@@ -27,6 +27,8 @@ export default function RegistrationPage() {
     petty_cash_export: false,
     order_report_import: false,
     order_report_export: false,
+    customer: false,
+    voucher: false,
   });
 
   useEffect(() => {
@@ -75,6 +77,8 @@ export default function RegistrationPage() {
       petty_cash_export: false,
       order_report_import: false,
       order_report_export: false,
+      customer: false,
+      voucher: false,
     });
     setShowApprovalModal(true);
   };
@@ -300,6 +304,26 @@ export default function RegistrationPage() {
                   Export Data
                 </label>
               </div>
+
+              <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
+                <input
+                  type="checkbox"
+                  checked={permissions.customer}
+                  onChange={(e) => setPermissions({...permissions, customer: e.target.checked})}
+                  className="mr-2"
+                />
+                Customer
+              </label>
+
+              <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
+                <input
+                  type="checkbox"
+                  checked={permissions.voucher}
+                  onChange={(e) => setPermissions({...permissions, voucher: e.target.checked})}
+                  className="mr-2"
+                />
+                Voucher
+              </label>
 
               <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
                 <input

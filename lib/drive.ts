@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 
 const PARENT_FOLDER_ID = process.env.DRIVE_PARENT_FOLDER_ID || '';
+const CUSTOMER_FOLDER_ID = process.env.DRIVE_CUSTOMER_FOLDER_ID || '';
 
 const userFolderCache = new Map<string, string>();
 
@@ -30,12 +31,13 @@ function getGoogleCredentials() {
   }
 }
 
-async function getUserFolder(username: string, drive: any): Promise<string> {
-  if (userFolderCache.has(username)) {
-    return userFolderCache.get(username)!;
+async function getUserFolder(username: string, drive: any, parentFolderId: string): Promise<string> {
+  const cacheKey = `${parentFolderId}_${username}`;
+  if (userFolderCache.has(cacheKey)) {
+    return userFolderCache.get(cacheKey)!;
   }
 
-  const query = `name='${username}' and mimeType='application/vnd.google-apps.folder' and '${PARENT_FOLDER_ID}' in parents and trashed=false`;
+  const query = `name='${username}' and mimeType='application/vnd.google-apps.folder' and '${parentFolderId}' in parents and trashed=false`;
   
   const searchResponse = await drive.files.list({
     q: query,
@@ -53,7 +55,7 @@ async function getUserFolder(username: string, drive: any): Promise<string> {
     const folderMetadata = {
       name: username,
       mimeType: 'application/vnd.google-apps.folder',
-      parents: [PARENT_FOLDER_ID],
+      parents: [parentFolderId],
     };
 
     const folderResponse = await drive.files.create({
@@ -65,7 +67,7 @@ async function getUserFolder(username: string, drive: any): Promise<string> {
     folderId = folderResponse.data.id!;
   }
 
-  userFolderCache.set(username, folderId);
+  userFolderCache.set(cacheKey, folderId);
   return folderId;
 }
 
@@ -88,7 +90,14 @@ export async function uploadToGoogleDrive(
 
     const drive = google.drive({ version: 'v3', auth });
 
-    const userFolderId = await getUserFolder(username, drive);
+    // Determine which parent folder to use
+    let parentFolderId = PARENT_FOLDER_ID;
+    if (username === 'customer_followup') {
+      parentFolderId = CUSTOMER_FOLDER_ID;
+      username = 'followup'; // Use 'followup' as folder name for customer uploads
+    }
+
+    const userFolderId = await getUserFolder(username, drive, parentFolderId);
 
     let extension = '';
     if (mimeType.includes('jpeg') || mimeType.includes('jpg')) extension = '.jpg';
