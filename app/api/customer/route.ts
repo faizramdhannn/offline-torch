@@ -138,6 +138,7 @@ export async function PUT(request: NextRequest) {
       rowData.total_order,
       rowData.total_value,
       rowData.average_value,
+      rowData.total_order,
       followupText || rowData.followup || '', // Use provided followup text or keep existing
       linkUrl,
       username,

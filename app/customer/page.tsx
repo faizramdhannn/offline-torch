@@ -255,20 +255,21 @@ export default function CustomerPage() {
                   <table className="w-full text-xs">
                     <thead className="bg-gray-100 border-b">
                       <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Phone</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Customer Name</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Store</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Total Value</th>
+                        <th className="px-3 py-2 text-center font-semibold text-gray-700">Phone</th>
+                        <th className="px-3 py-2 text-center font-semibold text-gray-700">Customer Name</th>
+                        <th className="px-3 py-2 text-center font-semibold text-gray-700">Store</th>
+                        <th className="px-3 py-2 text-center font-semibold text-gray-700">Total Value</th>
                         {!isOwner && (
                           <>
-                            <th className="px-3 py-2 text-left font-semibold text-gray-700">Average</th>
+                            <th className="px-3 py-2 text-center font-semibold text-gray-700">Average</th>
                           </>
                         )}
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Followup</th>
+                        <th className="px-3 py-2 text-center font-semibold text-gray-700">Total Order</th>
+                        <th className="px-3 py-2 text-center font-semibold text-gray-700">Followup</th>
                         {!isOwner && (
                           <>
-                            <th className="px-3 py-2 text-left font-semibold text-gray-700">Update By</th>
-                            <th className="px-3 py-2 text-left font-semibold text-gray-700">Update At</th>
+                            <th className="px-3 py-2 text-center font-semibold text-gray-700">Update By</th>
+                            <th className="px-3 py-2 text-center font-semibold text-gray-700">Update At</th>
                           </>
                         )}
                       </tr>
@@ -282,7 +283,7 @@ export default function CustomerPage() {
                             key={actualIndex} 
                             className={`border-b hover:bg-gray-50 ${hasFollowup ? 'bg-green-50' : ''}`}
                           >
-                            <td className="px-3 py-2">
+                            <td className="px-3 text-center py-2">
                               <div className="flex items-center gap-2">
                                 <span>{customer.phone_number}</span>
                                 <button
@@ -294,15 +295,16 @@ export default function CustomerPage() {
                                 </button>
                               </div>
                             </td>
-                            <td className="px-3 py-2">{customer.customer_name}</td>
-                            <td className="px-3 py-2">{customer.location_store}</td>
-                            <td className="px-3 py-2">{customer.total_value}</td>
+                            <td className="px-3 text-center py-2">{customer.customer_name}</td>
+                            <td className="px-3 text-center py-2">{customer.location_store}</td>
+                            <td className="px-3 text-center py-2">{customer.total_value}</td>
+                            <td className="px-3 text-center py-2">{customer.total_order}</td>
                             {!isOwner && (
                               <>
-                                <td className="px-3 py-2">{customer.average_value}</td>
+                                <td className="px-3 text-center py-2">{customer.average_value}</td>
                               </>
                             )}
-                            <td className="px-3 py-2">
+                            <td className="px-3 text-center py-2">
                               <div className="space-y-2">
                                 {/* Display current followup text if exists */}
                                 {customer.followup && customer.followup.trim() !== '' && editingRow !== actualIndex && (
