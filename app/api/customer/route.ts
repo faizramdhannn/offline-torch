@@ -32,9 +32,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if username matches a store sheet
-    const matchingSheet = STORE_SHEETS.find(
-      sheet => sheet.toLowerCase().replace(/\s+/g, '') === username.toLowerCase().replace(/\s+/g, '')
-    );
+    // Extract store name from sheet (e.g., "Torch Cirebon" -> "cirebon")
+    const matchingSheet = STORE_SHEETS.find(sheet => {
+      const storeName = sheet.replace('Torch ', '').toLowerCase().replace(/\s+/g, '');
+      const usernameNormalized = username.toLowerCase().replace(/\s+/g, '').replace('torch', '');
+      return storeName === usernameNormalized;
+    });
 
     if (matchingSheet) {
       // User owns this sheet, return only their data
