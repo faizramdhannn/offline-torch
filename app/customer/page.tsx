@@ -6,6 +6,13 @@ import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
 import { Customer } from "@/types";
 
+const ACTION_OPTIONS = [
+  "Terkirim",
+  "Tidak ada Respon",
+  "Merespon Membeli",
+  "Merespon Tidak Membeli"
+];
+
 export default function CustomerPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -17,10 +24,15 @@ export default function CustomerPage() {
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
-  const [uploadingRow, setUploadingRow] = useState<number | null>(null);
+  const [showFollowupModal, setShowFollowupModal] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
+  const [uploading, setUploading] = useState(false);
+  
+  // Followup form data
+  const [followupAction, setFollowupAction] = useState("");
+  const [followupResult, setFollowupResult] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [editingRow, setEditingRow] = useState<number | null>(null);
-  const [followupText, setFollowupText] = useState<{[key: number]: string}>({});
   
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -119,26 +131,55 @@ export default function CustomerPage() {
     showMessage("Copied to clipboard!", "success");
   };
 
-  const handleFileUpload = async (rowIndex: number, customer: Customer) => {
-    if (!selectedFile && !followupText[rowIndex]) {
-      showMessage("Please select a file or enter followup text", "error");
+  const openFollowupModal = (customer: Customer, rowIndex: number) => {
+    setSelectedCustomer(customer);
+    setSelectedRowIndex(rowIndex);
+    setFollowupAction("");
+    setFollowupResult(customer.followup || "");
+    setSelectedFile(null);
+    setShowFollowupModal(true);
+  };
+
+  const closeFollowupModal = () => {
+    setShowFollowupModal(false);
+    setSelectedCustomer(null);
+    setSelectedRowIndex(null);
+    setFollowupAction("");
+    setFollowupResult("");
+    setSelectedFile(null);
+  };
+
+  const handleFollowupSubmit = async () => {
+    if (!selectedCustomer || selectedRowIndex === null) return;
+    
+    if (!followupAction && !followupResult && !selectedFile) {
+      showMessage("Please fill in at least one field", "error");
       return;
     }
 
-    setUploadingRow(rowIndex);
+    setUploading(true);
     
     try {
       const formData = new FormData();
-      formData.append('storeName', isOwner ? storeName : customer.location_store);
-      formData.append('phoneNumber', customer.phone_number);
+      formData.append('storeName', isOwner ? storeName : selectedCustomer.location_store);
+      formData.append('phoneNumber', selectedCustomer.phone_number);
       formData.append('username', user.user_name);
-      formData.append('followupText', followupText[rowIndex] || customer.followup || '');
+      
+      // Combine action and result into followup text
+      let followupText = "";
+      if (followupAction) {
+        followupText = `Action: ${followupAction}`;
+      }
+      if (followupResult) {
+        followupText += (followupText ? "\n" : "") + `Result: ${followupResult}`;
+      }
+      formData.append('followupText', followupText);
       
       if (selectedFile) {
         formData.append('file', selectedFile);
       }
       
-      formData.append('rowIndex', (rowIndex + 2).toString()); // +2 for header and 0-based index
+      formData.append('rowIndex', (selectedRowIndex + 2).toString()); // +2 for header and 0-based index
 
       const response = await fetch('/api/customer', {
         method: 'PUT',
@@ -146,22 +187,16 @@ export default function CustomerPage() {
       });
 
       if (response.ok) {
-        showMessage("Followup updated successfully", "success");
-        setSelectedFile(null);
-        setEditingRow(null);
-        setFollowupText(prev => {
-          const updated = {...prev};
-          delete updated[rowIndex];
-          return updated;
-        });
+        showMessage("Followup saved successfully", "success");
+        closeFollowupModal();
         fetchData(user.user_name);
       } else {
-        showMessage("Failed to update followup", "error");
+        showMessage("Failed to save followup", "error");
       }
     } catch (error) {
-      showMessage("Failed to update followup", "error");
+      showMessage("Failed to save followup", "error");
     } finally {
-      setUploadingRow(null);
+      setUploading(false);
     }
   };
 
@@ -255,21 +290,19 @@ export default function CustomerPage() {
                   <table className="w-full text-xs">
                     <thead className="bg-gray-100 border-b">
                       <tr>
-                        <th className="px-3 py-2 text-center font-semibold text-gray-700">Phone</th>
-                        <th className="px-3 py-2 text-center font-semibold text-gray-700">Customer Name</th>
-                        <th className="px-3 py-2 text-center font-semibold text-gray-700">Store</th>
-                        <th className="px-3 py-2 text-center font-semibold text-gray-700">Total Value</th>
+                        <th className="px-2 py-2 text-center font-semibold text-gray-700 w-24">Phone</th>
+                        <th className="px-2 py-2 text-center font-semibold text-gray-700 w-32">Customer Name</th>
+                        <th className="px-2 py-2 text-center font-semibold text-gray-700 w-28">Store</th>
+                        <th className="px-2 py-2 text-center font-semibold text-gray-700 w-20">Total Value</th>
+                        <th className="px-2 py-2 text-center font-semibold text-gray-700 w-16">Total Order</th>
                         {!isOwner && (
-                          <>
-                            <th className="px-3 py-2 text-center font-semibold text-gray-700">Average</th>
-                          </>
+                          <th className="px-2 py-2 text-center font-semibold text-gray-700 w-20">Average</th>
                         )}
-                        <th className="px-3 py-2 text-center font-semibold text-gray-700">Total Order</th>
-                        <th className="px-3 py-2 text-center font-semibold text-gray-700">Followup</th>
+                        <th className="px-2 py-2 text-center font-semibold text-gray-700">Followup</th>
                         {!isOwner && (
                           <>
-                            <th className="px-3 py-2 text-center font-semibold text-gray-700">Update By</th>
-                            <th className="px-3 py-2 text-center font-semibold text-gray-700">Update At</th>
+                            <th className="px-2 py-2 text-center font-semibold text-gray-700 w-24">Update By</th>
+                            <th className="px-2 py-2 text-center font-semibold text-gray-700 w-28">Update At</th>
                           </>
                         )}
                       </tr>
@@ -283,9 +316,9 @@ export default function CustomerPage() {
                             key={actualIndex} 
                             className={`border-b hover:bg-gray-50 ${hasFollowup ? 'bg-green-50' : ''}`}
                           >
-                            <td className="px-3 text-center py-2">
-                              <div className="flex items-center gap-2">
-                                <span>{customer.phone_number}</span>
+                            <td className="px-2 text-center py-2">
+                              <div className="flex items-center justify-center gap-1">
+                                <span className="text-xs">{customer.phone_number}</span>
                                 <button
                                   onClick={() => copyToClipboard(customer.phone_number)}
                                   className="text-blue-600 hover:text-blue-800 text-xs"
@@ -295,114 +328,49 @@ export default function CustomerPage() {
                                 </button>
                               </div>
                             </td>
-                            <td className="px-3 text-center py-2">{customer.customer_name}</td>
-                            <td className="px-3 text-center py-2">{customer.location_store}</td>
-                            <td className="px-3 text-center py-2">{customer.total_value}</td>
-                            <td className="px-3 text-center py-2">{customer.total_order}</td>
+                            <td className="px-2 text-center py-2 text-xs">{customer.customer_name}</td>
+                            <td className="px-2 text-center py-2 text-xs">{customer.location_store}</td>
+                            <td className="px-2 text-center py-2 text-xs">{customer.total_value}</td>
+                            <td className="px-2 text-center py-2 text-xs">{customer.total_order}</td>
                             {!isOwner && (
-                              <>
-                                <td className="px-3 text-center py-2">{customer.average_value}</td>
-                              </>
+                              <td className="px-2 text-center py-2 text-xs">{customer.average_value}</td>
                             )}
-                            <td className="px-3 text-center py-2">
-                              <div className="space-y-2">
-                                {/* Display current followup text if exists */}
-                                {customer.followup && customer.followup.trim() !== '' && editingRow !== actualIndex && (
-                                  <div className="text-xs text-gray-700 mb-1">
+                            <td className="px-2 py-2">
+                              <div className="flex flex-col items-center gap-1">
+                                {/* Display current followup */}
+                                {customer.followup && customer.followup.trim() !== '' && (
+                                  <div className="text-xs text-gray-700 text-center whitespace-pre-wrap max-w-xs">
                                     {customer.followup}
                                   </div>
                                 )}
                                 
-                                <div className="flex items-center gap-2">
-                                  {hasFollowup ? (
-                                    <>
-                                      <a 
-                                        href={customer.link_url} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:underline text-xs"
-                                      >
-                                        View Photo
-                                      </a>
-                                      {isOwner && (
-                                        <button
-                                          onClick={() => {
-                                            setEditingRow(editingRow === actualIndex ? null : actualIndex);
-                                            if (editingRow !== actualIndex) {
-                                              setFollowupText(prev => ({...prev, [actualIndex]: customer.followup || ''}));
-                                            }
-                                          }}
-                                          className="text-xs px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
-                                        >
-                                          {editingRow === actualIndex ? 'Cancel' : 'Edit'}
-                                        </button>
-                                      )}
-                                    </>
-                                  ) : (
-                                    isOwner && (
-                                      <button
-                                        onClick={() => {
-                                          setEditingRow(editingRow === actualIndex ? null : actualIndex);
-                                          if (editingRow !== actualIndex) {
-                                            setFollowupText(prev => ({...prev, [actualIndex]: customer.followup || ''}));
-                                          }
-                                        }}
-                                        className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                                      >
-                                        {editingRow === actualIndex ? 'Cancel' : 'Add Followup'}
-                                      </button>
-                                    )
+                                <div className="flex items-center gap-1">
+                                  {hasFollowup && (
+                                    <a 
+                                      href={customer.link_url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 hover:underline text-xs"
+                                    >
+                                      View Photo
+                                    </a>
+                                  )}
+                                  
+                                  {isOwner && (
+                                    <button
+                                      onClick={() => openFollowupModal(customer, actualIndex)}
+                                      className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                    >
+                                      {hasFollowup ? 'Edit' : 'Add'}
+                                    </button>
                                   )}
                                 </div>
-                                
-                                {/* Edit/Upload form */}
-                                {isOwner && editingRow === actualIndex && (
-                                  <div className="mt-2 space-y-2 p-2 bg-gray-50 rounded border border-gray-200">
-                                    <div>
-                                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                                        Followup Notes
-                                      </label>
-                                      <textarea
-                                        value={followupText[actualIndex] || ''}
-                                        onChange={(e) => setFollowupText(prev => ({...prev, [actualIndex]: e.target.value}))}
-                                        className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                                        rows={2}
-                                        placeholder="Enter followup notes..."
-                                      />
-                                    </div>
-                                    
-                                    <div>
-                                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                                        Upload Photo (Optional)
-                                      </label>
-                                      <input
-                                        type="file"
-                                        accept="image/*,.pdf"
-                                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                                        className="text-xs w-full"
-                                      />
-                                      {selectedFile && (
-                                        <p className="text-xs text-green-600 mt-1">
-                                          ✓ {selectedFile.name}
-                                        </p>
-                                      )}
-                                    </div>
-                                    
-                                    <button
-                                      onClick={() => handleFileUpload(actualIndex, customer)}
-                                      disabled={uploadingRow === actualIndex}
-                                      className="text-xs px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50 w-full"
-                                    >
-                                      {uploadingRow === actualIndex ? 'Saving...' : 'Save Followup'}
-                                    </button>
-                                  </div>
-                                )}
                               </div>
                             </td>
                             {!isOwner && (
                               <>
-                                <td className="px-3 py-2">{customer.update_by || '-'}</td>
-                                <td className="px-3 py-2">{customer.update_at || '-'}</td>
+                                <td className="px-2 text-center py-2 text-xs">{customer.update_by || '-'}</td>
+                                <td className="px-2 text-center py-2 text-xs">{customer.update_at || '-'}</td>
                               </>
                             )}
                           </tr>
@@ -469,6 +437,93 @@ export default function CustomerPage() {
           </div>
         </div>
       </div>
+
+      {/* Followup Modal */}
+      {showFollowupModal && selectedCustomer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-lg font-bold text-primary mb-4">
+              Add/Edit Followup
+            </h2>
+            
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-1">
+                <strong>Customer:</strong> {selectedCustomer.customer_name}
+              </p>
+              <p className="text-sm text-gray-600">
+                <strong>Phone:</strong> {selectedCustomer.phone_number}
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Upload Photo (Optional)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  className="w-full text-xs border border-gray-300 rounded p-2 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-primary file:text-white hover:file:bg-primary/90"
+                />
+                {selectedFile && (
+                  <p className="text-xs text-green-600 mt-1">
+                    ✓ {selectedFile.name}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Action
+                </label>
+                <select
+                  value={followupAction}
+                  onChange={(e) => setFollowupAction(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">Select action...</option>
+                  {ACTION_OPTIONS.map((action) => (
+                    <option key={action} value={action}>
+                      {action}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Result
+                </label>
+                <textarea
+                  value={followupResult}
+                  onChange={(e) => setFollowupResult(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  rows={4}
+                  placeholder="Enter result or notes..."
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={closeFollowupModal}
+                disabled={uploading}
+                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleFollowupSubmit}
+                disabled={uploading}
+                className="flex-1 px-4 py-2 bg-green-500 text-white rounded text-sm hover:bg-green-600 disabled:opacity-50"
+              >
+                {uploading ? "Saving..." : "Save Followup"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Popup 
         show={showPopup}

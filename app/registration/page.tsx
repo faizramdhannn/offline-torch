@@ -56,7 +56,9 @@ export default function RegistrationPage() {
     try {
       const response = await fetch("/api/registration");
       const result = await response.json();
-      setData(result);
+      // Filter out approved requests - only show pending and rejected
+      const filteredData = result.filter((req: RegistrationRequest) => req.status !== 'approved');
+      setData(filteredData);
     } catch (error) {
       showMessage("Failed to fetch data", "error");
     } finally {
@@ -168,8 +170,6 @@ export default function RegistrationPage() {
                             className={`px-2 py-1 rounded text-xs ${
                               item.status === "pending"
                                 ? "bg-yellow-100 text-yellow-800"
-                                : item.status === "approved"
-                                ? "bg-green-100 text-green-800"
                                 : "bg-red-100 text-red-800"
                             }`}
                           >
@@ -200,7 +200,7 @@ export default function RegistrationPage() {
                   </tbody>
                 </table>
                 {data.length === 0 && (
-                  <div className="p-8 text-center text-gray-500">No data available</div>
+                  <div className="p-8 text-center text-gray-500">No pending requests</div>
                 )}
               </div>
             )}
