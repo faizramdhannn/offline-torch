@@ -16,6 +16,7 @@ interface PettyCash {
   ket: string;
   transfer: string;
   link_url: string;
+  update_by: string;
   created_at: string;
   update_at: string;
 }
@@ -29,6 +30,8 @@ export default function PettyCashPage() {
   const [stores, setStores] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<PettyCash | null>(null);
   const [exporting, setExporting] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
@@ -67,7 +70,7 @@ export default function PettyCashPage() {
       return;
     }
     setUser(parsedUser);
-    fetchData();
+    fetchData(parsedUser.user_name, parsedUser.petty_cash_export);
     fetchCategories();
   }, []);
 
@@ -81,9 +84,9 @@ export default function PettyCashPage() {
     setShowPopup(true);
   };
 
-  const fetchData = async () => {
+  const fetchData = async (username: string, isAdmin: boolean) => {
     try {
-      const response = await fetch("/api/petty-cash");
+      const response = await fetch(`/api/petty-cash?username=${username}&isAdmin=${isAdmin}`);
       const result = await response.json();
       setData(result);
       setFilteredData(result);
@@ -187,6 +190,7 @@ export default function PettyCashPage() {
       form.append('store', user.user_name);
       form.append('ket', formData.ket);
       form.append('transfer', formData.transfer.toString());
+      form.append('username', user.user_name);
       
       if (formData.file) {
         form.append('file', formData.file);
@@ -208,7 +212,7 @@ export default function PettyCashPage() {
           transfer: false,
           file: null,
         });
-        fetchData();
+        fetchData(user.user_name, user.petty_cash_export);
       } else {
         showMessage("Failed to add entry", "error");
       }
@@ -217,6 +221,91 @@ export default function PettyCashPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleEdit = (entry: PettyCash) => {
+    setSelectedEntry(entry);
+    setFormData({
+      description: entry.description,
+      category: entry.category,
+      value: entry.value,
+      ket: entry.ket,
+      transfer: entry.transfer === 'TRUE',
+      file: null,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEntry) return;
+
+    setSubmitting(true);
+
+    try {
+      const form = new FormData();
+      form.append('id', selectedEntry.id);
+      form.append('description', formData.description);
+      form.append('category', formData.category);
+      form.append('value', formData.value);
+      form.append('store', user.user_name);
+      form.append('ket', formData.ket);
+      form.append('transfer', formData.transfer.toString());
+      form.append('username', user.user_name);
+      
+      if (formData.file) {
+        form.append('file', formData.file);
+      }
+
+      const response = await fetch("/api/petty-cash", {
+        method: "PUT",
+        body: form,
+      });
+
+      if (response.ok) {
+        showMessage("Entry updated successfully", "success");
+        setShowEditModal(false);
+        setSelectedEntry(null);
+        setFormData({
+          description: "",
+          category: "",
+          value: "",
+          ket: "",
+          transfer: false,
+          file: null,
+        });
+        fetchData(user.user_name, user.petty_cash_export);
+      } else {
+        showMessage("Failed to update entry", "error");
+      }
+    } catch (error) {
+      showMessage("Failed to update entry", "error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this entry?")) return;
+
+    try {
+      const response = await fetch(`/api/petty-cash?id=${id}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        showMessage("Entry deleted successfully", "success");
+        fetchData(user.user_name, user.petty_cash_export);
+      } else {
+        showMessage("Failed to delete entry", "error");
+      }
+    } catch (error) {
+      showMessage("Failed to delete entry", "error");
+    }
+  };
+
+  const canEditDelete = (entry: PettyCash) => {
+    return user.petty_cash_export || entry.update_by === user.user_name;
   };
 
   const exportToExcel = () => {
@@ -438,14 +527,15 @@ export default function PettyCashPage() {
                   <table className="w-full text-xs">
                     <thead className="bg-gray-100 border-b">
                       <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Date</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Description</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Category</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Value</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Store</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Ket</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Transfer</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Link</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">Date</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-32">Description</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">Category</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">Value</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">Store</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">Ket</th>
+                        <th className="px-3 py-2 text-center font-semibold text-gray-700 w-16">Transfer</th>
+                        <th className="px-3 py-2 text-center font-semibold text-gray-700 w-16">Link</th>
+                        <th className="px-3 py-2 text-center font-semibold text-gray-700 w-24">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -457,10 +547,10 @@ export default function PettyCashPage() {
                           <td className="px-3 py-2">{item.value}</td>
                           <td className="px-3 py-2">{item.store}</td>
                           <td className="px-3 py-2">{item.ket || "-"}</td>
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-2 text-center">
                             {item.transfer === 'TRUE' ? '✓' : '-'}
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-2 text-center">
                             {item.link_url ? (
                               <a 
                                 href={item.link_url} 
@@ -474,12 +564,30 @@ export default function PettyCashPage() {
                               <span className="text-gray-400">-</span>
                             )}
                           </td>
+                          <td className="px-3 py-2">
+                            {canEditDelete(item) && (
+                              <div className="flex gap-1 justify-center">
+                                <button
+                                  onClick={() => handleEdit(item)}
+                                  className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(item.id)}
+                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </td>
                         </tr>
                       ))}
                       <tr className="bg-gray-50 font-semibold">
                         <td colSpan={3} className="px-3 py-2 text-right">Total:</td>
                         <td className="px-3 py-2">{formatRupiah(totalValue.toString())}</td>
-                        <td colSpan={4}></td>
+                        <td colSpan={5}></td>
                       </tr>
                     </tbody>
                   </table>
@@ -542,6 +650,7 @@ export default function PettyCashPage() {
         </div>
       </div>
 
+      {/* Add Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 my-8">
@@ -673,6 +782,151 @@ export default function PettyCashPage() {
                   className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
                 >
                   {submitting ? "Submitting..." : "Add Entry"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && selectedEntry && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 my-8">
+            <h2 className="text-lg font-bold text-primary mb-4">Edit Petty Cash Entry</h2>
+            
+            <form onSubmit={handleUpdate} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description*
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.description}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Category*
+                  </label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData({...formData, category: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    required
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Value*
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.value}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      setFormData({...formData, value: val ? formatRupiah(val) : ''});
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="Rp 0"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Store
+                  </label>
+                  <input
+                    type="text"
+                    value={user.user_name}
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-gray-100"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Keterangan
+                  </label>
+                  <textarea
+                    value={formData.ket}
+                    onChange={(e) => setFormData({...formData, ket: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    rows={3}
+                  />
+                </div>
+
+                <div>
+                  <label className="flex items-center text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.transfer}
+                      onChange={(e) => setFormData({...formData, transfer: e.target.checked})}
+                      className="mr-2"
+                    />
+                    Transfer
+                  </label>
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Upload Receipt (Optional - will replace existing)
+                  </label>
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    onChange={(e) => setFormData({...formData, file: e.target.files?.[0] || null})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90"
+                  />
+                  {formData.file && (
+                    <p className="text-xs text-gray-500 mt-1">Selected: {formData.file.name}</p>
+                  )}
+                  {selectedEntry.link_url && !formData.file && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Current file: <a href={selectedEntry.link_url} target="_blank" rel="noopener noreferrer">View</a>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setSelectedEntry(null);
+                    setFormData({
+                      description: "",
+                      category: "",
+                      value: "",
+                      ket: "",
+                      transfer: false,
+                      file: null,
+                    });
+                  }}
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {submitting ? "Updating..." : "Update Entry"}
                 </button>
               </div>
             </form>

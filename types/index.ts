@@ -50,6 +50,7 @@ export interface PettyCash {
   ket: string;
   transfer: string;
   link_url: string;
+  update_by: string;
   created_at: string;
   update_at: string;
 }
@@ -62,6 +63,8 @@ export interface Customer {
   total_value: string;
   average_value: string;
   followup: string;
+  result: string;
+  ket: string;
   link_url: string;
   update_by: string;
   update_at: string;
