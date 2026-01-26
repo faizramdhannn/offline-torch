@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
       order_report_export: user.order_report_export === 'TRUE',
       customer: user.customer === 'TRUE',
       voucher: user.voucher === 'TRUE',
+      bundling: user.bundling === 'TRUE',
     });
   } catch (error) {
     return NextResponse.json(

@@ -29,6 +29,7 @@ export default function RegistrationPage() {
     order_report_export: false,
     customer: false,
     voucher: false,
+    bundling: false,
   });
 
   useEffect(() => {
@@ -81,6 +82,7 @@ export default function RegistrationPage() {
       order_report_export: false,
       customer: false,
       voucher: false,
+      bundling: false,
     });
     setShowApprovalModal(true);
   };
@@ -328,12 +330,23 @@ export default function RegistrationPage() {
               <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
                 <input
                   type="checkbox"
+                  checked={permissions.bundling}
+                  onChange={(e) => setPermissions({...permissions, bundling: e.target.checked})}
+                  className="mr-2"
+                />
+                Bundling
+              </label>
+
+              <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
+                <input
+                  type="checkbox"
                   checked={permissions.registration_request}
                   onChange={(e) => setPermissions({...permissions, registration_request: e.target.checked})}
                   className="mr-2"
                 />
                 Registration Request
               </label>
+              
               <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
                 <input
                   type="checkbox"

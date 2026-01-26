@@ -15,6 +15,7 @@ export interface User {
   order_report_export: boolean;
   customer: boolean;
   voucher: boolean;
+  bundling: boolean;
   last_activity: string;
 }
 
@@ -71,6 +72,38 @@ export interface Voucher {
   voucher_name: string;
   category: string;
   description: string;
+  created_at: string;
+  update_at: string;
+}
+
+export interface Bundling {
+  id: string;
+  bundling_name: string;
+  option_1: string;
+  option_2: string;
+  option_3: string;
+  option_4: string;
+  option_5: string;
+  option_6: string;
+  total_value: string;
+  discount_percentage: string;
+  discount_value: string;
+  value: string;
+  torch_cirebon: string;
+  torch_jogja: string;
+  torch_karawaci: string;
+  torch_karawang: string;
+  torch_lampung: string;
+  torch_lembong: string;
+  torch_makassar: string;
+  torch_malang: string;
+  torch_margonda: string;
+  torch_medan: string;
+  torch_pekalongan: string;
+  torch_purwokerto: string;
+  torch_surabaya: string;
+  torch_tambun: string;
+  status: string;
   created_at: string;
   update_at: string;
 }

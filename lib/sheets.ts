@@ -30,6 +30,7 @@ const SPREADSHEET_MAP: Record<string, string> = {
   'Torch Surabaya': process.env.SPREADSHEET_CUSTOMER || '',
   'Torch Tambun': process.env.SPREADSHEET_CUSTOMER || '',
   voucher_list: process.env.SPREADSHEET_VOUCHER || '',
+  master_bundling: process.env.SPREADSHEET_BUNDLING || '',
 };
 
 function getSpreadsheetId(sheetName: string): string {

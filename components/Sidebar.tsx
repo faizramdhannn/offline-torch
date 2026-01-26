@@ -13,6 +13,7 @@ interface SidebarProps {
     petty_cash?: boolean;
     customer?: boolean;
     voucher?: boolean;
+    bundling?: boolean;
   };
 }
 
@@ -32,6 +33,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     { name: "Petty Cash", path: "/petty-cash", permission: "petty_cash" },
     { name: "Customer", path: "/customer", permission: "customer" },
     { name: "Voucher", path: "/voucher", permission: "voucher" },
+    { name: "Bundling", path: "/bundling", permission: "bundling" },
     { name: "Registration Requests", path: "/registration", permission: "registration_request" },
     { name: "Settings", path: "/settings", permission: "user_setting" },
   ];

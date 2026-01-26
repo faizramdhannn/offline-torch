@@ -21,6 +21,7 @@ interface UserData {
   order_report_export: string;
   customer: string;
   voucher: string;
+  bundling: string;
 }
 
 export default function SettingsPage() {
@@ -47,6 +48,7 @@ export default function SettingsPage() {
     order_report_export: false,
     customer: false,
     voucher: false,
+    bundling: false,
   });
 
   useEffect(() => {
@@ -98,6 +100,7 @@ export default function SettingsPage() {
       order_report_export: userData.order_report_export === 'TRUE',
       customer: userData.customer === 'TRUE',
       voucher: userData.voucher === 'TRUE',
+      bundling: userData.bundling === 'TRUE',
     });
     setShowEditModal(true);
   };
@@ -165,6 +168,7 @@ export default function SettingsPage() {
                         userData.petty_cash === 'TRUE' && 'Petty Cash',
                         userData.customer === 'TRUE' && 'Customer',
                         userData.voucher === 'TRUE' && 'Voucher',
+                        userData.bundling === 'TRUE' && 'Bundling',
                         userData.registration_request === 'TRUE' && 'Registration',
                         userData.user_setting === 'TRUE' && 'Settings',
                       ].filter(Boolean);
@@ -324,6 +328,16 @@ export default function SettingsPage() {
                   className="mr-2"
                 />
                 Voucher
+              </label>
+
+              <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
+                <input
+                  type="checkbox"
+                  checked={permissions.bundling}
+                  onChange={(e) => setPermissions({...permissions, bundling: e.target.checked})}
+                  className="mr-2"
+                />
+                Bundling
               </label>
 
               <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
