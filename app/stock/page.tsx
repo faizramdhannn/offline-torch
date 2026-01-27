@@ -58,6 +58,7 @@ export default function StockPage() {
   const [showWarehouseDropdown, setShowWarehouseDropdown] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   
   const [erpFile, setErpFile] = useState<File | null>(null);
   const [javelinFile, setJavelinFile] = useState<File | null>(null);
@@ -81,6 +82,16 @@ export default function StockPage() {
       return;
     }
     setUser(parsedUser);
+    
+    // Set default view based on permissions
+    if (parsedUser.stock_view_store) {
+      setSelectedView('store');
+    } else if (parsedUser.stock_view_pca) {
+      setSelectedView('pca');
+    } else if (parsedUser.stock_view_master) {
+      setSelectedView('master');
+    }
+    
     fetchData();
     fetchLastUpdate();
   }, []);
@@ -110,9 +121,7 @@ export default function StockPage() {
       const response = await fetch(`/api/stock?type=${sheetName}`);
       const result = await response.json();
       console.log('Data received:', result.length, 'items');
-      console.log('Sample data:', result[0]);
       
-      // Normalize data structure untuk master_item
       const normalizedData = result.map((item: any) => ({
         ...item,
         sku: item.sku || item.SKU || '',
@@ -130,11 +139,9 @@ export default function StockPage() {
       
       const uniqueCategories = [...new Set(normalizedData.map((item: StockItem) => item.category))].filter(Boolean);
       setCategories(uniqueCategories as string[]);
-      console.log('Categories:', uniqueCategories);
       
       const uniqueGrades = [...new Set(normalizedData.map((item: StockItem) => item.grade))].filter(Boolean);
       setGrades(uniqueGrades as string[]);
-      console.log('Grades:', uniqueGrades);
       
       if (selectedView === 'store') {
         const uniqueWarehouses = [...new Set(normalizedData.map((item: StockItem) => item.warehouse))].filter(Boolean);
@@ -155,6 +162,35 @@ export default function StockPage() {
       setLastUpdate(result);
     } catch (error) {
       console.error('Failed to fetch last update');
+    }
+  };
+
+  const handleRefreshJavelin = async () => {
+    if (!confirm("Refresh Javelin data? This may take a few minutes.")) return;
+    
+    setRefreshing(true);
+    try {
+      const response = await fetch('/api/stock/javelin-refresh', {
+        method: 'POST',
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        showMessage(`✅ Javelin data refreshed successfully!\n${result.rowsImported || 0} rows imported`, "success");
+        fetchData();
+        fetchLastUpdate();
+      } else {
+        if (result.needsConfiguration) {
+          showMessage(`⚠️ ${result.error}\n\nPlease configure Javelin cookie in Settings first.`, "error");
+        } else {
+          showMessage(`❌ Failed to refresh Javelin data\n\n${result.details || result.error}`, "error");
+        }
+      }
+    } catch (error) {
+      showMessage("Failed to refresh Javelin data. Please try again.", "error");
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -198,10 +234,8 @@ export default function StockPage() {
       );
     }
 
-    // Sorting untuk PCA: stock terbesar ke terkecil, lalu grade A ke Z
     if (selectedView === 'pca') {
       filtered.sort((a, b) => {
-        // Sort by stock (terbesar ke terkecil)
         const stockA = parseInt(a.stock?.replace(/[^0-9]/g, '') || '0');
         const stockB = parseInt(b.stock?.replace(/[^0-9]/g, '') || '0');
         
@@ -209,7 +243,6 @@ export default function StockPage() {
           return stockB - stockA;
         }
         
-        // Jika stock sama, sort by grade (A ke Z)
         const gradeA = a.grade || '';
         const gradeB = b.grade || '';
         return gradeA.localeCompare(gradeB);
@@ -394,9 +427,16 @@ export default function StockPage() {
         base["Warehouse"] = item.warehouse;
       }
       
-      base["HPP"] = item.hpp;
-      base["HPT"] = item.hpt;
-      base["HPJ"] = item.hpj;
+      // Only add price columns if user has permission
+      if (user?.stock_view_hpp) {
+        base["HPP"] = item.hpp;
+      }
+      if (user?.stock_view_hpt) {
+        base["HPT"] = item.hpt;
+      }
+      if (user?.stock_view_hpj) {
+        base["HPJ"] = item.hpj;
+      }
       
       return base;
     });
@@ -412,7 +452,25 @@ export default function StockPage() {
   const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
+  // Check if user can see any view
+  const canSeeAnyView = user?.stock_view_store || user?.stock_view_pca || user?.stock_view_master;
+
   if (!user) return null;
+
+  if (!canSeeAnyView) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        <Sidebar userName={user.name} permissions={user} />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center text-gray-500">
+            <p className="text-lg font-semibold mb-2">No View Access</p>
+            <p className="text-sm">You don't have permission to view any stock data.</p>
+            <p className="text-sm">Please contact administrator.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -422,22 +480,35 @@ export default function StockPage() {
         <div className="p-6">
           <h1 className="text-2xl font-bold text-primary mb-6">Stock Management</h1>
 
-          {/* Import/Export & Last Update */}
+          {/* Import/Export & Last Update & Refresh Javelin */}
           <div className="bg-white rounded-lg shadow p-4 mb-4">
             <div className="flex justify-between items-center">
               <div className="flex gap-2">
-                <button
-                  onClick={() => setShowImportModal(true)}
-                  className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-blue-700"
-                >
-                  Import Data
-                </button>
-                <button
-                  onClick={exportToExcel}
-                  className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-secondary/90"
-                >
-                  Export Stock
-                </button>
+                {user.stock_import && (
+                  <button
+                    onClick={() => setShowImportModal(true)}
+                    className="px-4 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                  >
+                    📥 Import Data
+                  </button>
+                )}
+                {user.stock_export && (
+                  <button
+                    onClick={exportToExcel}
+                    className="px-4 py-1.5 bg-green-600 text-white rounded text-xs hover:bg-green-700"
+                  >
+                    📤 Export Stock
+                  </button>
+                )}
+                {user.stock_refresh_javelin && (
+                  <button
+                    onClick={handleRefreshJavelin}
+                    disabled={refreshing}
+                    className="px-4 py-1.5 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {refreshing ? "🔄 Refreshing..." : "🔄 Refresh Javelin"}
+                  </button>
+                )}
               </div>
               <div className="text-xs text-gray-600">
                 {lastUpdate.map((lu) => (
@@ -449,42 +520,48 @@ export default function StockPage() {
             </div>
           </div>
 
-          {/* View Selection */}
+          {/* View Selection - Only show tabs user has access to */}
           <div className="bg-white rounded-lg shadow p-4 mb-4">
             <label className="block text-xs font-medium text-gray-700 mb-2">
               Select View
             </label>
             <div className="flex gap-2">
-              <button
-                onClick={() => setSelectedView('store')}
-                className={`px-4 py-1.5 rounded text-xs transition-colors ${
-                  selectedView === 'store'
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                Store
-              </button>
-              <button
-                onClick={() => setSelectedView('pca')}
-                className={`px-4 py-1.5 rounded text-xs transition-colors ${
-                  selectedView === 'pca'
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                PCA
-              </button>
-              <button
-                onClick={() => setSelectedView('master')}
-                className={`px-4 py-1.5 rounded text-xs transition-colors ${
-                  selectedView === 'master'
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                Master
-              </button>
+              {user.stock_view_store && (
+                <button
+                  onClick={() => setSelectedView('store')}
+                  className={`px-4 py-1.5 rounded text-xs transition-colors ${
+                    selectedView === 'store'
+                      ? 'bg-primary text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  📦 Store
+                </button>
+              )}
+              {user.stock_view_pca && (
+                <button
+                  onClick={() => setSelectedView('pca')}
+                  className={`px-4 py-1.5 rounded text-xs transition-colors ${
+                    selectedView === 'pca'
+                      ? 'bg-primary text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  🏢 PCA
+                </button>
+              )}
+              {user.stock_view_master && (
+                <button
+                  onClick={() => setSelectedView('master')}
+                  className={`px-4 py-1.5 rounded text-xs transition-colors ${
+                    selectedView === 'master'
+                      ? 'bg-primary text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  📋 Master
+                </button>
+              )}
             </div>
           </div>
 
@@ -583,18 +660,20 @@ export default function StockPage() {
                 </div>
               )}
 
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Max HPJ
-                </label>
-                <input
-                  type="text"
-                  value={hpjFilter}
-                  onChange={(e) => setHpjFilter(e.target.value.replace(/[^0-9]/g, ''))}
-                  placeholder="Filter by max HPJ"
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
+              {user.stock_view_hpj && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Max HPJ
+                  </label>
+                  <input
+                    type="text"
+                    value={hpjFilter}
+                    onChange={(e) => setHpjFilter(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="Filter by max HPJ"
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              )}
 
               <div className={selectedView === 'store' ? 'col-span-2' : 'col-span-3'}>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -604,7 +683,7 @@ export default function StockPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search..."
+                  placeholder="Search by SKU or Product Name..."
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
@@ -640,9 +719,15 @@ export default function StockPage() {
                         {selectedView === 'store' && (
                           <th className="px-2 py-2 text-left font-semibold text-gray-700">Warehouse</th>
                         )}
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">HPP</th>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">HPT</th>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">HPJ</th>
+                        {user.stock_view_hpp && (
+                          <th className="px-2 py-2 text-left font-semibold text-gray-700">HPP</th>
+                        )}
+                        {user.stock_view_hpt && (
+                          <th className="px-2 py-2 text-left font-semibold text-gray-700">HPT</th>
+                        )}
+                        {user.stock_view_hpj && (
+                          <th className="px-2 py-2 text-left font-semibold text-gray-700">HPJ</th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -674,9 +759,15 @@ export default function StockPage() {
                           {selectedView === 'store' && (
                             <td className="px-2 py-2">{item.warehouse}</td>
                           )}
-                          <td className="px-2 py-2">{item.hpp}</td>
-                          <td className="px-2 py-2">{item.hpt}</td>
-                          <td className="px-2 py-2">{item.hpj}</td>
+                          {user.stock_view_hpp && (
+                            <td className="px-2 py-2">{item.hpp}</td>
+                          )}
+                          {user.stock_view_hpt && (
+                            <td className="px-2 py-2">{item.hpt}</td>
+                          )}
+                          {user.stock_view_hpj && (
+                            <td className="px-2 py-2">{item.hpj}</td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
