@@ -15,6 +15,7 @@ const SPREADSHEET_MAP: Record<string, string> = {
   result_stock: process.env.SPREADSHEET_STOCK || '',
   pca_stock: process.env.SPREADSHEET_STOCK || '',
   last_update: process.env.SPREADSHEET_STOCK || '',
+  system_config: process.env.SPREADSHEET_STOCK || '', // ← TAMBAHKAN INI!
   'Torch Cirebon': process.env.SPREADSHEET_CUSTOMER || '',
   'Torch Jogja': process.env.SPREADSHEET_CUSTOMER || '',
   'Torch Karawaci': process.env.SPREADSHEET_CUSTOMER || '',

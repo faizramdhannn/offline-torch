@@ -24,6 +24,14 @@ interface UserData {
   bundling: string;
 }
 
+interface JavelinStatus {
+  hasCookies: boolean;
+  hasCredentials: boolean;
+  username: string;
+  lastCookieUpdate: string;
+  lastCredentialsUpdate: string;
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -51,6 +59,21 @@ export default function SettingsPage() {
     bundling: false,
   });
 
+  // Javelin Configuration
+  const [showJavelinModal, setShowJavelinModal] = useState(false);
+  const [javelinStatus, setJavelinStatus] = useState<JavelinStatus>({
+    hasCookies: false,
+    hasCredentials: false,
+    username: '',
+    lastCookieUpdate: '',
+    lastCredentialsUpdate: '',
+  });
+  const [javelinUsername, setJavelinUsername] = useState('');
+  const [javelinPassword, setJavelinPassword] = useState('');
+  const [manualCookie, setManualCookie] = useState('');
+  const [savingJavelin, setSavingJavelin] = useState(false);
+  const [loadingJavelin, setLoadingJavelin] = useState(false);
+
   useEffect(() => {
     const userData = localStorage.getItem("user");
     if (!userData) {
@@ -64,7 +87,8 @@ export default function SettingsPage() {
     }
     setUser(parsedUser);
     fetchUsers();
-  }, []);
+    fetchJavelinStatus();
+  }, [router]);
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);
@@ -82,6 +106,78 @@ export default function SettingsPage() {
       showMessage("Failed to fetch users", "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchJavelinStatus = async () => {
+    try {
+      setLoadingJavelin(true);
+      const response = await fetch("/api/javelin-login");
+      if (!response.ok) throw new Error("Failed to fetch Javelin status");
+      const result = await response.json();
+      if (result.success) {
+        setJavelinStatus(result);
+        setJavelinUsername(result.username || '');
+      }
+    } catch (error) {
+      console.error("Failed to fetch Javelin status:", error);
+    } finally {
+      setLoadingJavelin(false);
+    }
+  };
+
+  const handleSaveJavelin = async () => {
+    if (!manualCookie.trim()) {
+      showMessage("Please enter a cookie value", "error");
+      return;
+    }
+
+    setSavingJavelin(true);
+    try {
+      // Save cookie
+      const cookieResponse = await fetch("/api/javelin-cookie", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cookie: manualCookie.trim(),
+          username: user.user_name,
+        }),
+      });
+
+      if (!cookieResponse.ok) {
+        showMessage("Failed to save cookie", "error");
+        return;
+      }
+
+      // Optionally save credentials for future auto-refresh
+      if (javelinUsername.trim() && javelinPassword.trim()) {
+        const credResponse = await fetch("/api/javelin-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: javelinUsername.trim(),
+            password: javelinPassword.trim(),
+            updatedBy: user.user_name,
+          }),
+        });
+        
+        if (credResponse.ok) {
+          showMessage("✅ Cookie and credentials saved! Auto-refresh enabled.", "success");
+        } else {
+          showMessage("✅ Cookie saved! (Credentials not saved - optional)", "success");
+        }
+      } else {
+        showMessage("✅ Cookie saved successfully!", "success");
+      }
+      
+      setShowJavelinModal(false);
+      setManualCookie('');
+      setJavelinPassword('');
+      fetchJavelinStatus();
+    } catch (error) {
+      showMessage("Failed to save Javelin configuration", "error");
+    } finally {
+      setSavingJavelin(false);
     }
   };
 
@@ -142,9 +238,92 @@ export default function SettingsPage() {
       
       <div className="flex-1 overflow-auto">
         <div className="p-6">
-          <h1 className="text-2xl font-bold text-primary mb-6">User Settings</h1>
-          
+          <h1 className="text-2xl font-bold text-primary mb-6">Settings</h1>
+
+          {/* Javelin Configuration */}
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800">Javelin Configuration</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Configure cookie for Javelin data refresh
+                </p>
+              </div>
+              <button
+                onClick={() => setShowJavelinModal(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+              >
+                {javelinStatus.hasCookies ? 'Update' : 'Configure'}
+              </button>
+            </div>
+
+            {loadingJavelin ? (
+              <div className="text-sm text-gray-500">Loading...</div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-4 rounded border border-gray-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Cookie</span>
+                      {javelinStatus.hasCookies ? (
+                        <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                          ✓ Configured
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded">
+                          Not Set
+                        </span>
+                      )}
+                    </div>
+                    {javelinStatus.lastCookieUpdate && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        Updated: {javelinStatus.lastCookieUpdate}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded border border-gray-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Auto-Refresh</span>
+                      {javelinStatus.hasCredentials ? (
+                        <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                          ✓ Enabled
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
+                          Optional
+                        </span>
+                      )}
+                    </div>
+                    {javelinStatus.hasCredentials && (
+                      <div className="text-xs text-gray-600 mt-1">
+                        Username: {javelinStatus.username}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded p-4">
+                  <p className="text-sm font-semibold text-blue-800 mb-2">
+                    🍪 How It Works:
+                  </p>
+                  <ul className="text-xs text-blue-700 space-y-1 ml-4">
+                    <li>• Copy cookie from browser after login to Javelin</li>
+                    <li>• Paste cookie here to enable data refresh</li>
+                    <li>• Optionally add credentials for auto-refresh when cookie expires</li>
+                    <li>• Update cookie anytime by clicking &quot;Update&quot;</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* User Management */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800">User Management</h2>
+            </div>
+            
             {loading ? (
               <div className="p-8 text-center">Loading...</div>
             ) : (
@@ -212,7 +391,112 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Edit Permissions Modal */}
+      {/* Javelin Configuration Modal */}
+      {showJavelinModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-bold text-primary mb-4">
+              Configure Javelin Cookie
+            </h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cookie Value <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={manualCookie}
+                  onChange={(e) => setManualCookie(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+                  rows={6}
+                  placeholder="Paste your Javelin cookie here..."
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Full cookie string from browser (e.g., PHPSESSID=xxx; other_cookie=yyy)
+                </p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded p-4">
+                <p className="text-sm font-semibold text-blue-800 mb-2">
+                  📋 How to get cookie:
+                </p>
+                <ol className="text-xs text-blue-700 space-y-1 ml-4">
+                  <li>1. Login to <a href="https://torch.javelin-apps.com/" target="_blank" rel="noopener noreferrer" className="underline">torch.javelin-apps.com</a></li>
+                  <li>2. Press F12 (DevTools)</li>
+                  <li>3. Go to <strong>Network</strong> tab</li>
+                  <li>4. Refresh page (F5)</li>
+                  <li>5. Click any request</li>
+                  <li>6. Find <strong>Cookie:</strong> in Request Headers</li>
+                  <li>7. Copy entire cookie value</li>
+                  <li>8. Paste here</li>
+                </ol>
+              </div>
+
+              {/* Optional: Credentials for auto-refresh */}
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium text-gray-700 mb-3">
+                  Optional: Enable Auto-Refresh (when cookie expires)
+                </p>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Javelin Username (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={javelinUsername}
+                      onChange={(e) => setJavelinUsername(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="Leave empty to skip auto-refresh"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Javelin Password (optional)
+                    </label>
+                    <input
+                      type="password"
+                      value={javelinPassword}
+                      onChange={(e) => setJavelinPassword(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="Leave empty to skip auto-refresh"
+                    />
+                  </div>
+                  
+                  <p className="text-xs text-gray-500">
+                    If provided, system will auto-refresh cookie when expired (future feature)
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setShowJavelinModal(false);
+                    setManualCookie('');
+                    setJavelinPassword('');
+                  }}
+                  disabled={savingJavelin}
+                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveJavelin}
+                  disabled={savingJavelin || !manualCookie.trim()}
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {savingJavelin ? "Saving..." : "💾 Save Configuration"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Permissions Modal - User Management (unchanged) */}
       {showEditModal && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 my-8">
