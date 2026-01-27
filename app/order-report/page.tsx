@@ -8,6 +8,24 @@ import { OrderReport } from "@/types";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 
+// Mapping username ke warehouse
+const USERNAME_TO_WAREHOUSE: Record<string, string> = {
+  'cirebon': 'WH TORCH CIREBON',
+  'jogja': 'WH TORCH JOGJA',
+  'karawaci': 'WH TORCH KARAWACI',
+  'karawang': 'WH TORCH KARAWANG',
+  'lampung': 'WH TORCH LAMPUNG',
+  'lembong': 'WH TORCH LEMBONG',
+  'makassar': 'WH TORCH MAKASSAR',
+  'malang': 'WH TORCH MALANG',
+  'margonda': 'WH TORCH MARGONDA',
+  'medan': 'WH TORCH MEDAN',
+  'pekalongan': 'WH TORCH PEKALONGAN',
+  'purwokerto': 'WH TORCH PURWOKERTO',
+  'surabaya': 'WH TORCH SURABAYA',
+  'tambun': 'WH TORCH TAMBUN',
+};
+
 export default function OrderReportPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -18,12 +36,16 @@ export default function OrderReportPage() {
   const [dateTo, setDateTo] = useState("");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
+  const [warehouseFilter, setWarehouseFilter] = useState<string[]>([]);
+  const [warehouses, setWarehouses] = useState<string[]>([]);
+  const [lockedWarehouse, setLockedWarehouse] = useState<string | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importing, setImporting] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [showWarehouseDropdown, setShowWarehouseDropdown] = useState(false);
   
   const [powerbizFile, setPowerbizFile] = useState<File | null>(null);
   const [deliveryFile, setDeliveryFile] = useState<File | null>(null);
@@ -44,12 +66,18 @@ export default function OrderReportPage() {
       return;
     }
     setUser(parsedUser);
+    
+    // Check if user has warehouse lock based on username
+    const username = parsedUser.user_name.toLowerCase();
+    const locked = USERNAME_TO_WAREHOUSE[username] || null;
+    setLockedWarehouse(locked);
+    
     fetchData();
   }, []);
 
   useEffect(() => {
     applyFilters();
-  }, [dateFrom, dateTo, statusFilter, data]);
+  }, [dateFrom, dateTo, statusFilter, warehouseFilter, data]);
 
   const fetchData = async () => {
     try {
@@ -60,6 +88,9 @@ export default function OrderReportPage() {
       
       const uniqueStatuses = [...new Set(result.map((item: OrderReport) => item.status))].filter(Boolean);
       setStatuses(uniqueStatuses as string[]);
+      
+      const uniqueWarehouses = [...new Set(result.map((item: OrderReport) => item.warehouse))].filter(Boolean);
+      setWarehouses(uniqueWarehouses as string[]);
     } catch (error) {
       showMessage("Failed to fetch data", "error");
     } finally {
@@ -83,6 +114,13 @@ export default function OrderReportPage() {
 
   const applyFilters = () => {
     let filtered = [...data];
+
+    // Apply warehouse lock if user doesn't have import permission
+    if (lockedWarehouse && !user?.order_report_import) {
+      filtered = filtered.filter((item) => item.warehouse === lockedWarehouse);
+    } else if (warehouseFilter.length > 0) {
+      filtered = filtered.filter((item) => warehouseFilter.includes(item.warehouse));
+    }
 
     if (dateFrom) {
       filtered = filtered.filter((item) => {
@@ -112,6 +150,10 @@ export default function OrderReportPage() {
     setDateFrom("");
     setDateTo("");
     setStatusFilter([]);
+    // Only reset warehouse filter if user has import permission
+    if (user?.order_report_import) {
+      setWarehouseFilter([]);
+    }
     setFilteredData(data);
     setCurrentPage(1);
   };
@@ -121,6 +163,14 @@ export default function OrderReportPage() {
       prev.includes(status) 
         ? prev.filter(s => s !== status)
         : [...prev, status]
+    );
+  };
+
+  const toggleWarehouse = (warehouse: string) => {
+    setWarehouseFilter(prev => 
+      prev.includes(warehouse) 
+        ? prev.filter(w => w !== warehouse)
+        : [...prev, warehouse]
     );
   };
 
@@ -298,7 +348,7 @@ export default function OrderReportPage() {
           <h1 className="text-2xl font-bold text-primary mb-6">Order Report</h1>
 
           <div className="bg-white rounded-lg shadow p-4 mb-4">
-            <div className="grid grid-cols-4 gap-3 mb-3">
+            <div className="grid grid-cols-5 gap-3 mb-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Date From
@@ -321,6 +371,58 @@ export default function OrderReportPage() {
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
+              
+              {/* Warehouse Filter */}
+              <div className="relative">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Warehouse
+                  {lockedWarehouse && !user?.order_report_import && (
+                    <span className="ml-1 text-red-500">🔒</span>
+                  )}
+                </label>
+                {lockedWarehouse && !user?.order_report_import ? (
+                  <input
+                    type="text"
+                    value={lockedWarehouse}
+                    disabled
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-gray-100 cursor-not-allowed"
+                  />
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setShowWarehouseDropdown(!showWarehouseDropdown)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
+                    >
+                      <span className="text-gray-500">
+                        {warehouseFilter.length === 0 
+                          ? "All warehouses..." 
+                          : `${warehouseFilter.length} selected`}
+                      </span>
+                      <span className="text-gray-400">▼</span>
+                    </button>
+                    {showWarehouseDropdown && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                        {warehouses.map((warehouse) => (
+                          <label 
+                            key={warehouse} 
+                            className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={warehouseFilter.includes(warehouse)}
+                              onChange={() => toggleWarehouse(warehouse)}
+                              className="mr-2"
+                            />
+                            {warehouse}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+              
+              {/* Status Filter */}
               <div className="col-span-2 relative">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Status
@@ -358,6 +460,7 @@ export default function OrderReportPage() {
                 </div>
               </div>
             </div>
+            
             <div className="flex gap-2">
               <button
                 onClick={resetFilters}
