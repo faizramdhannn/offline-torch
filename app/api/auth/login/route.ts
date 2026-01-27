@@ -46,6 +46,16 @@ export async function POST(request: NextRequest) {
       customer: user.customer === 'TRUE',
       voucher: user.voucher === 'TRUE',
       bundling: user.bundling === 'TRUE',
+      // Stock permissions
+      stock_import: user.stock_import === 'TRUE',
+      stock_export: user.stock_export === 'TRUE',
+      stock_view_store: user.stock_view_store === 'TRUE',
+      stock_view_pca: user.stock_view_pca === 'TRUE',
+      stock_view_master: user.stock_view_master === 'TRUE',
+      stock_view_hpp: user.stock_view_hpp === 'TRUE',
+      stock_view_hpt: user.stock_view_hpt === 'TRUE',
+      stock_view_hpj: user.stock_view_hpj === 'TRUE',
+      stock_refresh_javelin: user.stock_refresh_javelin === 'TRUE',
     });
   } catch (error) {
     return NextResponse.json(

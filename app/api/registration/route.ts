@@ -82,6 +82,16 @@ export async function PUT(request: NextRequest) {
         permissions.customer ? 'TRUE' : 'FALSE',
         permissions.voucher ? 'TRUE' : 'FALSE',
         permissions.bundling ? 'TRUE' : 'FALSE',
+        // Stock permissions
+        permissions.stock_import ? 'TRUE' : 'FALSE',
+        permissions.stock_export ? 'TRUE' : 'FALSE',
+        permissions.stock_view_store ? 'TRUE' : 'FALSE',
+        permissions.stock_view_pca ? 'TRUE' : 'FALSE',
+        permissions.stock_view_master ? 'TRUE' : 'FALSE',
+        permissions.stock_view_hpp ? 'TRUE' : 'FALSE',
+        permissions.stock_view_hpt ? 'TRUE' : 'FALSE',
+        permissions.stock_view_hpj ? 'TRUE' : 'FALSE',
+        permissions.stock_refresh_javelin ? 'TRUE' : 'FALSE',
         new Date().toISOString()
       ];
 

@@ -16,6 +16,16 @@ export interface User {
   customer: boolean;
   voucher: boolean;
   bundling: boolean;
+  // Stock permissions
+  stock_import: boolean;
+  stock_export: boolean;
+  stock_view_store: boolean;
+  stock_view_pca: boolean;
+  stock_view_master: boolean;
+  stock_view_hpp: boolean;
+  stock_view_hpt: boolean;
+  stock_view_hpj: boolean;
+  stock_refresh_javelin: boolean;
   last_activity: string;
 }
 
