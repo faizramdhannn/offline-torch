@@ -547,7 +547,7 @@ export default function StockPage() {
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
-                  🏢 PCA
+                  PCA
                 </button>
               )}
               {user.stock_view_master && (

@@ -112,16 +112,46 @@ export default function OrderReportPage() {
     return `${day} ${months[parseInt(month) - 1]} ${year}`;
   };
 
+  const sortByEmptyFields = (dataToSort: OrderReport[]) => {
+    return [...dataToSort].sort((a, b) => {
+      // Check if delivery_note is null/empty
+      const aDeliveryEmpty = !a.delivery_note || a.delivery_note === '' || a.delivery_note === 'null';
+      const bDeliveryEmpty = !b.delivery_note || b.delivery_note === '' || b.delivery_note === 'null';
+      
+      // Check if sales_invoice is null/empty
+      const aInvoiceEmpty = !a.sales_invoice || a.sales_invoice === '' || a.sales_invoice === 'null';
+      const bInvoiceEmpty = !b.sales_invoice || b.sales_invoice === '' || b.sales_invoice === 'null';
+      
+      // Priority 1: Both delivery_note AND sales_invoice are empty (highest priority)
+      const aBothEmpty = aDeliveryEmpty && aInvoiceEmpty;
+      const bBothEmpty = bDeliveryEmpty && bInvoiceEmpty;
+      
+      if (aBothEmpty && !bBothEmpty) return -1; // a comes first
+      if (!aBothEmpty && bBothEmpty) return 1;  // b comes first
+      
+      // Priority 2: Either delivery_note OR sales_invoice is empty
+      const aEitherEmpty = aDeliveryEmpty || aInvoiceEmpty;
+      const bEitherEmpty = bDeliveryEmpty || bInvoiceEmpty;
+      
+      if (aEitherEmpty && !bEitherEmpty) return -1; // a comes first
+      if (!aEitherEmpty && bEitherEmpty) return 1;  // b comes first
+      
+      // If both have same empty status, maintain original order
+      return 0;
+    });
+  };
+
   const applyFilters = () => {
     let filtered = [...data];
 
-    // Apply warehouse lock if user doesn't have import permission
+    // STEP 1: Apply warehouse lock if user doesn't have import permission
     if (lockedWarehouse && !user?.order_report_import) {
       filtered = filtered.filter((item) => item.warehouse === lockedWarehouse);
     } else if (warehouseFilter.length > 0) {
       filtered = filtered.filter((item) => warehouseFilter.includes(item.warehouse));
     }
 
+    // STEP 2: Apply date filters
     if (dateFrom) {
       filtered = filtered.filter((item) => {
         const itemDate = new Date(item.order_date.split(" ")[0].split("-").reverse().join("-"));
@@ -138,11 +168,15 @@ export default function OrderReportPage() {
       });
     }
 
+    // STEP 3: Apply status filter
     if (statusFilter.length > 0) {
       filtered = filtered.filter((item) => statusFilter.includes(item.status));
     }
 
-    setFilteredData(filtered);
+    // STEP 4: Sort by empty fields (AFTER all filters applied)
+    const sorted = sortByEmptyFields(filtered);
+
+    setFilteredData(sorted);
     setCurrentPage(1);
   };
 
@@ -154,7 +188,17 @@ export default function OrderReportPage() {
     if (user?.order_report_import) {
       setWarehouseFilter([]);
     }
-    setFilteredData(data);
+    
+    // Apply sorting to full data
+    let dataToShow = [...data];
+    
+    // If user is locked, still filter by warehouse even on reset
+    if (lockedWarehouse && !user?.order_report_import) {
+      dataToShow = dataToShow.filter((item) => item.warehouse === lockedWarehouse);
+    }
+    
+    const sorted = sortByEmptyFields(dataToShow);
+    setFilteredData(sorted);
     setCurrentPage(1);
   };
 
@@ -484,6 +528,74 @@ export default function OrderReportPage() {
                   Export to Excel
                 </button>
               )}
+            </div>
+          </div>
+
+          {/* Summary Statistics */}
+          <div className="bg-white rounded-lg shadow p-4 mb-4">
+            <div className="grid grid-cols-4 gap-4">
+              <div className="border-r border-gray-200 pr-4">
+                <div className="text-xs text-gray-600 mb-1">Period</div>
+                <div className="text-sm font-semibold text-gray-800">
+                  {(() => {
+                    if (filteredData.length === 0) return "-";
+                    
+                    // Get date range from filtered data
+                    const dates = filteredData
+                      .map(item => {
+                        const [datePart] = item.order_date.split(" ");
+                        const [day, month, year] = datePart.split("-");
+                        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                      })
+                      .sort((a, b) => a.getTime() - b.getTime());
+                    
+                    const minDate = dates[0];
+                    const maxDate = dates[dates.length - 1];
+                    
+                    const formatDate = (date: Date) => {
+                      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                      return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+                    };
+                    
+                    if (minDate.getTime() === maxDate.getTime()) {
+                      return formatDate(minDate);
+                    }
+                    
+                    return `${formatDate(minDate)} - ${formatDate(maxDate)}`;
+                  })()}
+                </div>
+              </div>
+
+              <div className="border-r border-gray-200 pr-4">
+                <div className="text-xs text-gray-600 mb-1">Total Orders</div>
+                <div className="text-sm font-semibold text-gray-800">
+                  {filteredData.length.toLocaleString()}
+                </div>
+              </div>
+
+              <div className="border-r border-gray-200 pr-4">
+                <div className="text-xs text-gray-600 mb-1">Delivery Note Null</div>
+                <div className="text-sm font-semibold text-red-600">
+                  {(() => {
+                    const nullCount = filteredData.filter(item => 
+                      !item.delivery_note || item.delivery_note === '' || item.delivery_note === 'null'
+                    ).length;
+                    return nullCount.toLocaleString();
+                  })()}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs text-gray-600 mb-1">Sales Invoice Null</div>
+                <div className="text-sm font-semibold text-red-600">
+                  {(() => {
+                    const nullCount = filteredData.filter(item => 
+                      !item.sales_invoice || item.sales_invoice === '' || item.sales_invoice === 'null'
+                    ).length;
+                    return nullCount.toLocaleString();
+                  })()}
+                </div>
+              </div>
             </div>
           </div>
 
