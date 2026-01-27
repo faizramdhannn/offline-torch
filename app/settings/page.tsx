@@ -293,7 +293,7 @@ export default function SettingsPage() {
                   onClick={() => setShowJavelinModal(true)}
                   className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
                 >
-                  {javelinStatus.hasCookies ? '⚙️ Update' : '➕ Configure'}
+                  {javelinStatus.hasCookies ? 'Update' : 'Configure'}
                 </button>
               </div>
             </div>
@@ -309,7 +309,7 @@ export default function SettingsPage() {
                         <span className="text-sm font-medium text-gray-700">Cookie Status</span>
                         {javelinStatus.hasCookies ? (
                           <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                            ✓ Configured
+                            Configured
                           </span>
                         ) : (
                           <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded">
@@ -347,7 +347,7 @@ export default function SettingsPage() {
 
                   <div className="bg-blue-50 border border-blue-200 rounded p-4">
                     <p className="text-sm font-semibold text-blue-800 mb-2">
-                      🍪 How It Works:
+                      How It Works:
                     </p>
                     <ul className="text-xs text-blue-700 space-y-1 ml-4">
                       <li>• Copy cookie from browser after login to Javelin</li>
@@ -413,7 +413,7 @@ export default function SettingsPage() {
                               onClick={() => handleEditUser(userData)}
                               className="px-3 py-1 bg-primary text-white rounded text-xs hover:bg-primary/90"
                             >
-                              ⚙️ Edit Permissions
+                              Edit Permissions
                             </button>
                           </td>
                         </tr>
@@ -435,7 +435,7 @@ export default function SettingsPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-primary mb-4">
-              🍪 Configure Javelin Cookie
+              Configure Javelin Cookie
             </h2>
             
             <div className="space-y-4">
@@ -457,7 +457,7 @@ export default function SettingsPage() {
 
               <div className="bg-blue-50 border border-blue-200 rounded p-4">
                 <p className="text-sm font-semibold text-blue-800 mb-2">
-                  📋 How to get cookie:
+                  How to get cookie:
                 </p>
                 <ol className="text-xs text-blue-700 space-y-1 ml-4">
                   <li>1. Login to <a href="https://torch.javelin-apps.com/" target="_blank" rel="noopener noreferrer" className="underline font-semibold">torch.javelin-apps.com</a></li>
@@ -473,7 +473,7 @@ export default function SettingsPage() {
 
               <div className="border-t pt-4">
                 <p className="text-sm font-medium text-gray-700 mb-3">
-                  🔄 Optional: Enable Auto-Refresh (when cookie expires)
+                  Optional: Enable Auto-Refresh (when cookie expires)
                 </p>
                 
                 <div className="space-y-3">
@@ -504,7 +504,7 @@ export default function SettingsPage() {
                   </div>
                   
                   <p className="text-xs text-gray-500">
-                    💡 If provided, system will auto-refresh cookie when expired (future feature)
+                    If provided, system will auto-refresh cookie when expired (future feature)
                   </p>
                 </div>
               </div>
@@ -526,7 +526,7 @@ export default function SettingsPage() {
                   disabled={savingJavelin || !manualCookie.trim()}
                   className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
                 >
-                  {savingJavelin ? "Saving..." : "💾 Save Configuration"}
+                  {savingJavelin ? "Saving..." : "Save Configuration"}
                 </button>
               </div>
             </div>
@@ -552,7 +552,7 @@ export default function SettingsPage() {
             <div className="grid grid-cols-2 gap-6 mb-6">
               {/* Left Column - Basic Modules */}
               <div className="space-y-4">
-                <h3 className="font-semibold text-gray-800 border-b pb-2">📊 Basic Modules</h3>
+                <h3 className="font-semibold text-gray-800 border-b pb-2">Basic Modules</h3>
                 
                 <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
                   <input
@@ -665,7 +665,7 @@ export default function SettingsPage() {
 
               {/* Right Column - Stock & Admin */}
               <div className="space-y-4">
-                <h3 className="font-semibold text-gray-800 border-b pb-2">📦 Stock Management</h3>
+                <h3 className="font-semibold text-gray-800 border-b pb-2">Stock Management</h3>
                 
                 {/* Stock */}
                 <div className="border-l-2 border-purple-300 pl-3">
@@ -770,7 +770,7 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="mt-6 pt-4 border-t">
-                  <h3 className="font-semibold text-gray-800 mb-3">🔧 Admin Access</h3>
+                  <h3 className="font-semibold text-gray-800 mb-3">Admin Access</h3>
                   
                   <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
                     <input
@@ -797,7 +797,7 @@ export default function SettingsPage() {
 
             <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4">
               <p className="text-xs text-yellow-800">
-                <strong>⚠️ Note:</strong> Changes will take effect on user's next login or page refresh.
+                <strong>Note:</strong> Changes will take effect on user's next login or page refresh.
               </p>
             </div>
 

@@ -489,7 +489,7 @@ export default function StockPage() {
                     onClick={() => setShowImportModal(true)}
                     className="px-4 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
                   >
-                    📥 Import Data
+                    Import Data
                   </button>
                 )}
                 {user.stock_export && (
@@ -497,7 +497,7 @@ export default function StockPage() {
                     onClick={exportToExcel}
                     className="px-4 py-1.5 bg-green-600 text-white rounded text-xs hover:bg-green-700"
                   >
-                    📤 Export Stock
+                    Export Stock
                   </button>
                 )}
                 {user.stock_refresh_javelin && (
@@ -535,7 +535,7 @@ export default function StockPage() {
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
-                  📦 Store
+                  Store
                 </button>
               )}
               {user.stock_view_pca && (
@@ -559,7 +559,7 @@ export default function StockPage() {
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
-                  📋 Master
+                  Master
                 </button>
               )}
             </div>
