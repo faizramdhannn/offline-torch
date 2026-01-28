@@ -6,6 +6,7 @@ import pandas as pd
 import gspread
 from pathlib import Path
 from datetime import datetime
+import pytz
 
 # Setup paths
 project_root = Path(__file__).resolve().parent
@@ -234,7 +235,7 @@ def update_google_sheet(df, sheet_name='javelin'):
         raise
 
 def update_last_update_sheet():
-    """Update last_update sheet with current timestamp"""
+    """Update last_update sheet with current timestamp in Jakarta timezone"""
     try:
         gc = gspread.service_account(filename=get_google_credentials())
         
@@ -258,9 +259,17 @@ def update_last_update_sheet():
         except:
             data_dict = {}
         
-        # Update Javelin timestamp
-        now = datetime.now()
-        date_str = now.strftime('%d %b %Y, %H:%M')
+        # Update Javelin timestamp with Jakarta timezone
+        jakarta_tz = pytz.timezone('Asia/Jakarta')
+        now = datetime.now(jakarta_tz)
+        
+        # Format: DD MMM YYYY, HH:MM (24-hour format)
+        months_id = {
+            1: 'Jan', 2: 'Feb', 3: 'Mar', 4: 'Apr', 5: 'Mei', 6: 'Jun',
+            7: 'Jul', 8: 'Agu', 9: 'Sep', 10: 'Okt', 11: 'Nov', 12: 'Des'
+        }
+        date_str = f"{now.day:02d} {months_id[now.month]} {now.year}, {now.hour:02d}:{now.minute:02d}"
+        
         data_dict['Javelin'] = date_str
         
         # Ensure ERP exists
@@ -286,7 +295,9 @@ def main(cookie):
     """Main function to refresh Javelin inventory"""
     try:
         print("Starting Javelin inventory refresh...")
-        print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        jakarta_tz = pytz.timezone('Asia/Jakarta')
+        now = datetime.now(jakarta_tz)
+        print(f"Timestamp: {now.strftime('%Y-%m-%d %H:%M:%S %Z')}")
         
         # Step 1: Fetch data from Javelin
         print("\n1. Fetching data from Javelin API...")

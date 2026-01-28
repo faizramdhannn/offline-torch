@@ -1,5 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSheetData, updateSheetRow } from '@/lib/sheets';
+import { getSheetData } from '@/lib/sheets';
+import { google } from 'googleapis';
+
+const SPREADSHEET_MAP: Record<string, string> = {
+  users: process.env.SPREADSHEET_USERS || '',
+};
+
+function getSpreadsheetId(sheetName: string): string {
+  return SPREADSHEET_MAP[sheetName] || '';
+}
+
+async function updateSheetRow(sheetName: string, rowIndex: number, data: any[]) {
+  try {
+    const auth = new google.auth.GoogleAuth({
+      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Calculate the end column based on data length
+    // A=1, B=2, ..., Z=26, AA=27, AB=28, etc.
+    const numColumns = data.length;
+    let endColumn = '';
+    
+    if (numColumns <= 26) {
+      endColumn = String.fromCharCode(64 + numColumns); // A-Z
+    } else {
+      const firstChar = String.fromCharCode(64 + Math.floor((numColumns - 1) / 26));
+      const secondChar = String.fromCharCode(65 + ((numColumns - 1) % 26));
+      endColumn = firstChar + secondChar;
+    }
+
+    const range = `${sheetName}!A${rowIndex}:${endColumn}${rowIndex}`;
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: getSpreadsheetId(sheetName),
+      range: range,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [data],
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating sheet row:', error);
+    throw error;
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,6 +83,18 @@ export async function PUT(request: NextRequest) {
     // Update row (rowIndex is userIndex + 2 because of 1-based index and header row)
     const rowIndex = userIndex + 2;
     
+    // Format timestamp with correct timezone
+    const now = new Date();
+    const timestamp = now.toLocaleString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Jakarta'
+    });
+    
     const updatedRow = [
       user.id,
       user.name,
@@ -62,8 +123,10 @@ export async function PUT(request: NextRequest) {
       permissions.stock_view_hpt ? 'TRUE' : 'FALSE',
       permissions.stock_view_hpj ? 'TRUE' : 'FALSE',
       permissions.stock_refresh_javelin ? 'TRUE' : 'FALSE',
-      new Date().toISOString()
+      timestamp
     ];
+
+    console.log(`Updating row ${rowIndex} with ${updatedRow.length} columns`);
 
     await updateSheetRow('users', rowIndex, updatedRow);
 

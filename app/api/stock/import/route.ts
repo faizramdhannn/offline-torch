@@ -25,15 +25,22 @@ export async function POST(request: NextRequest) {
     
     await updateSheetDataWithHeader(sheetName, cleanedData);
 
-    // Update last_update sheet
+    // Update last_update sheet with correct timezone
     const now = new Date();
-    const dateStr = now.toLocaleString('id-ID', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    
+    // Format with Jakarta timezone
+    const jakartaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+    
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 
+                    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    
+    const day = jakartaTime.getDate().toString().padStart(2, '0');
+    const month = months[jakartaTime.getMonth()];
+    const year = jakartaTime.getFullYear();
+    const hours = jakartaTime.getHours().toString().padStart(2, '0');
+    const minutes = jakartaTime.getMinutes().toString().padStart(2, '0');
+    
+    const dateStr = `${day} ${month} ${year}, ${hours}:${minutes}`;
     
     const sheetType = sheetName === 'erp_stock_balance' ? 'ERP' : 'Javelin';
     

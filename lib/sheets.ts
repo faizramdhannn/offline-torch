@@ -15,7 +15,7 @@ const SPREADSHEET_MAP: Record<string, string> = {
   result_stock: process.env.SPREADSHEET_STOCK || '',
   pca_stock: process.env.SPREADSHEET_STOCK || '',
   last_update: process.env.SPREADSHEET_STOCK || '',
-  system_config: process.env.SPREADSHEET_STOCK || '', // ← TAMBAHKAN INI!
+  system_config: process.env.SPREADSHEET_STOCK || '',
   'Torch Cirebon': process.env.SPREADSHEET_CUSTOMER || '',
   'Torch Jogja': process.env.SPREADSHEET_CUSTOMER || '',
   'Torch Karawaci': process.env.SPREADSHEET_CUSTOMER || '',
@@ -38,6 +38,17 @@ function getSpreadsheetId(sheetName: string): string {
   return SPREADSHEET_MAP[sheetName] || '';
 }
 
+// Helper function to convert column number to letter(s)
+function getColumnLetter(columnNumber: number): string {
+  let letter = '';
+  while (columnNumber > 0) {
+    const remainder = (columnNumber - 1) % 26;
+    letter = String.fromCharCode(65 + remainder) + letter;
+    columnNumber = Math.floor((columnNumber - 1) / 26);
+  }
+  return letter;
+}
+
 export async function getSheetData(sheetName: string) {
   try {
     const auth = new google.auth.GoogleAuth({
@@ -49,7 +60,7 @@ export async function getSheetData(sheetName: string) {
     
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: getSpreadsheetId(sheetName),
-      range: `${sheetName}!A1:Z`,
+      range: `${sheetName}!A1:ZZ`, // Extended to ZZ to support more columns
     });
 
     const rows = response.data.values || [];
@@ -78,9 +89,10 @@ export async function updateSheetDataWithHeader(sheetName: string, data: any[][]
 
     const sheets = google.sheets({ version: 'v4', auth });
 
+    // Clear with extended range
     await sheets.spreadsheets.values.clear({
       spreadsheetId: getSpreadsheetId(sheetName),
-      range: `${sheetName}!A1:Z`,
+      range: `${sheetName}!A1:ZZ`,
     });
 
     if (data.length > 0) {
@@ -136,9 +148,16 @@ export async function updateSheetRow(sheetName: string, rowIndex: number, data: 
 
     const sheets = google.sheets({ version: 'v4', auth });
 
+    // Calculate the end column based on data length
+    const numColumns = data.length;
+    const endColumn = getColumnLetter(numColumns);
+    const range = `${sheetName}!A${rowIndex}:${endColumn}${rowIndex}`;
+
+    console.log(`Updating sheet row: ${range} with ${numColumns} columns`);
+
     await sheets.spreadsheets.values.update({
       spreadsheetId: getSpreadsheetId(sheetName),
-      range: `${sheetName}!A${rowIndex}:Z${rowIndex}`,
+      range: range,
       valueInputOption: 'RAW',
       requestBody: {
         values: [data],
