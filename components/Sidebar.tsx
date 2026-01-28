@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
+import Image from "next/image";
 
 interface SidebarProps {
   userName: string;
@@ -40,8 +41,14 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
 
   return (
     <div className="w-48 bg-primary text-white h-screen flex flex-col text-sm">
-      <div className="p-4 border-b border-gray-700">
-        <h1 className="text-secondary font-bold text-lg">Offline Torch</h1>
+      <div className="p-4 border-b text-center border-gray-700">
+        <Image
+          src="/logo_offline_torch.png"
+          alt="Offline Torch"
+          width={120}
+          height={80}
+          className="w-[120px] h-[80px] object-center mx-auto"
+        />
         <p className="text-xs text-gray-300 mt-1">{userName}</p>
       </div>
 
