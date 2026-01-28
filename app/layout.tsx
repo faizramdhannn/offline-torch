@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Offline Torch",
   description: "Stock Management System",
+  icons: {
+    icon: "/logo_offline_torch.png",
+  },
 };
 
 export default function RootLayout({
