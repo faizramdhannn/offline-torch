@@ -1,3 +1,7 @@
+#!/usr/bin/env python3
+"""
+Fixed version of refresh_javelin.py with correct paths
+"""
 import os
 import sys
 import json
@@ -8,20 +12,62 @@ from pathlib import Path
 from datetime import datetime
 import pytz
 
-# Setup paths
-project_root = Path(__file__).resolve().parent
-sys.path.append(str(project_root))
+# FIX: Use correct path resolution
+# Get the project root (parent of scripts directory)
+script_dir = Path(__file__).resolve().parent
+project_root = script_dir.parent  # Go up one level to project root
 
 def get_google_credentials():
-    """Get Google credentials from service account file"""
+    """Get Google credentials from service account file or environment"""
+    
+    # Option 1: Try service_account.json in project root
     creds_path = project_root / 'service_account.json'
-    if not creds_path.exists():
-        raise Exception(f"service_account.json not found at {creds_path}")
-    return str(creds_path)
+    if creds_path.exists():
+        print(f"✅ Using service_account.json from: {creds_path}")
+        return str(creds_path)
+    
+    # Option 2: Try from environment variable
+    creds_env = os.environ.get('GOOGLE_CREDENTIALS')
+    if creds_env:
+        print("✅ Using GOOGLE_CREDENTIALS from environment")
+        # Create temp file
+        temp_creds = project_root / 'temp_credentials.json'
+        with open(temp_creds, 'w') as f:
+            f.write(creds_env)
+        return str(temp_creds)
+    
+    # Option 3: Try service_account.json in scripts folder (legacy)
+    script_creds = script_dir / 'service_account.json'
+    if script_creds.exists():
+        print(f"✅ Using service_account.json from: {script_creds}")
+        return str(script_creds)
+    
+    raise Exception(f"❌ Credentials not found. Tried:\n  1. {creds_path}\n  2. GOOGLE_CREDENTIALS env var\n  3. {script_creds}")
+
+def clean_cookie(cookie):
+    """Clean cookie string - extract only the sess= part"""
+    if not cookie:
+        return cookie
+    
+    # If cookie has metadata (Path, Expires, etc), extract just the sess= part
+    # Example: "sess=ABC; Path=/; Expires=..." → "sess=ABC"
+    if ';' in cookie:
+        parts = cookie.split(';')
+        for part in parts:
+            part = part.strip()
+            if part.startswith('sess='):
+                return part
+        # If no sess= found in parts, return first part
+        return parts[0].strip()
+    
+    return cookie.strip()
 
 def get_javelin_authentication(cookie):
     """Authenticate with Javelin API and get session tokens"""
     try:
+        # Clean cookie first
+        cookie = clean_cookie(cookie)
+        
         # Step 1: Get code and verifier
         url = f"https://torch.javelin-apps.com/sess/code?c={int(datetime.now().timestamp() * 1000)}"
         
@@ -72,6 +118,10 @@ def get_javelin_authentication(cookie):
         response = requests.post(url, headers=headers, data=json.dumps(payload))
         response.raise_for_status()
         data = response.json()
+        
+        # Validate response has required fields
+        if 'p_user_id' not in data:
+            raise Exception(f"Login response missing p_user_id. Response: {data}")
         
         return {
             'p_user_id': data['p_user_id'],
@@ -203,9 +253,10 @@ def format_for_sheets(df):
 def update_google_sheet(df, sheet_name='javelin'):
     """Update Google Sheet with new data"""
     try:
-        gc = gspread.service_account(filename=get_google_credentials())
+        creds_file = get_google_credentials()
+        gc = gspread.service_account(filename=creds_file)
         
-        # Open spreadsheet - adjust this to your spreadsheet name/ID
+        # Open spreadsheet
         spreadsheet_id = os.environ.get('SPREADSHEET_STOCK')
         if not spreadsheet_id:
             raise Exception("SPREADSHEET_STOCK environment variable not set")
@@ -237,7 +288,8 @@ def update_google_sheet(df, sheet_name='javelin'):
 def update_last_update_sheet():
     """Update last_update sheet with current timestamp in Jakarta timezone"""
     try:
-        gc = gspread.service_account(filename=get_google_credentials())
+        creds_file = get_google_credentials()
+        gc = gspread.service_account(filename=creds_file)
         
         spreadsheet_id = os.environ.get('SPREADSHEET_STOCK')
         sh = gc.open_by_key(spreadsheet_id)
@@ -353,6 +405,10 @@ if __name__ == "__main__":
         print("Usage: python refresh_javelin.py <cookie>")
         print("Or set JAVELIN_COOKIE environment variable")
         sys.exit(1)
+    
+    # Clean cookie (remove Path, Expires, etc if present)
+    cookie = clean_cookie(cookie)
+    print(f"📝 Using cookie: {cookie[:50]}... (length: {len(cookie)})")
     
     result = main(cookie)
     

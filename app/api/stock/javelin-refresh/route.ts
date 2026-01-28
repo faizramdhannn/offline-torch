@@ -6,11 +6,38 @@ import { getSheetData, updateSheetRow, appendSheetData } from '@/lib/sheets';
 // Function to get Javelin cookie from Google Sheets
 async function getJavelinCookie(): Promise<string | null> {
   try {
+    console.log('🔍 Getting Javelin cookie from Google Sheets...');
     const data = await getSheetData('system_config');
-    const cookieEntry = data.find((row: any) => row.config_key === 'javelin_cookie');
-    return cookieEntry?.config_value || null;
+    
+    console.log(`📊 Found ${data.length} rows in system_config`);
+    
+    // Debug: log all data
+    console.log('📋 All system_config data:', JSON.stringify(data, null, 2));
+    
+    // Try different possible column names
+    const cookieEntry = data.find((row: any) => {
+      const key = row.config_key || row.Config_key || row['config_key'] || '';
+      console.log(`🔑 Checking row with key: "${key}"`);
+      return key === 'javelin_cookie';
+    });
+    
+    if (!cookieEntry) {
+      console.log('❌ javelin_cookie entry not found!');
+      console.log('Available keys:', data.map((r: any) => r.config_key || r.Config_key || 'unknown'));
+      return null;
+    }
+    
+    const cookieValue = cookieEntry.config_value || cookieEntry.Config_value || cookieEntry['config_value'] || '';
+    console.log(`✅ Found cookie (length: ${cookieValue.length})`);
+    
+    if (!cookieValue || cookieValue.trim() === '') {
+      console.log('⚠️  Cookie value is empty!');
+      return null;
+    }
+    
+    return cookieValue;
   } catch (error) {
-    console.error('Error getting cookie:', error);
+    console.error('❌ Error getting cookie:', error);
     return null;
   }
 }
@@ -18,15 +45,32 @@ async function getJavelinCookie(): Promise<string | null> {
 // Function to get Javelin credentials from Google Sheets (OPTIONAL)
 async function getJavelinCredentials(): Promise<{ username: string; password: string } | null> {
   try {
+    console.log('🔍 Getting Javelin credentials from Google Sheets...');
     const data = await getSheetData('system_config');
-    const credEntry = data.find((row: any) => row.config_key === 'javelin_credentials');
     
-    if (credEntry && credEntry.config_value) {
-      return JSON.parse(credEntry.config_value);
+    const credEntry = data.find((row: any) => {
+      const key = row.config_key || row.Config_key || row['config_key'] || '';
+      return key === 'javelin_credentials';
+    });
+    
+    if (credEntry) {
+      const credValue = credEntry.config_value || credEntry.Config_value || credEntry['config_value'] || '';
+      
+      if (credValue) {
+        try {
+          const parsed = JSON.parse(credValue);
+          console.log(`✅ Found credentials for user: ${parsed.username}`);
+          return parsed;
+        } catch (e) {
+          console.error('❌ Failed to parse credentials JSON:', e);
+        }
+      }
     }
+    
+    console.log('⚠️  No credentials found');
     return null;
   } catch (error) {
-    console.error('Error getting credentials:', error);
+    console.error('❌ Error getting credentials:', error);
     return null;
   }
 }
@@ -96,7 +140,10 @@ async function getNewCookie(username: string, password: string): Promise<string>
 async function saveCookie(cookie: string, username: string): Promise<void> {
   try {
     const data = await getSheetData('system_config');
-    const cookieIndex = data.findIndex((row: any) => row.config_key === 'javelin_cookie');
+    const cookieIndex = data.findIndex((row: any) => {
+      const key = row.config_key || row.Config_key || row['config_key'] || '';
+      return key === 'javelin_cookie';
+    });
     
     const now = new Date();
     const timestamp = now.toLocaleString('id-ID', {
@@ -182,10 +229,13 @@ async function executePythonScript(cookie: string): Promise<any> {
 export async function POST(request: NextRequest) {
   try {
     console.log('=== Javelin Refresh Started ===');
+    console.log('Timestamp:', new Date().toISOString());
     
     // Step 1: Try to get existing cookie
     let cookie = await getJavelinCookie();
     let cookieSource = 'existing';
+    
+    console.log(`Cookie status: ${cookie ? 'Found' : 'Not found'}`);
     
     // Step 2: If no cookie, try to get credentials and login
     if (!cookie) {
@@ -198,14 +248,18 @@ export async function POST(request: NextRequest) {
           cookie = await getNewCookie(credentials.username, credentials.password);
           await saveCookie(cookie, 'system');
           cookieSource = 'auto-login';
-          console.log('New cookie obtained via auto-login');
+          console.log('✅ New cookie obtained via auto-login');
         } catch (error) {
-          console.error('Auto-login failed:', error);
+          console.error('❌ Auto-login failed:', error);
           return NextResponse.json(
             {
               error: 'Failed to auto-login to Javelin',
               message: 'Please check credentials or configure cookie manually in Settings.',
               needsConfiguration: true,
+              debug: {
+                hasCredentials: true,
+                autoLoginError: error instanceof Error ? error.message : String(error)
+              }
             },
             { status: 400 }
           );
@@ -217,6 +271,10 @@ export async function POST(request: NextRequest) {
             error: 'Javelin not configured',
             message: 'Please configure either:\n1. Manual cookie in Settings, OR\n2. Username & Password for auto-login',
             needsConfiguration: true,
+            debug: {
+              hasCredentials: false,
+              hasCookie: false
+            }
           },
           { status: 400 }
         );
