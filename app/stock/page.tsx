@@ -487,7 +487,7 @@ export default function StockPage() {
                 {user.stock_import && (
                   <button
                     onClick={() => setShowImportModal(true)}
-                    className="px-4 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                    className="px-4 py-1.5 bg-gray-700 text-white rounded text-xs hover:bg-gray-300"
                   >
                     Import Data
                   </button>
@@ -495,7 +495,7 @@ export default function StockPage() {
                 {user.stock_export && (
                   <button
                     onClick={exportToExcel}
-                    className="px-4 py-1.5 bg-green-600 text-white rounded text-xs hover:bg-green-700"
+                    className="px-4 py-1.5 bg-gray-700 text-white rounded text-xs hover:bg-gray-300"
                   >
                     Export Stock
                   </button>
@@ -504,9 +504,9 @@ export default function StockPage() {
                   <button
                     onClick={handleRefreshJavelin}
                     disabled={refreshing}
-                    className="px-4 py-1.5 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-1.5 bg-gray-700 text-white rounded text-xs hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {refreshing ? "🔄 Refreshing..." : "🔄 Refresh Javelin"}
+                    {refreshing ? "Refreshing..." : "Refresh Javelin"}
                   </button>
                 )}
               </div>
