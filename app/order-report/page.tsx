@@ -523,7 +523,7 @@ export default function OrderReportPage() {
               {user.order_report_export && (
                 <button
                   onClick={exportToExcel}
-                  className="px-4 py-1.5 bg-gray-700 text-primary rounded text-xs hover:bg-secondary/90 ml-auto"
+                  className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-secondary/90 ml-auto"
                 >
                   Export to Excel
                 </button>
