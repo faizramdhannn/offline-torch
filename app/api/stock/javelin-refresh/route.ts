@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { spawn } from 'child_process';
-import path from 'path';
 import { getSheetData, updateSheetRow, appendSheetData } from '@/lib/sheets';
+import { refreshJavelinInventory } from '@/lib/javelin';
 
 // Function to get Javelin cookie from Google Sheets
 async function getJavelinCookie(): Promise<string | null> {
@@ -11,19 +10,13 @@ async function getJavelinCookie(): Promise<string | null> {
     
     console.log(`📊 Found ${data.length} rows in system_config`);
     
-    // Debug: log all data
-    console.log('📋 All system_config data:', JSON.stringify(data, null, 2));
-    
-    // Try different possible column names
     const cookieEntry = data.find((row: any) => {
       const key = row.config_key || row.Config_key || row['config_key'] || '';
-      console.log(`🔑 Checking row with key: "${key}"`);
       return key === 'javelin_cookie';
     });
     
     if (!cookieEntry) {
       console.log('❌ javelin_cookie entry not found!');
-      console.log('Available keys:', data.map((r: any) => r.config_key || r.Config_key || 'unknown'));
       return null;
     }
     
@@ -170,62 +163,6 @@ async function saveCookie(cookie: string, username: string): Promise<void> {
   }
 }
 
-// Execute Python script to refresh Javelin data
-async function executePythonScript(cookie: string): Promise<any> {
-  return new Promise((resolve, reject) => {
-    const scriptPath = path.join(process.cwd(), 'scripts', 'refresh_javelin.py');
-    
-    console.log('Executing Python script:', scriptPath);
-
-    const pythonProcess = spawn('python3', [scriptPath, cookie]);
-
-    let outputData = '';
-    let errorData = '';
-
-    pythonProcess.stdout.on('data', (data) => {
-      const output = data.toString();
-      outputData += output;
-      console.log('Python output:', output);
-    });
-
-    pythonProcess.stderr.on('data', (data) => {
-      const error = data.toString();
-      errorData += error;
-      console.error('Python error:', error);
-    });
-
-    pythonProcess.on('close', (code) => {
-      console.log(`Python process exited with code ${code}`);
-
-      if (code === 0) {
-        try {
-          const resultMatch = outputData.match(/RESULT:\s*(\{[^]*\})/);
-          if (resultMatch) {
-            const result = JSON.parse(resultMatch[1]);
-            resolve(result);
-            return;
-          }
-        } catch (e) {
-          console.error('Failed to parse Python result:', e);
-        }
-
-        resolve({
-          success: true,
-          message: 'Javelin data refreshed successfully',
-          output: outputData,
-        });
-      } else {
-        reject(new Error(`Python script failed with code ${code}: ${errorData || outputData}`));
-      }
-    });
-
-    pythonProcess.on('error', (error) => {
-      console.error('Failed to start Python process:', error);
-      reject(error);
-    });
-  });
-}
-
 export async function POST(request: NextRequest) {
   try {
     console.log('=== Javelin Refresh Started ===');
@@ -284,7 +221,11 @@ export async function POST(request: NextRequest) {
     // Step 3: Try to execute with current cookie
     try {
       console.log(`Attempting to refresh data with ${cookieSource} cookie...`);
-      const result = await executePythonScript(cookie!);
+      const result = await refreshJavelinInventory(cookie!);
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
       
       console.log('=== Javelin Refresh Completed ===');
       
@@ -310,7 +251,11 @@ export async function POST(request: NextRequest) {
           await saveCookie(cookie, 'system');
           console.log('New cookie obtained, retrying...');
           
-          const result = await executePythonScript(cookie);
+          const result = await refreshJavelinInventory(cookie);
+          
+          if (!result.success) {
+            throw new Error(result.message);
+          }
           
           console.log('=== Javelin Refresh Completed (after retry) ===');
           
