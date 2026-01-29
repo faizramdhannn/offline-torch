@@ -344,19 +344,6 @@ export default function SettingsPage() {
                       )}
                     </div>
                   </div>
-
-                  <div className="bg-blue-50 border border-blue-200 rounded p-4">
-                    <p className="text-sm font-semibold text-blue-800 mb-2">
-                      How It Works:
-                    </p>
-                    <ul className="text-xs text-blue-700 space-y-1 ml-4">
-                      <li>• Copy cookie from browser after login to Javelin</li>
-                      <li>• Paste cookie here to enable data refresh</li>
-                      <li>• Optionally add credentials for auto-refresh when cookie expires</li>
-                      <li>• Update cookie anytime by clicking "Update"</li>
-                      <li>• Refresh button available in Stock page for authorized users</li>
-                    </ul>
-                  </div>
                 </div>
               )}
             </div>
@@ -434,52 +421,25 @@ export default function SettingsPage() {
       {showJavelinModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-bold text-primary mb-4">
-              Configure Javelin Cookie
-            </h2>
             
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cookie Value <span className="text-red-500">*</span>
+                  Cookie Value
                 </label>
                 <textarea
                   value={manualCookie}
                   onChange={(e) => setManualCookie(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
                   rows={6}
-                  placeholder="Paste your Javelin cookie here..."
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Full cookie string from browser (e.g., PHPSESSID=xxx; other_cookie=yyy)
-                </p>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded p-4">
-                <p className="text-sm font-semibold text-blue-800 mb-2">
-                  How to get cookie:
-                </p>
-                <ol className="text-xs text-blue-700 space-y-1 ml-4">
-                  <li>1. Login to <a href="https://torch.javelin-apps.com/" target="_blank" rel="noopener noreferrer" className="underline font-semibold">torch.javelin-apps.com</a></li>
-                  <li>2. Press <kbd className="px-1 bg-blue-200 rounded">F12</kbd> to open DevTools</li>
-                  <li>3. Go to <strong>Network</strong> tab</li>
-                  <li>4. Refresh page (<kbd className="px-1 bg-blue-200 rounded">F5</kbd>)</li>
-                  <li>5. Click any request</li>
-                  <li>6. Find <strong>Cookie:</strong> in Request Headers</li>
-                  <li>7. Copy entire cookie value</li>
-                  <li>8. Paste here</li>
-                </ol>
-              </div>
-
-              <div className="border-t pt-4">
-                <p className="text-sm font-medium text-gray-700 mb-3">
-                  Optional: Enable Auto-Refresh (when cookie expires)
-                </p>
-                
+              <div className="border-t pt-4">                
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">
-                      Javelin Username (optional)
+                      Username
                     </label>
                     <input
                       type="text"
@@ -492,7 +452,7 @@ export default function SettingsPage() {
                   
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">
-                      Javelin Password (optional)
+                      Password
                     </label>
                     <input
                       type="password"
@@ -502,10 +462,6 @@ export default function SettingsPage() {
                       placeholder="Leave empty to skip auto-refresh"
                     />
                   </div>
-                  
-                  <p className="text-xs text-gray-500">
-                    If provided, system will auto-refresh cookie when expired (future feature)
-                  </p>
                 </div>
               </div>
 
