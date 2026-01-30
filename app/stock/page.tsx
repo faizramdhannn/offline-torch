@@ -176,23 +176,40 @@ export default function StockPage() {
       
       const result = await response.json();
       
-      if (response.ok && result.success) {
-        showMessage(`✅ Javelin data refreshed successfully!\n${result.rowsImported || 0} rows imported`, "success");
-        fetchData();
-        fetchLastUpdate();
-      } else {
+if (response.ok && result.success) {
+  await logActivity('POST', `Refreshed Javelin inventory: ${result.rowsImported || 0} rows`);
+  showMessage(`Javelin data refreshed successfully!\n${result.rowsImported || 0} rows imported`, "success");
+  fetchData();
+  fetchLastUpdate();
+} else {
         if (result.needsConfiguration) {
-          showMessage(`⚠️ ${result.error}\n\nPlease configure Javelin cookie in Settings first.`, "error");
+          showMessage(`${result.error}\n\nPlease configure Javelin cookie in Settings first.`, "error");
         } else {
-          showMessage(`❌ Failed to refresh Javelin data\n\n${result.details || result.error}`, "error");
+          showMessage(`Failed to refresh\n\n${result.details || result.error}`, "error");
         }
       }
     } catch (error) {
-      showMessage("Failed to refresh Javelin data. Please try again.", "error");
+      showMessage("Failed to refresh Javelin. Please try again.", "error");
     } finally {
       setRefreshing(false);
     }
   };
+
+  const logActivity = async (method: string, activity: string) => {
+  try {
+    await fetch('/api/activity-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user: user.user_name,
+        method,
+        activity_log: activity,
+      }),
+    });
+  } catch (error) {
+    console.error('Failed to log activity:', error);
+  }
+};
 
   const toProperCase = (str: string) => {
     if (!str) return '';
@@ -388,12 +405,13 @@ export default function StockPage() {
 
       let message = "";
       if (results.length > 0) {
-        message += "✅ Success:\n" + results.join("\n");
+        message += "Success:\n" + results.join("\n");
       }
       if (errors.length > 0) {
-        message += (message ? "\n\n" : "") + "❌ Errors:\n" + errors.join("\n");
+        message += (message ? "\n\n" : "") + "Errors:\n" + errors.join("\n");
       }
       
+      await logActivity('POST', `Imported stock data: ${results.join(', ')}`);
       showMessage(message || "Import completed", results.length > 0 && errors.length === 0 ? "success" : "error");
       
       if (results.length > 0) {
@@ -445,6 +463,7 @@ export default function StockPage() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Stock");
     XLSX.writeFile(wb, `stock_${selectedView}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    logActivity('GET', `Exported stock data (${selectedView} view): ${filteredData.length} items`);
   };
 
   const indexOfLastItem = currentPage * itemsPerPage;

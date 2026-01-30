@@ -82,13 +82,13 @@ export default function SettingsPage() {
   const [javelinStatus, setJavelinStatus] = useState<JavelinStatus>({
     hasCookies: false,
     hasCredentials: false,
-    username: '',
-    lastCookieUpdate: '',
-    lastCredentialsUpdate: '',
+    username: "",
+    lastCookieUpdate: "",
+    lastCredentialsUpdate: "",
   });
-  const [javelinUsername, setJavelinUsername] = useState('');
-  const [javelinPassword, setJavelinPassword] = useState('');
-  const [manualCookie, setManualCookie] = useState('');
+  const [javelinUsername, setJavelinUsername] = useState("");
+  const [javelinPassword, setJavelinPassword] = useState("");
+  const [manualCookie, setManualCookie] = useState("");
   const [savingJavelin, setSavingJavelin] = useState(false);
   const [loadingJavelin, setLoadingJavelin] = useState(false);
 
@@ -114,6 +114,22 @@ export default function SettingsPage() {
     setShowPopup(true);
   };
 
+  const logActivity = async (method: string, activity: string) => {
+    try {
+      await fetch("/api/activity-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user: user.user_name,
+          method,
+          activity_log: activity,
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to log activity:", error);
+    }
+  };
+
   const fetchUsers = async () => {
     try {
       const response = await fetch("/api/users");
@@ -135,7 +151,7 @@ export default function SettingsPage() {
       const result = await response.json();
       if (result.success) {
         setJavelinStatus(result);
-        setJavelinUsername(result.username || '');
+        setJavelinUsername(result.username || "");
       }
     } catch (error) {
       console.error("Failed to fetch Javelin status:", error);
@@ -176,19 +192,30 @@ export default function SettingsPage() {
             updatedBy: user.user_name,
           }),
         });
-        
+
         if (credResponse.ok) {
-          showMessage("✅ Cookie and credentials saved! Auto-refresh enabled.", "success");
+          await logActivity(
+            "PUT",
+            "Updated Javelin configuration (cookie + credentials)",
+          );
+          showMessage(
+            "Cookie and credentials saved! Auto-refresh enabled.",
+            "success",
+          );
         } else {
-          showMessage("✅ Cookie saved! (Credentials not saved - optional)", "success");
+          await logActivity("PUT", "Updated Javelin cookie configuration");
+          showMessage(
+            "Cookie saved! (Credentials not saved - optional)",
+            "success",
+          );
         }
       } else {
-        showMessage("✅ Cookie saved successfully!", "success");
+        showMessage("Cookie saved successfully!", "success");
       }
-      
+
       setShowJavelinModal(false);
-      setManualCookie('');
-      setJavelinPassword('');
+      setManualCookie("");
+      setJavelinPassword("");
       fetchJavelinStatus();
     } catch (error) {
       showMessage("Failed to save Javelin configuration", "error");
@@ -200,28 +227,28 @@ export default function SettingsPage() {
   const handleEditUser = (userData: UserData) => {
     setSelectedUser(userData);
     setPermissions({
-      dashboard: userData.dashboard === 'TRUE',
-      order_report: userData.order_report === 'TRUE',
-      stock: userData.stock === 'TRUE',
-      registration_request: userData.registration_request === 'TRUE',
-      user_setting: userData.user_setting === 'TRUE',
-      petty_cash: userData.petty_cash === 'TRUE',
-      petty_cash_add: userData.petty_cash_add === 'TRUE',
-      petty_cash_export: userData.petty_cash_export === 'TRUE',
-      order_report_import: userData.order_report_import === 'TRUE',
-      order_report_export: userData.order_report_export === 'TRUE',
-      customer: userData.customer === 'TRUE',
-      voucher: userData.voucher === 'TRUE',
-      bundling: userData.bundling === 'TRUE',
-      stock_import: userData.stock_import === 'TRUE',
-      stock_export: userData.stock_export === 'TRUE',
-      stock_view_store: userData.stock_view_store === 'TRUE',
-      stock_view_pca: userData.stock_view_pca === 'TRUE',
-      stock_view_master: userData.stock_view_master === 'TRUE',
-      stock_view_hpp: userData.stock_view_hpp === 'TRUE',
-      stock_view_hpt: userData.stock_view_hpt === 'TRUE',
-      stock_view_hpj: userData.stock_view_hpj === 'TRUE',
-      stock_refresh_javelin: userData.stock_refresh_javelin === 'TRUE',
+      dashboard: userData.dashboard === "TRUE",
+      order_report: userData.order_report === "TRUE",
+      stock: userData.stock === "TRUE",
+      registration_request: userData.registration_request === "TRUE",
+      user_setting: userData.user_setting === "TRUE",
+      petty_cash: userData.petty_cash === "TRUE",
+      petty_cash_add: userData.petty_cash_add === "TRUE",
+      petty_cash_export: userData.petty_cash_export === "TRUE",
+      order_report_import: userData.order_report_import === "TRUE",
+      order_report_export: userData.order_report_export === "TRUE",
+      customer: userData.customer === "TRUE",
+      voucher: userData.voucher === "TRUE",
+      bundling: userData.bundling === "TRUE",
+      stock_import: userData.stock_import === "TRUE",
+      stock_export: userData.stock_export === "TRUE",
+      stock_view_store: userData.stock_view_store === "TRUE",
+      stock_view_pca: userData.stock_view_pca === "TRUE",
+      stock_view_master: userData.stock_view_master === "TRUE",
+      stock_view_hpp: userData.stock_view_hpp === "TRUE",
+      stock_view_hpt: userData.stock_view_hpt === "TRUE",
+      stock_view_hpj: userData.stock_view_hpj === "TRUE",
+      stock_refresh_javelin: userData.stock_refresh_javelin === "TRUE",
     });
     setShowEditModal(true);
   };
@@ -241,6 +268,10 @@ export default function SettingsPage() {
       });
 
       if (response.ok) {
+        await logActivity(
+          "PUT",
+          `Updated permissions for user: ${selectedUser.user_name}`,
+        );
         showMessage("User permissions updated successfully", "success");
         setShowEditModal(false);
         setSelectedUser(null);
@@ -257,15 +288,15 @@ export default function SettingsPage() {
 
   const getActivePermissions = (userData: UserData) => {
     const perms = [];
-    if (userData.dashboard === 'TRUE') perms.push('Dashboard');
-    if (userData.order_report === 'TRUE') perms.push('Order Report');
-    if (userData.stock === 'TRUE') perms.push('Stock');
-    if (userData.petty_cash === 'TRUE') perms.push('Petty Cash');
-    if (userData.customer === 'TRUE') perms.push('Customer');
-    if (userData.voucher === 'TRUE') perms.push('Voucher');
-    if (userData.bundling === 'TRUE') perms.push('Bundling');
-    if (userData.registration_request === 'TRUE') perms.push('Registration');
-    if (userData.user_setting === 'TRUE') perms.push('Settings');
+    if (userData.dashboard === "TRUE") perms.push("Dashboard");
+    if (userData.order_report === "TRUE") perms.push("Order Report");
+    if (userData.stock === "TRUE") perms.push("Stock");
+    if (userData.petty_cash === "TRUE") perms.push("Petty Cash");
+    if (userData.customer === "TRUE") perms.push("Customer");
+    if (userData.voucher === "TRUE") perms.push("Voucher");
+    if (userData.bundling === "TRUE") perms.push("Bundling");
+    if (userData.registration_request === "TRUE") perms.push("Registration");
+    if (userData.user_setting === "TRUE") perms.push("Settings");
     return perms;
   };
 
@@ -274,7 +305,7 @@ export default function SettingsPage() {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar userName={user.name} permissions={user} />
-      
+
       <div className="flex-1 overflow-auto">
         <div className="p-6">
           <h1 className="text-2xl font-bold text-primary mb-6">Settings</h1>
@@ -284,7 +315,9 @@ export default function SettingsPage() {
             <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-800">Javelin Configuration</h2>
+                  <h2 className="text-lg font-semibold text-gray-800">
+                    Javelin Configuration
+                  </h2>
                   <p className="text-sm text-gray-600 mt-1">
                     Configure cookie for Javelin data refresh
                   </p>
@@ -293,7 +326,7 @@ export default function SettingsPage() {
                   onClick={() => setShowJavelinModal(true)}
                   className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
                 >
-                  {javelinStatus.hasCookies ? 'Update' : 'Configure'}
+                  {javelinStatus.hasCookies ? "Update" : "Configure"}
                 </button>
               </div>
             </div>
@@ -306,7 +339,9 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-gray-50 p-4 rounded border border-gray-200">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700">Cookie Status</span>
+                        <span className="text-sm font-medium text-gray-700">
+                          Cookie Status
+                        </span>
                         {javelinStatus.hasCookies ? (
                           <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
                             Configured
@@ -326,7 +361,9 @@ export default function SettingsPage() {
 
                     <div className="bg-gray-50 p-4 rounded border border-gray-200">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700">Auto-Refresh</span>
+                        <span className="text-sm font-medium text-gray-700">
+                          Auto-Refresh
+                        </span>
                         {javelinStatus.hasCredentials ? (
                           <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
                             ✓ Enabled
@@ -352,12 +389,14 @@ export default function SettingsPage() {
           {/* User Management */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-800">User Management</h2>
+              <h2 className="text-lg font-semibold text-gray-800">
+                User Management
+              </h2>
               <p className="text-sm text-gray-600 mt-1">
                 Manage user permissions and access control
               </p>
             </div>
-            
+
             {loading ? (
               <div className="p-8 text-center">Loading...</div>
             ) : (
@@ -365,10 +404,18 @@ export default function SettingsPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-100 border-b">
                     <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Name</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Username</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Active Modules</th>
-                      <th className="px-4 py-3 text-center font-semibold text-gray-700">Actions</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                        Name
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                        Username
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                        Active Modules
+                      </th>
+                      <th className="px-4 py-3 text-center font-semibold text-gray-700">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -377,13 +424,17 @@ export default function SettingsPage() {
 
                       return (
                         <tr key={index} className="border-b hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium">{userData.name}</td>
-                          <td className="px-4 py-3 text-gray-600">{userData.user_name}</td>
+                          <td className="px-4 py-3 font-medium">
+                            {userData.name}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            {userData.user_name}
+                          </td>
                           <td className="px-4 py-3">
                             <div className="flex flex-wrap gap-1">
                               {activePermissions.length > 0 ? (
                                 activePermissions.map((perm, i) => (
-                                  <span 
+                                  <span
                                     key={i}
                                     className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs"
                                   >
@@ -391,7 +442,9 @@ export default function SettingsPage() {
                                   </span>
                                 ))
                               ) : (
-                                <span className="text-xs text-gray-400 italic">No permissions</span>
+                                <span className="text-xs text-gray-400 italic">
+                                  No permissions
+                                </span>
                               )}
                             </div>
                           </td>
@@ -409,7 +462,9 @@ export default function SettingsPage() {
                   </tbody>
                 </table>
                 {users.length === 0 && (
-                  <div className="p-8 text-center text-gray-500">No users found</div>
+                  <div className="p-8 text-center text-gray-500">
+                    No users found
+                  </div>
                 )}
               </div>
             )}
@@ -421,7 +476,6 @@ export default function SettingsPage() {
       {showJavelinModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -435,7 +489,7 @@ export default function SettingsPage() {
                 />
               </div>
 
-              <div className="border-t pt-4">                
+              <div className="border-t pt-4">
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">
@@ -449,7 +503,7 @@ export default function SettingsPage() {
                       placeholder="Leave empty to skip auto-refresh"
                     />
                   </div>
-                  
+
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">
                       Password
@@ -469,8 +523,8 @@ export default function SettingsPage() {
                 <button
                   onClick={() => {
                     setShowJavelinModal(false);
-                    setManualCookie('');
-                    setJavelinPassword('');
+                    setManualCookie("");
+                    setJavelinPassword("");
                   }}
                   disabled={savingJavelin}
                   className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
@@ -494,27 +548,38 @@ export default function SettingsPage() {
       {showEditModal && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 my-8 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-bold text-primary mb-4">Edit User Permissions</h2>
-            
+            <h2 className="text-lg font-bold text-primary mb-4">
+              Edit User Permissions
+            </h2>
+
             <div className="mb-4 p-4 bg-gray-50 rounded">
               <p className="text-sm text-gray-600">
-                <strong className="text-gray-800">User:</strong> {selectedUser.name}
+                <strong className="text-gray-800">User:</strong>{" "}
+                {selectedUser.name}
               </p>
               <p className="text-sm text-gray-600">
-                <strong className="text-gray-800">Username:</strong> {selectedUser.user_name}
+                <strong className="text-gray-800">Username:</strong>{" "}
+                {selectedUser.user_name}
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-6 mb-6">
               {/* Left Column - Basic Modules */}
               <div className="space-y-4">
-                <h3 className="font-semibold text-gray-800 border-b pb-2">Basic Modules</h3>
-                
+                <h3 className="font-semibold text-gray-800 border-b pb-2">
+                  Basic Modules
+                </h3>
+
                 <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
                   <input
                     type="checkbox"
                     checked={permissions.dashboard}
-                    onChange={(e) => setPermissions({...permissions, dashboard: e.target.checked})}
+                    onChange={(e) =>
+                      setPermissions({
+                        ...permissions,
+                        dashboard: e.target.checked,
+                      })
+                    }
                     className="mr-2"
                   />
                   <span>Dashboard</span>
@@ -526,18 +591,28 @@ export default function SettingsPage() {
                     <input
                       type="checkbox"
                       checked={permissions.order_report}
-                      onChange={(e) => setPermissions({...permissions, order_report: e.target.checked})}
+                      onChange={(e) =>
+                        setPermissions({
+                          ...permissions,
+                          order_report: e.target.checked,
+                        })
+                      }
                       className="mr-2"
                     />
                     <span>Order Report</span>
                   </label>
-                  
+
                   <div className="ml-6 mt-1 space-y-1">
                     <label className="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
                       <input
                         type="checkbox"
                         checked={permissions.order_report_import}
-                        onChange={(e) => setPermissions({...permissions, order_report_import: e.target.checked})}
+                        onChange={(e) =>
+                          setPermissions({
+                            ...permissions,
+                            order_report_import: e.target.checked,
+                          })
+                        }
                         className="mr-2"
                       />
                       Import Data
@@ -546,7 +621,12 @@ export default function SettingsPage() {
                       <input
                         type="checkbox"
                         checked={permissions.order_report_export}
-                        onChange={(e) => setPermissions({...permissions, order_report_export: e.target.checked})}
+                        onChange={(e) =>
+                          setPermissions({
+                            ...permissions,
+                            order_report_export: e.target.checked,
+                          })
+                        }
                         className="mr-2"
                       />
                       Export Data
@@ -560,18 +640,28 @@ export default function SettingsPage() {
                     <input
                       type="checkbox"
                       checked={permissions.petty_cash}
-                      onChange={(e) => setPermissions({...permissions, petty_cash: e.target.checked})}
+                      onChange={(e) =>
+                        setPermissions({
+                          ...permissions,
+                          petty_cash: e.target.checked,
+                        })
+                      }
                       className="mr-2"
                     />
                     <span>Petty Cash</span>
                   </label>
-                  
+
                   <div className="ml-6 mt-1 space-y-1">
                     <label className="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
                       <input
                         type="checkbox"
                         checked={permissions.petty_cash_add}
-                        onChange={(e) => setPermissions({...permissions, petty_cash_add: e.target.checked})}
+                        onChange={(e) =>
+                          setPermissions({
+                            ...permissions,
+                            petty_cash_add: e.target.checked,
+                          })
+                        }
                         className="mr-2"
                       />
                       Add Entry
@@ -580,7 +670,12 @@ export default function SettingsPage() {
                       <input
                         type="checkbox"
                         checked={permissions.petty_cash_export}
-                        onChange={(e) => setPermissions({...permissions, petty_cash_export: e.target.checked})}
+                        onChange={(e) =>
+                          setPermissions({
+                            ...permissions,
+                            petty_cash_export: e.target.checked,
+                          })
+                        }
                         className="mr-2"
                       />
                       Export Data
@@ -592,7 +687,12 @@ export default function SettingsPage() {
                   <input
                     type="checkbox"
                     checked={permissions.customer}
-                    onChange={(e) => setPermissions({...permissions, customer: e.target.checked})}
+                    onChange={(e) =>
+                      setPermissions({
+                        ...permissions,
+                        customer: e.target.checked,
+                      })
+                    }
                     className="mr-2"
                   />
                   <span>Customer</span>
@@ -602,7 +702,12 @@ export default function SettingsPage() {
                   <input
                     type="checkbox"
                     checked={permissions.voucher}
-                    onChange={(e) => setPermissions({...permissions, voucher: e.target.checked})}
+                    onChange={(e) =>
+                      setPermissions({
+                        ...permissions,
+                        voucher: e.target.checked,
+                      })
+                    }
                     className="mr-2"
                   />
                   <span>Voucher</span>
@@ -612,7 +717,12 @@ export default function SettingsPage() {
                   <input
                     type="checkbox"
                     checked={permissions.bundling}
-                    onChange={(e) => setPermissions({...permissions, bundling: e.target.checked})}
+                    onChange={(e) =>
+                      setPermissions({
+                        ...permissions,
+                        bundling: e.target.checked,
+                      })
+                    }
                     className="mr-2"
                   />
                   <span>Bundling</span>
@@ -621,27 +731,41 @@ export default function SettingsPage() {
 
               {/* Right Column - Stock & Admin */}
               <div className="space-y-4">
-                <h3 className="font-semibold text-gray-800 border-b pb-2">Stock Management</h3>
-                
+                <h3 className="font-semibold text-gray-800 border-b pb-2">
+                  Stock Management
+                </h3>
+
                 {/* Stock */}
                 <div className="border-l-2 border-purple-300 pl-3">
                   <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded font-medium">
                     <input
                       type="checkbox"
                       checked={permissions.stock}
-                      onChange={(e) => setPermissions({...permissions, stock: e.target.checked})}
+                      onChange={(e) =>
+                        setPermissions({
+                          ...permissions,
+                          stock: e.target.checked,
+                        })
+                      }
                       className="mr-2"
                     />
                     <span>Stock</span>
                   </label>
-                  
+
                   <div className="ml-6 mt-2 space-y-2">
-                    <p className="text-xs font-semibold text-gray-600">Actions:</p>
+                    <p className="text-xs font-semibold text-gray-600">
+                      Actions:
+                    </p>
                     <label className="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
                       <input
                         type="checkbox"
                         checked={permissions.stock_import}
-                        onChange={(e) => setPermissions({...permissions, stock_import: e.target.checked})}
+                        onChange={(e) =>
+                          setPermissions({
+                            ...permissions,
+                            stock_import: e.target.checked,
+                          })
+                        }
                         className="mr-2"
                       />
                       Import Data
@@ -650,7 +774,12 @@ export default function SettingsPage() {
                       <input
                         type="checkbox"
                         checked={permissions.stock_export}
-                        onChange={(e) => setPermissions({...permissions, stock_export: e.target.checked})}
+                        onChange={(e) =>
+                          setPermissions({
+                            ...permissions,
+                            stock_export: e.target.checked,
+                          })
+                        }
                         className="mr-2"
                       />
                       Export Data
@@ -659,18 +788,30 @@ export default function SettingsPage() {
                       <input
                         type="checkbox"
                         checked={permissions.stock_refresh_javelin}
-                        onChange={(e) => setPermissions({...permissions, stock_refresh_javelin: e.target.checked})}
+                        onChange={(e) =>
+                          setPermissions({
+                            ...permissions,
+                            stock_refresh_javelin: e.target.checked,
+                          })
+                        }
                         className="mr-2"
                       />
                       Refresh Javelin
                     </label>
-                    
-                    <p className="text-xs font-semibold text-gray-600 mt-3">View Tabs:</p>
+
+                    <p className="text-xs font-semibold text-gray-600 mt-3">
+                      View Tabs:
+                    </p>
                     <label className="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
                       <input
                         type="checkbox"
                         checked={permissions.stock_view_store}
-                        onChange={(e) => setPermissions({...permissions, stock_view_store: e.target.checked})}
+                        onChange={(e) =>
+                          setPermissions({
+                            ...permissions,
+                            stock_view_store: e.target.checked,
+                          })
+                        }
                         className="mr-2"
                       />
                       View Store Tab
@@ -679,7 +820,12 @@ export default function SettingsPage() {
                       <input
                         type="checkbox"
                         checked={permissions.stock_view_pca}
-                        onChange={(e) => setPermissions({...permissions, stock_view_pca: e.target.checked})}
+                        onChange={(e) =>
+                          setPermissions({
+                            ...permissions,
+                            stock_view_pca: e.target.checked,
+                          })
+                        }
                         className="mr-2"
                       />
                       View PCA Tab
@@ -688,18 +834,30 @@ export default function SettingsPage() {
                       <input
                         type="checkbox"
                         checked={permissions.stock_view_master}
-                        onChange={(e) => setPermissions({...permissions, stock_view_master: e.target.checked})}
+                        onChange={(e) =>
+                          setPermissions({
+                            ...permissions,
+                            stock_view_master: e.target.checked,
+                          })
+                        }
                         className="mr-2"
                       />
                       View Master Tab
                     </label>
-                    
-                    <p className="text-xs font-semibold text-gray-600 mt-3">Price Columns:</p>
+
+                    <p className="text-xs font-semibold text-gray-600 mt-3">
+                      Price Columns:
+                    </p>
                     <label className="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
                       <input
                         type="checkbox"
                         checked={permissions.stock_view_hpp}
-                        onChange={(e) => setPermissions({...permissions, stock_view_hpp: e.target.checked})}
+                        onChange={(e) =>
+                          setPermissions({
+                            ...permissions,
+                            stock_view_hpp: e.target.checked,
+                          })
+                        }
                         className="mr-2"
                       />
                       View HPP
@@ -708,7 +866,12 @@ export default function SettingsPage() {
                       <input
                         type="checkbox"
                         checked={permissions.stock_view_hpt}
-                        onChange={(e) => setPermissions({...permissions, stock_view_hpt: e.target.checked})}
+                        onChange={(e) =>
+                          setPermissions({
+                            ...permissions,
+                            stock_view_hpt: e.target.checked,
+                          })
+                        }
                         className="mr-2"
                       />
                       View HPT
@@ -717,7 +880,12 @@ export default function SettingsPage() {
                       <input
                         type="checkbox"
                         checked={permissions.stock_view_hpj}
-                        onChange={(e) => setPermissions({...permissions, stock_view_hpj: e.target.checked})}
+                        onChange={(e) =>
+                          setPermissions({
+                            ...permissions,
+                            stock_view_hpj: e.target.checked,
+                          })
+                        }
                         className="mr-2"
                       />
                       View HPJ
@@ -726,23 +894,35 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="mt-6 pt-4 border-t">
-                  <h3 className="font-semibold text-gray-800 mb-3">Admin Access</h3>
-                  
+                  <h3 className="font-semibold text-gray-800 mb-3">
+                    Admin Access
+                  </h3>
+
                   <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
                     <input
                       type="checkbox"
                       checked={permissions.registration_request}
-                      onChange={(e) => setPermissions({...permissions, registration_request: e.target.checked})}
+                      onChange={(e) =>
+                        setPermissions({
+                          ...permissions,
+                          registration_request: e.target.checked,
+                        })
+                      }
                       className="mr-2"
                     />
                     <span>Registration Requests</span>
                   </label>
-                  
+
                   <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
                     <input
                       type="checkbox"
                       checked={permissions.user_setting}
-                      onChange={(e) => setPermissions({...permissions, user_setting: e.target.checked})}
+                      onChange={(e) =>
+                        setPermissions({
+                          ...permissions,
+                          user_setting: e.target.checked,
+                        })
+                      }
                       className="mr-2"
                     />
                     <span>User Settings</span>
@@ -753,7 +933,8 @@ export default function SettingsPage() {
 
             <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4">
               <p className="text-xs text-yellow-800">
-                <strong>Note:</strong> Changes will take effect on user's next login or page refresh.
+                <strong>Note:</strong> Changes will take effect on user's next
+                login or page refresh.
               </p>
             </div>
 
@@ -780,7 +961,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <Popup 
+      <Popup
         show={showPopup}
         message={popupMessage}
         type={popupType}

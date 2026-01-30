@@ -36,15 +36,15 @@ export default function PettyCashPage() {
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
-  
+
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedStores, setSelectedStores] = useState<string[]>([]);
-  
+
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showStoreDropdown, setShowStoreDropdown] = useState(false);
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -84,14 +84,34 @@ export default function PettyCashPage() {
     setShowPopup(true);
   };
 
+  const logActivity = async (method: string, activity: string) => {
+    try {
+      await fetch("/api/activity-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user: user.user_name,
+          method,
+          activity_log: activity,
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to log activity:", error);
+    }
+  };
+
   const fetchData = async (username: string, isAdmin: boolean) => {
     try {
-      const response = await fetch(`/api/petty-cash?username=${username}&isAdmin=${isAdmin}`);
+      const response = await fetch(
+        `/api/petty-cash?username=${username}&isAdmin=${isAdmin}`,
+      );
       const result = await response.json();
       setData(result);
       setFilteredData(result);
-      
-      const uniqueStores = [...new Set(result.map((item: PettyCash) => item.store))].filter(Boolean);
+
+      const uniqueStores = [
+        ...new Set(result.map((item: PettyCash) => item.store)),
+      ].filter(Boolean);
       setStores(uniqueStores as string[]);
     } catch (error) {
       showMessage("Failed to fetch data", "error");
@@ -112,10 +132,20 @@ export default function PettyCashPage() {
 
   const parseDate = (dateString: string) => {
     const months: { [key: string]: number } = {
-      'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
-      'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
+      Jan: 0,
+      Feb: 1,
+      Mar: 2,
+      Apr: 3,
+      May: 4,
+      Jun: 5,
+      Jul: 6,
+      Aug: 7,
+      Sep: 8,
+      Oct: 9,
+      Nov: 10,
+      Dec: 11,
     };
-    const parts = dateString.split(' ');
+    const parts = dateString.split(" ");
     return new Date(parseInt(parts[2]), months[parts[1]], parseInt(parts[0]));
   };
 
@@ -133,7 +163,9 @@ export default function PettyCashPage() {
     }
 
     if (selectedCategories.length > 0) {
-      filtered = filtered.filter((item) => selectedCategories.includes(item.category));
+      filtered = filtered.filter((item) =>
+        selectedCategories.includes(item.category),
+      );
     }
 
     if (selectedStores.length > 0) {
@@ -154,27 +186,28 @@ export default function PettyCashPage() {
   };
 
   const toggleCategory = (category: string) => {
-    setSelectedCategories(prev => 
-      prev.includes(category) 
-        ? prev.filter(c => c !== category)
-        : [...prev, category]
+    setSelectedCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category],
     );
   };
 
   const toggleStore = (store: string) => {
-    setSelectedStores(prev => 
-      prev.includes(store) 
-        ? prev.filter(s => s !== store)
-        : [...prev, store]
+    setSelectedStores((prev) =>
+      prev.includes(store) ? prev.filter((s) => s !== store) : [...prev, store],
     );
   };
 
   // Format number to Rupiah for display
   const formatRupiah = (value: string | number) => {
-    const number = typeof value === 'string' ? parseInt(value.replace(/[^0-9]/g, '') || '0') : value;
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
+    const number =
+      typeof value === "string"
+        ? parseInt(value.replace(/[^0-9]/g, "") || "0")
+        : value;
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
       minimumFractionDigits: 0,
     }).format(number);
   };
@@ -185,17 +218,17 @@ export default function PettyCashPage() {
 
     try {
       const form = new FormData();
-      form.append('description', formData.description);
-      form.append('category', formData.category);
+      form.append("description", formData.description);
+      form.append("category", formData.category);
       // Send raw number only (remove all non-numeric characters)
-      form.append('value', formData.value.replace(/[^0-9]/g, ''));
-      form.append('store', user.user_name);
-      form.append('ket', formData.ket);
-      form.append('transfer', formData.transfer.toString());
-      form.append('username', user.user_name);
-      
+      form.append("value", formData.value.replace(/[^0-9]/g, ""));
+      form.append("store", user.user_name);
+      form.append("ket", formData.ket);
+      form.append("transfer", formData.transfer.toString());
+      form.append("username", user.user_name);
+
       if (formData.file) {
-        form.append('file', formData.file);
+        form.append("file", formData.file);
       }
 
       const response = await fetch("/api/petty-cash", {
@@ -204,6 +237,10 @@ export default function PettyCashPage() {
       });
 
       if (response.ok) {
+        await logActivity(
+          "POST",
+          `Added petty cash: ${formData.category} - ${formData.value}`,
+        );
         showMessage("Entry added successfully", "success");
         setShowAddModal(false);
         setFormData({
@@ -233,7 +270,7 @@ export default function PettyCashPage() {
       // Format the value for display in the form
       value: formatRupiah(entry.value),
       ket: entry.ket,
-      transfer: entry.transfer === 'TRUE',
+      transfer: entry.transfer === "TRUE",
       file: null,
     });
     setShowEditModal(true);
@@ -247,18 +284,18 @@ export default function PettyCashPage() {
 
     try {
       const form = new FormData();
-      form.append('id', selectedEntry.id);
-      form.append('description', formData.description);
-      form.append('category', formData.category);
+      form.append("id", selectedEntry.id);
+      form.append("description", formData.description);
+      form.append("category", formData.category);
       // Send raw number only
-      form.append('value', formData.value.replace(/[^0-9]/g, ''));
-      form.append('store', user.user_name);
-      form.append('ket', formData.ket);
-      form.append('transfer', formData.transfer.toString());
-      form.append('username', user.user_name);
-      
+      form.append("value", formData.value.replace(/[^0-9]/g, ""));
+      form.append("store", user.user_name);
+      form.append("ket", formData.ket);
+      form.append("transfer", formData.transfer.toString());
+      form.append("username", user.user_name);
+
       if (formData.file) {
-        form.append('file', formData.file);
+        form.append("file", formData.file);
       }
 
       const response = await fetch("/api/petty-cash", {
@@ -267,6 +304,10 @@ export default function PettyCashPage() {
       });
 
       if (response.ok) {
+        await logActivity(
+          "PUT",
+          `Updated petty cash entry ID: ${selectedEntry.id}`,
+        );
         showMessage("Entry updated successfully", "success");
         setShowEditModal(false);
         setSelectedEntry(null);
@@ -298,6 +339,7 @@ export default function PettyCashPage() {
       });
 
       if (response.ok) {
+        await logActivity("DELETE", `Deleted petty cash entry ID: ${id}`);
         showMessage("Entry deleted successfully", "success");
         fetchData(user.user_name, user.petty_cash_export);
       } else {
@@ -314,24 +356,28 @@ export default function PettyCashPage() {
 
   const exportToExcel = () => {
     const exportData = filteredData.map((item) => ({
-      "Date": item.date,
-      "Description": toTitleCase(item.description),
-      "Category": item.category,
-      "Value": parseInt(item.value || '0'), // Export as number
-      "Store": item.store,
-      "Ket": item.ket,
-      "Transfer": item.transfer === 'TRUE' ? 'Yes' : 'No',
-      "Link": item.link_url || "-",
+      Date: item.date,
+      Description: toTitleCase(item.description),
+      Category: item.category,
+      Value: parseInt(item.value || "0"), // Export as number
+      Store: item.store,
+      Ket: item.ket,
+      Transfer: item.transfer === "TRUE" ? "Yes" : "No",
+      Link: item.link_url || "-",
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Petty Cash");
     XLSX.writeFile(wb, "petty_cash.xlsx");
+    logActivity(
+      "GET",
+      `Exported petty cash to Excel: ${filteredData.length} entries`,
+    );
   };
 
   const toTitleCase = (str: string) => {
-    return str.toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
+    return str.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
   };
 
   const exportToDoc = async () => {
@@ -351,13 +397,17 @@ export default function PettyCashPage() {
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         a.href = url;
-        a.download = `Petty_Cash_${user.user_name}_${new Date().toISOString().split('T')[0]}.docx`;
+        a.download = `Petty_Cash_${user.user_name}_${new Date().toISOString().split("T")[0]}.docx`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
+        await logActivity(
+          "GET",
+          `Exported petty cash to DOC: ${filteredData.length} entries`,
+        );
         showMessage("Document exported successfully", "success");
       } else {
         showMessage("Failed to export document", "error");
@@ -375,7 +425,7 @@ export default function PettyCashPage() {
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
   const totalValue = filteredData.reduce((sum, item) => {
-    return sum + parseInt(item.value.replace(/[^0-9]/g, '') || '0');
+    return sum + parseInt(item.value.replace(/[^0-9]/g, "") || "0");
   }, 0);
 
   if (!user) return null;
@@ -383,7 +433,7 @@ export default function PettyCashPage() {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar userName={user.name} permissions={user} />
-      
+
       <div className="flex-1 overflow-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
@@ -431,8 +481,8 @@ export default function PettyCashPage() {
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
                 >
                   <span className="text-gray-500">
-                    {selectedCategories.length === 0 
-                      ? "Select category..." 
+                    {selectedCategories.length === 0
+                      ? "Select category..."
                       : `${selectedCategories.length} selected`}
                   </span>
                   <span className="text-gray-400">▼</span>
@@ -440,8 +490,8 @@ export default function PettyCashPage() {
                 {showCategoryDropdown && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
                     {categories.map((category) => (
-                      <label 
-                        key={category} 
+                      <label
+                        key={category}
                         className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
                       >
                         <input
@@ -465,8 +515,8 @@ export default function PettyCashPage() {
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
                 >
                   <span className="text-gray-500">
-                    {selectedStores.length === 0 
-                      ? "Select store..." 
+                    {selectedStores.length === 0
+                      ? "Select store..."
                       : `${selectedStores.length} selected`}
                   </span>
                   <span className="text-gray-400">▼</span>
@@ -474,8 +524,8 @@ export default function PettyCashPage() {
                 {showStoreDropdown && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
                     {stores.map((store) => (
-                      <label 
-                        key={store} 
+                      <label
+                        key={store}
                         className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
                       >
                         <input
@@ -527,15 +577,33 @@ export default function PettyCashPage() {
                   <table className="w-full text-xs">
                     <thead className="bg-gray-100 border-b">
                       <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">Date</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-32">Description</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">Category</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">Value</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">Store</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">Ket</th>
-                        <th className="px-3 py-2 text-center font-semibold text-gray-700 w-16">Transfer</th>
-                        <th className="px-3 py-2 text-center font-semibold text-gray-700 w-16">Link</th>
-                        <th className="px-3 py-2 text-center font-semibold text-gray-700 w-24">Actions</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">
+                          Date
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-32">
+                          Description
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">
+                          Category
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">
+                          Value
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">
+                          Store
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">
+                          Ket
+                        </th>
+                        <th className="px-3 py-2 text-center font-semibold text-gray-700 w-16">
+                          Transfer
+                        </th>
+                        <th className="px-3 py-2 text-center font-semibold text-gray-700 w-16">
+                          Link
+                        </th>
+                        <th className="px-3 py-2 text-center font-semibold text-gray-700 w-24">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -544,17 +612,19 @@ export default function PettyCashPage() {
                           <td className="px-3 py-2">{item.date}</td>
                           <td className="px-3 py-2">{item.description}</td>
                           <td className="px-3 py-2">{item.category}</td>
-                          <td className="px-3 py-2">{formatRupiah(item.value)}</td>
+                          <td className="px-3 py-2">
+                            {formatRupiah(item.value)}
+                          </td>
                           <td className="px-3 py-2">{item.store}</td>
                           <td className="px-3 py-2">{item.ket || "-"}</td>
                           <td className="px-3 py-2 text-center">
-                            {item.transfer === 'TRUE' ? '✓' : '-'}
+                            {item.transfer === "TRUE" ? "✓" : "-"}
                           </td>
                           <td className="px-3 py-2 text-center">
                             {item.link_url ? (
-                              <a 
-                                href={item.link_url} 
-                                target="_blank" 
+                              <a
+                                href={item.link_url}
+                                target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-blue-600 hover:underline"
                               >
@@ -585,25 +655,35 @@ export default function PettyCashPage() {
                         </tr>
                       ))}
                       <tr className="bg-gray-50 font-semibold">
-                        <td colSpan={3} className="px-3 py-2 text-right">Total:</td>
-                        <td className="px-3 py-2">{formatRupiah(totalValue)}</td>
+                        <td colSpan={3} className="px-3 py-2 text-right">
+                          Total:
+                        </td>
+                        <td className="px-3 py-2">
+                          {formatRupiah(totalValue)}
+                        </td>
                         <td colSpan={5}></td>
                       </tr>
                     </tbody>
                   </table>
                   {filteredData.length === 0 && (
-                    <div className="p-8 text-center text-gray-500">No data available</div>
+                    <div className="p-8 text-center text-gray-500">
+                      No data available
+                    </div>
                   )}
                 </div>
 
                 {totalPages > 1 && (
                   <div className="flex justify-between items-center px-4 py-3 border-t">
                     <div className="text-xs text-gray-600">
-                      Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredData.length)} of {filteredData.length} entries
+                      Showing {indexOfFirstItem + 1} to{" "}
+                      {Math.min(indexOfLastItem, filteredData.length)} of{" "}
+                      {filteredData.length} entries
                     </div>
                     <div className="flex gap-1">
                       <button
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        onClick={() =>
+                          setCurrentPage((prev) => Math.max(1, prev - 1))
+                        }
                         disabled={currentPage === 1}
                         className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                       >
@@ -629,13 +709,24 @@ export default function PettyCashPage() {
                               {page}
                             </button>
                           );
-                        } else if (page === currentPage - 2 || page === currentPage + 2) {
-                          return <span key={page} className="px-2">...</span>;
+                        } else if (
+                          page === currentPage - 2 ||
+                          page === currentPage + 2
+                        ) {
+                          return (
+                            <span key={page} className="px-2">
+                              ...
+                            </span>
+                          );
                         }
                         return null;
                       })}
                       <button
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        onClick={() =>
+                          setCurrentPage((prev) =>
+                            Math.min(totalPages, prev + 1),
+                          )
+                        }
                         disabled={currentPage === totalPages}
                         className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                       >
@@ -654,8 +745,10 @@ export default function PettyCashPage() {
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 my-8">
-            <h2 className="text-lg font-bold text-primary mb-4">Add Petty Cash Entry</h2>
-            
+            <h2 className="text-lg font-bold text-primary mb-4">
+              Add Petty Cash Entry
+            </h2>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -665,7 +758,9 @@ export default function PettyCashPage() {
                   <input
                     type="text"
                     value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     required
                   />
@@ -677,13 +772,17 @@ export default function PettyCashPage() {
                   </label>
                   <select
                     value={formData.category}
-                    onChange={(e) => setFormData({...formData, category: e.target.value})}
+                    onChange={(e) =>
+                      setFormData({ ...formData, category: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     required
                   >
                     <option value="">Select Category</option>
                     {categories.map((cat) => (
-                      <option key={cat} value={cat}>{cat}</option>
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -696,8 +795,11 @@ export default function PettyCashPage() {
                     type="text"
                     value={formData.value}
                     onChange={(e) => {
-                      const val = e.target.value.replace(/[^0-9]/g, '');
-                      setFormData({...formData, value: val ? formatRupiah(val) : ''});
+                      const val = e.target.value.replace(/[^0-9]/g, "");
+                      setFormData({
+                        ...formData,
+                        value: val ? formatRupiah(val) : "",
+                      });
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     placeholder="Rp 0"
@@ -723,7 +825,9 @@ export default function PettyCashPage() {
                   </label>
                   <textarea
                     value={formData.ket}
-                    onChange={(e) => setFormData({...formData, ket: e.target.value})}
+                    onChange={(e) =>
+                      setFormData({ ...formData, ket: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     rows={3}
                   />
@@ -734,7 +838,9 @@ export default function PettyCashPage() {
                     <input
                       type="checkbox"
                       checked={formData.transfer}
-                      onChange={(e) => setFormData({...formData, transfer: e.target.checked})}
+                      onChange={(e) =>
+                        setFormData({ ...formData, transfer: e.target.checked })
+                      }
                       className="mr-2"
                     />
                     Transfer
@@ -748,11 +854,18 @@ export default function PettyCashPage() {
                   <input
                     type="file"
                     accept=".jpg,.jpeg,.png,.pdf"
-                    onChange={(e) => setFormData({...formData, file: e.target.files?.[0] || null})}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        file: e.target.files?.[0] || null,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90"
                   />
                   {formData.file && (
-                    <p className="text-xs text-gray-500 mt-1">Selected: {formData.file.name}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Selected: {formData.file.name}
+                    </p>
                   )}
                 </div>
               </div>
@@ -793,8 +906,10 @@ export default function PettyCashPage() {
       {showEditModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 my-8">
-            <h2 className="text-lg font-bold text-primary mb-4">Edit Petty Cash Entry</h2>
-            
+            <h2 className="text-lg font-bold text-primary mb-4">
+              Edit Petty Cash Entry
+            </h2>
+
             <form onSubmit={handleUpdate} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -804,7 +919,9 @@ export default function PettyCashPage() {
                   <input
                     type="text"
                     value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     required
                   />
@@ -816,13 +933,17 @@ export default function PettyCashPage() {
                   </label>
                   <select
                     value={formData.category}
-                    onChange={(e) => setFormData({...formData, category: e.target.value})}
+                    onChange={(e) =>
+                      setFormData({ ...formData, category: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     required
                   >
                     <option value="">Select Category</option>
                     {categories.map((cat) => (
-                      <option key={cat} value={cat}>{cat}</option>
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -835,8 +956,11 @@ export default function PettyCashPage() {
                     type="text"
                     value={formData.value}
                     onChange={(e) => {
-                      const val = e.target.value.replace(/[^0-9]/g, '');
-                      setFormData({...formData, value: val ? formatRupiah(val) : ''});
+                      const val = e.target.value.replace(/[^0-9]/g, "");
+                      setFormData({
+                        ...formData,
+                        value: val ? formatRupiah(val) : "",
+                      });
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     placeholder="Rp 0"
@@ -862,7 +986,9 @@ export default function PettyCashPage() {
                   </label>
                   <textarea
                     value={formData.ket}
-                    onChange={(e) => setFormData({...formData, ket: e.target.value})}
+                    onChange={(e) =>
+                      setFormData({ ...formData, ket: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     rows={3}
                   />
@@ -873,7 +999,9 @@ export default function PettyCashPage() {
                     <input
                       type="checkbox"
                       checked={formData.transfer}
-                      onChange={(e) => setFormData({...formData, transfer: e.target.checked})}
+                      onChange={(e) =>
+                        setFormData({ ...formData, transfer: e.target.checked })
+                      }
                       className="mr-2"
                     />
                     Transfer
@@ -887,15 +1015,29 @@ export default function PettyCashPage() {
                   <input
                     type="file"
                     accept=".jpg,.jpeg,.png,.pdf"
-                    onChange={(e) => setFormData({...formData, file: e.target.files?.[0] || null})}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        file: e.target.files?.[0] || null,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90"
                   />
                   {formData.file && (
-                    <p className="text-xs text-gray-500 mt-1">Selected: {formData.file.name}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Selected: {formData.file.name}
+                    </p>
                   )}
                   {selectedEntry.link_url && !formData.file && (
                     <p className="text-xs text-blue-600 mt-1">
-                      Current file: <a href={selectedEntry.link_url} target="_blank" rel="noopener noreferrer">View</a>
+                      Current file:{" "}
+                      <a
+                        href={selectedEntry.link_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        View
+                      </a>
                     </p>
                   )}
                 </div>
@@ -934,7 +1076,7 @@ export default function PettyCashPage() {
         </div>
       )}
 
-      <Popup 
+      <Popup
         show={showPopup}
         message={popupMessage}
         type={popupType}

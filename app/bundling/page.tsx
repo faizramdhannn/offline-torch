@@ -31,17 +31,19 @@ export default function BundlingPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
-  const [selectedBundling, setSelectedBundling] = useState<Bundling | null>(null);
+  const [selectedBundling, setSelectedBundling] = useState<Bundling | null>(
+    null,
+  );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [submitting, setSubmitting] = useState(false);
-  
+
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
@@ -87,12 +89,28 @@ export default function BundlingPage() {
     setShowPopup(true);
   };
 
+  const logActivity = async (method: string, activity: string) => {
+    try {
+      await fetch("/api/activity-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user: user.user_name,
+          method,
+          activity_log: activity,
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to log activity:", error);
+    }
+  };
+
   const fetchData = async () => {
     try {
       const response = await fetch("/api/bundling");
       const result = await response.json();
       // Filter out deleted bundlings
-      const activeData = result.filter((b: Bundling) => b.status !== 'deleted');
+      const activeData = result.filter((b: Bundling) => b.status !== "deleted");
       setData(activeData);
       setFilteredData(activeData);
     } catch (error) {
@@ -107,10 +125,11 @@ export default function BundlingPage() {
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((item) =>
-        item.bundling_name.toLowerCase().includes(query) ||
-        item.option_1?.toLowerCase().includes(query) ||
-        item.option_2?.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (item) =>
+          item.bundling_name.toLowerCase().includes(query) ||
+          item.option_1?.toLowerCase().includes(query) ||
+          item.option_2?.toLowerCase().includes(query),
       );
     }
 
@@ -130,23 +149,26 @@ export default function BundlingPage() {
   };
 
   const formatRupiah = (value: string) => {
-    const number = parseInt(value.replace(/[^0-9]/g, '') || '0');
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
+    const number = parseInt(value.replace(/[^0-9]/g, "") || "0");
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
       minimumFractionDigits: 0,
     }).format(number);
   };
 
-  const calculateDiscountValue = (totalValue: string, discountPercentage: string) => {
-    const total = parseInt(totalValue.replace(/[^0-9]/g, '') || '0');
-    const discount = parseFloat(discountPercentage || '0');
+  const calculateDiscountValue = (
+    totalValue: string,
+    discountPercentage: string,
+  ) => {
+    const total = parseInt(totalValue.replace(/[^0-9]/g, "") || "0");
+    const discount = parseFloat(discountPercentage || "0");
     return Math.round(total * (discount / 100));
   };
 
   const calculateFinalValue = (totalValue: string, discountValue: string) => {
-    const total = parseInt(totalValue.replace(/[^0-9]/g, '') || '0');
-    const discount = parseInt(discountValue.replace(/[^0-9]/g, '') || '0');
+    const total = parseInt(totalValue.replace(/[^0-9]/g, "") || "0");
+    const discount = parseInt(discountValue.replace(/[^0-9]/g, "") || "0");
     return total - discount;
   };
 
@@ -233,9 +255,16 @@ export default function BundlingPage() {
       });
 
       if (response.ok) {
+        const action = editingId ? "Updated" : "Created";
+        await logActivity(
+          editingId ? "PUT" : "POST",
+          `${action} bundling: ${formData.bundling_name}`,
+        );
         showMessage(
-          editingId ? "Bundling updated successfully" : "Bundling created successfully",
-          "success"
+          editingId
+            ? "Bundling updated successfully"
+            : "Bundling created successfully",
+          "success",
         );
         handleCloseModal();
         fetchData();
@@ -258,6 +287,7 @@ export default function BundlingPage() {
       });
 
       if (response.ok) {
+        await logActivity("DELETE", `Deleted bundling ID: ${id}`);
         showMessage("Bundling deleted successfully", "success");
         fetchData();
       } else {
@@ -270,9 +300,15 @@ export default function BundlingPage() {
 
   const handleTotalValueChange = (value: string) => {
     const formatted = formatRupiah(value);
-    const discountVal = calculateDiscountValue(formatted, formData.discount_percentage);
-    const finalVal = calculateFinalValue(formatted, formatRupiah(discountVal.toString()));
-    
+    const discountVal = calculateDiscountValue(
+      formatted,
+      formData.discount_percentage,
+    );
+    const finalVal = calculateFinalValue(
+      formatted,
+      formatRupiah(discountVal.toString()),
+    );
+
     setFormData({
       ...formData,
       total_value: formatted,
@@ -283,8 +319,11 @@ export default function BundlingPage() {
 
   const handleDiscountPercentageChange = (value: string) => {
     const discountVal = calculateDiscountValue(formData.total_value, value);
-    const finalVal = calculateFinalValue(formData.total_value, formatRupiah(discountVal.toString()));
-    
+    const finalVal = calculateFinalValue(
+      formData.total_value,
+      formatRupiah(discountVal.toString()),
+    );
+
     setFormData({
       ...formData,
       discount_percentage: value,
@@ -295,7 +334,9 @@ export default function BundlingPage() {
 
   const getTotalStock = (bundling: Bundling) => {
     return STORE_LIST.reduce((total, store) => {
-      const stock = parseInt(bundling[store.key as keyof Bundling] as string || '0');
+      const stock = parseInt(
+        (bundling[store.key as keyof Bundling] as string) || "0",
+      );
       return total + stock;
     }, 0);
   };
@@ -310,11 +351,13 @@ export default function BundlingPage() {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar userName={user.name} permissions={user} />
-      
+
       <div className="flex-1 overflow-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-primary">Bundling Management</h1>
+            <h1 className="text-2xl font-bold text-primary">
+              Bundling Management
+            </h1>
             <button
               onClick={() => handleOpenModal()}
               className="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90"
@@ -344,7 +387,9 @@ export default function BundlingPage() {
                 </label>
                 <select
                   value={statusFilter[0] || ""}
-                  onChange={(e) => setStatusFilter(e.target.value ? [e.target.value] : [])}
+                  onChange={(e) =>
+                    setStatusFilter(e.target.value ? [e.target.value] : [])
+                  }
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="">All Status</option>
@@ -373,14 +418,30 @@ export default function BundlingPage() {
                   <table className="w-full text-xs">
                     <thead className="bg-gray-100 border-b">
                       <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Bundling Name</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Options</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Total Value</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Discount</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Final Value</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Total Stock</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Status</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Actions</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
+                          Bundling Name
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
+                          Options
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
+                          Total Value
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
+                          Discount
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
+                          Final Value
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
+                          Total Stock
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
+                          Status
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -393,21 +454,25 @@ export default function BundlingPage() {
                           item.option_5,
                           item.option_6,
                         ].filter(Boolean);
-                        
+
                         const totalStock = getTotalStock(item);
 
                         return (
                           <tr key={index} className="border-b hover:bg-gray-50">
-                            <td className="px-3 py-2 font-medium">{item.bundling_name}</td>
+                            <td className="px-3 py-2 font-medium">
+                              {item.bundling_name}
+                            </td>
                             <td className="px-3 py-2">
                               <div className="text-xs">
-                                {options.slice(0, 2).join(', ')}
-                                {options.length > 2 && ` +${options.length - 2} more`}
+                                {options.slice(0, 2).join(", ")}
+                                {options.length > 2 &&
+                                  ` +${options.length - 2} more`}
                               </div>
                             </td>
                             <td className="px-3 py-2">{item.total_value}</td>
                             <td className="px-3 py-2">
-                              {item.discount_percentage}% ({item.discount_value})
+                              {item.discount_percentage}% ({item.discount_value}
+                              )
                             </td>
                             <td className="px-3 py-2 font-semibold text-green-600">
                               {item.value}
@@ -453,7 +518,9 @@ export default function BundlingPage() {
                     </tbody>
                   </table>
                   {filteredData.length === 0 && (
-                    <div className="p-8 text-center text-gray-500">No bundling data available</div>
+                    <div className="p-8 text-center text-gray-500">
+                      No bundling data available
+                    </div>
                   )}
                 </div>
 
@@ -461,11 +528,15 @@ export default function BundlingPage() {
                 {totalPages > 1 && (
                   <div className="flex justify-between items-center px-4 py-3 border-t">
                     <div className="text-xs text-gray-600">
-                      Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredData.length)} of {filteredData.length} entries
+                      Showing {indexOfFirstItem + 1} to{" "}
+                      {Math.min(indexOfLastItem, filteredData.length)} of{" "}
+                      {filteredData.length} entries
                     </div>
                     <div className="flex gap-1">
                       <button
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        onClick={() =>
+                          setCurrentPage((prev) => Math.max(1, prev - 1))
+                        }
                         disabled={currentPage === 1}
                         className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                       >
@@ -491,13 +562,24 @@ export default function BundlingPage() {
                               {page}
                             </button>
                           );
-                        } else if (page === currentPage - 2 || page === currentPage + 2) {
-                          return <span key={page} className="px-2">...</span>;
+                        } else if (
+                          page === currentPage - 2 ||
+                          page === currentPage + 2
+                        ) {
+                          return (
+                            <span key={page} className="px-2">
+                              ...
+                            </span>
+                          );
                         }
                         return null;
                       })}
                       <button
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        onClick={() =>
+                          setCurrentPage((prev) =>
+                            Math.min(totalPages, prev + 1),
+                          )
+                        }
                         disabled={currentPage === totalPages}
                         className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                       >
@@ -519,7 +601,7 @@ export default function BundlingPage() {
             <h2 className="text-lg font-bold text-primary mb-4">
               {editingId ? "Edit Bundling" : "Add New Bundling"}
             </h2>
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -528,7 +610,9 @@ export default function BundlingPage() {
                 <input
                   type="text"
                   value={formData.bundling_name}
-                  onChange={(e) => setFormData({...formData, bundling_name: e.target.value})}
+                  onChange={(e) =>
+                    setFormData({ ...formData, bundling_name: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   required
                 />
@@ -542,7 +626,9 @@ export default function BundlingPage() {
                   <input
                     type="text"
                     value={formData.option_1}
-                    onChange={(e) => setFormData({...formData, option_1: e.target.value})}
+                    onChange={(e) =>
+                      setFormData({ ...formData, option_1: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
@@ -553,7 +639,9 @@ export default function BundlingPage() {
                   <input
                     type="text"
                     value={formData.option_2}
-                    onChange={(e) => setFormData({...formData, option_2: e.target.value})}
+                    onChange={(e) =>
+                      setFormData({ ...formData, option_2: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
@@ -564,7 +652,9 @@ export default function BundlingPage() {
                   <input
                     type="text"
                     value={formData.option_3}
-                    onChange={(e) => setFormData({...formData, option_3: e.target.value})}
+                    onChange={(e) =>
+                      setFormData({ ...formData, option_3: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
@@ -575,7 +665,9 @@ export default function BundlingPage() {
                   <input
                     type="text"
                     value={formData.option_4}
-                    onChange={(e) => setFormData({...formData, option_4: e.target.value})}
+                    onChange={(e) =>
+                      setFormData({ ...formData, option_4: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
@@ -586,7 +678,9 @@ export default function BundlingPage() {
                   <input
                     type="text"
                     value={formData.option_5}
-                    onChange={(e) => setFormData({...formData, option_5: e.target.value})}
+                    onChange={(e) =>
+                      setFormData({ ...formData, option_5: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
@@ -597,7 +691,9 @@ export default function BundlingPage() {
                   <input
                     type="text"
                     value={formData.option_6}
-                    onChange={(e) => setFormData({...formData, option_6: e.target.value})}
+                    onChange={(e) =>
+                      setFormData({ ...formData, option_6: e.target.value })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
@@ -624,7 +720,9 @@ export default function BundlingPage() {
                   <input
                     type="number"
                     value={formData.discount_percentage}
-                    onChange={(e) => handleDiscountPercentageChange(e.target.value)}
+                    onChange={(e) =>
+                      handleDiscountPercentageChange(e.target.value)
+                    }
                     placeholder="0"
                     min="0"
                     max="100"
@@ -663,7 +761,9 @@ export default function BundlingPage() {
                 </label>
                 <select
                   value={formData.status}
-                  onChange={(e) => setFormData({...formData, status: e.target.value})}
+                  onChange={(e) =>
+                    setFormData({ ...formData, status: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   required
                 >
@@ -674,7 +774,8 @@ export default function BundlingPage() {
 
               <div className="bg-blue-50 border border-blue-200 rounded p-3">
                 <p className="text-xs text-blue-800">
-                  <strong>Note:</strong> Stock untuk setiap toko harus diatur manual di Google Spreadsheet.
+                  <strong>Note:</strong> Stock untuk setiap toko harus diatur
+                  manual di Google Spreadsheet.
                 </p>
               </div>
 
@@ -692,7 +793,11 @@ export default function BundlingPage() {
                   disabled={submitting}
                   className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
                 >
-                  {submitting ? "Saving..." : editingId ? "Update Bundling" : "Create Bundling"}
+                  {submitting
+                    ? "Saving..."
+                    : editingId
+                      ? "Update Bundling"
+                      : "Create Bundling"}
                 </button>
               </div>
             </form>
@@ -707,14 +812,22 @@ export default function BundlingPage() {
             <h2 className="text-lg font-bold text-primary mb-4">
               Stock Details - {selectedBundling.bundling_name}
             </h2>
-            
+
             <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto">
               {STORE_LIST.map((store) => {
-                const stock = parseInt(selectedBundling[store.key as keyof Bundling] as string || '0');
+                const stock = parseInt(
+                  (selectedBundling[store.key as keyof Bundling] as string) ||
+                    "0",
+                );
                 return (
-                  <div key={store.key} className="flex justify-between items-center border-b border-gray-200 py-2">
+                  <div
+                    key={store.key}
+                    className="flex justify-between items-center border-b border-gray-200 py-2"
+                  >
                     <span className="text-sm text-gray-700">{store.label}</span>
-                    <span className={`text-sm font-semibold ${stock > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                    <span
+                      className={`text-sm font-semibold ${stock > 0 ? "text-green-600" : "text-gray-400"}`}
+                    >
                       {stock} units
                     </span>
                   </div>
@@ -724,7 +837,9 @@ export default function BundlingPage() {
 
             <div className="mt-4 pt-4 border-t border-gray-200">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-semibold text-gray-700">Total Stock:</span>
+                <span className="text-sm font-semibold text-gray-700">
+                  Total Stock:
+                </span>
                 <span className="text-lg font-bold text-primary">
                   {getTotalStock(selectedBundling)} units
                 </span>
@@ -733,8 +848,9 @@ export default function BundlingPage() {
 
             <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mt-4">
               <p className="text-xs text-yellow-800">
-                <strong>Info:</strong> Stock diatur manual di Google Spreadsheet. 
-                Perubahan stock harus dilakukan langsung di spreadsheet.
+                <strong>Info:</strong> Stock diatur manual di Google
+                Spreadsheet. Perubahan stock harus dilakukan langsung di
+                spreadsheet.
               </p>
             </div>
 
@@ -750,7 +866,7 @@ export default function BundlingPage() {
         </div>
       )}
 
-      <Popup 
+      <Popup
         show={showPopup}
         message={popupMessage}
         type={popupType}
