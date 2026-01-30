@@ -5,11 +5,11 @@ export async function GET(request: NextRequest) {
   try {
     const data = await getSheetData('activity_log');
     
-    // Sort by timestamp descending (newest first)
+    // Sort by ID descending (ID is timestamp, so newest = highest ID)
     const sortedData = data.sort((a: any, b: any) => {
-      const dateA = new Date(a.timestamp).getTime();
-      const dateB = new Date(b.timestamp).getTime();
-      return dateB - dateA; // Newest first
+      const idA = parseInt(a.id) || 0;
+      const idB = parseInt(b.id) || 0;
+      return idB - idA; // Newest first (highest ID first)
     });
     
     return NextResponse.json(sortedData);
