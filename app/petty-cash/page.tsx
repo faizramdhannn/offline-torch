@@ -169,8 +169,9 @@ export default function PettyCashPage() {
     );
   };
 
-  const formatRupiah = (value: string) => {
-    const number = parseInt(value.replace(/[^0-9]/g, ''));
+  // Format number to Rupiah for display
+  const formatRupiah = (value: string | number) => {
+    const number = typeof value === 'string' ? parseInt(value.replace(/[^0-9]/g, '') || '0') : value;
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
@@ -186,7 +187,8 @@ export default function PettyCashPage() {
       const form = new FormData();
       form.append('description', formData.description);
       form.append('category', formData.category);
-      form.append('value', formData.value);
+      // Send raw number only (remove all non-numeric characters)
+      form.append('value', formData.value.replace(/[^0-9]/g, ''));
       form.append('store', user.user_name);
       form.append('ket', formData.ket);
       form.append('transfer', formData.transfer.toString());
@@ -228,7 +230,8 @@ export default function PettyCashPage() {
     setFormData({
       description: entry.description,
       category: entry.category,
-      value: entry.value,
+      // Format the value for display in the form
+      value: formatRupiah(entry.value),
       ket: entry.ket,
       transfer: entry.transfer === 'TRUE',
       file: null,
@@ -247,7 +250,8 @@ export default function PettyCashPage() {
       form.append('id', selectedEntry.id);
       form.append('description', formData.description);
       form.append('category', formData.category);
-      form.append('value', formData.value);
+      // Send raw number only
+      form.append('value', formData.value.replace(/[^0-9]/g, ''));
       form.append('store', user.user_name);
       form.append('ket', formData.ket);
       form.append('transfer', formData.transfer.toString());
@@ -313,7 +317,7 @@ export default function PettyCashPage() {
       "Date": item.date,
       "Description": toTitleCase(item.description),
       "Category": item.category,
-      "Value": item.value,
+      "Value": parseInt(item.value || '0'), // Export as number
       "Store": item.store,
       "Ket": item.ket,
       "Transfer": item.transfer === 'TRUE' ? 'Yes' : 'No',
@@ -371,7 +375,7 @@ export default function PettyCashPage() {
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
   const totalValue = filteredData.reduce((sum, item) => {
-    return sum + parseInt(item.value.replace(/[^0-9]/g, ''));
+    return sum + parseInt(item.value.replace(/[^0-9]/g, '') || '0');
   }, 0);
 
   if (!user) return null;
@@ -422,73 +426,69 @@ export default function PettyCashPage() {
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Category
                 </label>
-                <div className="relative">
-                  <button
-                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
-                  >
-                    <span className="text-gray-500">
-                      {selectedCategories.length === 0 
-                        ? "Select category..." 
-                        : `${selectedCategories.length} selected`}
-                    </span>
-                    <span className="text-gray-400">▼</span>
-                  </button>
-                  {showCategoryDropdown && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
-                      {categories.map((category) => (
-                        <label 
-                          key={category} 
-                          className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedCategories.includes(category)}
-                            onChange={() => toggleCategory(category)}
-                            className="mr-2"
-                          />
-                          {category}
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <button
+                  onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
+                >
+                  <span className="text-gray-500">
+                    {selectedCategories.length === 0 
+                      ? "Select category..." 
+                      : `${selectedCategories.length} selected`}
+                  </span>
+                  <span className="text-gray-400">▼</span>
+                </button>
+                {showCategoryDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                    {categories.map((category) => (
+                      <label 
+                        key={category} 
+                        className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedCategories.includes(category)}
+                          onChange={() => toggleCategory(category)}
+                          className="mr-2"
+                        />
+                        {category}
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="relative">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Store
                 </label>
-                <div className="relative">
-                  <button
-                    onClick={() => setShowStoreDropdown(!showStoreDropdown)}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
-                  >
-                    <span className="text-gray-500">
-                      {selectedStores.length === 0 
-                        ? "Select store..." 
-                        : `${selectedStores.length} selected`}
-                    </span>
-                    <span className="text-gray-400">▼</span>
-                  </button>
-                  {showStoreDropdown && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
-                      {stores.map((store) => (
-                        <label 
-                          key={store} 
-                          className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedStores.includes(store)}
-                            onChange={() => toggleStore(store)}
-                            className="mr-2"
-                          />
-                          {store}
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <button
+                  onClick={() => setShowStoreDropdown(!showStoreDropdown)}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
+                >
+                  <span className="text-gray-500">
+                    {selectedStores.length === 0 
+                      ? "Select store..." 
+                      : `${selectedStores.length} selected`}
+                  </span>
+                  <span className="text-gray-400">▼</span>
+                </button>
+                {showStoreDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                    {stores.map((store) => (
+                      <label 
+                        key={store} 
+                        className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedStores.includes(store)}
+                          onChange={() => toggleStore(store)}
+                          className="mr-2"
+                        />
+                        {store}
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex gap-2">
@@ -544,7 +544,7 @@ export default function PettyCashPage() {
                           <td className="px-3 py-2">{item.date}</td>
                           <td className="px-3 py-2">{item.description}</td>
                           <td className="px-3 py-2">{item.category}</td>
-                          <td className="px-3 py-2">{item.value}</td>
+                          <td className="px-3 py-2">{formatRupiah(item.value)}</td>
                           <td className="px-3 py-2">{item.store}</td>
                           <td className="px-3 py-2">{item.ket || "-"}</td>
                           <td className="px-3 py-2 text-center">
@@ -586,7 +586,7 @@ export default function PettyCashPage() {
                       ))}
                       <tr className="bg-gray-50 font-semibold">
                         <td colSpan={3} className="px-3 py-2 text-right">Total:</td>
-                        <td className="px-3 py-2">{formatRupiah(totalValue.toString())}</td>
+                        <td className="px-3 py-2">{formatRupiah(totalValue)}</td>
                         <td colSpan={5}></td>
                       </tr>
                     </tbody>

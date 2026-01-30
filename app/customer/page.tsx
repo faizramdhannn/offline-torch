@@ -353,7 +353,7 @@ export default function CustomerPage() {
                           <tr>
                             <th className="px-2 py-2 text-center font-semibold text-gray-700 w-24">Phone</th>
                             <th className="px-2 py-2 text-center font-semibold text-gray-700 w-34">Customer</th>
-                            <th className="px-2 py-2 text-center font-semibold text-gray-700 w-28">Store</th>
+                            <th className="px-2 py-2 text-center font-semibold text-gray-700 w-34">Store</th>
                             <th className="px-2 py-2 text-center font-semibold text-gray-700 w-20">Total Value</th>
                             <th className="px-2 py-2 text-center font-semibold text-gray-700 w-16">Total Order</th>
                             {!isOwner && (

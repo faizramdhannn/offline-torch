@@ -62,25 +62,28 @@ export async function POST(request: NextRequest) {
         Buffer.from(fileBuffer),
         fileName,
         file.type,
-        store // Pass username to create/use user folder
+        store
       );
     }
 
     const createdAt = now.toISOString();
+    
+    // Extract raw number from value (remove Rp, dots, commas, spaces)
+    const rawValue = value.replace(/[^0-9]/g, '');
     
     const newEntry = [
       id,
       date,
       description,
       category,
-      value,
+      rawValue, // Save as raw number only (e.g., "100000" instead of "Rp 100.000")
       store,
       ket,
       transfer ? 'TRUE' : 'FALSE',
       linkUrl,
-      username, // update_by
+      username,
       createdAt,
-      createdAt // update_at same as created_at initially
+      createdAt
     ];
 
     await appendSheetData('petty_cash', [newEntry]);
@@ -141,19 +144,22 @@ export async function PUT(request: NextRequest) {
 
     const now = new Date().toISOString();
     
+    // Extract raw number from value
+    const rawValue = value.replace(/[^0-9]/g, '');
+    
     const updatedEntry = [
       id,
-      entry.date, // Keep original date
+      entry.date,
       description,
       category,
-      value,
+      rawValue, // Save as raw number only
       store,
       ket,
       transfer ? 'TRUE' : 'FALSE',
       linkUrl,
-      username, // update_by
-      entry.created_at, // Keep original created_at
-      now // update_at
+      username,
+      entry.created_at,
+      now
     ];
 
     await updateSheetRow('petty_cash', rowIndex, updatedEntry);
