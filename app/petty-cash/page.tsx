@@ -239,7 +239,7 @@ export default function PettyCashPage() {
       if (response.ok) {
         await logActivity(
           "POST",
-          `Added petty cash: ${formData.category} - ${formData.value}`,
+          `Added petty cash: ${formData.category}`,
         );
         showMessage("Entry added successfully", "success");
         setShowAddModal(false);

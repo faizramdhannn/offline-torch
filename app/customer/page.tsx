@@ -255,7 +255,7 @@ export default function CustomerPage() {
       if (response.ok) {
         await logActivity(
           "PUT",
-          `Updated customer followup: ${selectedCustomer.customer_name} - ${selectedCustomer.phone_number}`,
+          `Updated customer followup`,
         );
         showMessage("Followup saved successfully", "success");
         closeFollowupModal();

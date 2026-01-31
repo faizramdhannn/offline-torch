@@ -5,11 +5,10 @@ export async function GET(request: NextRequest) {
   try {
     const data = await getSheetData('activity_log');
     
-    // Sort by ID descending (ID is timestamp, so newest = highest ID)
     const sortedData = data.sort((a: any, b: any) => {
       const idA = parseInt(a.id) || 0;
       const idB = parseInt(b.id) || 0;
-      return idB - idA; // Newest first (highest ID first)
+      return idB - idA;
     });
     
     return NextResponse.json(sortedData);
@@ -55,7 +54,6 @@ export async function POST(request: NextRequest) {
 
     await appendSheetData('activity_log', [newLog]);
 
-    // Auto-delete logs older than 10 days (cleanup in background)
     cleanOldLogs().catch(err => console.error('Background cleanup error:', err));
 
     return NextResponse.json({ success: true, id });
@@ -68,21 +66,15 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * Clean logs older than 10 days by physically deleting rows
- * This rewrites the entire sheet with only recent logs
- */
 async function cleanOldLogs() {
   try {
     const data = await getSheetData('activity_log');
     const now = new Date();
     const tenDaysAgo = new Date(now.getTime() - (10 * 24 * 60 * 60 * 1000));
 
-    // Filter logs that are within 10 days (keep recent logs only)
     const recentLogs = data.filter((log: any) => {
       try {
-        // Parse timestamp (format: "DD MMM YYYY, HH:MM:SS")
-        const dateStr = log.timestamp.split(',')[0]; // Get date part
+        const dateStr = log.timestamp.split(',')[0];
         const [day, month, year] = dateStr.split(' ');
         
         const months: { [key: string]: number } = {
@@ -94,12 +86,10 @@ async function cleanOldLogs() {
         
         return logDate >= tenDaysAgo;
       } catch {
-        // If can't parse, keep the log (safer)
         return true;
       }
     });
 
-    // If some logs are old (need to be deleted), rewrite entire sheet
     if (recentLogs.length < data.length) {
       const deletedCount = data.length - recentLogs.length;
       console.log(`🧹 Cleaning activity log: removing ${deletedCount} old entries (keeping ${recentLogs.length})`);
@@ -107,7 +97,6 @@ async function cleanOldLogs() {
       const { updateSheetDataWithHeader } = await import('@/lib/sheets');
       const headers = ['id', 'timestamp', 'user', 'method', 'activity_log'];
       
-      // Map recent logs to rows format
       const rows = recentLogs.map((log: any) => [
         log.id,
         log.timestamp,
@@ -115,9 +104,7 @@ async function cleanOldLogs() {
         log.method,
         log.activity_log
       ]);
-      
-      // Rewrite sheet with header + recent logs only
-      // This PHYSICALLY REMOVES old rows (not just clearing data)
+
       await updateSheetDataWithHeader('activity_log', [headers, ...rows]);
       
       console.log(`✅ Activity log cleaned: ${deletedCount} rows deleted, ${recentLogs.length} rows remaining`);
@@ -126,6 +113,5 @@ async function cleanOldLogs() {
     }
   } catch (error) {
     console.error('❌ Error cleaning old logs:', error);
-    // Don't throw - this is background cleanup, shouldn't fail the main request
   }
 }
