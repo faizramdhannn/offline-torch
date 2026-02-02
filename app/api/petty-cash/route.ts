@@ -105,11 +105,11 @@ export async function PUT(request: NextRequest) {
     const description = formData.get('description') as string;
     const category = formData.get('category') as string;
     const value = formData.get('value') as string;
-    const store = formData.get('store') as string;
+    const store = formData.get('store') as string; // Use the store from form (original store)
     const ket = formData.get('ket') as string || '';
     const transfer = formData.get('transfer') === 'true';
     const file = formData.get('file') as File | null;
-    const username = formData.get('username') as string;
+    const username = formData.get('username') as string; // This is update_by
 
     // Get all petty cash data to find the row index
     const pettyCashData = await getSheetData('petty_cash');
@@ -149,17 +149,17 @@ export async function PUT(request: NextRequest) {
     
     const updatedEntry = [
       id,
-      entry.date,
+      entry.date, // Keep original date
       description,
       category,
       rawValue, // Save as raw number only
-      store,
+      store, // Keep original store (not username)
       ket,
       transfer ? 'TRUE' : 'FALSE',
       linkUrl,
-      username,
-      entry.created_at,
-      now
+      username, // Update by (this changes)
+      entry.created_at, // Keep original created_at
+      now // Update the update_at
     ];
 
     await updateSheetRow('petty_cash', rowIndex, updatedEntry);

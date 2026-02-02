@@ -21,6 +21,13 @@ interface PettyCash {
   update_at: string;
 }
 
+interface ReportData {
+  store: string;
+  pettyCash: number;
+  listrik: number;
+  total: number;
+}
+
 export default function PettyCashPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -37,10 +44,14 @@ export default function PettyCashPage() {
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
 
+  // View mode
+  const [viewMode, setViewMode] = useState<"list" | "report">("list");
+
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedStores, setSelectedStores] = useState<string[]>([]);
+  const [reportTransferFilter, setReportTransferFilter] = useState<"false" | "true">("false");
 
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showStoreDropdown, setShowStoreDropdown] = useState(false);
@@ -102,6 +113,7 @@ export default function PettyCashPage() {
 
   const fetchData = async (username: string, isAdmin: boolean) => {
     try {
+      setLoading(true);
       const response = await fetch(
         `/api/petty-cash?username=${username}&isAdmin=${isAdmin}`,
       );
@@ -181,6 +193,7 @@ export default function PettyCashPage() {
     setDateTo("");
     setSelectedCategories([]);
     setSelectedStores([]);
+    setReportTransferFilter("false"); // Reset to default "Belum Transfer"
     setFilteredData(data);
     setCurrentPage(1);
   };
@@ -199,7 +212,10 @@ export default function PettyCashPage() {
     );
   };
 
-  // Format number to Rupiah for display
+  const toTitleCase = (str: string) => {
+    return str.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+  };
+
   const formatRupiah = (value: string | number) => {
     const number =
       typeof value === "string"
@@ -220,7 +236,6 @@ export default function PettyCashPage() {
       const form = new FormData();
       form.append("description", formData.description);
       form.append("category", formData.category);
-      // Send raw number only (remove all non-numeric characters)
       form.append("value", formData.value.replace(/[^0-9]/g, ""));
       form.append("store", user.user_name);
       form.append("ket", formData.ket);
@@ -267,7 +282,6 @@ export default function PettyCashPage() {
     setFormData({
       description: entry.description,
       category: entry.category,
-      // Format the value for display in the form
       value: formatRupiah(entry.value),
       ket: entry.ket,
       transfer: entry.transfer === "TRUE",
@@ -287,9 +301,8 @@ export default function PettyCashPage() {
       form.append("id", selectedEntry.id);
       form.append("description", formData.description);
       form.append("category", formData.category);
-      // Send raw number only
       form.append("value", formData.value.replace(/[^0-9]/g, ""));
-      form.append("store", user.user_name);
+      form.append("store", selectedEntry.store); // Keep original store
       form.append("ket", formData.ket);
       form.append("transfer", formData.transfer.toString());
       form.append("username", user.user_name);
@@ -359,7 +372,7 @@ export default function PettyCashPage() {
       Date: item.date,
       Description: toTitleCase(item.description),
       Category: item.category,
-      Value: parseInt(item.value || "0"), // Export as number
+      Value: parseInt(item.value || "0"),
       Store: item.store,
       Ket: item.ket,
       Transfer: item.transfer === "TRUE" ? "Yes" : "No",
@@ -376,8 +389,37 @@ export default function PettyCashPage() {
     );
   };
 
-  const toTitleCase = (str: string) => {
-    return str.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+  const exportReportToExcel = () => {
+    const reportData = generateReportData();
+    
+    const exportData = reportData.map((item) => ({
+      Store: item.store,
+      "Petty Cash": item.pettyCash,
+      Listrik: item.listrik,
+      Total: item.total,
+    }));
+
+    // Add Grand Total row
+    const grandTotal = {
+      Store: "Grand Total",
+      "Petty Cash": reportData.reduce((sum, item) => sum + item.pettyCash, 0),
+      Listrik: reportData.reduce((sum, item) => sum + item.listrik, 0),
+      Total: reportData.reduce((sum, item) => sum + item.total, 0),
+    };
+    exportData.push(grandTotal);
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Petty Cash Report");
+    
+    const transferStatus = reportTransferFilter === "false" ? "Belum_Transfer" : "Sudah_Transfer";
+    const filename = `petty_cash_report_${transferStatus}_${new Date().toISOString().split("T")[0]}.xlsx`;
+    
+    XLSX.writeFile(wb, filename);
+    logActivity(
+      "GET",
+      `Exported petty cash report to Excel: ${reportData.length} stores`,
+    );
   };
 
   const exportToDoc = async () => {
@@ -419,6 +461,52 @@ export default function PettyCashPage() {
     }
   };
 
+  // Generate report data
+  const generateReportData = (): ReportData[] => {
+    // Filter based on transfer status
+    let reportFilteredData = filteredData;
+    if (reportTransferFilter === "false") {
+      reportFilteredData = filteredData.filter((item) => item.transfer === "FALSE");
+    } else if (reportTransferFilter === "true") {
+      reportFilteredData = filteredData.filter((item) => item.transfer === "TRUE");
+    }
+
+    // Get unique stores
+    const uniqueStores = [...new Set(reportFilteredData.map((item) => item.store))];
+
+    const reportData = uniqueStores.map((store) => {
+      const storeData = reportFilteredData.filter((item) => item.store === store);
+
+      // Calculate Petty Cash (exclude listrik/token)
+      const pettyCashData = storeData.filter((item) => {
+        const desc = item.description.toLowerCase();
+        return !desc.includes("listrik") && !desc.includes("token");
+      });
+      const pettyCashTotal = pettyCashData.reduce((sum, item) => {
+        return sum + parseInt(item.value.replace(/[^0-9]/g, "") || "0");
+      }, 0);
+
+      // Calculate Listrik (include listrik or token)
+      const listrikData = storeData.filter((item) => {
+        const desc = item.description.toLowerCase();
+        return desc.includes("listrik") || desc.includes("token");
+      });
+      const listrikTotal = listrikData.reduce((sum, item) => {
+        return sum + parseInt(item.value.replace(/[^0-9]/g, "") || "0");
+      }, 0);
+
+      return {
+        store: toTitleCase(store),
+        pettyCash: pettyCashTotal,
+        listrik: listrikTotal,
+        total: pettyCashTotal + listrikTotal,
+      };
+    });
+
+    // Sort by store name
+    return reportData.sort((a, b) => a.store.localeCompare(b.store));
+  };
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
@@ -438,14 +526,42 @@ export default function PettyCashPage() {
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-primary">Petty Cash</h1>
-            {user.petty_cash_add && (
+            <div className="flex gap-2">
+              {user.petty_cash_add && (
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-primary/90"
+                >
+                  Add Petty Cash
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* View Toggle */}
+          <div className="bg-white rounded-lg shadow p-4 mb-4">
+            <div className="flex gap-2">
               <button
-                onClick={() => setShowAddModal(true)}
-                className="px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-primary/90"
+                onClick={() => setViewMode("list")}
+                className={`px-4 py-1.5 rounded text-xs transition-colors ${
+                  viewMode === "list"
+                    ? "bg-primary text-white"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
               >
-                Add Petty Cash
+                List View
               </button>
-            )}
+              <button
+                onClick={() => setViewMode("report")}
+                className={`px-4 py-1.5 rounded text-xs transition-colors ${
+                  viewMode === "report"
+                    ? "bg-primary text-white"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                Report View
+              </button>
+            </div>
           </div>
 
           <div className="bg-white rounded-lg shadow p-4 mb-4">
@@ -472,74 +588,128 @@ export default function PettyCashPage() {
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
-              <div className="relative">
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Category
-                </label>
-                <button
-                  onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
-                >
-                  <span className="text-gray-500">
-                    {selectedCategories.length === 0
-                      ? "Select category..."
-                      : `${selectedCategories.length} selected`}
-                  </span>
-                  <span className="text-gray-400">▼</span>
-                </button>
-                {showCategoryDropdown && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
-                    {categories.map((category) => (
-                      <label
-                        key={category}
-                        className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedCategories.includes(category)}
-                          onChange={() => toggleCategory(category)}
-                          className="mr-2"
-                        />
-                        {category}
-                      </label>
-                    ))}
+              {viewMode === "list" ? (
+                <>
+                  <div className="relative">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Category
+                    </label>
+                    <button
+                      onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
+                    >
+                      <span className="text-gray-500">
+                        {selectedCategories.length === 0
+                          ? "Select category..."
+                          : `${selectedCategories.length} selected`}
+                      </span>
+                      <span className="text-gray-400">▼</span>
+                    </button>
+                    {showCategoryDropdown && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                        {categories.map((category) => (
+                          <label
+                            key={category}
+                            className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedCategories.includes(category)}
+                              onChange={() => toggleCategory(category)}
+                              className="mr-2"
+                            />
+                            {category}
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="relative">
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Store
-                </label>
-                <button
-                  onClick={() => setShowStoreDropdown(!showStoreDropdown)}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
-                >
-                  <span className="text-gray-500">
-                    {selectedStores.length === 0
-                      ? "Select store..."
-                      : `${selectedStores.length} selected`}
-                  </span>
-                  <span className="text-gray-400">▼</span>
-                </button>
-                {showStoreDropdown && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
-                    {stores.map((store) => (
-                      <label
-                        key={store}
-                        className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedStores.includes(store)}
-                          onChange={() => toggleStore(store)}
-                          className="mr-2"
-                        />
-                        {store}
-                      </label>
-                    ))}
+                  <div className="relative">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Store
+                    </label>
+                    <button
+                      onClick={() => setShowStoreDropdown(!showStoreDropdown)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
+                    >
+                      <span className="text-gray-500">
+                        {selectedStores.length === 0
+                          ? "Select store..."
+                          : `${selectedStores.length} selected`}
+                      </span>
+                      <span className="text-gray-400">▼</span>
+                    </button>
+                    {showStoreDropdown && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                        {stores.map((store) => (
+                          <label
+                            key={store}
+                            className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedStores.includes(store)}
+                              onChange={() => toggleStore(store)}
+                              className="mr-2"
+                            />
+                            {store}
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </>
+              ) : (
+                <>
+                  <div className="relative">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Store
+                    </label>
+                    <button
+                      onClick={() => setShowStoreDropdown(!showStoreDropdown)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
+                    >
+                      <span className="text-gray-500">
+                        {selectedStores.length === 0
+                          ? "All stores..."
+                          : `${selectedStores.length} selected`}
+                      </span>
+                      <span className="text-gray-400">▼</span>
+                    </button>
+                    {showStoreDropdown && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                        {stores.map((store) => (
+                          <label
+                            key={store}
+                            className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedStores.includes(store)}
+                              onChange={() => toggleStore(store)}
+                              className="mr-2"
+                            />
+                            {store}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Transfer Status
+                    </label>
+                    <select
+                      value={reportTransferFilter}
+                      onChange={(e) => setReportTransferFilter(e.target.value as "false" | "true")}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="false">Belum Transfer</option>
+                      <option value="true">Sudah Transfer</option>
+                    </select>
+                  </div>
+                </>
+              )}
             </div>
             <div className="flex gap-2">
               <button
@@ -550,19 +720,30 @@ export default function PettyCashPage() {
               </button>
               {user.petty_cash_export && (
                 <>
-                  <button
-                    onClick={exportToExcel}
-                    className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-secondary/90 ml-auto"
-                  >
-                    Export XLSX
-                  </button>
-                  <button
-                    onClick={exportToDoc}
-                    disabled={exporting}
-                    className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {exporting ? "Exporting..." : "Export DOC"}
-                  </button>
+                  {viewMode === "list" ? (
+                    <>
+                      <button
+                        onClick={exportToExcel}
+                        className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-secondary/90 ml-auto"
+                      >
+                        Export XLSX
+                      </button>
+                      <button
+                        onClick={exportToDoc}
+                        disabled={exporting}
+                        className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {exporting ? "Exporting..." : "Export DOC"}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={exportReportToExcel}
+                      className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-secondary/90 ml-auto"
+                    >
+                      Export Report XLSX
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -571,7 +752,80 @@ export default function PettyCashPage() {
           <div className="bg-white rounded-lg shadow overflow-hidden">
             {loading ? (
               <div className="p-8 text-center">Loading...</div>
+            ) : viewMode === "report" ? (
+              /* Report View */
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100 border-b">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                          Store
+                        </th>
+                        <th className="px-4 py-3 text-right font-semibold text-gray-700">
+                          Petty Cash
+                        </th>
+                        <th className="px-4 py-3 text-right font-semibold text-gray-700">
+                          Listrik
+                        </th>
+                        <th className="px-4 py-3 text-right font-semibold text-gray-700">
+                          Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {generateReportData().map((item, index) => (
+                        <tr key={index} className="border-b hover:bg-gray-50">
+                          <td className="px-4 py-3">{item.store}</td>
+                          <td className="px-4 py-3 text-right">
+                            {formatRupiah(item.pettyCash)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {formatRupiah(item.listrik)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold text-green-600">
+                            {formatRupiah(item.total)}
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="bg-gray-50 font-semibold">
+                        <td className="px-4 py-3">Grand Total</td>
+                        <td className="px-4 py-3 text-right">
+                          {formatRupiah(
+                            generateReportData().reduce(
+                              (sum, item) => sum + item.pettyCash,
+                              0
+                            )
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {formatRupiah(
+                            generateReportData().reduce(
+                              (sum, item) => sum + item.listrik,
+                              0
+                            )
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right text-green-600">
+                          {formatRupiah(
+                            generateReportData().reduce(
+                              (sum, item) => sum + item.total,
+                              0
+                            )
+                          )}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  {generateReportData().length === 0 && (
+                    <div className="p-8 text-center text-gray-500">
+                      No data available
+                    </div>
+                  )}
+                </div>
+              </>
             ) : (
+              /* List View */
               <>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
@@ -974,7 +1228,7 @@ export default function PettyCashPage() {
                   </label>
                   <input
                     type="text"
-                    value={user.user_name}
+                    value={selectedEntry.store}
                     disabled
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-gray-100"
                   />

@@ -23,9 +23,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const username = searchParams.get('username');
-    const view = searchParams.get('view') || 'list'; // 'list' or 'report'
-    const dateFrom = searchParams.get('dateFrom');
-    const dateTo = searchParams.get('dateTo');
+    const view = searchParams.get('view') || 'list';
     
     if (!username) {
       return NextResponse.json(
@@ -41,98 +39,42 @@ export async function GET(request: NextRequest) {
       return storeName === usernameNormalized;
     });
 
-    if (view === 'report') {
-      // Generate report view for non-store users
-      const reportData: any[] = [];
-      
-      for (const sheet of STORE_SHEETS) {
-        try {
-          const sheetData = await getSheetData(sheet);
-          
-          // Filter by date range if provided
-          let filteredData = sheetData;
-          if (dateFrom || dateTo) {
-            filteredData = sheetData.filter((item: any) => {
-              if (!item.update_at) return false;
-              
-              // Parse update_at (format: "DD MMM YYYY, HH:MM")
-              const dateStr = item.update_at.split(',')[0]; // Get date part
-              const [day, month, year] = dateStr.split(' ');
-              const months: { [key: string]: number } = {
-                'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
-                'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
-              };
-              const itemDate = new Date(parseInt(year), months[month], parseInt(day));
-              
-              if (dateFrom) {
-                const fromDate = new Date(dateFrom);
-                if (itemDate < fromDate) return false;
-              }
-              if (dateTo) {
-                const toDate = new Date(dateTo);
-                if (itemDate > toDate) return false;
-              }
-              return true;
-            });
+    if (view === 'list') {
+      if (matchingSheet) {
+        // User owns this sheet, return only their data
+        const data = await getSheetData(matchingSheet);
+        return NextResponse.json({
+          isOwner: true,
+          storeName: matchingSheet,
+          view: 'list',
+          data: data,
+        });
+      } else {
+        // User doesn't own a sheet, return all data
+        const allData: any[] = [];
+        
+        for (const sheet of STORE_SHEETS) {
+          try {
+            const sheetData = await getSheetData(sheet);
+            const dataWithStore = sheetData.map((item: any) => ({
+              ...item,
+              location_store: sheet,
+            }));
+            allData.push(...dataWithStore);
+          } catch (error) {
+            console.error(`Error fetching ${sheet}:`, error);
           }
-          
-          // Count followup true per username
-          const followupCount = filteredData.filter((item: any) => 
-            item.followup === 'TRUE' || item.followup === 'True' || item.followup === 'true'
-          ).length;
-          
-          const totalCustomers = filteredData.length;
-          
-          reportData.push({
-            store: sheet,
-            totalCustomers,
-            followupCount,
-            followupPercentage: totalCustomers > 0 ? Math.round((followupCount / totalCustomers) * 100) : 0,
-          });
-        } catch (error) {
-          console.error(`Error fetching ${sheet}:`, error);
         }
+        
+        return NextResponse.json({
+          isOwner: false,
+          view: 'list',
+          data: allData,
+        });
       }
-      
-      return NextResponse.json({
-        view: 'report',
-        data: reportData,
-      });
     }
 
-    // List view
-    if (matchingSheet) {
-      // User owns this sheet, return only their data
-      const data = await getSheetData(matchingSheet);
-      return NextResponse.json({
-        isOwner: true,
-        storeName: matchingSheet,
-        view: 'list',
-        data: data,
-      });
-    } else {
-      // User doesn't own a sheet, return all data
-      const allData: any[] = [];
-      
-      for (const sheet of STORE_SHEETS) {
-        try {
-          const sheetData = await getSheetData(sheet);
-          const dataWithStore = sheetData.map((item: any) => ({
-            ...item,
-            location_store: sheet,
-          }));
-          allData.push(...dataWithStore);
-        } catch (error) {
-          console.error(`Error fetching ${sheet}:`, error);
-        }
-      }
-      
-      return NextResponse.json({
-        isOwner: false,
-        view: 'list',
-        data: allData,
-      });
-    }
+    return NextResponse.json({ data: [] });
   } catch (error) {
     console.error('Error fetching customer data:', error);
     return NextResponse.json(
@@ -188,14 +130,20 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Update the row
-    const updateAt = new Date().toLocaleString('id-ID', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    // Only update update_at if it's empty (first time update)
+    let updateAt = rowData.update_at || '';
+    
+    if (!updateAt || updateAt.trim() === '') {
+      // First time update - set the timestamp
+      updateAt = new Date().toLocaleString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+    // If updateAt already has a value, keep it unchanged
 
     const updatedRow = [
       rowData.phone_number,
@@ -208,8 +156,8 @@ export async function PUT(request: NextRequest) {
       result || rowData.result || '', // result
       ket || rowData.ket || '', // ket
       linkUrl, // link_url
-      username, // update_by
-      updateAt, // update_at
+      username, // update_by (this changes every time)
+      updateAt, // update_at (only set once, first time)
     ];
 
     await updateSheetRow(storeName, rowIndex, updatedRow);

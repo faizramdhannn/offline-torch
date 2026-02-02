@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
 import { Customer } from "@/types";
+import * as XLSX from "xlsx";
 
 const RESULT_OPTIONS = [
   "Terkirim",
@@ -13,12 +14,28 @@ const RESULT_OPTIONS = [
   "Merespon Tidak Membeli",
 ];
 
+const STORE_LIST = [
+  "Torch Cirebon",
+  "Torch Jogja",
+  "Torch Karawaci",
+  "Torch Karawang",
+  "Torch Lampung",
+  "Torch Lembong",
+  "Torch Makassar",
+  "Torch Malang",
+  "Torch Margonda",
+  "Torch Medan",
+  "Torch Pekalongan",
+  "Torch Purwokerto",
+  "Torch Surabaya",
+  "Torch Tambun",
+];
+
 export default function CustomerPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  const [view, setView] = useState<"list" | "report">("list");
+  const [view, setView] = useState<"list" | "report1" | "report2">("list");
   const [data, setData] = useState<Customer[]>([]);
-  const [reportData, setReportData] = useState<any[]>([]);
   const [filteredData, setFilteredData] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
@@ -33,13 +50,11 @@ export default function CustomerPage() {
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  // Followup form data
   const [followupChecked, setFollowupChecked] = useState(false);
   const [followupResult, setFollowupResult] = useState("");
   const [followupKet, setFollowupKet] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStores, setSelectedStores] = useState<string[]>([]);
   const [stores, setStores] = useState<string[]>([]);
@@ -47,7 +62,6 @@ export default function CustomerPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -63,14 +77,12 @@ export default function CustomerPage() {
       return;
     }
     setUser(parsedUser);
-    fetchData(parsedUser.user_name, "list");
+    fetchData(parsedUser.user_name);
   }, []);
 
   useEffect(() => {
-    if (view === "list") {
-      applyFilters();
-    }
-  }, [searchQuery, selectedStores, data]);
+    applyFilters();
+  }, [searchQuery, selectedStores, dateFrom, dateTo, data]);
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);
@@ -94,40 +106,24 @@ export default function CustomerPage() {
     }
   };
 
-  const fetchData = async (
-    username: string,
-    currentView: "list" | "report",
-    filterDateFrom?: string,
-    filterDateTo?: string,
-  ) => {
+  const fetchData = async (username: string) => {
     try {
       setLoading(true);
-      let url = `/api/customer?username=${username}&view=${currentView}`;
-      if (currentView === "report" && (filterDateFrom || filterDateTo)) {
-        if (filterDateFrom) url += `&dateFrom=${filterDateFrom}`;
-        if (filterDateTo) url += `&dateTo=${filterDateTo}`;
-      }
-
-      const response = await fetch(url);
+      const response = await fetch(
+        `/api/customer?username=${username}&view=list`,
+      );
       const result = await response.json();
 
-      if (currentView === "report") {
-        setReportData(result.data || []);
-      } else {
-        setIsOwner(result.isOwner);
-        setStoreName(result.storeName || "");
-        setData(result.data);
-        setFilteredData(result.data);
+      setIsOwner(result.isOwner);
+      setStoreName(result.storeName || "");
+      setData(result.data);
+      setFilteredData(result.data);
 
-        // Extract unique stores for filter
-        if (!result.isOwner) {
-          const uniqueStores = [
-            ...new Set(
-              result.data.map((item: Customer) => item.location_store),
-            ),
-          ].filter(Boolean);
-          setStores(uniqueStores as string[]);
-        }
+      if (!result.isOwner) {
+        const uniqueStores = [
+          ...new Set(result.data.map((item: Customer) => item.location_store)),
+        ].filter(Boolean);
+        setStores(uniqueStores as string[]);
       }
     } catch (error) {
       showMessage("Failed to fetch customer data", "error");
@@ -136,32 +132,39 @@ export default function CustomerPage() {
     }
   };
 
-  const handleViewChange = (newView: "list" | "report") => {
-    setView(newView);
-    if (newView === "report") {
-      fetchData(user.user_name, "report", dateFrom, dateTo);
-    } else {
-      fetchData(user.user_name, "list");
-    }
-  };
-
-  const applyReportFilter = () => {
-    if (view === "report" && user) {
-      fetchData(user.user_name, "report", dateFrom, dateTo);
-    }
+  const parseDate = (dateString: string) => {
+    if (!dateString) return null;
+    const parts = dateString.split(",")[0].split(" ");
+    const months: { [key: string]: number } = {
+      Jan: 0,
+      Feb: 1,
+      Mar: 2,
+      Apr: 3,
+      May: 4,
+      Jun: 5,
+      Jul: 6,
+      Aug: 7,
+      Sep: 8,
+      Oct: 9,
+      Nov: 10,
+      Dec: 11,
+    };
+    return new Date(
+      parseInt(parts[2]),
+      months[parts[1]],
+      parseInt(parts[0]),
+    );
   };
 
   const applyFilters = () => {
     let filtered = [...data];
 
-    // Filter by store (only for non-owners)
     if (!isOwner && selectedStores.length > 0) {
       filtered = filtered.filter((item) =>
         selectedStores.includes(item.location_store),
       );
     }
 
-    // Search by phone number or customer name
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -169,6 +172,22 @@ export default function CustomerPage() {
           item.phone_number.toLowerCase().includes(query) ||
           item.customer_name.toLowerCase().includes(query),
       );
+    }
+
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      filtered = filtered.filter((item) => {
+        const itemDate = parseDate(item.update_at);
+        return itemDate && itemDate >= fromDate;
+      });
+    }
+
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      filtered = filtered.filter((item) => {
+        const itemDate = parseDate(item.update_at);
+        return itemDate && itemDate <= toDate;
+      });
     }
 
     setFilteredData(filtered);
@@ -180,13 +199,8 @@ export default function CustomerPage() {
     setSelectedStores([]);
     setDateFrom("");
     setDateTo("");
-
-    if (view === "list") {
-      setFilteredData(data);
-      setCurrentPage(1);
-    } else {
-      fetchData(user.user_name, "report");
-    }
+    setFilteredData(data);
+    setCurrentPage(1);
   };
 
   const toggleStore = (store: string) => {
@@ -245,7 +259,7 @@ export default function CustomerPage() {
         formData.append("file", selectedFile);
       }
 
-      formData.append("rowIndex", (selectedRowIndex + 2).toString()); // +2 for header and 0-based index
+      formData.append("rowIndex", (selectedRowIndex + 2).toString());
 
       const response = await fetch("/api/customer", {
         method: "PUT",
@@ -253,13 +267,10 @@ export default function CustomerPage() {
       });
 
       if (response.ok) {
-        await logActivity(
-          "PUT",
-          `Updated customer followup`,
-        );
+        await logActivity("PUT", `Updated customer followup`);
         showMessage("Followup saved successfully", "success");
         closeFollowupModal();
-        fetchData(user.user_name, view);
+        fetchData(user.user_name);
       } else {
         showMessage("Failed to save followup", "error");
       }
@@ -270,15 +281,141 @@ export default function CustomerPage() {
     }
   };
 
-  // Pagination
+  // Report 1: Date x Store matrix
+  const generateReport1Data = () => {
+    const dateStoreMap = new Map<string, Map<string, number>>();
+
+    filteredData.forEach((item) => {
+      if (!item.update_at) return;
+      const date = item.update_at.split(",")[0]; // Get date part only
+      const store = item.location_store;
+
+      if (!dateStoreMap.has(date)) {
+        dateStoreMap.set(date, new Map());
+      }
+
+      const storeMap = dateStoreMap.get(date)!;
+      storeMap.set(store, (storeMap.get(store) || 0) + 1);
+    });
+
+    const sortedDates = Array.from(dateStoreMap.keys()).sort((a, b) => {
+      const dateA = parseDate(a + ", 00:00");
+      const dateB = parseDate(b + ", 00:00");
+      return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
+    });
+
+    return sortedDates.map((date) => {
+      const storeMap = dateStoreMap.get(date)!;
+      const row: any = { date };
+
+      STORE_LIST.forEach((store) => {
+        row[store] = storeMap.get(store) || 0;
+      });
+
+      row.total = Array.from(storeMap.values()).reduce((a, b) => a + b, 0);
+
+      return row;
+    });
+  };
+
+  // Report 2: Store x Result matrix
+  const generateReport2Data = () => {
+    const storeCustomerCount = new Map<string, number>();
+    const storeResultMap = new Map<string, Map<string, number>>();
+
+    // Count total customers per store (including No Result)
+    filteredData.forEach((item) => {
+      const store = item.location_store;
+      storeCustomerCount.set(store, (storeCustomerCount.get(store) || 0) + 1);
+    });
+
+    // Count results per store (excluding No Result)
+    filteredData.forEach((item) => {
+      const store = item.location_store;
+      const result = item.result;
+
+      // Skip items without result (No Result)
+      if (!result || result.trim() === "") return;
+
+      if (!storeResultMap.has(store)) {
+        storeResultMap.set(store, new Map());
+      }
+
+      const resultMap = storeResultMap.get(store)!;
+      resultMap.set(result, (resultMap.get(result) || 0) + 1);
+    });
+
+    const allResults = new Set<string>();
+    storeResultMap.forEach((resultMap) => {
+      resultMap.forEach((_, result) => allResults.add(result));
+    });
+
+    const sortedResults = Array.from(allResults).sort();
+
+    return STORE_LIST.map((store) => {
+      const totalCustomer = storeCustomerCount.get(store) || 0;
+      const resultMap = storeResultMap.get(store);
+
+      const row: any = { 
+        store, 
+        totalCustomer 
+      };
+
+      sortedResults.forEach((result) => {
+        const count = resultMap?.get(result) || 0;
+        row[result] = count;
+      });
+
+      // Calculate percentage (total results with actual result / total customers * 100)
+      const totalResults = resultMap
+        ? Array.from(resultMap.values()).reduce((a, b) => a + b, 0)
+        : 0;
+      row.percentage = totalCustomer > 0 
+        ? ((totalResults / totalCustomer) * 100).toFixed(1) + "%"
+        : "0%";
+
+      return row;
+    }).filter((row) => row.totalCustomer > 0);
+  };
+
+  const exportReport1ToExcel = () => {
+    const reportData = generateReport1Data();
+    const ws = XLSX.utils.json_to_sheet(reportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Date x Store Report");
+    XLSX.writeFile(
+      wb,
+      `customer_report_date_store_${new Date().toISOString().split("T")[0]}.xlsx`,
+    );
+    logActivity("GET", "Exported customer report 1 (Date x Store)");
+  };
+
+  const exportReport2ToExcel = () => {
+    const reportData = generateReport2Data();
+    const ws = XLSX.utils.json_to_sheet(reportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Store x Result Report");
+    XLSX.writeFile(
+      wb,
+      `customer_report_store_result_${new Date().toISOString().split("T")[0]}.xlsx`,
+    );
+    logActivity("GET", "Exported customer report 2 (Store x Result)");
+  };
+
+  // Get cell color based on value for Report 1
+  const getCellColor = (value: number) => {
+    if (value < 10) {
+      return "text-red-600 font-semibold"; // Solid red text
+    } else if (value >= 10) {
+      return "text-green-600 font-semibold"; // Solid green text
+    }
+    return ""; // Default (no color)
+  };
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems =
-    view === "list"
-      ? filteredData.slice(indexOfFirstItem, indexOfLastItem)
-      : [];
-  const totalPages =
-    view === "list" ? Math.ceil(filteredData.length / itemsPerPage) : 0;
+  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
   if (!user) return null;
 
@@ -296,7 +433,7 @@ export default function CustomerPage() {
             {!isOwner && (
               <div className="flex gap-2">
                 <button
-                  onClick={() => handleViewChange("list")}
+                  onClick={() => setView("list")}
                   className={`px-4 py-2 rounded text-sm transition-colors ${
                     view === "list"
                       ? "bg-primary text-white"
@@ -306,31 +443,43 @@ export default function CustomerPage() {
                   Customer List
                 </button>
                 <button
-                  onClick={() => handleViewChange("report")}
+                  onClick={() => setView("report1")}
                   className={`px-4 py-2 rounded text-sm transition-colors ${
-                    view === "report"
+                    view === "report1"
                       ? "bg-primary text-white"
                       : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                   }`}
                 >
-                  Report
+                  Daily Store
+                </button>
+                <button
+                  onClick={() => setView("report2")}
+                  className={`px-4 py-2 rounded text-sm transition-colors ${
+                    view === "report2"
+                      ? "bg-primary text-white"
+                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
+                >
+                  Store Result
                 </button>
               </div>
             )}
           </div>
 
-          {view === "list" ? (
-            <>
-              {/* List View Filters */}
-              <div className="bg-white rounded-lg shadow p-4 mb-4">
-                <div className="grid grid-cols-3 gap-3 mb-3">
+          {/* Filters */}
+          <div className="bg-white rounded-lg shadow p-4 mb-4">
+            <div className="grid grid-cols-4 gap-3 mb-3">
+              {view === "list" && (
+                <>
                   {!isOwner && (
                     <div className="relative">
                       <label className="block text-xs font-medium text-gray-700 mb-1">
                         Store
                       </label>
                       <button
-                        onClick={() => setShowStoreDropdown(!showStoreDropdown)}
+                        onClick={() =>
+                          setShowStoreDropdown(!showStoreDropdown)
+                        }
                         className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
                       >
                         <span className="text-gray-500">
@@ -361,7 +510,7 @@ export default function CustomerPage() {
                     </div>
                   )}
 
-                  <div className={isOwner ? "col-span-3" : "col-span-2"}>
+                  <div className={isOwner ? "col-span-4" : "col-span-3"}>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       Search
                     </label>
@@ -373,258 +522,11 @@ export default function CustomerPage() {
                       className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                   </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={resetFilters}
-                    className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"
-                  >
-                    Reset Filters
-                  </button>
-                </div>
-              </div>
+                </>
+              )}
 
-              {/* List View Table */}
-              <div className="bg-white rounded-lg shadow overflow-hidden">
-                {loading ? (
-                  <div className="p-8 text-center">Loading...</div>
-                ) : (
-                  <>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead className="bg-gray-100 border-b">
-                          <tr>
-                            <th className="px-2 py-2 text-center font-semibold text-gray-700 w-24">
-                              Phone
-                            </th>
-                            <th className="px-2 py-2 text-center font-semibold text-gray-700 w-34">
-                              Customer
-                            </th>
-                            <th className="px-2 py-2 text-center font-semibold text-gray-700 w-34">
-                              Store
-                            </th>
-                            <th className="px-2 py-2 text-center font-semibold text-gray-700 w-20">
-                              Total Value
-                            </th>
-                            <th className="px-2 py-2 text-center font-semibold text-gray-700 w-16">
-                              Total Order
-                            </th>
-                            {!isOwner && (
-                              <th className="px-2 py-2 text-center font-semibold text-gray-700 w-20">
-                                Average
-                              </th>
-                            )}
-                            <th className="px-2 py-2 text-center font-semibold text-gray-700 w-16">
-                              Followup
-                            </th>
-                            <th className="px-2 py-2 text-center font-semibold text-gray-700">
-                              Result & Note
-                            </th>
-                            {!isOwner && (
-                              <>
-                                <th className="px-2 py-2 text-center font-semibold text-gray-700 w-20">
-                                  Update By
-                                </th>
-                                <th className="px-2 py-2 text-center font-semibold text-gray-700 w-24">
-                                  Update At
-                                </th>
-                              </>
-                            )}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {currentItems.map((customer, index) => {
-                            const actualIndex = indexOfFirstItem + index;
-                            const hasFollowup =
-                              customer.followup === "TRUE" ||
-                              customer.followup === "True" ||
-                              customer.followup === "true";
-                            return (
-                              <tr
-                                key={actualIndex}
-                                className={`border-b hover:bg-gray-50 ${hasFollowup ? "bg-green-50" : ""}`}
-                              >
-                                <td className="px-2 text-center py-2">
-                                  <div className="flex items-center justify-center gap-1">
-                                    <span className="text-xs">
-                                      {customer.phone_number}
-                                    </span>
-                                    <button
-                                      onClick={() =>
-                                        copyToClipboard(customer.phone_number)
-                                      }
-                                      className="text-blue-600 hover:text-blue-800 text-xs"
-                                      title="Copy phone number"
-                                    >
-                                      📋
-                                    </button>
-                                  </div>
-                                </td>
-                                <td className="px-2 text-center py-2 text-xs">
-                                  {customer.customer_name}
-                                </td>
-                                <td className="px-2 text-center py-2 text-xs">
-                                  {customer.location_store}
-                                </td>
-                                <td className="px-2 text-center py-2 text-xs">
-                                  {customer.total_value}
-                                </td>
-                                <td className="px-2 text-center py-2 text-xs">
-                                  {customer.total_order}
-                                </td>
-                                {!isOwner && (
-                                  <td className="px-2 text-center py-2 text-xs">
-                                    {customer.average_value}
-                                  </td>
-                                )}
-                                <td className="px-2 text-center py-2">
-                                  <span
-                                    className={`text-xs ${hasFollowup ? "text-green-600 font-semibold" : "text-gray-400"}`}
-                                  >
-                                    {hasFollowup ? "✓" : "-"}
-                                  </span>
-                                </td>
-                                <td className="px-2 py-2">
-                                  <div className="flex flex-col items-center gap-1">
-                                    {customer.result && (
-                                      <div className="text-xs text-gray-700 font-medium">
-                                        {customer.result}
-                                      </div>
-                                    )}
-                                    {customer.ket && (
-                                      <div
-                                        className="text-xs text-gray-600 italic max-w-xs truncate"
-                                        title={customer.ket}
-                                      >
-                                        {customer.ket}
-                                      </div>
-                                    )}
-
-                                    <div className="flex items-center gap-1 mt-1">
-                                      {customer.link_url &&
-                                        customer.link_url.trim() !== "" && (
-                                          <a
-                                            href={customer.link_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-blue-600 hover:underline text-xs"
-                                          >
-                                            View
-                                          </a>
-                                        )}
-
-                                      {isOwner && (
-                                        <button
-                                          onClick={() =>
-                                            openFollowupModal(
-                                              customer,
-                                              actualIndex,
-                                            )
-                                          }
-                                          className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                                        >
-                                          {hasFollowup ? "Edit" : "Add"}
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                </td>
-                                {!isOwner && (
-                                  <>
-                                    <td className="px-2 text-center py-2 text-xs">
-                                      {customer.update_by || "-"}
-                                    </td>
-                                    <td className="px-2 text-center py-2 text-xs">
-                                      {customer.update_at || "-"}
-                                    </td>
-                                  </>
-                                )}
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                      {filteredData.length === 0 && (
-                        <div className="p-8 text-center text-gray-500">
-                          No data available
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                      <div className="flex justify-between items-center px-4 py-3 border-t">
-                        <div className="text-xs text-gray-600">
-                          Showing {indexOfFirstItem + 1} to{" "}
-                          {Math.min(indexOfLastItem, filteredData.length)} of{" "}
-                          {filteredData.length} entries
-                        </div>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() =>
-                              setCurrentPage((prev) => Math.max(1, prev - 1))
-                            }
-                            disabled={currentPage === 1}
-                            className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                          >
-                            Previous
-                          </button>
-                          {[...Array(totalPages)].map((_, i) => {
-                            const page = i + 1;
-                            if (
-                              page === 1 ||
-                              page === totalPages ||
-                              (page >= currentPage - 1 &&
-                                page <= currentPage + 1)
-                            ) {
-                              return (
-                                <button
-                                  key={page}
-                                  onClick={() => setCurrentPage(page)}
-                                  className={`px-3 py-1 text-xs border rounded ${
-                                    currentPage === page
-                                      ? "bg-primary text-white"
-                                      : "hover:bg-gray-50"
-                                  }`}
-                                >
-                                  {page}
-                                </button>
-                              );
-                            } else if (
-                              page === currentPage - 2 ||
-                              page === currentPage + 2
-                            ) {
-                              return (
-                                <span key={page} className="px-2">
-                                  ...
-                                </span>
-                              );
-                            }
-                            return null;
-                          })}
-                          <button
-                            onClick={() =>
-                              setCurrentPage((prev) =>
-                                Math.min(totalPages, prev + 1),
-                              )
-                            }
-                            disabled={currentPage === totalPages}
-                            className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                          >
-                            Next
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Report View */}
-              <div className="bg-white rounded-lg shadow p-4 mb-4">
-                <div className="grid grid-cols-4 gap-3 mb-3">
+              {(view === "report1" || view === "report2") && (
+                <>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       Date From
@@ -647,88 +549,424 @@ export default function CustomerPage() {
                       className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                   </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={applyReportFilter}
-                    className="px-4 py-1.5 bg-primary text-white rounded text-xs hover:bg-primary/90"
-                  >
-                    Apply Filter
-                  </button>
-                  <button
-                    onClick={resetFilters}
-                    className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"
-                  >
-                    Reset
-                  </button>
-                </div>
-              </div>
+                  <div className="relative">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Store
+                    </label>
+                    <button
+                      onClick={() => setShowStoreDropdown(!showStoreDropdown)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
+                    >
+                      <span className="text-gray-500">
+                        {selectedStores.length === 0
+                          ? "All stores..."
+                          : `${selectedStores.length} selected`}
+                      </span>
+                      <span className="text-gray-400">▼</span>
+                    </button>
+                    {showStoreDropdown && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                        {stores.map((store) => (
+                          <label
+                            key={store}
+                            className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedStores.includes(store)}
+                              onChange={() => toggleStore(store)}
+                              className="mr-2"
+                            />
+                            {store}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={resetFilters}
+                className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"
+              >
+                Reset Filters
+              </button>
+              {view === "report1" && (
+                <button
+                  onClick={exportReport1ToExcel}
+                  className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-secondary/90 ml-auto"
+                >
+                  Export XLSX
+                </button>
+              )}
+              {view === "report2" && (
+                <button
+                  onClick={exportReport2ToExcel}
+                  className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-secondary/90 ml-auto"
+                >
+                  Export XLSX
+                </button>
+              )}
+            </div>
+          </div>
 
-              {/* Report Table */}
-              <div className="bg-white rounded-lg shadow overflow-hidden">
-                {loading ? (
-                  <div className="p-8 text-center">Loading...</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-100 border-b">
-                        <tr>
-                          <th className="px-4 py-3 text-left font-semibold text-gray-700">
-                            Store
+          {/* Content Area */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            {loading ? (
+              <div className="p-8 text-center">Loading...</div>
+            ) : view === "list" ? (
+              /* List View */
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-100 border-b">
+                      <tr>
+                        <th className="px-2 py-2 text-center font-semibold text-gray-700 w-24">
+                          Phone
+                        </th>
+                        <th className="px-2 py-2 text-center font-semibold text-gray-700 w-34">
+                          Customer
+                        </th>
+                        <th className="px-2 py-2 text-center font-semibold text-gray-700 w-34">
+                          Store
+                        </th>
+                        <th className="px-2 py-2 text-center font-semibold text-gray-700 w-20">
+                          Total Value
+                        </th>
+                        <th className="px-2 py-2 text-center font-semibold text-gray-700 w-16">
+                          Total Order
+                        </th>
+                        {!isOwner && (
+                          <th className="px-2 py-2 text-center font-semibold text-gray-700 w-20">
+                            Average
                           </th>
-                          <th className="px-4 py-3 text-center font-semibold text-gray-700">
-                            Total Customers
-                          </th>
-                          <th className="px-4 py-3 text-center font-semibold text-gray-700">
-                            Followup Count
-                          </th>
-                          <th className="px-4 py-3 text-center font-semibold text-gray-700">
-                            Followup Rate
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {reportData.map((item, index) => (
-                          <tr key={index} className="border-b hover:bg-gray-50">
-                            <td className="px-4 py-3">{item.store}</td>
-                            <td className="px-4 py-3 text-center">
-                              {item.totalCustomers}
+                        )}
+                        <th className="px-2 py-2 text-center font-semibold text-gray-700 w-16">
+                          Followup
+                        </th>
+                        <th className="px-2 py-2 text-center font-semibold text-gray-700">
+                          Result & Note
+                        </th>
+                        {!isOwner && (
+                          <>
+                            <th className="px-2 py-2 text-center font-semibold text-gray-700 w-20">
+                              Update By
+                            </th>
+                            <th className="px-2 py-2 text-center font-semibold text-gray-700 w-24">
+                              Update At
+                            </th>
+                          </>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentItems.map((customer, index) => {
+                        const actualIndex = indexOfFirstItem + index;
+                        const hasFollowup =
+                          customer.followup === "TRUE" ||
+                          customer.followup === "True" ||
+                          customer.followup === "true";
+                        return (
+                          <tr
+                            key={actualIndex}
+                            className={`border-b hover:bg-gray-50 ${hasFollowup ? "bg-green-50" : ""}`}
+                          >
+                            <td className="px-2 text-center py-2">
+                              <div className="flex items-center justify-center gap-1">
+                                <span className="text-xs">
+                                  {customer.phone_number}
+                                </span>
+                                <button
+                                  onClick={() =>
+                                    copyToClipboard(customer.phone_number)
+                                  }
+                                  className="text-blue-600 hover:text-blue-800 text-xs"
+                                  title="Copy phone number"
+                                >
+                                  📋
+                                </button>
+                              </div>
                             </td>
-                            <td className="px-4 py-3 text-center font-semibold text-green-600">
-                              {item.followupCount}
+                            <td className="px-2 text-center py-2 text-xs">
+                              {customer.customer_name}
                             </td>
-                            <td className="px-4 py-3 text-center">
+                            <td className="px-2 text-center py-2 text-xs">
+                              {customer.location_store}
+                            </td>
+                            <td className="px-2 text-center py-2 text-xs">
+                              {customer.total_value}
+                            </td>
+                            <td className="px-2 text-center py-2 text-xs">
+                              {customer.total_order}
+                            </td>
+                            {!isOwner && (
+                              <td className="px-2 text-center py-2 text-xs">
+                                {customer.average_value}
+                              </td>
+                            )}
+                            <td className="px-2 text-center py-2">
                               <span
-                                className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                  item.followupPercentage >= 75
-                                    ? "bg-green-100 text-green-800"
-                                    : item.followupPercentage >= 50
-                                      ? "bg-yellow-100 text-yellow-800"
-                                      : "bg-red-100 text-red-800"
-                                }`}
+                                className={`text-xs ${hasFollowup ? "text-green-600 font-semibold" : "text-gray-400"}`}
                               >
-                                {item.followupPercentage}%
+                                {hasFollowup ? "✓" : "-"}
                               </span>
                             </td>
-                          </tr>
-                        ))}
-                        {reportData.length === 0 && (
-                          <tr>
-                            <td
-                              colSpan={4}
-                              className="p-8 text-center text-gray-500"
-                            >
-                              No data available
+                            <td className="px-2 py-2">
+                              <div className="flex flex-col items-center gap-1">
+                                {customer.result && (
+                                  <div className="text-xs text-gray-700 font-medium">
+                                    {customer.result}
+                                  </div>
+                                )}
+                                {customer.ket && (
+                                  <div
+                                    className="text-xs text-gray-600 italic max-w-xs truncate"
+                                    title={customer.ket}
+                                  >
+                                    {customer.ket}
+                                  </div>
+                                )}
+
+                                <div className="flex items-center gap-1 mt-1">
+                                  {customer.link_url &&
+                                    customer.link_url.trim() !== "" && (
+                                      <a
+                                        href={customer.link_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:underline text-xs"
+                                      >
+                                        View
+                                      </a>
+                                    )}
+
+                                  {isOwner && (
+                                    <button
+                                      onClick={() =>
+                                        openFollowupModal(customer, actualIndex)
+                                      }
+                                      className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                    >
+                                      {hasFollowup ? "Edit" : "Add"}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
                             </td>
+                            {!isOwner && (
+                              <>
+                                <td className="px-2 text-center py-2 text-xs">
+                                  {customer.update_by || "-"}
+                                </td>
+                                <td className="px-2 text-center py-2 text-xs">
+                                  {customer.update_at || "-"}
+                                </td>
+                              </>
+                            )}
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {filteredData.length === 0 && (
+                    <div className="p-8 text-center text-gray-500">
+                      No data available
+                    </div>
+                  )}
+                </div>
+
+                {totalPages > 1 && (
+                  <div className="flex justify-between items-center px-4 py-3 border-t">
+                    <div className="text-xs text-gray-600">
+                      Showing {indexOfFirstItem + 1} to{" "}
+                      {Math.min(indexOfLastItem, filteredData.length)} of{" "}
+                      {filteredData.length} entries
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() =>
+                          setCurrentPage((prev) => Math.max(1, prev - 1))
+                        }
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Previous
+                      </button>
+                      {[...Array(totalPages)].map((_, i) => {
+                        const page = i + 1;
+                        if (
+                          page === 1 ||
+                          page === totalPages ||
+                          (page >= currentPage - 1 && page <= currentPage + 1)
+                        ) {
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => setCurrentPage(page)}
+                              className={`px-3 py-1 text-xs border rounded ${
+                                currentPage === page
+                                  ? "bg-primary text-white"
+                                  : "hover:bg-gray-50"
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          );
+                        } else if (
+                          page === currentPage - 2 ||
+                          page === currentPage + 2
+                        ) {
+                          return (
+                            <span key={page} className="px-2">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                      })}
+                      <button
+                        onClick={() =>
+                          setCurrentPage((prev) =>
+                            Math.min(totalPages, prev + 1),
+                          )
+                        }
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : view === "report1" ? (
+              /* Report 1: Date x Store */
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-100 border-b">
+                    <tr>
+                      <th className="px-2 py-2 text-left font-semibold text-gray-700 sticky left-0 bg-gray-100">
+                        Date
+                      </th>
+                      {STORE_LIST.map((store) => (
+                        <th
+                          key={store}
+                          className="px-2 py-2 text-center font-semibold text-gray-700"
+                        >
+                          {store.replace("Torch ", "")}
+                        </th>
+                      ))}
+                      <th className="px-2 py-2 text-center font-semibold text-gray-700 bg-blue-50">
+                        Total
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {generateReport1Data().map((row, index) => (
+                      <tr key={index} className="border-b hover:bg-gray-50">
+                        <td className="px-2 py-2 font-medium sticky left-0 bg-white">
+                          {row.date}
+                        </td>
+                        {STORE_LIST.map((store) => {
+                          const value = row[store] || 0;
+                          return (
+                            <td
+                              key={store}
+                              className={`px-2 py-2 text-center ${getCellColor(value)}`}
+                            >
+                              {value}
+                            </td>
+                          );
+                        })}
+                        <td className="px-2 py-2 text-center font-semibold text-blue-600 bg-blue-50">
+                          {row.total}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {generateReport1Data().length === 0 && (
+                  <div className="p-8 text-center text-gray-500">
+                    No data available
                   </div>
                 )}
               </div>
-            </>
-          )}
+            ) : (
+              /* Report 2: Store x Result */
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100 border-b">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-semibold text-gray-700">
+                        Store
+                      </th>
+                      <th className="px-3 py-2 text-center font-semibold text-gray-700">
+                        Total Customer
+                      </th>
+                      {Array.from(
+                        new Set(
+                          filteredData
+                            .map((item) => item.result)
+                            .filter((result) => result && result.trim() !== "")
+                            .sort(),
+                        ),
+                      ).map((result) => (
+                        <th
+                          key={result}
+                          className="px-3 py-2 text-center font-semibold text-gray-700"
+                        >
+                          {result}
+                        </th>
+                      ))}
+                      <th className="px-3 py-2 text-center font-semibold text-gray-700 bg-blue-50">
+                        Percentage
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {generateReport2Data().map((row, index) => {
+                      const results = Array.from(
+                        new Set(
+                          filteredData
+                            .map((item) => item.result)
+                            .filter((result) => result && result.trim() !== "")
+                            .sort(),
+                        ),
+                      );
+                      return (
+                        <tr key={index} className="border-b hover:bg-gray-50">
+                          <td className="px-3 py-2 font-medium">
+                            {row.store}
+                          </td>
+                          <td className="px-3 py-2 text-center font-semibold">
+                            {row.totalCustomer}
+                          </td>
+                          {results.map((result) => (
+                            <td
+                              key={result}
+                              className="px-3 py-2 text-center"
+                            >
+                              {row[result] || 0}
+                            </td>
+                          ))}
+                          <td className="px-3 py-2 text-center font-semibold text-blue-600 bg-blue-50">
+                            {row.percentage}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {generateReport2Data().length === 0 && (
+                  <div className="p-8 text-center text-gray-500">
+                    No data available
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
