@@ -63,8 +63,10 @@ function toTitleCase(str: string): string {
   return str.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function formatRupiah(value: string): string {
-  const number = parseInt(value.replace(/[^0-9]/g, ''));
+function formatRupiah(value: string | number): string {
+  const number = typeof value === 'string' 
+    ? parseInt(value.replace(/[^0-9]/g, ''))
+    : value;
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
@@ -76,9 +78,12 @@ export async function POST(request: NextRequest) {
   try {
     const { data, username, dateFrom, dateTo } = await request.json();
 
-    // Calculate total
+    // Calculate total - ensure value is treated as number
     const totalValue = data.reduce((sum: number, item: any) => {
-      return sum + parseInt(item.value.replace(/[^0-9]/g, ''));
+      const numValue = typeof item.value === 'string' 
+        ? parseInt(item.value.replace(/[^0-9]/g, ''))
+        : parseInt(item.value);
+      return sum + numValue;
     }, 0);
 
     const dateRange = dateFrom && dateTo ? `${dateFrom} - ${dateTo}` : 'All Dates';
@@ -150,6 +155,11 @@ export async function POST(request: NextRequest) {
       
       console.log(`Processing row ${i + 1}/${data.length}`);
 
+      // Convert value to number for formatting
+      const numValue = typeof item.value === 'string'
+        ? parseInt(item.value.replace(/[^0-9]/g, ''))
+        : parseInt(item.value);
+
       const rowCells = [
         new TableCell({ 
           children: [new Paragraph(item.date)],
@@ -160,7 +170,7 @@ export async function POST(request: NextRequest) {
           borders: borderStyle
         }),
         new TableCell({ 
-          children: [new Paragraph(item.value)],
+          children: [new Paragraph(formatRupiah(numValue))],
           borders: borderStyle
         }),
       ];
@@ -220,7 +230,7 @@ export async function POST(request: NextRequest) {
           }),
           new TableCell({ 
             children: [new Paragraph({ 
-              children: [new TextRun({ text: 'Total: ' + formatRupiah(totalValue.toString()), bold: true })]
+              children: [new TextRun({ text: 'Total: ' + formatRupiah(totalValue), bold: true })]
             })],
             borders: borderStyle
           }),

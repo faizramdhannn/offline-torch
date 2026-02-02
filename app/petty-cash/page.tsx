@@ -51,6 +51,7 @@ export default function PettyCashPage() {
   const [dateTo, setDateTo] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedStores, setSelectedStores] = useState<string[]>([]);
+  const [transferFilter, setTransferFilter] = useState<string>("all"); // NEW: Filter for list view
   const [reportTransferFilter, setReportTransferFilter] = useState<"false" | "true">("false");
 
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -87,7 +88,7 @@ export default function PettyCashPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [dateFrom, dateTo, selectedCategories, selectedStores, data]);
+  }, [dateFrom, dateTo, selectedCategories, selectedStores, transferFilter, data]); // UPDATED: Added transferFilter
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);
@@ -184,6 +185,13 @@ export default function PettyCashPage() {
       filtered = filtered.filter((item) => selectedStores.includes(item.store));
     }
 
+    // NEW: Transfer filter for list view
+    if (transferFilter === "true") {
+      filtered = filtered.filter((item) => item.transfer === "TRUE");
+    } else if (transferFilter === "false") {
+      filtered = filtered.filter((item) => item.transfer === "FALSE");
+    }
+
     setFilteredData(filtered);
     setCurrentPage(1);
   };
@@ -193,7 +201,8 @@ export default function PettyCashPage() {
     setDateTo("");
     setSelectedCategories([]);
     setSelectedStores([]);
-    setReportTransferFilter("false"); // Reset to default "Belum Transfer"
+    setTransferFilter("all"); // NEW: Reset transfer filter
+    setReportTransferFilter("false");
     setFilteredData(data);
     setCurrentPage(1);
   };
@@ -302,7 +311,7 @@ export default function PettyCashPage() {
       form.append("description", formData.description);
       form.append("category", formData.category);
       form.append("value", formData.value.replace(/[^0-9]/g, ""));
-      form.append("store", selectedEntry.store); // Keep original store
+      form.append("store", selectedEntry.store);
       form.append("ket", formData.ket);
       form.append("transfer", formData.transfer.toString());
       form.append("username", user.user_name);
@@ -372,7 +381,7 @@ export default function PettyCashPage() {
       Date: item.date,
       Description: toTitleCase(item.description),
       Category: item.category,
-      Value: parseInt(item.value || "0"),
+      Value: parseInt(item.value || "0"), // CHANGED: Export as number
       Store: item.store,
       Ket: item.ket,
       Transfer: item.transfer === "TRUE" ? "Yes" : "No",
@@ -461,9 +470,7 @@ export default function PettyCashPage() {
     }
   };
 
-  // Generate report data
   const generateReportData = (): ReportData[] => {
-    // Filter based on transfer status
     let reportFilteredData = filteredData;
     if (reportTransferFilter === "false") {
       reportFilteredData = filteredData.filter((item) => item.transfer === "FALSE");
@@ -471,13 +478,11 @@ export default function PettyCashPage() {
       reportFilteredData = filteredData.filter((item) => item.transfer === "TRUE");
     }
 
-    // Get unique stores
     const uniqueStores = [...new Set(reportFilteredData.map((item) => item.store))];
 
     const reportData = uniqueStores.map((store) => {
       const storeData = reportFilteredData.filter((item) => item.store === store);
 
-      // Calculate Petty Cash (exclude listrik/token)
       const pettyCashData = storeData.filter((item) => {
         const desc = item.description.toLowerCase();
         return !desc.includes("listrik") && !desc.includes("token");
@@ -486,7 +491,6 @@ export default function PettyCashPage() {
         return sum + parseInt(item.value.replace(/[^0-9]/g, "") || "0");
       }, 0);
 
-      // Calculate Listrik (include listrik or token)
       const listrikData = storeData.filter((item) => {
         const desc = item.description.toLowerCase();
         return desc.includes("listrik") || desc.includes("token");
@@ -503,7 +507,6 @@ export default function PettyCashPage() {
       };
     });
 
-    // Sort by store name
     return reportData.sort((a, b) => a.store.localeCompare(b.store));
   };
 
@@ -564,8 +567,9 @@ export default function PettyCashPage() {
             </div>
           </div>
 
+          {/* Filters */}
           <div className="bg-white rounded-lg shadow p-4 mb-4">
-            <div className="grid grid-cols-4 gap-3 mb-3">
+            <div className="grid grid-cols-5 gap-3 mb-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Date From
@@ -658,6 +662,21 @@ export default function PettyCashPage() {
                       </div>
                     )}
                   </div>
+                  {/* NEW: Transfer Filter for List View */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Transfer Status
+                    </label>
+                    <select
+                      value={transferFilter}
+                      onChange={(e) => setTransferFilter(e.target.value)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="all">All</option>
+                      <option value="false">Belum Transfer</option>
+                      <option value="true">Sudah Transfer</option>
+                    </select>
+                  </div>
                 </>
               ) : (
                 <>
@@ -695,7 +714,7 @@ export default function PettyCashPage() {
                       </div>
                     )}
                   </div>
-                  <div>
+                  <div className="col-span-2">
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       Transfer Status
                     </label>
