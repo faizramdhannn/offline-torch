@@ -12,12 +12,21 @@ interface ActivityLog {
   activity_log: string;
 }
 
+interface StoreAddress {
+  id: string;
+  store_location: string;
+  phone_number: string;
+  address: string;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [storeAddresses, setStoreAddresses] = useState<StoreAddress[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -33,6 +42,7 @@ export default function DashboardPage() {
     }
     setUser(parsedUser);
     fetchActivityLogs();
+    fetchStoreAddresses();
   }, []);
 
   const fetchActivityLogs = async () => {
@@ -47,6 +57,26 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchStoreAddresses = async () => {
+    try {
+      const response = await fetch("/api/store-address");
+      if (response.ok) {
+        const data = await response.json();
+        setStoreAddresses(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch store addresses:", error);
+    }
+  };
+
+  const handleCopy = (store: StoreAddress) => {
+    const text = `${store.store_location}\n${store.phone_number} ${store.address}`;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(store.id);
+      setTimeout(() => setCopiedId(null), 1500);
+    });
   };
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -64,59 +94,70 @@ export default function DashboardPage() {
         <div className="p-6">
           <h1 className="text-2xl font-bold text-primary mb-6">Dashboard</h1>
 
-          {/* Stats Section - Placeholder untuk konten future */}
+          {/* Stats Section - Placeholder */}
           <div className="grid grid-cols-7 gap-1 mb-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-sm text-gray-600 mb-1">Store 1</div>
-              <div className="text-2xl font-bold text-gray-800">-</div>
-              <div className="text-xs text-gray-500 mt-1">Coming soon</div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-sm text-gray-600 mb-1">Store 2</div>
-              <div className="text-2xl font-bold text-gray-800">-</div>
-              <div className="text-xs text-gray-500 mt-1">Coming soon</div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-sm text-gray-600 mb-1">Store 3</div>
-              <div className="text-2xl font-bold text-gray-800">-</div>
-              <div className="text-xs text-gray-500 mt-1">Coming soon</div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-sm text-gray-600 mb-1">Store 4</div>
-              <div className="text-2xl font-bold text-gray-800">-</div>
-              <div className="text-xs text-gray-500 mt-1">Coming soon</div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-sm text-gray-600 mb-1">Store 5</div>
-              <div className="text-2xl font-bold text-gray-800">-</div>
-              <div className="text-xs text-gray-500 mt-1">Coming soon</div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-sm text-gray-600 mb-1">Store 6</div>
-              <div className="text-2xl font-bold text-gray-800">-</div>
-              <div className="text-xs text-gray-500 mt-1">Coming soon</div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-sm text-gray-600 mb-1">Store 7</div>
-              <div className="text-2xl font-bold text-gray-800">-</div>
-              <div className="text-xs text-gray-500 mt-1">Coming soon</div>
-            </div>
+            {["Store 1", "Store 2", "Store 3", "Store 4", "Store 5", "Store 6", "Store 7"].map((label) => (
+              <div key={label} className="bg-white rounded-lg shadow p-6">
+                <div className="text-sm text-gray-600 mb-1">{label}</div>
+                <div className="text-2xl font-bold text-gray-800">-</div>
+                <div className="text-xs text-gray-500 mt-1">Coming soon</div>
+              </div>
+            ))}
           </div>
 
-          {/* Charts/Content Section - Placeholder */}
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h3 className="text-base font-semibold text-gray-800 mb-4">
-              Enaknya apa yah?
-            </h3>
-            <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 rounded">
-              <p className="text-gray-400 text-sm">Tar dulu deh</p>
+          {/* Store Location Section */}
+          <div className="bg-white rounded-lg shadow mb-6">
+            <div className="px-4 py-3 border-b border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-800">
+                Store Location
+              </h3>
             </div>
+
+            {storeAddresses.length === 0 ? (
+              <div className="p-6 text-center text-sm text-gray-500">
+                No store data available
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">Store</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">Address</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600 w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {storeAddresses.map((store, index) => (
+                      <tr
+                        key={store.id}
+                        className={`border-b ${index % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}
+                      >
+                        <td className="px-3 py-1.5 text-gray-700 font-medium">{store.store_location}</td>
+                        <td className="px-3 py-1.5 text-gray-600">{store.phone_number} {store.address}</td>
+                        <td className="px-3 py-1.5">
+                          <button
+                            onClick={() => handleCopy(store)}
+                            className="text-gray-400 hover:text-primary transition-colors"
+                            title="Copy"
+                          >
+                            {copiedId === store.id ? (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                              </svg>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Activity Log Section */}

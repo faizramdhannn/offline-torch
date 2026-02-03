@@ -15,6 +15,8 @@ interface SidebarProps {
     customer?: boolean;
     voucher?: boolean;
     bundling?: boolean;
+    canvasing?: boolean;
+    stock_opname?: boolean;
   };
 }
 
@@ -35,6 +37,8 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     { name: "Customer", path: "/customer", permission: "customer" },
     { name: "Voucher", path: "/voucher", permission: "voucher" },
     { name: "Bundling", path: "/bundling", permission: "bundling" },
+    { name: "Canvasing", path: "/canvasing", permission: "canvasing" },
+    { name: "Stock Opname", path: "/stock-opname", permission: "stock_opname" },
     { name: "Registration Requests", path: "/registration", permission: "registration_request" },
     { name: "Settings", path: "/settings", permission: "user_setting" },
   ];
