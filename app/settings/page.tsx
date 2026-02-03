@@ -22,6 +22,8 @@ interface UserData {
   customer: string;
   voucher: string;
   bundling: string;
+  canvasing: string;
+  stock_opname: string;
   stock_import: string;
   stock_export: string;
   stock_view_store: string;
@@ -66,6 +68,8 @@ export default function SettingsPage() {
     customer: false,
     voucher: false,
     bundling: false,
+    canvasing: false,
+    stock_opname: false,
     stock_import: false,
     stock_export: false,
     stock_view_store: false,
@@ -240,6 +244,8 @@ export default function SettingsPage() {
       customer: userData.customer === "TRUE",
       voucher: userData.voucher === "TRUE",
       bundling: userData.bundling === "TRUE",
+      canvasing: userData.canvasing === "TRUE",
+      stock_opname: userData.stock_opname === "TRUE",
       stock_import: userData.stock_import === "TRUE",
       stock_export: userData.stock_export === "TRUE",
       stock_view_store: userData.stock_view_store === "TRUE",
@@ -295,6 +301,8 @@ export default function SettingsPage() {
     if (userData.customer === "TRUE") perms.push("Customer");
     if (userData.voucher === "TRUE") perms.push("Voucher");
     if (userData.bundling === "TRUE") perms.push("Bundling");
+    if (userData.canvasing === "TRUE") perms.push("Canvasing");
+    if (userData.stock_opname === "TRUE") perms.push("Stock Opname");
     if (userData.registration_request === "TRUE") perms.push("Registration");
     if (userData.user_setting === "TRUE") perms.push("Settings");
     return perms;
@@ -726,6 +734,36 @@ export default function SettingsPage() {
                     className="mr-2"
                   />
                   <span>Bundling</span>
+                </label>
+
+                <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
+                  <input
+                    type="checkbox"
+                    checked={permissions.canvasing}
+                    onChange={(e) =>
+                      setPermissions({
+                        ...permissions,
+                        canvasing: e.target.checked,
+                      })
+                    }
+                    className="mr-2"
+                  />
+                  <span>Canvasing</span>
+                </label>
+
+                <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
+                  <input
+                    type="checkbox"
+                    checked={permissions.stock_opname}
+                    onChange={(e) =>
+                      setPermissions({
+                        ...permissions,
+                        stock_opname: e.target.checked,
+                      })
+                    }
+                    className="mr-2"
+                  />
+                  <span>Stock Opname</span>
                 </label>
               </div>
 

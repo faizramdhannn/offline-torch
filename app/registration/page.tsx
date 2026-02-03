@@ -31,6 +31,8 @@ export default function RegistrationPage() {
     customer: false,
     voucher: false,
     bundling: false,
+    canvasing: false,
+    stock_opname: false,
   });
 
   useEffect(() => {
@@ -74,7 +76,6 @@ export default function RegistrationPage() {
     try {
       const response = await fetch("/api/registration");
       const result = await response.json();
-      // Filter out approved requests - only show pending and rejected
       const filteredData = result.filter(
         (req: RegistrationRequest) => req.status !== "approved",
       );
@@ -102,6 +103,8 @@ export default function RegistrationPage() {
       customer: false,
       voucher: false,
       bundling: false,
+      canvasing: false,
+      stock_opname: false,
     });
     setShowApprovalModal(true);
   };
@@ -433,6 +436,36 @@ export default function RegistrationPage() {
                   className="mr-2"
                 />
                 Bundling
+              </label>
+
+              <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
+                <input
+                  type="checkbox"
+                  checked={permissions.canvasing}
+                  onChange={(e) =>
+                    setPermissions({
+                      ...permissions,
+                      canvasing: e.target.checked,
+                    })
+                  }
+                  className="mr-2"
+                />
+                Canvasing
+              </label>
+
+              <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
+                <input
+                  type="checkbox"
+                  checked={permissions.stock_opname}
+                  onChange={(e) =>
+                    setPermissions({
+                      ...permissions,
+                      stock_opname: e.target.checked,
+                    })
+                  }
+                  className="mr-2"
+                />
+                Stock Opname
               </label>
 
               <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">

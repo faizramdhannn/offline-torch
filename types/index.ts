@@ -16,6 +16,8 @@ export interface User {
   customer: boolean;
   voucher: boolean;
   bundling: boolean;
+  canvasing: boolean;
+  stock_opname: boolean;
   // Stock permissions
   stock_import: boolean;
   stock_export: boolean;
