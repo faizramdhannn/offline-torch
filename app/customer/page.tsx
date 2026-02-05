@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
@@ -64,6 +64,26 @@ export default function CustomerPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+
+  // Ref for dropdown to detect click outside
+  const storeDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        storeDropdownRef.current &&
+        !storeDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowStoreDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -366,10 +386,13 @@ export default function CustomerPage() {
         row[result] = count;
       });
 
-      // Calculate percentage (total results with actual result / total customers * 100)
+      // Calculate total (sum of all results with actual result)
       const totalResults = resultMap
         ? Array.from(resultMap.values()).reduce((a, b) => a + b, 0)
         : 0;
+      row.totalResults = totalResults;
+
+      // Calculate percentage (total results with actual result / total customers * 100)
       row.percentage = totalCustomer > 0 
         ? ((totalResults / totalCustomer) * 100).toFixed(1) + "%"
         : "0%";
@@ -472,7 +495,7 @@ export default function CustomerPage() {
               {view === "list" && (
                 <>
                   {!isOwner && (
-                    <div className="relative">
+                    <div className="relative" ref={storeDropdownRef}>
                       <label className="block text-xs font-medium text-gray-700 mb-1">
                         Store
                       </label>
@@ -549,7 +572,7 @@ export default function CustomerPage() {
                       className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                   </div>
-                  <div className="relative">
+                  <div className="relative" ref={storeDropdownRef}>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       Store
                     </label>
@@ -920,6 +943,9 @@ export default function CustomerPage() {
                           {result}
                         </th>
                       ))}
+                      <th className="px-3 py-2 text-center font-semibold text-gray-700 bg-green-50">
+                        Total
+                      </th>
                       <th className="px-3 py-2 text-center font-semibold text-gray-700 bg-blue-50">
                         Percentage
                       </th>
@@ -951,6 +977,9 @@ export default function CustomerPage() {
                               {row[result] || 0}
                             </td>
                           ))}
+                          <td className="px-3 py-2 text-center font-semibold text-green-600 bg-green-50">
+                            {row.totalResults}
+                          </td>
                           <td className="px-3 py-2 text-center font-semibold text-blue-600 bg-blue-50">
                             {row.percentage}
                           </td>

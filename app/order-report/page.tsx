@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
@@ -54,6 +54,25 @@ export default function OrderReportPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+
+  // Refs for dropdowns
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
+  const warehouseDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target as Node)) {
+        setShowStatusDropdown(false);
+      }
+      if (warehouseDropdownRef.current && !warehouseDropdownRef.current.contains(event.target as Node)) {
+        setShowWarehouseDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -506,7 +525,7 @@ export default function OrderReportPage() {
               </div>
 
               {/* Warehouse Filter */}
-              <div className="relative">
+              <div className="relative" ref={warehouseDropdownRef}>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Warehouse
                   {lockedWarehouse && !user?.order_report_import && (
@@ -558,7 +577,7 @@ export default function OrderReportPage() {
               </div>
 
               {/* Status Filter */}
-              <div className="relative">
+              <div className="relative" ref={statusDropdownRef}>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Status
                 </label>

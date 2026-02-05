@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
@@ -69,6 +69,26 @@ export default function StockPage() {
   
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
+
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  const gradeDropdownRef = useRef<HTMLDivElement>(null);
+  const warehouseDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+      setShowCategoryDropdown(false);
+    }
+    if (gradeDropdownRef.current && !gradeDropdownRef.current.contains(event.target as Node)) {
+      setShowGradeDropdown(false);
+    }
+    if (warehouseDropdownRef.current && !warehouseDropdownRef.current.contains(event.target as Node)) {
+      setShowWarehouseDropdown(false);
+    }
+  };
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => document.removeEventListener("mousedown", handleClickOutside);
+}, []);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -587,7 +607,7 @@ if (response.ok && result.success) {
           {/* Filters */}
           <div className="bg-white rounded-lg shadow p-4 mb-4">
             <div className="grid grid-cols-6 gap-3 mb-3">
-              <div className="relative">
+              <div className="relative" ref={categoryDropdownRef}>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Category
                 </label>
@@ -617,7 +637,7 @@ if (response.ok && result.success) {
                 )}
               </div>
 
-              <div className="relative">
+              <div className="relative" ref={gradeDropdownRef}>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Grade
                 </label>
@@ -648,7 +668,7 @@ if (response.ok && result.success) {
               </div>
 
               {selectedView === 'store' && (
-                <div className="relative">
+                <div className="relative" ref={warehouseDropdownRef}>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Warehouse
                   </label>

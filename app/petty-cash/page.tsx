@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
@@ -60,6 +60,9 @@ export default function PettyCashPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  const storeDropdownRef = useRef<HTMLDivElement>(null);
+
   const [formData, setFormData] = useState({
     description: "",
     category: "",
@@ -69,6 +72,19 @@ export default function PettyCashPage() {
     file: null as File | null,
   });
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+      setShowCategoryDropdown(false);
+    }
+    if (storeDropdownRef.current && !storeDropdownRef.current.contains(event.target as Node)) {
+      setShowStoreDropdown(false);
+    }
+  };
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => document.removeEventListener("mousedown", handleClickOutside);
+}, []);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -594,7 +610,7 @@ export default function PettyCashPage() {
               </div>
               {viewMode === "list" ? (
                 <>
-                  <div className="relative">
+                  <div className="relative" ref={categoryDropdownRef}>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       Category
                     </label>
@@ -628,7 +644,7 @@ export default function PettyCashPage() {
                       </div>
                     )}
                   </div>
-                  <div className="relative">
+                  <div className="relative" ref={storeDropdownRef}>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       Store
                     </label>
