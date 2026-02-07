@@ -122,3 +122,18 @@ export interface Bundling {
   created_at: string;
   update_at: string;
 }
+
+export interface Canvasing {
+  id: string;
+  store: string;
+  name: string;
+  category: string;
+  sub_category: string;
+  canvasser: string;
+  visit_at: string;
+  result_status: string;
+  notes: string;
+  image_url: string;
+  created_at: string;
+  update_at: string;
+}

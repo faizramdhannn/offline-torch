@@ -133,7 +133,7 @@ export default function VoucherPage() {
 
           <div className="bg-white rounded-lg shadow p-4 mb-4">
             <div className="grid grid-cols-3 gap-3 mb-3">
-              <div className="relative">
+              <div className="relative" ref={categoryDropdownRef}>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Category
                 </label>

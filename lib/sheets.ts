@@ -33,6 +33,7 @@ const SPREADSHEET_MAP: Record<string, string> = {
   "Torch Tambun": process.env.SPREADSHEET_CUSTOMER || "",
   voucher_list: process.env.SPREADSHEET_VOUCHER || "",
   master_bundling: process.env.SPREADSHEET_BUNDLING || "",
+  canvasing_store: process.env.SPREADSHEET_STORE || "",
 };
 
 function getSpreadsheetId(sheetName: string): string {

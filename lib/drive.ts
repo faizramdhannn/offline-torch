@@ -2,6 +2,7 @@ import { google } from 'googleapis';
 
 const PARENT_FOLDER_ID = process.env.DRIVE_PARENT_FOLDER_ID || '';
 const CUSTOMER_FOLDER_ID = process.env.DRIVE_CUSTOMER_FOLDER_ID || '';
+const CANVASING_FOLDER_ID = process.env.DRIVE_CANVASING_FOLDER_ID || '';
 
 const userFolderCache = new Map<string, string>();
 
@@ -95,6 +96,10 @@ export async function uploadToGoogleDrive(
     if (username === 'customer_followup') {
       parentFolderId = CUSTOMER_FOLDER_ID;
       username = 'followup'; // Use 'followup' as folder name for customer uploads
+    } else if (username === 'canvasing') {
+      // For canvasing uploads, use the canvasing folder directly without subfolder
+      parentFolderId = CANVASING_FOLDER_ID;
+      username = 'canvasing';
     }
 
     const userFolderId = await getUserFolder(username, drive, parentFolderId);

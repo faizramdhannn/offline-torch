@@ -45,28 +45,30 @@ export default function StockPage() {
   const [grades, setGrades] = useState<string[]>([]);
   const [warehouses, setWarehouses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedView, setSelectedView] = useState<'store' | 'pca' | 'master'>('store');
-  
+  const [selectedView, setSelectedView] = useState<"store" | "pca" | "master">(
+    "store",
+  );
+
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [gradeFilter, setGradeFilter] = useState<string[]>([]);
   const [warehouseFilter, setWarehouseFilter] = useState<string[]>([]);
   const [hpjFilter, setHpjFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showGradeDropdown, setShowGradeDropdown] = useState(false);
   const [showWarehouseDropdown, setShowWarehouseDropdown] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importing, setImporting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   const [erpFile, setErpFile] = useState<File | null>(null);
   const [javelinFile, setJavelinFile] = useState<File | null>(null);
-  
+
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
@@ -75,20 +77,29 @@ export default function StockPage() {
   const warehouseDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-  const handleClickOutside = (event: MouseEvent) => {
-    if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
-      setShowCategoryDropdown(false);
-    }
-    if (gradeDropdownRef.current && !gradeDropdownRef.current.contains(event.target as Node)) {
-      setShowGradeDropdown(false);
-    }
-    if (warehouseDropdownRef.current && !warehouseDropdownRef.current.contains(event.target as Node)) {
-      setShowWarehouseDropdown(false);
-    }
-  };
-  document.addEventListener("mousedown", handleClickOutside);
-  return () => document.removeEventListener("mousedown", handleClickOutside);
-}, []);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        categoryDropdownRef.current &&
+        !categoryDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowCategoryDropdown(false);
+      }
+      if (
+        gradeDropdownRef.current &&
+        !gradeDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowGradeDropdown(false);
+      }
+      if (
+        warehouseDropdownRef.current &&
+        !warehouseDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowWarehouseDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -102,16 +113,16 @@ export default function StockPage() {
       return;
     }
     setUser(parsedUser);
-    
+
     // Set default view based on permissions
     if (parsedUser.stock_view_store) {
-      setSelectedView('store');
+      setSelectedView("store");
     } else if (parsedUser.stock_view_pca) {
-      setSelectedView('pca');
+      setSelectedView("pca");
     } else if (parsedUser.stock_view_master) {
-      setSelectedView('master');
+      setSelectedView("master");
     }
-    
+
     fetchData();
     fetchLastUpdate();
   }, []);
@@ -122,7 +133,14 @@ export default function StockPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [categoryFilter, gradeFilter, warehouseFilter, hpjFilter, searchQuery, data]);
+  }, [
+    categoryFilter,
+    gradeFilter,
+    warehouseFilter,
+    hpjFilter,
+    searchQuery,
+    data,
+  ]);
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);
@@ -133,42 +151,48 @@ export default function StockPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      let sheetName = 'result_stock';
-      if (selectedView === 'pca') sheetName = 'pca_stock';
-      if (selectedView === 'master') sheetName = 'master_item';
-      
-      console.log('Fetching data for:', sheetName);
+      let sheetName = "result_stock";
+      if (selectedView === "pca") sheetName = "pca_stock";
+      if (selectedView === "master") sheetName = "master_item";
+
+      console.log("Fetching data for:", sheetName);
       const response = await fetch(`/api/stock?type=${sheetName}`);
       const result = await response.json();
-      console.log('Data received:', result.length, 'items');
-      
+      console.log("Data received:", result.length, "items");
+
       const normalizedData = result.map((item: any) => ({
         ...item,
-        sku: item.sku || item.SKU || '',
-        stock: item.stock || item.Stock || '',
-        item_name: item.item_name || item.Product_name || '',
-        category: item.category || item.Category || '',
-        grade: item.grade || item.Grade || '',
-        hpp: item.hpp || item.HPP || '',
-        hpt: item.hpt || item.HPT || '',
-        hpj: item.hpj || item.HPJ || '',
+        sku: item.sku || item.SKU || "",
+        stock: item.stock || item.Stock || "",
+        item_name: item.item_name || item.Product_name || "",
+        category: item.category || item.Category || "",
+        grade: item.grade || item.Grade || "",
+        hpp: item.hpp || item.HPP || "",
+        hpt: item.hpt || item.HPT || "",
+        hpj: item.hpj || item.HPJ || "",
       }));
-      
+
       setData(normalizedData);
       setFilteredData(normalizedData);
-      
-      const uniqueCategories = [...new Set(normalizedData.map((item: StockItem) => item.category))].filter(Boolean);
+
+      const uniqueCategories = [
+        ...new Set(normalizedData.map((item: StockItem) => item.category)),
+      ].filter(Boolean);
       setCategories(uniqueCategories as string[]);
-      
-      const uniqueGrades = [...new Set(normalizedData.map((item: StockItem) => item.grade))].filter(Boolean);
+
+      const uniqueGrades = [
+        ...new Set(normalizedData.map((item: StockItem) => item.grade)),
+      ].filter(Boolean);
       setGrades(uniqueGrades as string[]);
-      
-      if (selectedView === 'store') {
-        const uniqueWarehouses = [...new Set(normalizedData.map((item: StockItem) => item.warehouse))].filter(Boolean);
+
+      if (selectedView === "store") {
+        const uniqueWarehouses = [
+          ...new Set(normalizedData.map((item: StockItem) => item.warehouse)),
+        ].filter(Boolean);
         setWarehouses(uniqueWarehouses as string[]);
       }
     } catch (error) {
-      console.error('Fetch error:', error);
+      console.error("Fetch error:", error);
       showMessage("Failed to fetch data", "error");
     } finally {
       setLoading(false);
@@ -177,35 +201,47 @@ export default function StockPage() {
 
   const fetchLastUpdate = async () => {
     try {
-      const response = await fetch('/api/stock/last-update');
+      const response = await fetch("/api/stock/last-update");
       const result = await response.json();
       setLastUpdate(result);
     } catch (error) {
-      console.error('Failed to fetch last update');
+      console.error("Failed to fetch last update");
     }
   };
 
   const handleRefreshJavelin = async () => {
     if (!confirm("Refresh Javelin data? This may take a few minutes.")) return;
-    
+
     setRefreshing(true);
     try {
-      const response = await fetch('/api/stock/javelin-refresh', {
-        method: 'POST',
+      const response = await fetch("/api/stock/javelin-refresh", {
+        method: "POST",
       });
-      
+
       const result = await response.json();
-      
-if (response.ok && result.success) {
-  await logActivity('POST', `Refreshed Javelin inventory: ${result.rowsImported || 0} rows`);
-  showMessage(`Javelin data refreshed successfully!\n${result.rowsImported || 0} rows imported`, "success");
-  fetchData();
-  fetchLastUpdate();
-} else {
+
+      if (response.ok && result.success) {
+        await logActivity(
+          "POST",
+          `Refreshed Javelin inventory: ${result.rowsImported || 0} rows`,
+        );
+        showMessage(
+          `Javelin data refreshed successfully!\n${result.rowsImported || 0} rows imported`,
+          "success",
+        );
+        fetchData();
+        fetchLastUpdate();
+      } else {
         if (result.needsConfiguration) {
-          showMessage(`${result.error}\n\nPlease configure Javelin cookie in Settings first.`, "error");
+          showMessage(
+            `${result.error}\n\nPlease configure Javelin cookie in Settings first.`,
+            "error",
+          );
         } else {
-          showMessage(`Failed to refresh\n\n${result.details || result.error}`, "error");
+          showMessage(
+            `Failed to refresh\n\n${result.details || result.error}`,
+            "error",
+          );
         }
       }
     } catch (error) {
@@ -216,72 +252,77 @@ if (response.ok && result.success) {
   };
 
   const logActivity = async (method: string, activity: string) => {
-  try {
-    await fetch('/api/activity-log', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user: user.user_name,
-        method,
-        activity_log: activity,
-      }),
-    });
-  } catch (error) {
-    console.error('Failed to log activity:', error);
-  }
-};
+    try {
+      await fetch("/api/activity-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user: user.user_name,
+          method,
+          activity_log: activity,
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to log activity:", error);
+    }
+  };
 
   const toProperCase = (str: string) => {
-    if (!str) return '';
+    if (!str) return "";
     return str
       .toLowerCase()
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
   };
 
   const applyFilters = () => {
     let filtered = [...data];
 
     if (categoryFilter.length > 0) {
-      filtered = filtered.filter((item) => categoryFilter.includes(item.category));
+      filtered = filtered.filter((item) =>
+        categoryFilter.includes(item.category),
+      );
     }
 
     if (gradeFilter.length > 0) {
       filtered = filtered.filter((item) => gradeFilter.includes(item.grade));
     }
 
-    if (selectedView === 'store' && warehouseFilter.length > 0) {
-      filtered = filtered.filter((item) => item.warehouse && warehouseFilter.includes(item.warehouse));
+    if (selectedView === "store" && warehouseFilter.length > 0) {
+      filtered = filtered.filter(
+        (item) => item.warehouse && warehouseFilter.includes(item.warehouse),
+      );
     }
 
     if (hpjFilter) {
-      const hpjValue = parseInt(hpjFilter.replace(/[^0-9]/g, ''));
+      const hpjValue = parseInt(hpjFilter.replace(/[^0-9]/g, ""));
       filtered = filtered.filter((item) => {
-        const itemHpj = parseInt(item.hpj?.replace(/[^0-9]/g, '') || '0');
+        const itemHpj = parseInt(item.hpj?.replace(/[^0-9]/g, "") || "0");
         return itemHpj <= hpjValue;
       });
     }
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((item) => 
-        (item.sku && item.sku.toLowerCase().includes(query)) || 
-        (item.item_name && item.item_name.toLowerCase().includes(query))
+      filtered = filtered.filter(
+        (item) =>
+          (item.sku && item.sku.toLowerCase().includes(query)) ||
+          (item.item_name && item.item_name.toLowerCase().includes(query)),
       );
     }
 
-    if (selectedView === 'pca') {
+    if (selectedView === "pca") {
       filtered.sort((a, b) => {
-        const stockA = parseInt(a.stock?.replace(/[^0-9]/g, '') || '0');
-        const stockB = parseInt(b.stock?.replace(/[^0-9]/g, '') || '0');
-        
+        const stockA = parseInt(a.stock?.replace(/[^0-9]/g, "") || "0");
+        const stockB = parseInt(b.stock?.replace(/[^0-9]/g, "") || "0");
+
         if (stockB !== stockA) {
           return stockB - stockA;
         }
-        
-        const gradeA = a.grade || '';
-        const gradeB = b.grade || '';
+
+        const gradeA = a.grade || "";
+        const gradeB = b.grade || "";
         return gradeA.localeCompare(gradeB);
       });
     }
@@ -301,26 +342,24 @@ if (response.ok && result.success) {
   };
 
   const toggleCategory = (category: string) => {
-    setCategoryFilter(prev => 
-      prev.includes(category) 
-        ? prev.filter(c => c !== category)
-        : [...prev, category]
+    setCategoryFilter((prev) =>
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category],
     );
   };
 
   const toggleGrade = (grade: string) => {
-    setGradeFilter(prev => 
-      prev.includes(grade) 
-        ? prev.filter(g => g !== grade)
-        : [...prev, grade]
+    setGradeFilter((prev) =>
+      prev.includes(grade) ? prev.filter((g) => g !== grade) : [...prev, grade],
     );
   };
 
   const toggleWarehouse = (warehouse: string) => {
-    setWarehouseFilter(prev => 
-      prev.includes(warehouse) 
-        ? prev.filter(w => w !== warehouse)
-        : [...prev, warehouse]
+    setWarehouseFilter((prev) =>
+      prev.includes(warehouse)
+        ? prev.filter((w) => w !== warehouse)
+        : [...prev, warehouse],
     );
   };
 
@@ -330,14 +369,18 @@ if (response.ok && result.success) {
         Papa.parse(file, {
           complete: (results) => {
             let parsedData = results.data as any[];
-            parsedData = parsedData.filter(row => 
-              Array.isArray(row) && row.some(cell => cell !== null && cell !== undefined && cell !== '')
+            parsedData = parsedData.filter(
+              (row) =>
+                Array.isArray(row) &&
+                row.some(
+                  (cell) => cell !== null && cell !== undefined && cell !== "",
+                ),
             );
             resolve(parsedData);
           },
           header: false,
           skipEmptyLines: true,
-          error: (error) => reject(error)
+          error: (error) => reject(error),
         });
       } else if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
         const reader = new FileReader();
@@ -347,9 +390,15 @@ if (response.ok && result.success) {
             const workbook = XLSX.read(data, { type: "binary" });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
-            let jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
-            jsonData = jsonData.filter(row => 
-              Array.isArray(row) && row.some(cell => cell !== null && cell !== undefined && cell !== '')
+            let jsonData = XLSX.utils.sheet_to_json(worksheet, {
+              header: 1,
+            }) as any[][];
+            jsonData = jsonData.filter(
+              (row) =>
+                Array.isArray(row) &&
+                row.some(
+                  (cell) => cell !== null && cell !== undefined && cell !== "",
+                ),
             );
             resolve(jsonData);
           } catch (error) {
@@ -381,12 +430,15 @@ if (response.ok && result.success) {
           if (parsedData.length === 0) {
             errors.push("ERP Stock: No valid data found");
           } else {
-            const response = await fetch('/api/stock/import', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ sheetName: 'erp_stock_balance', data: parsedData })
+            const response = await fetch("/api/stock/import", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                sheetName: "erp_stock_balance",
+                data: parsedData,
+              }),
             });
-            
+
             if (response.ok) {
               const result = await response.json();
               results.push(`ERP Stock: ${result.rowsImported} rows imported`);
@@ -395,7 +447,9 @@ if (response.ok && result.success) {
             }
           }
         } catch (error) {
-          errors.push(`ERP Stock: ${error instanceof Error ? error.message : 'Import failed'}`);
+          errors.push(
+            `ERP Stock: ${error instanceof Error ? error.message : "Import failed"}`,
+          );
         }
       }
 
@@ -405,12 +459,12 @@ if (response.ok && result.success) {
           if (parsedData.length === 0) {
             errors.push("Javelin: No valid data found");
           } else {
-            const response = await fetch('/api/stock/import', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ sheetName: 'javelin', data: parsedData })
+            const response = await fetch("/api/stock/import", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sheetName: "javelin", data: parsedData }),
             });
-            
+
             if (response.ok) {
               const result = await response.json();
               results.push(`Javelin: ${result.rowsImported} rows imported`);
@@ -419,7 +473,9 @@ if (response.ok && result.success) {
             }
           }
         } catch (error) {
-          errors.push(`Javelin: ${error instanceof Error ? error.message : 'Import failed'}`);
+          errors.push(
+            `Javelin: ${error instanceof Error ? error.message : "Import failed"}`,
+          );
         }
       }
 
@@ -430,10 +486,13 @@ if (response.ok && result.success) {
       if (errors.length > 0) {
         message += (message ? "\n\n" : "") + "Errors:\n" + errors.join("\n");
       }
-      
-      await logActivity('POST', `Imported stock data: ${results.join(', ')}`);
-      showMessage(message || "Import completed", results.length > 0 && errors.length === 0 ? "success" : "error");
-      
+
+      await logActivity("POST", `Imported stock data: ${results.join(", ")}`);
+      showMessage(
+        message || "Import completed",
+        results.length > 0 && errors.length === 0 ? "success" : "error",
+      );
+
       if (results.length > 0) {
         setShowImportModal(false);
         setErpFile(null);
@@ -451,20 +510,20 @@ if (response.ok && result.success) {
   const exportToExcel = () => {
     const exportData = filteredData.map((item) => {
       const base: any = {
-        "SKU": item.sku,
+        SKU: item.sku,
         "Product Name": toProperCase(item.item_name),
-        "Category": toProperCase(item.category),
-        "Grade": toProperCase(item.grade),
+        Category: toProperCase(item.category),
+        Grade: toProperCase(item.grade),
       };
-      
-      if (selectedView !== 'master') {
+
+      if (selectedView !== "master") {
         base["Stock"] = item.stock;
       }
-      
-      if (selectedView === 'store') {
+
+      if (selectedView === "store") {
         base["Warehouse"] = item.warehouse;
       }
-      
+
       // Only add price columns if user has permission
       if (user?.stock_view_hpp) {
         base["HPP"] = item.hpp;
@@ -475,15 +534,21 @@ if (response.ok && result.success) {
       if (user?.stock_view_hpj) {
         base["HPJ"] = item.hpj;
       }
-      
+
       return base;
     });
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Stock");
-    XLSX.writeFile(wb, `stock_${selectedView}_${new Date().toISOString().split('T')[0]}.xlsx`);
-    logActivity('GET', `Exported stock data (${selectedView} view): ${filteredData.length} items`);
+    XLSX.writeFile(
+      wb,
+      `stock_${selectedView}_${new Date().toISOString().split("T")[0]}.xlsx`,
+    );
+    logActivity(
+      "GET",
+      `Exported stock data (${selectedView} view): ${filteredData.length} items`,
+    );
   };
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -492,7 +557,8 @@ if (response.ok && result.success) {
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
   // Check if user can see any view
-  const canSeeAnyView = user?.stock_view_store || user?.stock_view_pca || user?.stock_view_master;
+  const canSeeAnyView =
+    user?.stock_view_store || user?.stock_view_pca || user?.stock_view_master;
 
   if (!user) return null;
 
@@ -503,7 +569,9 @@ if (response.ok && result.success) {
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center text-gray-500">
             <p className="text-lg font-semibold mb-2">No View Access</p>
-            <p className="text-sm">You don't have permission to view any stock data.</p>
+            <p className="text-sm">
+              You don't have permission to view any stock data.
+            </p>
             <p className="text-sm">Please contact administrator.</p>
           </div>
         </div>
@@ -514,10 +582,12 @@ if (response.ok && result.success) {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar userName={user.name} permissions={user} />
-      
+
       <div className="flex-1 overflow-auto">
         <div className="p-6">
-          <h1 className="text-2xl font-bold text-primary mb-6">Stock Management</h1>
+          <h1 className="text-2xl font-bold text-primary mb-6">
+            Stock Management
+          </h1>
 
           {/* Import/Export & Last Update & Refresh Javelin */}
           <div className="bg-white rounded-lg shadow p-4 mb-4">
@@ -552,7 +622,8 @@ if (response.ok && result.success) {
               <div className="text-xs text-gray-600">
                 {lastUpdate.map((lu) => (
                   <div key={lu.type}>
-                    <span className="font-semibold">{lu.type}:</span> {lu.last_update}
+                    <span className="font-semibold">{lu.type}:</span>{" "}
+                    {lu.last_update}
                   </div>
                 ))}
               </div>
@@ -567,11 +638,11 @@ if (response.ok && result.success) {
             <div className="flex gap-2">
               {user.stock_view_store && (
                 <button
-                  onClick={() => setSelectedView('store')}
+                  onClick={() => setSelectedView("store")}
                   className={`px-4 py-1.5 rounded text-xs transition-colors ${
-                    selectedView === 'store'
-                      ? 'bg-primary text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    selectedView === "store"
+                      ? "bg-primary text-white"
+                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                   }`}
                 >
                   Store
@@ -579,11 +650,11 @@ if (response.ok && result.success) {
               )}
               {user.stock_view_pca && (
                 <button
-                  onClick={() => setSelectedView('pca')}
+                  onClick={() => setSelectedView("pca")}
                   className={`px-4 py-1.5 rounded text-xs transition-colors ${
-                    selectedView === 'pca'
-                      ? 'bg-primary text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    selectedView === "pca"
+                      ? "bg-primary text-white"
+                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                   }`}
                 >
                   PCA
@@ -591,11 +662,11 @@ if (response.ok && result.success) {
               )}
               {user.stock_view_master && (
                 <button
-                  onClick={() => setSelectedView('master')}
+                  onClick={() => setSelectedView("master")}
                   className={`px-4 py-1.5 rounded text-xs transition-colors ${
-                    selectedView === 'master'
-                      ? 'bg-primary text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    selectedView === "master"
+                      ? "bg-primary text-white"
+                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                   }`}
                 >
                   Master
@@ -616,14 +687,19 @@ if (response.ok && result.success) {
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
                 >
                   <span className="text-gray-500">
-                    {categoryFilter.length === 0 ? "All" : `${categoryFilter.length} selected`}
+                    {categoryFilter.length === 0
+                      ? "All"
+                      : `${categoryFilter.length} selected`}
                   </span>
                   <span className="text-gray-400">▼</span>
                 </button>
                 {showCategoryDropdown && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
                     {categories.map((category) => (
-                      <label key={category} className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50">
+                      <label
+                        key={category}
+                        className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
+                      >
                         <input
                           type="checkbox"
                           checked={categoryFilter.includes(category)}
@@ -646,14 +722,19 @@ if (response.ok && result.success) {
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
                 >
                   <span className="text-gray-500">
-                    {gradeFilter.length === 0 ? "All" : `${gradeFilter.length} selected`}
+                    {gradeFilter.length === 0
+                      ? "All"
+                      : `${gradeFilter.length} selected`}
                   </span>
                   <span className="text-gray-400">▼</span>
                 </button>
                 {showGradeDropdown && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
                     {grades.map((grade) => (
-                      <label key={grade} className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50">
+                      <label
+                        key={grade}
+                        className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
+                      >
                         <input
                           type="checkbox"
                           checked={gradeFilter.includes(grade)}
@@ -667,24 +748,31 @@ if (response.ok && result.success) {
                 )}
               </div>
 
-              {selectedView === 'store' && (
+              {selectedView === "store" && (
                 <div className="relative" ref={warehouseDropdownRef}>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Warehouse
                   </label>
                   <button
-                    onClick={() => setShowWarehouseDropdown(!showWarehouseDropdown)}
+                    onClick={() =>
+                      setShowWarehouseDropdown(!showWarehouseDropdown)
+                    }
                     className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
                   >
                     <span className="text-gray-500">
-                      {warehouseFilter.length === 0 ? "All" : `${warehouseFilter.length} selected`}
+                      {warehouseFilter.length === 0
+                        ? "All"
+                        : `${warehouseFilter.length} selected`}
                     </span>
                     <span className="text-gray-400">▼</span>
                   </button>
                   {showWarehouseDropdown && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
                       {warehouses.map((warehouse) => (
-                        <label key={warehouse} className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50">
+                        <label
+                          key={warehouse}
+                          className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
+                        >
                           <input
                             type="checkbox"
                             checked={warehouseFilter.includes(warehouse)}
@@ -707,14 +795,20 @@ if (response.ok && result.success) {
                   <input
                     type="text"
                     value={hpjFilter}
-                    onChange={(e) => setHpjFilter(e.target.value.replace(/[^0-9]/g, ''))}
+                    onChange={(e) =>
+                      setHpjFilter(e.target.value.replace(/[^0-9]/g, ""))
+                    }
                     placeholder="Filter by max HPJ"
                     className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
               )}
 
-              <div className={selectedView === 'store' ? 'col-span-2' : 'col-span-3'}>
+              <div
+                className={
+                  selectedView === "store" ? "col-span-2" : "col-span-3"
+                }
+              >
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Search
                 </label>
@@ -737,6 +831,72 @@ if (response.ok && result.success) {
             </div>
           </div>
 
+          {selectedView === "store" && (
+            <div className="bg-white rounded-lg shadow p-4 mb-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                Stock Summary by Warehouse
+              </h3>
+              <div className="overflow-x-auto">
+                <div className="flex gap-4 pb-2">
+                  {[
+                    { name: "Margonda", key: "Torch Margonda - T" },
+                    { name: "Karawaci", key: "Torch Karawaci - T" },
+                    { name: "Jogja", key: "Torch Jogja - T" },
+                    { name: "Medan", key: "Torch Store Medan - T" },
+                    { name: "Makassar", key: "Torch Makassar - T" },
+                    { name: "Tambun", key: "Torch Tambun - T" },
+                    { name: "Malang", key: "Torch Malang - T" },
+                    { name: "Lampung", key: "Torch Lampung - T" },
+                    { name: "Surabaya", key: "Torch Surabaya - T" },
+                    { name: "Lembong", key: "Torch Store Lembong - T" },
+                    { name: "Karawang", key: "Torch Karawang - T" },
+                    { name: "Cirebon", key: "Torch Store Cirebon - T" },
+                    { name: "Pekalongan", key: "Torch Pekalongan - T" },
+                    { name: "Purwokerto", key: "Torch Purwokerto - T" },
+                  ].map((warehouse) => {
+                    // Filter data by warehouse column matching warehouse.key
+                    const warehouseData = data.filter((item) => {
+                      // Normalize warehouse name for comparison (case-insensitive, trim spaces)
+                      const itemWarehouse = (item.warehouse || "")
+                        .toString()
+                        .trim();
+                      return itemWarehouse === warehouse.key;
+                    });
+
+                    // Sum the stock column from result_stock sheet
+                    const totalStock = warehouseData.reduce((sum, item) => {
+                      // Get stock value from the stock column
+                      const stockValue =
+                        parseInt(
+                          (item.stock || "0")
+                            .toString()
+                            .replace(/[^0-9-]/g, ""),
+                        ) || 0;
+                      return sum + stockValue;
+                    }, 0);
+
+                    return (
+                      <div
+                        key={warehouse.key}
+                        className="flex-shrink-0 bg-gray-50 border border-gray-200 rounded-lg p-3 min-w-[120px]"
+                      >
+                        <div className="text-xs text-gray-600 mb-1">
+                          {warehouse.name}
+                        </div>
+                        <div className="text-lg font-bold text-primary">
+                          {totalStock.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {warehouseData.length} SKU
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Data Table */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             {loading ? (
@@ -747,25 +907,45 @@ if (response.ok && result.success) {
                   <table className="w-full text-xs">
                     <thead className="bg-gray-100 border-b">
                       <tr>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">Image</th>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">SKU</th>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">Product Name</th>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">Category</th>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">Grade</th>
-                        {selectedView !== 'master' && (
-                          <th className="px-2 py-2 text-left font-semibold text-gray-700">Stock</th>
+                        <th className="px-2 py-2 text-left font-semibold text-gray-700">
+                          Image
+                        </th>
+                        <th className="px-2 py-2 text-left font-semibold text-gray-700">
+                          SKU
+                        </th>
+                        <th className="px-2 py-2 text-left font-semibold text-gray-700">
+                          Product Name
+                        </th>
+                        <th className="px-2 py-2 text-left font-semibold text-gray-700">
+                          Category
+                        </th>
+                        <th className="px-2 py-2 text-left font-semibold text-gray-700">
+                          Grade
+                        </th>
+                        {selectedView !== "master" && (
+                          <th className="px-2 py-2 text-left font-semibold text-gray-700">
+                            Stock
+                          </th>
                         )}
-                        {selectedView === 'store' && (
-                          <th className="px-2 py-2 text-left font-semibold text-gray-700">Warehouse</th>
+                        {selectedView === "store" && (
+                          <th className="px-2 py-2 text-left font-semibold text-gray-700">
+                            Warehouse
+                          </th>
                         )}
                         {user.stock_view_hpp && (
-                          <th className="px-2 py-2 text-left font-semibold text-gray-700">HPP</th>
+                          <th className="px-2 py-2 text-left font-semibold text-gray-700">
+                            HPP
+                          </th>
                         )}
                         {user.stock_view_hpt && (
-                          <th className="px-2 py-2 text-left font-semibold text-gray-700">HPT</th>
+                          <th className="px-2 py-2 text-left font-semibold text-gray-700">
+                            HPT
+                          </th>
                         )}
                         {user.stock_view_hpj && (
-                          <th className="px-2 py-2 text-left font-semibold text-gray-700">HPJ</th>
+                          <th className="px-2 py-2 text-left font-semibold text-gray-700">
+                            HPJ
+                          </th>
                         )}
                       </tr>
                     </thead>
@@ -773,13 +953,14 @@ if (response.ok && result.success) {
                       {currentItems.map((item, index) => (
                         <tr key={index} className="border-b hover:bg-gray-50">
                           <td className="px-2 py-2">
-                            {(item.link_url || item.image_url) ? (
-                              <img 
-                                src={item.link_url || item.image_url} 
+                            {item.link_url || item.image_url ? (
+                              <img
+                                src={item.link_url || item.image_url}
                                 alt={item.sku}
                                 className="w-10 h-10 object-cover rounded"
                                 onError={(e) => {
-                                  (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40"%3E%3Crect fill="%23ddd" width="40" height="40"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="12"%3ENo Img%3C/text%3E%3C/svg%3E';
+                                  (e.target as HTMLImageElement).src =
+                                    'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40"%3E%3Crect fill="%23ddd" width="40" height="40"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="12"%3ENo Img%3C/text%3E%3C/svg%3E';
                                 }}
                               />
                             ) : (
@@ -789,13 +970,19 @@ if (response.ok && result.success) {
                             )}
                           </td>
                           <td className="px-2 py-2">{item.sku}</td>
-                          <td className="px-2 py-2">{toProperCase(item.item_name)}</td>
-                          <td className="px-2 py-2">{toProperCase(item.category)}</td>
-                          <td className="px-2 py-2">{toProperCase(item.grade)}</td>
-                          {selectedView !== 'master' && (
+                          <td className="px-2 py-2">
+                            {toProperCase(item.item_name)}
+                          </td>
+                          <td className="px-2 py-2">
+                            {toProperCase(item.category)}
+                          </td>
+                          <td className="px-2 py-2">
+                            {toProperCase(item.grade)}
+                          </td>
+                          {selectedView !== "master" && (
                             <td className="px-2 py-2">{item.stock}</td>
                           )}
-                          {selectedView === 'store' && (
+                          {selectedView === "store" && (
                             <td className="px-2 py-2">{item.warehouse}</td>
                           )}
                           {user.stock_view_hpp && (
@@ -812,18 +999,24 @@ if (response.ok && result.success) {
                     </tbody>
                   </table>
                   {filteredData.length === 0 && (
-                    <div className="p-8 text-center text-gray-500">No data available</div>
+                    <div className="p-8 text-center text-gray-500">
+                      No data available
+                    </div>
                   )}
                 </div>
 
                 {totalPages > 1 && (
                   <div className="flex justify-between items-center px-4 py-3 border-t">
                     <div className="text-xs text-gray-600">
-                      Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredData.length)} of {filteredData.length} entries
+                      Showing {indexOfFirstItem + 1} to{" "}
+                      {Math.min(indexOfLastItem, filteredData.length)} of{" "}
+                      {filteredData.length} entries
                     </div>
                     <div className="flex gap-1">
                       <button
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        onClick={() =>
+                          setCurrentPage((prev) => Math.max(1, prev - 1))
+                        }
                         disabled={currentPage === 1}
                         className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                       >
@@ -849,13 +1042,24 @@ if (response.ok && result.success) {
                               {page}
                             </button>
                           );
-                        } else if (page === currentPage - 2 || page === currentPage + 2) {
-                          return <span key={page} className="px-2">...</span>;
+                        } else if (
+                          page === currentPage - 2 ||
+                          page === currentPage + 2
+                        ) {
+                          return (
+                            <span key={page} className="px-2">
+                              ...
+                            </span>
+                          );
                         }
                         return null;
                       })}
                       <button
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        onClick={() =>
+                          setCurrentPage((prev) =>
+                            Math.min(totalPages, prev + 1),
+                          )
+                        }
                         disabled={currentPage === totalPages}
                         className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                       >
@@ -874,8 +1078,10 @@ if (response.ok && result.success) {
       {showImportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
-            <h2 className="text-lg font-bold text-primary mb-4">Import Stock Data</h2>
-            
+            <h2 className="text-lg font-bold text-primary mb-4">
+              Import Stock Data
+            </h2>
+
             <div className="space-y-4">
               <p className="text-sm text-gray-600 mb-4">
                 Upload files for ERP Stock Balance and/or Javelin.
@@ -919,7 +1125,9 @@ if (response.ok && result.success) {
 
               {importing && (
                 <div className="text-sm text-gray-600 text-center py-3">
-                  <div className="animate-pulse">Importing files... Please wait.</div>
+                  <div className="animate-pulse">
+                    Importing files... Please wait.
+                  </div>
                 </div>
               )}
             </div>
@@ -948,7 +1156,7 @@ if (response.ok && result.success) {
         </div>
       )}
 
-      <Popup 
+      <Popup
         show={showPopup}
         message={popupMessage}
         type={popupType}
