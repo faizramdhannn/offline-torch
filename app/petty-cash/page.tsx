@@ -28,21 +28,30 @@ interface ReportData {
   total: number;
 }
 
+interface CategoryDetail {
+  category: string;
+  description: string;
+  example: string;
+}
+
 export default function PettyCashPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [data, setData] = useState<PettyCash[]>([]);
   const [filteredData, setFilteredData] = useState<PettyCash[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
+  const [categoryDetails, setCategoryDetails] = useState<CategoryDetail[]>([]);
   const [stores, setStores] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<PettyCash | null>(null);
   const [exporting, setExporting] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
+  const [updatingTransfer, setUpdatingTransfer] = useState<string | null>(null);
 
   // View mode
   const [viewMode, setViewMode] = useState<"list" | "report">("list");
@@ -51,7 +60,7 @@ export default function PettyCashPage() {
   const [dateTo, setDateTo] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedStores, setSelectedStores] = useState<string[]>([]);
-  const [transferFilter, setTransferFilter] = useState<string>("all"); // NEW: Filter for list view
+  const [transferFilter, setTransferFilter] = useState<string>("all");
   const [reportTransferFilter, setReportTransferFilter] = useState<"false" | "true">("false");
 
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -74,17 +83,17 @@ export default function PettyCashPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-  const handleClickOutside = (event: MouseEvent) => {
-    if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
-      setShowCategoryDropdown(false);
-    }
-    if (storeDropdownRef.current && !storeDropdownRef.current.contains(event.target as Node)) {
-      setShowStoreDropdown(false);
-    }
-  };
-  document.addEventListener("mousedown", handleClickOutside);
-  return () => document.removeEventListener("mousedown", handleClickOutside);
-}, []);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+        setShowCategoryDropdown(false);
+      }
+      if (storeDropdownRef.current && !storeDropdownRef.current.contains(event.target as Node)) {
+        setShowStoreDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -100,11 +109,12 @@ export default function PettyCashPage() {
     setUser(parsedUser);
     fetchData(parsedUser.user_name, parsedUser.petty_cash_export);
     fetchCategories();
+    fetchCategoryDetails();
   }, []);
 
   useEffect(() => {
     applyFilters();
-  }, [dateFrom, dateTo, selectedCategories, selectedStores, transferFilter, data]); // UPDATED: Added transferFilter
+  }, [dateFrom, dateTo, selectedCategories, selectedStores, transferFilter, data]);
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);
@@ -159,6 +169,55 @@ export default function PettyCashPage() {
     }
   };
 
+  const fetchCategoryDetails = async () => {
+    try {
+      const response = await fetch("/api/categories?withDetails=true");
+      const result = await response.json();
+      setCategoryDetails(result);
+    } catch (error) {
+      console.error("Failed to fetch category details:", error);
+    }
+  };
+
+  const handleQuickToggleTransfer = async (entry: PettyCash) => {
+    if (!user.petty_cash_export) return;
+    
+    setUpdatingTransfer(entry.id);
+    
+    try {
+      const form = new FormData();
+      form.append("id", entry.id);
+      form.append("description", entry.description);
+      form.append("category", entry.category);
+      form.append("value", entry.value.replace(/[^0-9]/g, ""));
+      form.append("store", entry.store);
+      form.append("ket", entry.ket);
+      form.append("transfer", (entry.transfer !== "TRUE").toString());
+      form.append("username", user.user_name);
+
+      const response = await fetch("/api/petty-cash", {
+        method: "PUT",
+        body: form,
+      });
+
+      if (response.ok) {
+        await logActivity(
+          "PUT",
+          `Quick toggled transfer status for entry ID: ${entry.id}`,
+        );
+        fetchData(user.user_name, user.petty_cash_export);
+      } else {
+        showMessage("Failed to update transfer status", "error");
+      }
+    } catch (error) {
+      showMessage("Failed to update transfer status", "error");
+    } finally {
+      setUpdatingTransfer(null);
+    }
+  };
+
+  // ... (keep all other functions the same: parseDate, applyFilters, resetFilters, toggleCategory, toggleStore, toTitleCase, formatRupiah, handleSubmit, handleEdit, handleUpdate, handleDelete, canEditDelete, exportToExcel, exportReportToExcel, exportToDoc, generateReportData)
+
   const parseDate = (dateString: string) => {
     const months: { [key: string]: number } = {
       Jan: 0,
@@ -201,7 +260,6 @@ export default function PettyCashPage() {
       filtered = filtered.filter((item) => selectedStores.includes(item.store));
     }
 
-    // NEW: Transfer filter for list view
     if (transferFilter === "true") {
       filtered = filtered.filter((item) => item.transfer === "TRUE");
     } else if (transferFilter === "false") {
@@ -217,7 +275,7 @@ export default function PettyCashPage() {
     setDateTo("");
     setSelectedCategories([]);
     setSelectedStores([]);
-    setTransferFilter("all"); // NEW: Reset transfer filter
+    setTransferFilter("all");
     setReportTransferFilter("false");
     setFilteredData(data);
     setCurrentPage(1);
@@ -397,7 +455,7 @@ export default function PettyCashPage() {
       Date: item.date,
       Description: toTitleCase(item.description),
       Category: item.category,
-      Value: parseInt(item.value || "0"), // CHANGED: Export as number
+      Value: parseInt(item.value || "0"),
       Store: item.store,
       Ket: item.ket,
       Transfer: item.transfer === "TRUE" ? "Yes" : "No",
@@ -424,7 +482,6 @@ export default function PettyCashPage() {
       Total: item.total,
     }));
 
-    // Add Grand Total row
     const grandTotal = {
       Store: "Grand Total",
       "Petty Cash": reportData.reduce((sum, item) => sum + item.pettyCash, 0),
@@ -544,7 +601,17 @@ export default function PettyCashPage() {
       <div className="flex-1 overflow-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-primary">Petty Cash</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-primary">Petty Cash</h1>
+              {/* Info Icon */}
+              <button
+                onClick={() => setShowInfoModal(true)}
+                className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center hover:bg-blue-600 text-xs font-bold"
+                title="Category Information"
+              >
+                i
+              </button>
+            </div>
             <div className="flex gap-2">
               {user.petty_cash_add && (
                 <button
@@ -583,7 +650,7 @@ export default function PettyCashPage() {
             </div>
           </div>
 
-          {/* Filters */}
+          {/* Filters - sama seperti sebelumnya */}
           <div className="bg-white rounded-lg shadow p-4 mb-4">
             <div className="grid grid-cols-5 gap-3 mb-3">
               <div>
@@ -678,7 +745,6 @@ export default function PettyCashPage() {
                       </div>
                     )}
                   </div>
-                  {/* NEW: Transfer Filter for List View */}
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       Transfer Status
@@ -788,7 +854,7 @@ export default function PettyCashPage() {
             {loading ? (
               <div className="p-8 text-center">Loading...</div>
             ) : viewMode === "report" ? (
-              /* Report View */
+              /* Report View - sama seperti sebelumnya */
               <>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -860,7 +926,7 @@ export default function PettyCashPage() {
                 </div>
               </>
             ) : (
-              /* List View */
+              /* List View - Updated with Quick Edit Transfer */
               <>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
@@ -907,7 +973,26 @@ export default function PettyCashPage() {
                           <td className="px-3 py-2">{item.store}</td>
                           <td className="px-3 py-2">{item.ket || "-"}</td>
                           <td className="px-3 py-2 text-center">
-                            {item.transfer === "TRUE" ? "✓" : "-"}
+                            {user.petty_cash_export ? (
+                              <button
+                                onClick={() => handleQuickToggleTransfer(item)}
+                                disabled={updatingTransfer === item.id}
+                                className={`w-5 h-5 flex items-center justify-center rounded border-2 transition-colors ${
+                                  item.transfer === "TRUE"
+                                    ? "bg-green-500 border-green-500"
+                                    : "bg-white border-gray-300 hover:border-green-500"
+                                } ${updatingTransfer === item.id ? "opacity-50 cursor-wait" : "cursor-pointer"}`}
+                                title={user.petty_cash_export ? "Click to toggle" : ""}
+                              >
+                                {item.transfer === "TRUE" && (
+                                  <svg className="w-3 h-3 text-white" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path d="M5 13l4 4L19 7"></path>
+                                  </svg>
+                                )}
+                              </button>
+                            ) : (
+                              <span>{item.transfer === "TRUE" ? "✓" : "-"}</span>
+                            )}
                           </td>
                           <td className="px-3 py-2 text-center">
                             {item.link_url ? (
@@ -1030,7 +1115,71 @@ export default function PettyCashPage() {
         </div>
       </div>
 
-      {/* Add Modal */}
+      {/* Category Information Modal */}
+      {showInfoModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto"
+          onClick={() => setShowInfoModal(false)}
+        >
+          <div 
+            className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 my-8 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold text-primary mb-4">
+              Petty Cash Category Information
+            </h2>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead className="bg-gray-100 border-b-2 border-gray-300">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700 border border-gray-300">
+                      Category
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700 border border-gray-300">
+                      Description
+                    </th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700 border border-gray-300">
+                      Example
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {categoryDetails.map((detail, index) => (
+                    <tr key={index} className="border-b hover:bg-gray-50">
+                      <td className="px-4 py-3 border border-gray-300 font-medium">
+                        {detail.category}
+                      </td>
+                      <td className="px-4 py-3 border border-gray-300">
+                        {detail.description}
+                      </td>
+                      <td className="px-4 py-3 border border-gray-300 text-gray-600">
+                        {detail.example}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {categoryDetails.length === 0 && (
+                <div className="p-8 text-center text-gray-500">
+                  No category information available
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setShowInfoModal(false)}
+                className="px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Modal - sama seperti sebelumnya */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 my-8">
@@ -1191,7 +1340,7 @@ export default function PettyCashPage() {
         </div>
       )}
 
-      {/* Edit Modal */}
+      {/* Edit Modal - sama seperti sebelumnya */}
       {showEditModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 my-8">
