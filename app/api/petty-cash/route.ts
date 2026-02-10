@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     
     // Filter based on user permissions
     if (!isAdmin && username) {
-      const filteredData = sortedData.filter((item: any) => item.update_by === username);
+      const filteredData = sortedData.filter((item: any) => item.store === username);
       return NextResponse.json(filteredData);
     }
     
