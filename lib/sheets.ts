@@ -8,6 +8,7 @@ const SPREADSHEET_MAP: Record<string, string> = {
   delivery_note: process.env.SPREADSHEET_ORDER_REPORT || "",
   sales_invoice: process.env.SPREADSHEET_ORDER_REPORT || "",
   petty_cash: process.env.SPREADSHEET_PETTY_CASH || "",
+  petty_cash_balance: process.env.SPREADSHEET_BALANCE || "",
   master_dropdown: process.env.SPREADSHEET_MASTER || "",
   master_item: process.env.SPREADSHEET_STOCK || "",
   erp_stock_balance: process.env.SPREADSHEET_STOCK || "",
@@ -57,17 +58,13 @@ export async function getSheetData(sheetName: string) {
       credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || "{}"),
       scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     });
-
     const sheets = google.sheets({ version: "v4", auth });
-
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: getSpreadsheetId(sheetName),
-      range: `${sheetName}!A1:ZZ`, // Extended to ZZ to support more columns
+      range: `${sheetName}!A1:ZZ`,
     });
-
     const rows = response.data.values || [];
     if (rows.length === 0) return [];
-
     const headers = rows[0];
     return rows.slice(1).map((row) => {
       const obj: any = {};
@@ -82,35 +79,25 @@ export async function getSheetData(sheetName: string) {
   }
 }
 
-export async function updateSheetDataWithHeader(
-  sheetName: string,
-  data: any[][],
-) {
+export async function updateSheetDataWithHeader(sheetName: string, data: any[][]) {
   try {
     const auth = new google.auth.GoogleAuth({
       credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || "{}"),
       scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     });
-
     const sheets = google.sheets({ version: "v4", auth });
-
-    // Clear with extended range
     await sheets.spreadsheets.values.clear({
       spreadsheetId: getSpreadsheetId(sheetName),
       range: `${sheetName}!A1:ZZ`,
     });
-
     if (data.length > 0) {
       await sheets.spreadsheets.values.update({
         spreadsheetId: getSpreadsheetId(sheetName),
         range: `${sheetName}!A1`,
         valueInputOption: "RAW",
-        requestBody: {
-          values: data,
-        },
+        requestBody: { values: data },
       });
     }
-
     return { success: true };
   } catch (error) {
     console.error("Error updating sheet data:", error);
@@ -124,19 +111,14 @@ export async function appendSheetData(sheetName: string, data: any[][]) {
       credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || "{}"),
       scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     });
-
     const sheets = google.sheets({ version: "v4", auth });
-
     await sheets.spreadsheets.values.append({
       spreadsheetId: getSpreadsheetId(sheetName),
       range: `${sheetName}!A2`,
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
-      requestBody: {
-        values: data,
-      },
+      requestBody: { values: data },
     });
-
     return { success: true };
   } catch (error) {
     console.error("Error appending sheet data:", error);
@@ -144,35 +126,23 @@ export async function appendSheetData(sheetName: string, data: any[][]) {
   }
 }
 
-export async function updateSheetRow(
-  sheetName: string,
-  rowIndex: number,
-  data: any[],
-) {
+export async function updateSheetRow(sheetName: string, rowIndex: number, data: any[]) {
   try {
     const auth = new google.auth.GoogleAuth({
       credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || "{}"),
       scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     });
-
     const sheets = google.sheets({ version: "v4", auth });
-
-    // Calculate the end column based on data length
     const numColumns = data.length;
     const endColumn = getColumnLetter(numColumns);
     const range = `${sheetName}!A${rowIndex}:${endColumn}${rowIndex}`;
-
     console.log(`Updating sheet row: ${range} with ${numColumns} columns`);
-
     await sheets.spreadsheets.values.update({
       spreadsheetId: getSpreadsheetId(sheetName),
       range: range,
       valueInputOption: "RAW",
-      requestBody: {
-        values: [data],
-      },
+      requestBody: { values: [data] },
     });
-
     return { success: true };
   } catch (error) {
     console.error("Error updating sheet row:", error);

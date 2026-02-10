@@ -16,33 +16,23 @@ async function updateSheetRow(sheetName: string, rowIndex: number, data: any[]) 
       credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
-
     const sheets = google.sheets({ version: 'v4', auth });
-
-    // Calculate the end column based on data length
-    // A=1, B=2, ..., Z=26, AA=27, AB=28, etc.
     const numColumns = data.length;
     let endColumn = '';
-    
     if (numColumns <= 26) {
-      endColumn = String.fromCharCode(64 + numColumns); // A-Z
+      endColumn = String.fromCharCode(64 + numColumns);
     } else {
       const firstChar = String.fromCharCode(64 + Math.floor((numColumns - 1) / 26));
       const secondChar = String.fromCharCode(65 + ((numColumns - 1) % 26));
       endColumn = firstChar + secondChar;
     }
-
     const range = `${sheetName}!A${rowIndex}:${endColumn}${rowIndex}`;
-
     await sheets.spreadsheets.values.update({
       spreadsheetId: getSpreadsheetId(sheetName),
       range: range,
       valueInputOption: 'RAW',
-      requestBody: {
-        values: [data],
-      },
+      requestBody: { values: [data] },
     });
-
     return { success: true };
   } catch (error) {
     console.error('Error updating sheet row:', error);
@@ -56,45 +46,26 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching users:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch users' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
     const { id, permissions } = await request.json();
-
-    // Get all users to find the row index
     const users = await getSheetData('users');
     const userIndex = users.findIndex((u: any) => u.id === id);
-    
     if (userIndex === -1) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
-
     const user = users[userIndex];
-    
-    // Update row (rowIndex is userIndex + 2 because of 1-based index and header row)
     const rowIndex = userIndex + 2;
-    
-    // Format timestamp with correct timezone
     const now = new Date();
     const timestamp = now.toLocaleString('id-ID', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-      timeZone: 'Asia/Jakarta'
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Jakarta'
     });
-    
+
     const updatedRow = [
       user.id,
       user.name,
@@ -125,19 +96,16 @@ export async function PUT(request: NextRequest) {
       permissions.stock_refresh_javelin ? 'TRUE' : 'FALSE',
       permissions.canvasing_export ? 'TRUE' : 'FALSE',
       permissions.canvasing ? 'TRUE' : 'FALSE',
-      timestamp
+      permissions.petty_cash_balance ? 'TRUE' : 'FALSE',
+      timestamp,
     ];
 
     console.log(`Updating row ${rowIndex} with ${updatedRow.length} columns`);
-
     await updateSheetRow('users', rowIndex, updatedRow);
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error updating user:', error);
-    return NextResponse.json(
-      { error: 'Failed to update user' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
   }
 }

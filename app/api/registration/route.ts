@@ -7,45 +7,23 @@ export async function GET(request: NextRequest) {
     const data = await getSheetData('registration_request');
     return NextResponse.json(data);
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Failed to fetch registration requests' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch registration requests' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const { name, username, password } = await request.json();
-
     const hashedPassword = await bcrypt.hash(password, 10);
-
     const id = Date.now().toString();
     const requestAt = new Date().toLocaleString('id-ID', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
     });
-
-    const newRequest = [
-      id,
-      name,
-      username,
-      hashedPassword,
-      'pending',
-      requestAt
-    ];
-
+    const newRequest = [id, name, username, hashedPassword, 'pending', requestAt];
     await appendSheetData('registration_request', [newRequest]);
-
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Failed to create registration request' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create registration request' }, { status: 500 });
   }
 }
 
@@ -56,12 +34,8 @@ export async function PUT(request: NextRequest) {
     if (status === 'approved') {
       const requests = await getSheetData('registration_request');
       const requestData = requests.find((r: any) => r.id === id);
-
       if (!requestData) {
-        return NextResponse.json(
-          { error: 'Request not found' },
-          { status: 404 }
-        );
+        return NextResponse.json({ error: 'Request not found' }, { status: 404 });
       }
 
       const newUser = [
@@ -92,7 +66,10 @@ export async function PUT(request: NextRequest) {
         permissions.stock_view_hpt ? 'TRUE' : 'FALSE',
         permissions.stock_view_hpj ? 'TRUE' : 'FALSE',
         permissions.stock_refresh_javelin ? 'TRUE' : 'FALSE',
-        new Date().toISOString()
+        permissions.canvasing_export ? 'TRUE' : 'FALSE',
+        permissions.canvasing ? 'TRUE' : 'FALSE',
+        permissions.petty_cash_balance ? 'TRUE' : 'FALSE',
+        new Date().toISOString(),
       ];
 
       await appendSheetData('users', [newUser]);
@@ -100,9 +77,6 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Failed to update registration request' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update registration request' }, { status: 500 });
   }
 }

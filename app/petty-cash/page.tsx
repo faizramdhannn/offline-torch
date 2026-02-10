@@ -21,6 +21,23 @@ interface PettyCash {
   update_at: string;
 }
 
+interface BalanceEntry {
+  id: string;
+  type_balance: string;
+  value: string;
+  notes: string;
+  update_by: string;
+  created_at: string;
+  update_at: string;
+}
+
+interface BalanceData {
+  balance: number;
+  paid: number;
+  unpaid: number;
+  entries: BalanceEntry[];
+}
+
 interface ReportData {
   store: string;
   pettyCash: number;
@@ -48,13 +65,20 @@ export default function PettyCashPage() {
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<PettyCash | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [exporting2, setExporting2] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [updatingTransfer, setUpdatingTransfer] = useState<string | null>(null);
 
   // View mode
-  const [viewMode, setViewMode] = useState<"list" | "report">("list");
+  const [viewMode, setViewMode] = useState<"list" | "report" | "balance">("list");
+
+  // Balance state
+  const [balanceData, setBalanceData] = useState<BalanceData | null>(null);
+  const [balanceDateFrom, setBalanceDateFrom] = useState("");
+  const [balanceDateTo, setBalanceDateTo] = useState("");
+  const [loadingBalance, setLoadingBalance] = useState(false);
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -116,6 +140,18 @@ export default function PettyCashPage() {
     applyFilters();
   }, [dateFrom, dateTo, selectedCategories, selectedStores, transferFilter, data]);
 
+  useEffect(() => {
+    if (viewMode === "balance" && user) {
+      fetchBalance();
+    }
+  }, [viewMode]);
+
+  useEffect(() => {
+    if (viewMode === "balance") {
+      fetchBalance();
+    }
+  }, [balanceDateFrom, balanceDateTo]);
+
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);
     setPopupType(type);
@@ -142,12 +178,11 @@ export default function PettyCashPage() {
     try {
       setLoading(true);
       const response = await fetch(
-        `/api/petty-cash?username=${username}&isAdmin=${isAdmin}`,
+        `/api/petty-cash?username=${username}&isAdmin=${isAdmin}`
       );
       const result = await response.json();
       setData(result);
       setFilteredData(result);
-
       const uniqueStores = [
         ...new Set(result.map((item: PettyCash) => item.store)),
       ].filter(Boolean);
@@ -179,11 +214,26 @@ export default function PettyCashPage() {
     }
   };
 
+  const fetchBalance = async () => {
+    try {
+      setLoadingBalance(true);
+      const params = new URLSearchParams();
+      if (balanceDateFrom) params.set("dateFrom", balanceDateFrom);
+      if (balanceDateTo) params.set("dateTo", balanceDateTo);
+      const response = await fetch(`/api/petty-cash/balance?${params}`);
+      if (!response.ok) throw new Error("Failed to fetch balance");
+      const result = await response.json();
+      setBalanceData(result);
+    } catch (error) {
+      showMessage("Failed to fetch balance data", "error");
+    } finally {
+      setLoadingBalance(false);
+    }
+  };
+
   const handleQuickToggleTransfer = async (entry: PettyCash) => {
     if (!user.petty_cash_export) return;
-    
     setUpdatingTransfer(entry.id);
-    
     try {
       const form = new FormData();
       form.append("id", entry.id);
@@ -194,17 +244,9 @@ export default function PettyCashPage() {
       form.append("ket", entry.ket);
       form.append("transfer", (entry.transfer !== "TRUE").toString());
       form.append("username", user.user_name);
-
-      const response = await fetch("/api/petty-cash", {
-        method: "PUT",
-        body: form,
-      });
-
+      const response = await fetch("/api/petty-cash", { method: "PUT", body: form });
       if (response.ok) {
-        await logActivity(
-          "PUT",
-          `Quick toggled transfer status for entry ID: ${entry.id}`,
-        );
+        await logActivity("PUT", `Quick toggled transfer status for entry ID: ${entry.id}`);
         fetchData(user.user_name, user.petty_cash_export);
       } else {
         showMessage("Failed to update transfer status", "error");
@@ -216,22 +258,10 @@ export default function PettyCashPage() {
     }
   };
 
-  // ... (keep all other functions the same: parseDate, applyFilters, resetFilters, toggleCategory, toggleStore, toTitleCase, formatRupiah, handleSubmit, handleEdit, handleUpdate, handleDelete, canEditDelete, exportToExcel, exportReportToExcel, exportToDoc, generateReportData)
-
   const parseDate = (dateString: string) => {
     const months: { [key: string]: number } = {
-      Jan: 0,
-      Feb: 1,
-      Mar: 2,
-      Apr: 3,
-      May: 4,
-      Jun: 5,
-      Jul: 6,
-      Aug: 7,
-      Sep: 8,
-      Oct: 9,
-      Nov: 10,
-      Dec: 11,
+      Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+      Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
     };
     const parts = dateString.split(" ");
     return new Date(parseInt(parts[2]), months[parts[1]], parseInt(parts[0]));
@@ -239,33 +269,25 @@ export default function PettyCashPage() {
 
   const applyFilters = () => {
     let filtered = [...data];
-
     if (dateFrom) {
       const fromDate = new Date(dateFrom);
       filtered = filtered.filter((item) => parseDate(item.date) >= fromDate);
     }
-
     if (dateTo) {
       const toDate = new Date(dateTo);
       filtered = filtered.filter((item) => parseDate(item.date) <= toDate);
     }
-
     if (selectedCategories.length > 0) {
-      filtered = filtered.filter((item) =>
-        selectedCategories.includes(item.category),
-      );
+      filtered = filtered.filter((item) => selectedCategories.includes(item.category));
     }
-
     if (selectedStores.length > 0) {
       filtered = filtered.filter((item) => selectedStores.includes(item.store));
     }
-
     if (transferFilter === "true") {
       filtered = filtered.filter((item) => item.transfer === "TRUE");
     } else if (transferFilter === "false") {
       filtered = filtered.filter((item) => item.transfer === "FALSE");
     }
-
     setFilteredData(filtered);
     setCurrentPage(1);
   };
@@ -283,15 +305,13 @@ export default function PettyCashPage() {
 
   const toggleCategory = (category: string) => {
     setSelectedCategories((prev) =>
-      prev.includes(category)
-        ? prev.filter((c) => c !== category)
-        : [...prev, category],
+      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
     );
   };
 
   const toggleStore = (store: string) => {
     setSelectedStores((prev) =>
-      prev.includes(store) ? prev.filter((s) => s !== store) : [...prev, store],
+      prev.includes(store) ? prev.filter((s) => s !== store) : [...prev, store]
     );
   };
 
@@ -314,7 +334,6 @@ export default function PettyCashPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-
     try {
       const form = new FormData();
       form.append("description", formData.description);
@@ -324,31 +343,13 @@ export default function PettyCashPage() {
       form.append("ket", formData.ket);
       form.append("transfer", formData.transfer.toString());
       form.append("username", user.user_name);
-
-      if (formData.file) {
-        form.append("file", formData.file);
-      }
-
-      const response = await fetch("/api/petty-cash", {
-        method: "POST",
-        body: form,
-      });
-
+      if (formData.file) form.append("file", formData.file);
+      const response = await fetch("/api/petty-cash", { method: "POST", body: form });
       if (response.ok) {
-        await logActivity(
-          "POST",
-          `Added petty cash: ${formData.category}`,
-        );
+        await logActivity("POST", `Added petty cash: ${formData.category}`);
         showMessage("Entry added successfully", "success");
         setShowAddModal(false);
-        setFormData({
-          description: "",
-          category: "",
-          value: "",
-          ket: "",
-          transfer: false,
-          file: null,
-        });
+        setFormData({ description: "", category: "", value: "", ket: "", transfer: false, file: null });
         fetchData(user.user_name, user.petty_cash_export);
       } else {
         showMessage("Failed to add entry", "error");
@@ -376,9 +377,7 @@ export default function PettyCashPage() {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEntry) return;
-
     setSubmitting(true);
-
     try {
       const form = new FormData();
       form.append("id", selectedEntry.id);
@@ -389,32 +388,14 @@ export default function PettyCashPage() {
       form.append("ket", formData.ket);
       form.append("transfer", formData.transfer.toString());
       form.append("username", user.user_name);
-
-      if (formData.file) {
-        form.append("file", formData.file);
-      }
-
-      const response = await fetch("/api/petty-cash", {
-        method: "PUT",
-        body: form,
-      });
-
+      if (formData.file) form.append("file", formData.file);
+      const response = await fetch("/api/petty-cash", { method: "PUT", body: form });
       if (response.ok) {
-        await logActivity(
-          "PUT",
-          `Updated petty cash entry ID: ${selectedEntry.id}`,
-        );
+        await logActivity("PUT", `Updated petty cash entry ID: ${selectedEntry.id}`);
         showMessage("Entry updated successfully", "success");
         setShowEditModal(false);
         setSelectedEntry(null);
-        setFormData({
-          description: "",
-          category: "",
-          value: "",
-          ket: "",
-          transfer: false,
-          file: null,
-        });
+        setFormData({ description: "", category: "", value: "", ket: "", transfer: false, file: null });
         fetchData(user.user_name, user.petty_cash_export);
       } else {
         showMessage("Failed to update entry", "error");
@@ -428,12 +409,8 @@ export default function PettyCashPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this entry?")) return;
-
     try {
-      const response = await fetch(`/api/petty-cash?id=${id}`, {
-        method: "DELETE",
-      });
-
+      const response = await fetch(`/api/petty-cash?id=${id}`, { method: "DELETE" });
       if (response.ok) {
         await logActivity("DELETE", `Deleted petty cash entry ID: ${id}`);
         showMessage("Entry deleted successfully", "success");
@@ -461,27 +438,21 @@ export default function PettyCashPage() {
       Transfer: item.transfer === "TRUE" ? "Yes" : "No",
       Link: item.link_url || "-",
     }));
-
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Petty Cash");
     XLSX.writeFile(wb, "petty_cash.xlsx");
-    logActivity(
-      "GET",
-      `Exported petty cash to Excel: ${filteredData.length} entries`,
-    );
+    logActivity("GET", `Exported petty cash to Excel: ${filteredData.length} entries`);
   };
 
   const exportReportToExcel = () => {
     const reportData = generateReportData();
-    
     const exportData = reportData.map((item) => ({
       Store: item.store,
       "Petty Cash": item.pettyCash,
       Listrik: item.listrik,
       Total: item.total,
     }));
-
     const grandTotal = {
       Store: "Grand Total",
       "Petty Cash": reportData.reduce((sum, item) => sum + item.pettyCash, 0),
@@ -489,23 +460,17 @@ export default function PettyCashPage() {
       Total: reportData.reduce((sum, item) => sum + item.total, 0),
     };
     exportData.push(grandTotal);
-
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Petty Cash Report");
-    
     const transferStatus = reportTransferFilter === "false" ? "Belum_Transfer" : "Sudah_Transfer";
-    const filename = `petty_cash_report_${transferStatus}_${new Date().toISOString().split("T")[0]}.xlsx`;
-    
-    XLSX.writeFile(wb, filename);
-    logActivity(
-      "GET",
-      `Exported petty cash report to Excel: ${reportData.length} stores`,
-    );
+    XLSX.writeFile(wb, `petty_cash_report_${transferStatus}_${new Date().toISOString().split("T")[0]}.xlsx`);
+    logActivity("GET", `Exported petty cash report to Excel: ${reportData.length} stores`);
   };
 
-  const exportToDoc = async () => {
-    setExporting(true);
+  const exportToDoc = async (type: 1 | 2) => {
+    if (type === 1) setExporting(true);
+    else setExporting2(true);
     try {
       const response = await fetch("/api/petty-cash/export-doc", {
         method: "POST",
@@ -515,23 +480,21 @@ export default function PettyCashPage() {
           username: user.name,
           dateFrom,
           dateTo,
+          exportType: type,
         }),
       });
-
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `Petty_Cash_${user.user_name}_${new Date().toISOString().split("T")[0]}.docx`;
+        const suffix = type === 2 ? "_Summary" : "";
+        a.download = `Petty_Cash${suffix}_${user.user_name}_${new Date().toISOString().split("T")[0]}.docx`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        await logActivity(
-          "GET",
-          `Exported petty cash to DOC: ${filteredData.length} entries`,
-        );
+        await logActivity("GET", `Exported petty cash DOC type ${type}: ${filteredData.length} entries`);
         showMessage("Document exported successfully", "success");
       } else {
         showMessage("Failed to export document", "error");
@@ -539,7 +502,8 @@ export default function PettyCashPage() {
     } catch (error) {
       showMessage("Failed to export document", "error");
     } finally {
-      setExporting(false);
+      if (type === 1) setExporting(false);
+      else setExporting2(false);
     }
   };
 
@@ -550,12 +514,9 @@ export default function PettyCashPage() {
     } else if (reportTransferFilter === "true") {
       reportFilteredData = filteredData.filter((item) => item.transfer === "TRUE");
     }
-
     const uniqueStores = [...new Set(reportFilteredData.map((item) => item.store))];
-
     const reportData = uniqueStores.map((store) => {
       const storeData = reportFilteredData.filter((item) => item.store === store);
-
       const pettyCashData = storeData.filter((item) => {
         const desc = item.description.toLowerCase();
         return !desc.includes("listrik") && !desc.includes("token");
@@ -563,7 +524,6 @@ export default function PettyCashPage() {
       const pettyCashTotal = pettyCashData.reduce((sum, item) => {
         return sum + parseInt(item.value.replace(/[^0-9]/g, "") || "0");
       }, 0);
-
       const listrikData = storeData.filter((item) => {
         const desc = item.description.toLowerCase();
         return desc.includes("listrik") || desc.includes("token");
@@ -571,7 +531,6 @@ export default function PettyCashPage() {
       const listrikTotal = listrikData.reduce((sum, item) => {
         return sum + parseInt(item.value.replace(/[^0-9]/g, "") || "0");
       }, 0);
-
       return {
         store: toTitleCase(store),
         pettyCash: pettyCashTotal,
@@ -579,7 +538,6 @@ export default function PettyCashPage() {
         total: pettyCashTotal + listrikTotal,
       };
     });
-
     return reportData.sort((a, b) => a.store.localeCompare(b.store));
   };
 
@@ -603,7 +561,6 @@ export default function PettyCashPage() {
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold text-primary">Petty Cash</h1>
-              {/* Info Icon */}
               <button
                 onClick={() => setShowInfoModal(true)}
                 className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center hover:bg-blue-600 text-xs font-bold"
@@ -629,897 +586,586 @@ export default function PettyCashPage() {
             <div className="flex gap-2">
               <button
                 onClick={() => setViewMode("list")}
-                className={`px-4 py-1.5 rounded text-xs transition-colors ${
-                  viewMode === "list"
-                    ? "bg-primary text-white"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
+                className={`px-4 py-1.5 rounded text-xs transition-colors ${viewMode === "list" ? "bg-primary text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
               >
                 List View
               </button>
               <button
                 onClick={() => setViewMode("report")}
-                className={`px-4 py-1.5 rounded text-xs transition-colors ${
-                  viewMode === "report"
-                    ? "bg-primary text-white"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
+                className={`px-4 py-1.5 rounded text-xs transition-colors ${viewMode === "report" ? "bg-primary text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
               >
                 Report View
               </button>
+              <button
+                onClick={() => setViewMode("balance")}
+                className={`px-4 py-1.5 rounded text-xs transition-colors ${viewMode === "balance" ? "bg-primary text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+              >
+                Balance
+              </button>
             </div>
           </div>
 
-          {/* Filters - sama seperti sebelumnya */}
-          <div className="bg-white rounded-lg shadow p-4 mb-4">
-            <div className="grid grid-cols-5 gap-3 mb-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Date From
-                </label>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Date To
-                </label>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              {viewMode === "list" ? (
-                <>
-                  <div className="relative" ref={categoryDropdownRef}>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Category
-                    </label>
-                    <button
-                      onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
-                    >
-                      <span className="text-gray-500">
-                        {selectedCategories.length === 0
-                          ? "Select category..."
-                          : `${selectedCategories.length} selected`}
-                      </span>
-                      <span className="text-gray-400">▼</span>
-                    </button>
-                    {showCategoryDropdown && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
-                        {categories.map((category) => (
-                          <label
-                            key={category}
-                            className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedCategories.includes(category)}
-                              onChange={() => toggleCategory(category)}
-                              className="mr-2"
-                            />
-                            {category}
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="relative" ref={storeDropdownRef}>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Store
-                    </label>
-                    <button
-                      onClick={() => setShowStoreDropdown(!showStoreDropdown)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
-                    >
-                      <span className="text-gray-500">
-                        {selectedStores.length === 0
-                          ? "Select store..."
-                          : `${selectedStores.length} selected`}
-                      </span>
-                      <span className="text-gray-400">▼</span>
-                    </button>
-                    {showStoreDropdown && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
-                        {stores.map((store) => (
-                          <label
-                            key={store}
-                            className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedStores.includes(store)}
-                              onChange={() => toggleStore(store)}
-                              className="mr-2"
-                            />
-                            {store}
-                          </label>
-                        ))}
-                      </div>
-                    )}
+          {/* Balance View */}
+          {viewMode === "balance" ? (
+            <div>
+              {/* Balance Date Filter */}
+              <div className="bg-white rounded-lg shadow p-4 mb-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Date From</label>
+                    <input
+                      type="date"
+                      value={balanceDateFrom}
+                      onChange={(e) => setBalanceDateFrom(e.target.value)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Transfer Status
-                    </label>
-                    <select
-                      value={transferFilter}
-                      onChange={(e) => setTransferFilter(e.target.value)}
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Date To</label>
+                    <input
+                      type="date"
+                      value={balanceDateTo}
+                      onChange={(e) => setBalanceDateTo(e.target.value)}
                       className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      onClick={() => { setBalanceDateFrom(""); setBalanceDateTo(""); }}
+                      className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"
                     >
-                      <option value="all">All</option>
-                      <option value="false">Belum Transfer</option>
-                      <option value="true">Sudah Transfer</option>
-                    </select>
+                      Reset
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Balance Summary Cards */}
+              {loadingBalance ? (
+                <div className="p-8 text-center bg-white rounded-lg shadow">Loading...</div>
+              ) : balanceData ? (
+                <>
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div className="bg-white rounded-lg shadow p-4">
+                      <p className="text-xs text-gray-500 mb-1">Balance</p>
+                      <p className={`text-lg font-bold ${balanceData.balance >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        {formatRupiah(Math.abs(balanceData.balance))}
+                      </p>
+                      <p className="text-xs text-gray-400">{balanceData.balance >= 0 ? "Surplus" : "Deficit"}</p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow p-4">
+                      <p className="text-xs text-gray-500 mb-1">Paid</p>
+                      <p className="text-lg font-bold text-blue-600">{formatRupiah(balanceData.paid)}</p>
+                      <p className="text-xs text-gray-400">Transfer sudah dilakukan</p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow p-4">
+                      <p className="text-xs text-gray-500 mb-1">Unpaid</p>
+                      <p className="text-lg font-bold text-orange-500">{formatRupiah(balanceData.unpaid)}</p>
+                      <p className="text-xs text-gray-400">Belum ditransfer</p>
+                    </div>
+                  </div>
+
+                  {/* Balance Entries Table */}
+                  <div className="bg-white rounded-lg shadow overflow-hidden">
+                    <div className="px-4 py-3 border-b bg-gray-50">
+                      <h3 className="text-sm font-semibold text-gray-700">Balance History</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-100 border-b">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-700">Date</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-700">Type</th>
+                            <th className="px-3 py-2 text-right font-semibold text-gray-700">Value</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-700">Notes</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-700">Update By</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {balanceData.entries.map((entry, index) => (
+                            <tr key={index} className="border-b hover:bg-gray-50">
+                              <td className="px-3 py-2">
+                                {entry.created_at ? new Date(entry.created_at).toLocaleDateString("id-ID", {
+                                  day: "2-digit", month: "short", year: "numeric"
+                                }) : "-"}
+                              </td>
+                              <td className="px-3 py-2">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                  (entry.type_balance || "").toLowerCase() === "credit"
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-red-100 text-red-700"
+                                }`}>
+                                  {toTitleCase(entry.type_balance || "")}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                <span className={(entry.type_balance || "").toLowerCase() === "credit" ? "text-green-600" : "text-red-600"}>
+                                  {(entry.type_balance || "").toLowerCase() === "credit" ? "+" : "-"}
+                                  {formatRupiah(entry.value)}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2">{entry.notes || "-"}</td>
+                              <td className="px-3 py-2">{entry.update_by || "-"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {balanceData.entries.length === 0 && (
+                        <div className="p-8 text-center text-gray-500">No balance entries found</div>
+                      )}
+                    </div>
                   </div>
                 </>
               ) : (
-                <>
-                  <div className="relative">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Store
-                    </label>
-                    <button
-                      onClick={() => setShowStoreDropdown(!showStoreDropdown)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
-                    >
-                      <span className="text-gray-500">
-                        {selectedStores.length === 0
-                          ? "All stores..."
-                          : `${selectedStores.length} selected`}
-                      </span>
-                      <span className="text-gray-400">▼</span>
-                    </button>
-                    {showStoreDropdown && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
-                        {stores.map((store) => (
-                          <label
-                            key={store}
-                            className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedStores.includes(store)}
-                              onChange={() => toggleStore(store)}
-                              className="mr-2"
-                            />
-                            {store}
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Transfer Status
-                    </label>
-                    <select
-                      value={reportTransferFilter}
-                      onChange={(e) => setReportTransferFilter(e.target.value as "false" | "true")}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                    >
-                      <option value="false">Belum Transfer</option>
-                      <option value="true">Sudah Transfer</option>
-                    </select>
-                  </div>
-                </>
+                <div className="p-8 text-center bg-white rounded-lg shadow text-gray-500">
+                  No data available
+                </div>
               )}
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={resetFilters}
-                className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"
-              >
-                Reset
-              </button>
-              {user.petty_cash_export && (
-                <>
+          ) : (
+            <>
+              {/* Filters */}
+              <div className="bg-white rounded-lg shadow p-4 mb-4">
+                <div className="grid grid-cols-5 gap-3 mb-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Date From</label>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Date To</label>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
                   {viewMode === "list" ? (
                     <>
-                      <button
-                        onClick={exportToExcel}
-                        className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-secondary/90 ml-auto"
-                      >
-                        Export XLSX
-                      </button>
-                      <button
-                        onClick={exportToDoc}
-                        disabled={exporting}
-                        className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
-                      >
-                        {exporting ? "Exporting..." : "Export DOC"}
-                      </button>
+                      <div className="relative" ref={categoryDropdownRef}>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
+                        <button
+                          onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
+                        >
+                          <span className="text-gray-500">
+                            {selectedCategories.length === 0 ? "Select category..." : `${selectedCategories.length} selected`}
+                          </span>
+                          <span className="text-gray-400">▼</span>
+                        </button>
+                        {showCategoryDropdown && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                            {categories.map((category) => (
+                              <label key={category} className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50">
+                                <input type="checkbox" checked={selectedCategories.includes(category)} onChange={() => toggleCategory(category)} className="mr-2" />
+                                {category}
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="relative" ref={storeDropdownRef}>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
+                        <button
+                          onClick={() => setShowStoreDropdown(!showStoreDropdown)}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
+                        >
+                          <span className="text-gray-500">
+                            {selectedStores.length === 0 ? "Select store..." : `${selectedStores.length} selected`}
+                          </span>
+                          <span className="text-gray-400">▼</span>
+                        </button>
+                        {showStoreDropdown && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                            {stores.map((store) => (
+                              <label key={store} className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50">
+                                <input type="checkbox" checked={selectedStores.includes(store)} onChange={() => toggleStore(store)} className="mr-2" />
+                                {store}
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Transfer Status</label>
+                        <select
+                          value={transferFilter}
+                          onChange={(e) => setTransferFilter(e.target.value)}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                        >
+                          <option value="all">All</option>
+                          <option value="false">Belum Transfer</option>
+                          <option value="true">Sudah Transfer</option>
+                        </select>
+                      </div>
                     </>
                   ) : (
-                    <button
-                      onClick={exportReportToExcel}
-                      className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-secondary/90 ml-auto"
-                    >
-                      Export Report XLSX
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            {loading ? (
-              <div className="p-8 text-center">Loading...</div>
-            ) : viewMode === "report" ? (
-              /* Report View - sama seperti sebelumnya */
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-100 border-b">
-                      <tr>
-                        <th className="px-4 py-3 text-left font-semibold text-gray-700">
-                          Store
-                        </th>
-                        <th className="px-4 py-3 text-right font-semibold text-gray-700">
-                          Petty Cash
-                        </th>
-                        <th className="px-4 py-3 text-right font-semibold text-gray-700">
-                          Listrik
-                        </th>
-                        <th className="px-4 py-3 text-right font-semibold text-gray-700">
-                          Total
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {generateReportData().map((item, index) => (
-                        <tr key={index} className="border-b hover:bg-gray-50">
-                          <td className="px-4 py-3">{item.store}</td>
-                          <td className="px-4 py-3 text-right">
-                            {formatRupiah(item.pettyCash)}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            {formatRupiah(item.listrik)}
-                          </td>
-                          <td className="px-4 py-3 text-right font-semibold text-green-600">
-                            {formatRupiah(item.total)}
-                          </td>
-                        </tr>
-                      ))}
-                      <tr className="bg-gray-50 font-semibold">
-                        <td className="px-4 py-3">Grand Total</td>
-                        <td className="px-4 py-3 text-right">
-                          {formatRupiah(
-                            generateReportData().reduce(
-                              (sum, item) => sum + item.pettyCash,
-                              0
-                            )
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {formatRupiah(
-                            generateReportData().reduce(
-                              (sum, item) => sum + item.listrik,
-                              0
-                            )
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right text-green-600">
-                          {formatRupiah(
-                            generateReportData().reduce(
-                              (sum, item) => sum + item.total,
-                              0
-                            )
-                          )}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                  {generateReportData().length === 0 && (
-                    <div className="p-8 text-center text-gray-500">
-                      No data available
-                    </div>
+                    <>
+                      <div className="relative">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
+                        <button
+                          onClick={() => setShowStoreDropdown(!showStoreDropdown)}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
+                        >
+                          <span className="text-gray-500">
+                            {selectedStores.length === 0 ? "All stores..." : `${selectedStores.length} selected`}
+                          </span>
+                          <span className="text-gray-400">▼</span>
+                        </button>
+                        {showStoreDropdown && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                            {stores.map((store) => (
+                              <label key={store} className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50">
+                                <input type="checkbox" checked={selectedStores.includes(store)} onChange={() => toggleStore(store)} className="mr-2" />
+                                {store}
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Transfer Status</label>
+                        <select
+                          value={reportTransferFilter}
+                          onChange={(e) => setReportTransferFilter(e.target.value as "false" | "true")}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                        >
+                          <option value="false">Belum Transfer</option>
+                          <option value="true">Sudah Transfer</option>
+                        </select>
+                      </div>
+                    </>
                   )}
                 </div>
-              </>
-            ) : (
-              /* List View - Updated with Quick Edit Transfer */
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-gray-100 border-b">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">
-                          Date
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-32">
-                          Description
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">
-                          Category
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">
-                          Value
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">
-                          Store
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">
-                          Ket
-                        </th>
-                        <th className="px-3 py-2 text-center font-semibold text-gray-700 w-16">
-                          Transfer
-                        </th>
-                        <th className="px-3 py-2 text-center font-semibold text-gray-700 w-16">
-                          Link
-                        </th>
-                        <th className="px-3 py-2 text-center font-semibold text-gray-700 w-24">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentItems.map((item, index) => (
-                        <tr key={index} className="border-b hover:bg-gray-50">
-                          <td className="px-3 py-2">{item.date}</td>
-                          <td className="px-3 py-2">{item.description}</td>
-                          <td className="px-3 py-2">{item.category}</td>
-                          <td className="px-3 py-2">
-                            {formatRupiah(item.value)}
-                          </td>
-                          <td className="px-3 py-2">{item.store}</td>
-                          <td className="px-3 py-2">{item.ket || "-"}</td>
-                          <td className="px-3 py-2 text-center">
-                            {user.petty_cash_export ? (
-                              <button
-                                onClick={() => handleQuickToggleTransfer(item)}
-                                disabled={updatingTransfer === item.id}
-                                className={`w-5 h-5 flex items-center justify-center rounded border-2 transition-colors ${
-                                  item.transfer === "TRUE"
-                                    ? "bg-green-500 border-green-500"
-                                    : "bg-white border-gray-300 hover:border-green-500"
-                                } ${updatingTransfer === item.id ? "opacity-50 cursor-wait" : "cursor-pointer"}`}
-                                title={user.petty_cash_export ? "Click to toggle" : ""}
-                              >
-                                {item.transfer === "TRUE" && (
-                                  <svg className="w-3 h-3 text-white" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path d="M5 13l4 4L19 7"></path>
-                                  </svg>
+                <div className="flex gap-2 flex-wrap">
+                  <button onClick={resetFilters} className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600">
+                    Reset
+                  </button>
+                  {user.petty_cash_export && (
+                    <>
+                      {viewMode === "list" ? (
+                        <>
+                          <button onClick={exportToExcel} className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-secondary/90 ml-auto">
+                            Export XLSX
+                          </button>
+                          <button
+                            onClick={() => exportToDoc(1)}
+                            disabled={exporting}
+                            className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {exporting ? "Exporting..." : "Export DOC"}
+                          </button>
+                          <button
+                            onClick={() => exportToDoc(2)}
+                            disabled={exporting2}
+                            className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {exporting2 ? "Exporting..." : "Export DOC 2"}
+                          </button>
+                        </>
+                      ) : (
+                        <button onClick={exportReportToExcel} className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-secondary/90 ml-auto">
+                          Export Report XLSX
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                {loading ? (
+                  <div className="p-8 text-center">Loading...</div>
+                ) : viewMode === "report" ? (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-100 border-b">
+                          <tr>
+                            <th className="px-4 py-3 text-left font-semibold text-gray-700">Store</th>
+                            <th className="px-4 py-3 text-right font-semibold text-gray-700">Petty Cash</th>
+                            <th className="px-4 py-3 text-right font-semibold text-gray-700">Listrik</th>
+                            <th className="px-4 py-3 text-right font-semibold text-gray-700">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {generateReportData().map((item, index) => (
+                            <tr key={index} className="border-b hover:bg-gray-50">
+                              <td className="px-4 py-3">{item.store}</td>
+                              <td className="px-4 py-3 text-right">{formatRupiah(item.pettyCash)}</td>
+                              <td className="px-4 py-3 text-right">{formatRupiah(item.listrik)}</td>
+                              <td className="px-4 py-3 text-right font-semibold text-green-600">{formatRupiah(item.total)}</td>
+                            </tr>
+                          ))}
+                          <tr className="bg-gray-50 font-semibold">
+                            <td className="px-4 py-3">Grand Total</td>
+                            <td className="px-4 py-3 text-right">{formatRupiah(generateReportData().reduce((sum, item) => sum + item.pettyCash, 0))}</td>
+                            <td className="px-4 py-3 text-right">{formatRupiah(generateReportData().reduce((sum, item) => sum + item.listrik, 0))}</td>
+                            <td className="px-4 py-3 text-right text-green-600">{formatRupiah(generateReportData().reduce((sum, item) => sum + item.total, 0))}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      {generateReportData().length === 0 && (
+                        <div className="p-8 text-center text-gray-500">No data available</div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-100 border-b">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">Date</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-700 w-32">Description</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">Category</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">Value</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">Store</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">Ket</th>
+                            <th className="px-3 py-2 text-center font-semibold text-gray-700 w-16">Transfer</th>
+                            <th className="px-3 py-2 text-center font-semibold text-gray-700 w-16">Link</th>
+                            <th className="px-3 py-2 text-center font-semibold text-gray-700 w-24">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {currentItems.map((item, index) => (
+                            <tr key={index} className="border-b hover:bg-gray-50">
+                              <td className="px-3 py-2">{item.date}</td>
+                              <td className="px-3 py-2">{item.description}</td>
+                              <td className="px-3 py-2">{item.category}</td>
+                              <td className="px-3 py-2">{formatRupiah(item.value)}</td>
+                              <td className="px-3 py-2">{item.store}</td>
+                              <td className="px-3 py-2">{item.ket || "-"}</td>
+                              <td className="px-3 py-2 text-center">
+                                {user.petty_cash_export ? (
+                                  <button
+                                    onClick={() => handleQuickToggleTransfer(item)}
+                                    disabled={updatingTransfer === item.id}
+                                    className={`w-5 h-5 flex items-center justify-center rounded border-2 transition-colors mx-auto ${
+                                      item.transfer === "TRUE"
+                                        ? "bg-green-500 border-green-500"
+                                        : "bg-white border-gray-300 hover:border-green-500"
+                                    } ${updatingTransfer === item.id ? "opacity-50 cursor-wait" : "cursor-pointer"}`}
+                                  >
+                                    {item.transfer === "TRUE" && (
+                                      <svg className="w-3 h-3 text-white" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path d="M5 13l4 4L19 7"></path>
+                                      </svg>
+                                    )}
+                                  </button>
+                                ) : (
+                                  <span>{item.transfer === "TRUE" ? "✓" : "-"}</span>
                                 )}
-                              </button>
-                            ) : (
-                              <span>{item.transfer === "TRUE" ? "✓" : "-"}</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            {item.link_url ? (
-                              <a
-                                href={item.link_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:underline"
-                              >
-                                View
-                              </a>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2">
-                            {canEditDelete(item) && (
-                              <div className="flex gap-1 justify-center">
-                                <button
-                                  onClick={() => handleEdit(item)}
-                                  className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(item.id)}
-                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                      <tr className="bg-gray-50 font-semibold">
-                        <td colSpan={3} className="px-3 py-2 text-right">
-                          Total:
-                        </td>
-                        <td className="px-3 py-2">
-                          {formatRupiah(totalValue)}
-                        </td>
-                        <td colSpan={5}></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                  {filteredData.length === 0 && (
-                    <div className="p-8 text-center text-gray-500">
-                      No data available
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                {item.link_url ? (
+                                  <a href={item.link_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">View</a>
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2">
+                                {canEditDelete(item) && (
+                                  <div className="flex gap-1 justify-center">
+                                    <button onClick={() => handleEdit(item)} className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">Edit</button>
+                                    <button onClick={() => handleDelete(item.id)} className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600">Delete</button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                          <tr className="bg-gray-50 font-semibold">
+                            <td colSpan={3} className="px-3 py-2 text-right">Total:</td>
+                            <td className="px-3 py-2">{formatRupiah(totalValue)}</td>
+                            <td colSpan={5}></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      {filteredData.length === 0 && (
+                        <div className="p-8 text-center text-gray-500">No data available</div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                {totalPages > 1 && (
-                  <div className="flex justify-between items-center px-4 py-3 border-t">
-                    <div className="text-xs text-gray-600">
-                      Showing {indexOfFirstItem + 1} to{" "}
-                      {Math.min(indexOfLastItem, filteredData.length)} of{" "}
-                      {filteredData.length} entries
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() =>
-                          setCurrentPage((prev) => Math.max(1, prev - 1))
-                        }
-                        disabled={currentPage === 1}
-                        className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                      >
-                        Previous
-                      </button>
-                      {[...Array(totalPages)].map((_, i) => {
-                        const page = i + 1;
-                        if (
-                          page === 1 ||
-                          page === totalPages ||
-                          (page >= currentPage - 1 && page <= currentPage + 1)
-                        ) {
-                          return (
-                            <button
-                              key={page}
-                              onClick={() => setCurrentPage(page)}
-                              className={`px-3 py-1 text-xs border rounded ${
-                                currentPage === page
-                                  ? "bg-primary text-white"
-                                  : "hover:bg-gray-50"
-                              }`}
-                            >
-                              {page}
-                            </button>
-                          );
-                        } else if (
-                          page === currentPage - 2 ||
-                          page === currentPage + 2
-                        ) {
-                          return (
-                            <span key={page} className="px-2">
-                              ...
-                            </span>
-                          );
-                        }
-                        return null;
-                      })}
-                      <button
-                        onClick={() =>
-                          setCurrentPage((prev) =>
-                            Math.min(totalPages, prev + 1),
-                          )
-                        }
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
+                    {totalPages > 1 && (
+                      <div className="flex justify-between items-center px-4 py-3 border-t">
+                        <div className="text-xs text-gray-600">
+                          Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredData.length)} of {filteredData.length} entries
+                        </div>
+                        <div className="flex gap-1">
+                          <button onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))} disabled={currentPage === 1} className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">
+                            Previous
+                          </button>
+                          {[...Array(totalPages)].map((_, i) => {
+                            const page = i + 1;
+                            if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                              return (
+                                <button key={page} onClick={() => setCurrentPage(page)} className={`px-3 py-1 text-xs border rounded ${currentPage === page ? "bg-primary text-white" : "hover:bg-gray-50"}`}>
+                                  {page}
+                                </button>
+                              );
+                            } else if (page === currentPage - 2 || page === currentPage + 2) {
+                              return <span key={page} className="px-2">...</span>;
+                            }
+                            return null;
+                          })}
+                          <button onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages} className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
-              </>
-            )}
-          </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
       {/* Category Information Modal */}
       {showInfoModal && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto"
-          onClick={() => setShowInfoModal(false)}
-        >
-          <div 
-            className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 my-8 max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-lg font-bold text-primary mb-4">
-              Petty Cash Category Information
-            </h2>
-
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto" onClick={() => setShowInfoModal(false)}>
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 my-8 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold text-primary mb-4">Petty Cash Category Information</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead className="bg-gray-100 border-b-2 border-gray-300">
                   <tr>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700 border border-gray-300">
-                      Category
-                    </th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700 border border-gray-300">
-                      Description
-                    </th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700 border border-gray-300">
-                      Example
-                    </th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700 border border-gray-300">Category</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700 border border-gray-300">Description</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700 border border-gray-300">Example</th>
                   </tr>
                 </thead>
                 <tbody>
                   {categoryDetails.map((detail, index) => (
                     <tr key={index} className="border-b hover:bg-gray-50">
-                      <td className="px-4 py-3 border border-gray-300 font-medium">
-                        {detail.category}
-                      </td>
-                      <td className="px-4 py-3 border border-gray-300">
-                        {detail.description}
-                      </td>
-                      <td className="px-4 py-3 border border-gray-300 text-gray-600">
-                        {detail.example}
-                      </td>
+                      <td className="px-4 py-3 border border-gray-300 font-medium">{detail.category}</td>
+                      <td className="px-4 py-3 border border-gray-300">{detail.description}</td>
+                      <td className="px-4 py-3 border border-gray-300 text-gray-600">{detail.example}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {categoryDetails.length === 0 && (
-                <div className="p-8 text-center text-gray-500">
-                  No category information available
-                </div>
-              )}
+              {categoryDetails.length === 0 && <div className="p-8 text-center text-gray-500">No category information available</div>}
             </div>
-
             <div className="flex justify-end mt-6">
-              <button
-                onClick={() => setShowInfoModal(false)}
-                className="px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
-              >
-                Close
-              </button>
+              <button onClick={() => setShowInfoModal(false)} className="px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">Close</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Add Modal - sama seperti sebelumnya */}
+      {/* Add Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 my-8">
-            <h2 className="text-lg font-bold text-primary mb-4">
-              Add Petty Cash Entry
-            </h2>
-
+            <h2 className="text-lg font-bold text-primary mb-4">Add Petty Cash Entry</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description*
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    required
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description*</label>
+                  <input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary" required />
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Category*
-                  </label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) =>
-                      setFormData({ ...formData, category: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    required
-                  >
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category*</label>
+                  <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary" required>
                     <option value="">Select Category</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
+                    {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
                   </select>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Value*
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.value}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^0-9]/g, "");
-                      setFormData({
-                        ...formData,
-                        value: val ? formatRupiah(val) : "",
-                      });
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Rp 0"
-                    required
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Value*</label>
+                  <input type="text" value={formData.value} onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ""); setFormData({ ...formData, value: val ? formatRupiah(val) : "" }); }} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Rp 0" required />
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Store
-                  </label>
-                  <input
-                    type="text"
-                    value={user.user_name}
-                    disabled
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-gray-100"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Store</label>
+                  <input type="text" value={user.user_name} disabled className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-gray-100" />
                 </div>
-
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Keterangan
-                  </label>
-                  <textarea
-                    value={formData.ket}
-                    onChange={(e) =>
-                      setFormData({ ...formData, ket: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    rows={3}
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Keterangan</label>
+                  <textarea value={formData.ket} onChange={(e) => setFormData({ ...formData, ket: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary" rows={3} />
                 </div>
-
                 <div>
                   <label className="flex items-center text-sm cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.transfer}
-                      onChange={(e) =>
-                        setFormData({ ...formData, transfer: e.target.checked })
-                      }
-                      className="mr-2"
-                    />
+                    <input type="checkbox" checked={formData.transfer} onChange={(e) => setFormData({ ...formData, transfer: e.target.checked })} className="mr-2" />
                     Transfer
                   </label>
                 </div>
-
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Upload Receipt
-                  </label>
-                  <input
-                    type="file"
-                    accept=".jpg,.jpeg,.png,.pdf"
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        file: e.target.files?.[0] || null,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90"
-                  />
-                  {formData.file && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Selected: {formData.file.name}
-                    </p>
-                  )}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Upload Receipt</label>
+                  <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setFormData({ ...formData, file: e.target.files?.[0] || null })} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90" />
+                  {formData.file && <p className="text-xs text-gray-500 mt-1">Selected: {formData.file.name}</p>}
                 </div>
               </div>
-
               <div className="flex gap-2 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddModal(false);
-                    setFormData({
-                      description: "",
-                      category: "",
-                      value: "",
-                      ket: "",
-                      transfer: false,
-                      file: null,
-                    });
-                  }}
-                  disabled={submitting}
-                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {submitting ? "Submitting..." : "Add Entry"}
-                </button>
+                <button type="button" onClick={() => { setShowAddModal(false); setFormData({ description: "", category: "", value: "", ket: "", transfer: false, file: null }); }} disabled={submitting} className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50">Cancel</button>
+                <button type="submit" disabled={submitting} className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">{submitting ? "Submitting..." : "Add Entry"}</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Edit Modal - sama seperti sebelumnya */}
+      {/* Edit Modal */}
       {showEditModal && selectedEntry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 my-8">
-            <h2 className="text-lg font-bold text-primary mb-4">
-              Edit Petty Cash Entry
-            </h2>
-
+            <h2 className="text-lg font-bold text-primary mb-4">Edit Petty Cash Entry</h2>
             <form onSubmit={handleUpdate} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description*
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    required
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description*</label>
+                  <input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary" required />
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Category*
-                  </label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) =>
-                      setFormData({ ...formData, category: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    required
-                  >
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category*</label>
+                  <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary" required>
                     <option value="">Select Category</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
+                    {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
                   </select>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Value*
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.value}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^0-9]/g, "");
-                      setFormData({
-                        ...formData,
-                        value: val ? formatRupiah(val) : "",
-                      });
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Rp 0"
-                    required
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Value*</label>
+                  <input type="text" value={formData.value} onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ""); setFormData({ ...formData, value: val ? formatRupiah(val) : "" }); }} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Rp 0" required />
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Store
-                  </label>
-                  <input
-                    type="text"
-                    value={selectedEntry.store}
-                    disabled
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-gray-100"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Store</label>
+                  <input type="text" value={selectedEntry.store} disabled className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-gray-100" />
                 </div>
-
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Keterangan
-                  </label>
-                  <textarea
-                    value={formData.ket}
-                    onChange={(e) =>
-                      setFormData({ ...formData, ket: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    rows={3}
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Keterangan</label>
+                  <textarea value={formData.ket} onChange={(e) => setFormData({ ...formData, ket: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary" rows={3} />
                 </div>
-
                 <div>
                   <label className="flex items-center text-sm cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.transfer}
-                      onChange={(e) =>
-                        setFormData({ ...formData, transfer: e.target.checked })
-                      }
-                      className="mr-2"
-                    />
+                    <input type="checkbox" checked={formData.transfer} onChange={(e) => setFormData({ ...formData, transfer: e.target.checked })} className="mr-2" />
                     Transfer
                   </label>
                 </div>
-
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Upload Receipt (Optional - will replace existing)
-                  </label>
-                  <input
-                    type="file"
-                    accept=".jpg,.jpeg,.png,.pdf"
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        file: e.target.files?.[0] || null,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90"
-                  />
-                  {formData.file && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Selected: {formData.file.name}
-                    </p>
-                  )}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Upload Receipt (Optional - will replace existing)</label>
+                  <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setFormData({ ...formData, file: e.target.files?.[0] || null })} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90" />
+                  {formData.file && <p className="text-xs text-gray-500 mt-1">Selected: {formData.file.name}</p>}
                   {selectedEntry.link_url && !formData.file && (
-                    <p className="text-xs text-blue-600 mt-1">
-                      Current file:{" "}
-                      <a
-                        href={selectedEntry.link_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        View
-                      </a>
-                    </p>
+                    <p className="text-xs text-blue-600 mt-1">Current file: <a href={selectedEntry.link_url} target="_blank" rel="noopener noreferrer">View</a></p>
                   )}
                 </div>
               </div>
-
               <div className="flex gap-2 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setSelectedEntry(null);
-                    setFormData({
-                      description: "",
-                      category: "",
-                      value: "",
-                      ket: "",
-                      transfer: false,
-                      file: null,
-                    });
-                  }}
-                  disabled={submitting}
-                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {submitting ? "Updating..." : "Update Entry"}
-                </button>
+                <button type="button" onClick={() => { setShowEditModal(false); setSelectedEntry(null); setFormData({ description: "", category: "", value: "", ket: "", transfer: false, file: null }); }} disabled={submitting} className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50">Cancel</button>
+                <button type="submit" disabled={submitting} className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">{submitting ? "Updating..." : "Update Entry"}</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      <Popup
-        show={showPopup}
-        message={popupMessage}
-        type={popupType}
-        onClose={() => setShowPopup(false)}
-      />
+      <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
     </div>
   );
 }

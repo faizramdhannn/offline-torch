@@ -5,28 +5,16 @@ import bcrypt from 'bcryptjs';
 export async function POST(request: NextRequest) {
   try {
     const { username, password } = await request.json();
-
     const users = await getSheetData('users');
-    
-    const user = users.find(
-      (u: any) => u.user_name === username
-    );
+    const user = users.find((u: any) => u.user_name === username);
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    // Compare password dengan bcrypt
     const isPasswordValid = await bcrypt.compare(password, user.password);
-
     if (!isPasswordValid) {
-      return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
     return NextResponse.json({
@@ -41,6 +29,7 @@ export async function POST(request: NextRequest) {
       petty_cash: user.petty_cash === 'TRUE',
       petty_cash_add: user.petty_cash_add === 'TRUE',
       petty_cash_export: user.petty_cash_export === 'TRUE',
+      petty_cash_balance: user.petty_cash_balance === 'TRUE',
       order_report_import: user.order_report_import === 'TRUE',
       order_report_export: user.order_report_export === 'TRUE',
       customer: user.customer === 'TRUE',
@@ -61,9 +50,6 @@ export async function POST(request: NextRequest) {
       stock_refresh_javelin: user.stock_refresh_javelin === 'TRUE',
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Authentication failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Authentication failed' }, { status: 500 });
   }
 }

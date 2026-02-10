@@ -11,13 +11,14 @@ export interface User {
   petty_cash: boolean;
   petty_cash_add: boolean;
   petty_cash_export: boolean;
+  petty_cash_balance: boolean; // View balance tab
   order_report_import: boolean;
   order_report_export: boolean;
   customer: boolean;
   voucher: boolean;
   bundling: boolean;
   canvasing: boolean;
-  canvasing_export: boolean; // New permission for exporting canvasing to DOC
+  canvasing_export: boolean;
   stock_opname: boolean;
   // Stock permissions
   stock_import: boolean;
@@ -128,7 +129,7 @@ export interface Canvasing {
   id: string;
   store: string;
   name: string;
-  contact_person: string; // New field
+  contact_person: string;
   category: string;
   sub_category: string;
   canvasser: string;
@@ -136,6 +137,16 @@ export interface Canvasing {
   result_status: string;
   notes: string;
   image_url: string;
+  created_at: string;
+  update_at: string;
+}
+
+export interface BalanceEntry {
+  id: string;
+  type_balance: string;
+  value: string;
+  notes: string;
+  update_by: string;
   created_at: string;
   update_at: string;
 }
