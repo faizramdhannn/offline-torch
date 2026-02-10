@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
       voucher: user.voucher === 'TRUE',
       bundling: user.bundling === 'TRUE',
       canvasing: user.canvasing === 'TRUE',
+      canvasing_export: user.canvasing_export === 'TRUE',
       stock_opname: user.stock_opname === 'TRUE',
       // Stock permissions
       stock_import: user.stock_import === 'TRUE',

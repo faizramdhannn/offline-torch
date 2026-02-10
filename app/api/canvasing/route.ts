@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const store = formData.get('store') as string;
     const name = formData.get('name') as string;
+    const contact_person = formData.get('contact_person') as string;
     const category = formData.get('category') as string;
     const sub_category = formData.get('sub_category') as string;
     const canvasser = formData.get('canvasser') as string;
@@ -96,6 +97,7 @@ export async function POST(request: NextRequest) {
       id,
       store,
       name,
+      contact_person || '',
       category,
       sub_category,
       canvasser,
@@ -124,6 +126,7 @@ export async function PUT(request: NextRequest) {
     const formData = await request.formData();
     const id = formData.get('id') as string;
     const name = formData.get('name') as string;
+    const contact_person = formData.get('contact_person') as string;
     const category = formData.get('category') as string;
     const sub_category = formData.get('sub_category') as string;
     const canvasser = formData.get('canvasser') as string;
@@ -188,6 +191,7 @@ export async function PUT(request: NextRequest) {
       id,
       entry.store, // Keep original store
       name,
+      contact_person || '',
       category,
       sub_category,
       canvasser,
@@ -237,7 +241,7 @@ export async function DELETE(request: NextRequest) {
     const rowIndex = entryIndex + 2;
     
     // Clear the row
-    const updatedRow = Array(12).fill('');
+    const updatedRow = Array(13).fill('');
     
     await updateSheetRow('canvasing_store', rowIndex, updatedRow);
 

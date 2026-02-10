@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
@@ -26,6 +26,7 @@ export default function CanvasingPage() {
   const [isOwner, setIsOwner] = useState(false);
   const [storeName, setStoreName] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "report">("list");
+  const [exporting, setExporting] = useState(false);
   
   const [showModal, setShowModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<Canvasing | null>(null);
@@ -36,12 +37,18 @@ export default function CanvasingPage() {
   
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [storeFilter, setStoreFilter] = useState<string[]>([]);
+  const [stores, setStores] = useState<string[]>([]);
+  const [showStoreDropdown, setShowStoreDropdown] = useState(false);
   
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+
+  const storeDropdownRef = useRef<HTMLDivElement>(null);
   
   const [formData, setFormData] = useState({
     name: "",
+    contact_person: "",
     category: "",
     sub_category: "",
     canvasser: "",
@@ -51,6 +58,16 @@ export default function CanvasingPage() {
     files: [] as File[],
     keepExistingImages: true,
   });
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (storeDropdownRef.current && !storeDropdownRef.current.contains(event.target as Node)) {
+        setShowStoreDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -69,7 +86,7 @@ export default function CanvasingPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [searchQuery, statusFilter, data]);
+  }, [searchQuery, statusFilter, storeFilter, data]);
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);
@@ -103,6 +120,15 @@ export default function CanvasingPage() {
       setStoreName(result.storeName || "");
       setData(result.data);
       setFilteredData(result.data);
+
+      // If user is owner, lock the store filter
+      if (result.isOwner) {
+        setStoreFilter([result.storeName]);
+      } else {
+        // Extract unique stores for filter
+        const uniqueStores = [...new Set(result.data.map((item: Canvasing) => item.store))].filter(Boolean);
+        setStores(uniqueStores as string[]);
+      }
     } catch (error) {
       showMessage("Failed to fetch canvasing data", "error");
     } finally {
@@ -117,12 +143,17 @@ export default function CanvasingPage() {
       filtered = filtered.filter((item) => statusFilter.includes(item.result_status));
     }
 
+    if (storeFilter.length > 0) {
+      filtered = filtered.filter((item) => storeFilter.includes(item.store));
+    }
+
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((item) =>
         item.name.toLowerCase().includes(query) ||
         item.category.toLowerCase().includes(query) ||
-        item.sub_category.toLowerCase().includes(query)
+        item.sub_category.toLowerCase().includes(query) ||
+        (item.contact_person && item.contact_person.toLowerCase().includes(query))
       );
     }
 
@@ -133,6 +164,10 @@ export default function CanvasingPage() {
   const resetFilters = () => {
     setSearchQuery("");
     setStatusFilter([]);
+    // Only reset store filter if user is not owner
+    if (!isOwner) {
+      setStoreFilter([]);
+    }
     setFilteredData(data);
     setCurrentPage(1);
   };
@@ -143,11 +178,18 @@ export default function CanvasingPage() {
     );
   };
 
+  const toggleStore = (store: string) => {
+    setStoreFilter((prev) =>
+      prev.includes(store) ? prev.filter((s) => s !== store) : [...prev, store]
+    );
+  };
+
   const handleOpenModal = (entry?: Canvasing) => {
     if (entry) {
       setEditingEntry(entry);
       setFormData({
         name: entry.name || "",
+        contact_person: entry.contact_person || "",
         category: entry.category || "",
         sub_category: entry.sub_category || "",
         canvasser: entry.canvasser || "",
@@ -161,6 +203,7 @@ export default function CanvasingPage() {
       setEditingEntry(null);
       setFormData({
         name: "",
+        contact_person: "",
         category: "",
         sub_category: "",
         canvasser: "",
@@ -200,6 +243,7 @@ export default function CanvasingPage() {
       }
       
       form.append("name", formData.name);
+      form.append("contact_person", formData.contact_person);
       form.append("category", formData.category);
       form.append("sub_category", formData.sub_category);
       form.append("canvasser", formData.canvasser);
@@ -273,10 +317,10 @@ export default function CanvasingPage() {
   };
 
   const generateReportData = () => {
-    const stores = [...new Set(filteredData.map((item) => item.store))];
+    const storesInData = [...new Set(filteredData.map((item) => item.store))];
     const statuses = RESULT_STATUS_OPTIONS;
 
-    const reportData = stores.map((store) => {
+    const reportData = storesInData.map((store) => {
       const storeData = filteredData.filter((item) => item.store === store);
       const row: any = { store };
 
@@ -302,6 +346,43 @@ export default function CanvasingPage() {
       `canvasing_report_${new Date().toISOString().split("T")[0]}.xlsx`,
     );
     logActivity("GET", "Exported canvasing report to Excel");
+  };
+
+  const exportToDoc = async () => {
+    setExporting(true);
+    try {
+      const response = await fetch("/api/canvasing/export-doc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          data: filteredData,
+          storeName: isOwner ? storeName : "All_Stores",
+        }),
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Canvasing_${isOwner ? storeName : 'All'}_${new Date().toISOString().split("T")[0]}.docx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        await logActivity(
+          "GET",
+          `Exported canvasing to DOC: ${filteredData.length} entries`,
+        );
+        showMessage("Document exported successfully", "success");
+      } else {
+        showMessage("Failed to export document", "error");
+      }
+    } catch (error) {
+      showMessage("Failed to export document", "error");
+    } finally {
+      setExporting(false);
+    }
   };
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -348,7 +429,7 @@ export default function CanvasingPage() {
           {/* Filters */}
           {viewMode === "list" && (
             <div className="bg-white rounded-lg shadow p-4 mb-4">
-              <div className="grid grid-cols-3 gap-3 mb-3">
+              <div className="grid grid-cols-4 gap-3 mb-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Status
@@ -368,6 +449,54 @@ export default function CanvasingPage() {
                     ))}
                   </select>
                 </div>
+
+                {/* Store Filter */}
+                <div className="relative" ref={storeDropdownRef}>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Store {isOwner && <span className="text-red-500">🔒</span>}
+                  </label>
+                  {isOwner ? (
+                    <input
+                      type="text"
+                      value={storeName}
+                      disabled
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-gray-100 cursor-not-allowed"
+                    />
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setShowStoreDropdown(!showStoreDropdown)}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
+                      >
+                        <span className="text-gray-500">
+                          {storeFilter.length === 0
+                            ? "All stores..."
+                            : `${storeFilter.length} selected`}
+                        </span>
+                        <span className="text-gray-400">▼</span>
+                      </button>
+                      {showStoreDropdown && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                          {stores.map((store) => (
+                            <label
+                              key={store}
+                              className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={storeFilter.includes(store)}
+                                onChange={() => toggleStore(store)}
+                                className="mr-2"
+                              />
+                              {store}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Search
@@ -376,7 +505,7 @@ export default function CanvasingPage() {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search by name, category, or sub-category..."
+                    placeholder="Search by name, category, or CP..."
                     className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
@@ -394,6 +523,15 @@ export default function CanvasingPage() {
                 >
                   Add Entry
                 </button>
+                {user.canvasing_export && (
+                  <button
+                    onClick={exportToDoc}
+                    disabled={exporting}
+                    className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {exporting ? "Exporting..." : "Export DOC"}
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -427,6 +565,9 @@ export default function CanvasingPage() {
                           Name
                         </th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700">
+                          CP
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
                           Category
                         </th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700">
@@ -458,6 +599,7 @@ export default function CanvasingPage() {
                         return (
                           <tr key={index} className="border-b hover:bg-gray-50">
                             <td className="px-3 py-2 font-medium">{item.name}</td>
+                            <td className="px-3 py-2">{item.contact_person || '-'}</td>
                             <td className="px-3 py-2">{item.category}</td>
                             <td className="px-3 py-2">{item.sub_category}</td>
                             <td className="px-3 py-2">{item.canvasser}</td>
@@ -676,6 +818,20 @@ export default function CanvasingPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Contact Person
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.contact_person}
+                    onChange={(e) =>
+                      setFormData({ ...formData, contact_person: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Category*
                   </label>
                   <input
@@ -733,7 +889,7 @@ export default function CanvasingPage() {
                   />
                 </div>
 
-                <div>
+                <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Result Status*
                   </label>

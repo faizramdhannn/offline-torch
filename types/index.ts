@@ -17,6 +17,7 @@ export interface User {
   voucher: boolean;
   bundling: boolean;
   canvasing: boolean;
+  canvasing_export: boolean; // New permission for exporting canvasing to DOC
   stock_opname: boolean;
   // Stock permissions
   stock_import: boolean;
@@ -127,6 +128,7 @@ export interface Canvasing {
   id: string;
   store: string;
   name: string;
+  contact_person: string; // New field
   category: string;
   sub_category: string;
   canvasser: string;

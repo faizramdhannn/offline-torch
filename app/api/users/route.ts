@@ -123,6 +123,8 @@ export async function PUT(request: NextRequest) {
       permissions.stock_view_hpt ? 'TRUE' : 'FALSE',
       permissions.stock_view_hpj ? 'TRUE' : 'FALSE',
       permissions.stock_refresh_javelin ? 'TRUE' : 'FALSE',
+      permissions.canvasing_export ? 'TRUE' : 'FALSE',
+      permissions.canvasing ? 'TRUE' : 'FALSE',
       timestamp
     ];
 
