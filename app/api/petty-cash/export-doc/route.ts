@@ -215,7 +215,7 @@ async function generateExport1(data: any[], username: string, dateFrom: string, 
   return await Packer.toBuffer(doc);
 }
 
-// Export Type 2: Store x Category matrix
+// Export Type 2: Vertical format - Store repeated with categories
 async function generateExport2(data: any[], username: string, dateFrom: string, dateTo: string): Promise<Buffer> {
   const dateRange = dateFrom && dateTo ? `${dateFrom} - ${dateTo}` : 'All Dates';
   const children: any[] = [];
@@ -241,133 +241,106 @@ async function generateExport2(data: any[], username: string, dateFrom: string, 
   if (uniqueStores.length === 0 || uniqueCategories.length === 0) {
     children.push(new Paragraph({ text: 'No data available', alignment: AlignmentType.CENTER }));
   } else {
-    // Build matrix: rows = stores, columns = categories
-    // Calculate column widths
-    const storeColWidth = 1400;
-    const catColWidth = Math.max(800, Math.floor((9026 - storeColWidth) / (uniqueCategories.length + 1)));
-    const totalColWidth = 9026 - storeColWidth - catColWidth * uniqueCategories.length;
-    const adjustedTotalCol = Math.max(800, totalColWidth + catColWidth * uniqueCategories.length - catColWidth * uniqueCategories.length);
-
+    // Build vertical table format
     const headerBg = { fill: 'D9E1F2', type: ShadingType.CLEAR };
+    
+    // Column widths
+    const storeColWidth = 2500;
+    const categoryColWidth = 4000;
+    const nominalColWidth = 2526;
 
     // Header row
     const headerCells = [
       new TableCell({
-        children: [new Paragraph({ children: [new TextRun({ text: 'Store', bold: true })] })],
+        children: [new Paragraph({ children: [new TextRun({ text: 'STORE', bold: true })], alignment: AlignmentType.CENTER })],
         shading: headerBg,
         width: { size: storeColWidth, type: WidthType.DXA },
         borders: borderStyle,
         margins: { top: 80, bottom: 80, left: 120, right: 120 },
       }),
-    ];
-
-    for (const cat of uniqueCategories) {
-      headerCells.push(new TableCell({
-        children: [new Paragraph({ children: [new TextRun({ text: cat, bold: true })] })],
+      new TableCell({
+        children: [new Paragraph({ children: [new TextRun({ text: 'KATEGORI', bold: true })], alignment: AlignmentType.CENTER })],
         shading: headerBg,
-        width: { size: catColWidth, type: WidthType.DXA },
+        width: { size: categoryColWidth, type: WidthType.DXA },
         borders: borderStyle,
         margins: { top: 80, bottom: 80, left: 120, right: 120 },
-      }));
-    }
-
-    headerCells.push(new TableCell({
-      children: [new Paragraph({ children: [new TextRun({ text: 'Total', bold: true })] })],
-      shading: headerBg,
-      width: { size: catColWidth, type: WidthType.DXA },
-      borders: borderStyle,
-      margins: { top: 80, bottom: 80, left: 120, right: 120 },
-    }));
+      }),
+      new TableCell({
+        children: [new Paragraph({ children: [new TextRun({ text: 'NOMINAL', bold: true })], alignment: AlignmentType.CENTER })],
+        shading: headerBg,
+        width: { size: nominalColWidth, type: WidthType.DXA },
+        borders: borderStyle,
+        margins: { top: 80, bottom: 80, left: 120, right: 120 },
+      }),
+    ];
 
     const tableRows: TableRow[] = [new TableRow({ tableHeader: true, children: headerCells })];
 
-    // Grand totals per category
-    const grandTotals: Record<string, number> = {};
-    for (const cat of uniqueCategories) grandTotals[cat] = 0;
     let grandTotal = 0;
 
-    // Data rows
+    // Data rows - each store repeated for each category
     for (const store of uniqueStores) {
       const storeData = data.filter((item: any) => item.store === store);
-      const rowCells = [
-        new TableCell({
-          children: [new Paragraph({ children: [new TextRun({ text: toTitleCase(store) })] })],
-          width: { size: storeColWidth, type: WidthType.DXA },
-          borders: borderStyle,
-          margins: { top: 80, bottom: 80, left: 120, right: 120 },
-        }),
-      ];
-
-      let rowTotal = 0;
-      for (const cat of uniqueCategories) {
-        const catData = storeData.filter((item: any) => item.category === cat);
-        const catTotal = catData.reduce((sum: number, item: any) => {
+      
+      for (const category of uniqueCategories) {
+        const categoryData = storeData.filter((item: any) => item.category === category);
+        const categoryTotal = categoryData.reduce((sum: number, item: any) => {
           return sum + (parseInt((item.value || '0').replace(/[^0-9]/g, '')) || 0);
         }, 0);
 
-        grandTotals[cat] += catTotal;
-        rowTotal += catTotal;
+        grandTotal += categoryTotal;
 
-        rowCells.push(new TableCell({
-          children: [new Paragraph({
-            children: [new TextRun({ text: catTotal > 0 ? formatRupiah(catTotal) : '-' })],
-            alignment: AlignmentType.RIGHT,
-          })],
-          width: { size: catColWidth, type: WidthType.DXA },
-          borders: borderStyle,
-          margins: { top: 80, bottom: 80, left: 120, right: 120 },
-        }));
+        const rowCells = [
+          new TableCell({
+            children: [new Paragraph({ children: [new TextRun({ text: toTitleCase(store) })] })],
+            width: { size: storeColWidth, type: WidthType.DXA },
+            borders: borderStyle,
+            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+          }),
+          new TableCell({
+            children: [new Paragraph({ children: [new TextRun({ text: category })] })],
+            width: { size: categoryColWidth, type: WidthType.DXA },
+            borders: borderStyle,
+            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+          }),
+          new TableCell({
+            children: [new Paragraph({
+              children: [new TextRun({ text: categoryTotal > 0 ? formatRupiah(categoryTotal) : '-' })],
+              alignment: AlignmentType.RIGHT,
+            })],
+            width: { size: nominalColWidth, type: WidthType.DXA },
+            borders: borderStyle,
+            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+          }),
+        ];
+
+        tableRows.push(new TableRow({ children: rowCells }));
       }
-
-      grandTotal += rowTotal;
-      rowCells.push(new TableCell({
-        children: [new Paragraph({
-          children: [new TextRun({ text: formatRupiah(rowTotal), bold: true })],
-          alignment: AlignmentType.RIGHT,
-        })],
-        width: { size: catColWidth, type: WidthType.DXA },
-        borders: borderStyle,
-        margins: { top: 80, bottom: 80, left: 120, right: 120 },
-      }));
-
-      tableRows.push(new TableRow({ children: rowCells }));
     }
 
     // Grand total row
     const grandTotalCells = [
       new TableCell({
-        children: [new Paragraph({ children: [new TextRun({ text: 'Grand Total', bold: true })] })],
+        children: [new Paragraph({ children: [new TextRun({ text: 'GRAND TOTAL', bold: true })], alignment: AlignmentType.CENTER })],
         shading: headerBg,
-        width: { size: storeColWidth, type: WidthType.DXA },
+        columnSpan: 2,
+        borders: borderStyle,
+        margins: { top: 80, bottom: 80, left: 120, right: 120 },
+      }),
+      new TableCell({
+        children: [new Paragraph({
+          children: [new TextRun({ text: formatRupiah(grandTotal), bold: true })],
+          alignment: AlignmentType.RIGHT,
+        })],
+        shading: headerBg,
+        width: { size: nominalColWidth, type: WidthType.DXA },
         borders: borderStyle,
         margins: { top: 80, bottom: 80, left: 120, right: 120 },
       }),
     ];
-    for (const cat of uniqueCategories) {
-      grandTotalCells.push(new TableCell({
-        children: [new Paragraph({
-          children: [new TextRun({ text: grandTotals[cat] > 0 ? formatRupiah(grandTotals[cat]) : '-', bold: true })],
-          alignment: AlignmentType.RIGHT,
-        })],
-        shading: headerBg,
-        width: { size: catColWidth, type: WidthType.DXA },
-        borders: borderStyle,
-        margins: { top: 80, bottom: 80, left: 120, right: 120 },
-      }));
-    }
-    grandTotalCells.push(new TableCell({
-      children: [new Paragraph({
-        children: [new TextRun({ text: formatRupiah(grandTotal), bold: true })],
-        alignment: AlignmentType.RIGHT,
-      })],
-      shading: headerBg,
-      width: { size: catColWidth, type: WidthType.DXA },
-      borders: borderStyle,
-      margins: { top: 80, bottom: 80, left: 120, right: 120 },
-    }));
     tableRows.push(new TableRow({ children: grandTotalCells }));
 
-    const colWidths = [storeColWidth, ...uniqueCategories.map(() => catColWidth), catColWidth];
+    const colWidths = [storeColWidth, categoryColWidth, nominalColWidth];
     children.push(new Table({
       rows: tableRows,
       width: { size: 9026, type: WidthType.DXA },
@@ -379,7 +352,7 @@ async function generateExport2(data: any[], username: string, dateFrom: string, 
     sections: [{
       properties: {
         page: {
-          size: { width: 16838, height: 11906 }, // A4 landscape
+          size: { width: 11906, height: 16838 }, // A4 Portrait
           margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
         }
       },
