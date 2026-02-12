@@ -63,6 +63,7 @@ export default function PettyCashPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showAddBalanceModal, setShowAddBalanceModal] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<PettyCash | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exporting2, setExporting2] = useState(false);
@@ -79,6 +80,14 @@ export default function PettyCashPage() {
   const [balanceDateFrom, setBalanceDateFrom] = useState("");
   const [balanceDateTo, setBalanceDateTo] = useState("");
   const [loadingBalance, setLoadingBalance] = useState(false);
+
+  // Balance form state
+  const [balanceFormData, setBalanceFormData] = useState({
+    type_balance: "credit",
+    value: "",
+    notes: "",
+  });
+  const [submittingBalance, setSubmittingBalance] = useState(false);
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -228,6 +237,37 @@ export default function PettyCashPage() {
       showMessage("Failed to fetch balance data", "error");
     } finally {
       setLoadingBalance(false);
+    }
+  };
+
+  const handleAddBalance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingBalance(true);
+    try {
+      const response = await fetch("/api/petty-cash/balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type_balance: balanceFormData.type_balance,
+          value: balanceFormData.value.replace(/[^0-9]/g, ""),
+          notes: balanceFormData.notes,
+          update_by: user.user_name,
+        }),
+      });
+
+      if (response.ok) {
+        await logActivity("POST", `Added balance entry: ${balanceFormData.type_balance} - ${balanceFormData.value}`);
+        showMessage("Balance entry added successfully", "success");
+        setShowAddBalanceModal(false);
+        setBalanceFormData({ type_balance: "credit", value: "", notes: "" });
+        fetchBalance();
+      } else {
+        showMessage("Failed to add balance entry", "error");
+      }
+    } catch (error) {
+      showMessage("Failed to add balance entry", "error");
+    } finally {
+      setSubmittingBalance(false);
     }
   };
 
@@ -541,6 +581,21 @@ export default function PettyCashPage() {
     return reportData.sort((a, b) => a.store.localeCompare(b.store));
   };
 
+  // Calculate Credit and Debit totals
+  const calculateCreditDebit = () => {
+    if (!balanceData) return { credit: 0, debit: 0 };
+    
+    const credit = balanceData.entries
+      .filter((entry) => (entry.type_balance || "").toLowerCase() === "credit")
+      .reduce((sum, entry) => sum + (parseInt((entry.value || "0").replace(/[^0-9]/g, "")) || 0), 0);
+    
+    const debit = balanceData.entries
+      .filter((entry) => (entry.type_balance || "").toLowerCase() === "debit")
+      .reduce((sum, entry) => sum + (parseInt((entry.value || "0").replace(/[^0-9]/g, "")) || 0), 0);
+    
+    return { credit, debit };
+  };
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
@@ -608,9 +663,9 @@ export default function PettyCashPage() {
           {/* Balance View */}
           {viewMode === "balance" ? (
             <div>
-              {/* Balance Date Filter */}
+              {/* Balance Date Filter with Add Balance Button */}
               <div className="bg-white rounded-lg shadow p-4 mb-4">
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Date From</label>
                     <input
@@ -637,21 +692,39 @@ export default function PettyCashPage() {
                       Reset
                     </button>
                   </div>
+                  <div className="flex items-end justify-end">
+                    <button
+                      onClick={() => setShowAddBalanceModal(true)}
+                      className="px-4 py-1.5 bg-primary text-white rounded text-xs hover:bg-primary/90"
+                    >
+                      Add Balance
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Balance Summary Cards */}
+              {/* Balance Summary Cards - Now 5 cards */}
               {loadingBalance ? (
                 <div className="p-8 text-center bg-white rounded-lg shadow">Loading...</div>
               ) : balanceData ? (
                 <>
-                  <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="grid grid-cols-5 gap-4 mb-4">
                     <div className="bg-white rounded-lg shadow p-4">
                       <p className="text-xs text-gray-500 mb-1">Balance</p>
                       <p className={`text-lg font-bold ${balanceData.balance >= 0 ? "text-green-600" : "text-red-600"}`}>
                         {formatRupiah(Math.abs(balanceData.balance))}
                       </p>
                       <p className="text-xs text-gray-400">{balanceData.balance >= 0 ? "Surplus" : "Deficit"}</p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow p-4">
+                      <p className="text-xs text-gray-500 mb-1">Credit</p>
+                      <p className="text-lg font-bold text-green-600">{formatRupiah(calculateCreditDebit().credit)}</p>
+                      <p className="text-xs text-gray-400">Total pemasukan</p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow p-4">
+                      <p className="text-xs text-gray-500 mb-1">Debit</p>
+                      <p className="text-lg font-bold text-red-600">{formatRupiah(calculateCreditDebit().debit)}</p>
+                      <p className="text-xs text-gray-400">Total pengeluaran</p>
                     </div>
                     <div className="bg-white rounded-lg shadow p-4">
                       <p className="text-xs text-gray-500 mb-1">Paid</p>
@@ -1026,6 +1099,73 @@ export default function PettyCashPage() {
           )}
         </div>
       </div>
+
+      {/* Add Balance Modal */}
+      {showAddBalanceModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-lg font-bold text-primary mb-4">Add Balance Entry</h2>
+            <form onSubmit={handleAddBalance} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type*</label>
+                <select
+                  value={balanceFormData.type_balance}
+                  onChange={(e) => setBalanceFormData({ ...balanceFormData, type_balance: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  required
+                >
+                  <option value="credit">Credit (Pemasukan)</option>
+                  <option value="debit">Debit (Pengeluaran)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Value*</label>
+                <input
+                  type="text"
+                  value={balanceFormData.value}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9]/g, "");
+                    setBalanceFormData({ ...balanceFormData, value: val ? formatRupiah(val) : "" });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="Rp 0"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea
+                  value={balanceFormData.notes}
+                  onChange={(e) => setBalanceFormData({ ...balanceFormData, notes: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  rows={3}
+                  placeholder="Optional notes..."
+                />
+              </div>
+              <div className="flex gap-2 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddBalanceModal(false);
+                    setBalanceFormData({ type_balance: "credit", value: "", notes: "" });
+                  }}
+                  disabled={submittingBalance}
+                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingBalance}
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {submittingBalance ? "Submitting..." : "Add Entry"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Category Information Modal */}
       {showInfoModal && (
