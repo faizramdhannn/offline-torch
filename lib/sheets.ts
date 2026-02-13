@@ -35,6 +35,7 @@ const SPREADSHEET_MAP: Record<string, string> = {
   voucher_list: process.env.SPREADSHEET_VOUCHER || "",
   master_bundling: process.env.SPREADSHEET_BUNDLING || "",
   canvasing_store: process.env.SPREADSHEET_STORE || "",
+  catalog_product: process.env.SPREADSHEET_CATALOG || "",
 };
 
 function getSpreadsheetId(sheetName: string): string {

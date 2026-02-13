@@ -2,6 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
+import { useState } from "react";
 
 interface SidebarProps {
   userName: string;
@@ -23,10 +24,39 @@ interface SidebarProps {
 export default function Sidebar({ userName, permissions }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const [generatingCatalog, setGeneratingCatalog] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem("user");
     router.push("/login");
+  };
+
+  const handleGenerateCatalog = async () => {
+    setGeneratingCatalog(true);
+    try {
+      const response = await fetch('/api/canvasing/ecatalog/generate', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Torch_E-Catalog_${Date.now()}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert('Failed to generate e-catalog');
+      }
+    } catch (error) {
+      console.error('Error generating catalog:', error);
+      alert('Failed to generate e-catalog');
+    } finally {
+      setGeneratingCatalog(false);
+    }
   };
 
   const menuItems = [
@@ -75,6 +105,17 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
             </button>
           );
         })}
+
+        {/* E-Catalog Button - only show in canvasing section */}
+        {permissions?.canvasing && pathname === "/canvasing" && (
+          <button
+            onClick={handleGenerateCatalog}
+            disabled={generatingCatalog}
+            className="w-full text-left px-4 py-2.5 transition-colors bg-secondary/30 hover:bg-secondary/50 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+          >
+            {generatingCatalog ? 'Generating...' : 'E-Catalog'}
+          </button>
+        )}
       </nav>
 
       <button
