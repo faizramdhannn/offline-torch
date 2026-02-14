@@ -855,7 +855,8 @@ export default function StockPage() {
                     { name: "Purwokerto", key: "Torch Purwokerto - T" },
                   ].map((warehouse) => {
                     // Filter data by warehouse column matching warehouse.key
-                    const warehouseData = data.filter((item) => {
+                    // Use filteredData instead of data to respect active filters
+                    const warehouseData = filteredData.filter((item) => {
                       // Normalize warehouse name for comparison (case-insensitive, trim spaces)
                       const itemWarehouse = (item.warehouse || "")
                         .toString()
