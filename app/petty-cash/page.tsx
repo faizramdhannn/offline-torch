@@ -999,7 +999,7 @@ export default function PettyCashPage() {
                             <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">Category</th>
                             <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">Value</th>
                             <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">Store</th>
-                            <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">Ket</th>
+                            <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">Dana Talang</th>
                             <th className="px-3 py-2 text-center font-semibold text-gray-700 w-16">Transfer</th>
                             <th className="px-3 py-2 text-center font-semibold text-gray-700 w-16">Link</th>
                             <th className="px-3 py-2 text-center font-semibold text-gray-700 w-24">Actions</th>
@@ -1227,7 +1227,7 @@ export default function PettyCashPage() {
                   <input type="text" value={user.user_name} disabled className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-gray-100" />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Keterangan</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Dana Talang</label>
                   <textarea value={formData.ket} onChange={(e) => setFormData({ ...formData, ket: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary" rows={3} />
                 </div>
                 <div>
@@ -1278,7 +1278,7 @@ export default function PettyCashPage() {
                   <input type="text" value={selectedEntry.store} disabled className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-gray-100" />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Keterangan</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Dana Talang</label>
                   <textarea value={formData.ket} onChange={(e) => setFormData({ ...formData, ket: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary" rows={3} />
                 </div>
                 <div>
