@@ -64,7 +64,9 @@ export default function PettyCashPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showAddBalanceModal, setShowAddBalanceModal] = useState(false);
+  const [showEditBalanceModal, setShowEditBalanceModal] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<PettyCash | null>(null);
+  const [selectedBalanceEntry, setSelectedBalanceEntry] = useState<BalanceEntry | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exporting2, setExporting2] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
@@ -268,6 +270,66 @@ export default function PettyCashPage() {
       showMessage("Failed to add balance entry", "error");
     } finally {
       setSubmittingBalance(false);
+    }
+  };
+
+  const handleEditBalance = (entry: BalanceEntry) => {
+    setSelectedBalanceEntry(entry);
+    setBalanceFormData({
+      type_balance: entry.type_balance,
+      value: formatRupiah(entry.value),
+      notes: entry.notes || "",
+    });
+    setShowEditBalanceModal(true);
+  };
+
+  const handleUpdateBalance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedBalanceEntry) return;
+    setSubmittingBalance(true);
+    try {
+      const response = await fetch("/api/petty-cash/balance", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedBalanceEntry.id,
+          type_balance: balanceFormData.type_balance,
+          value: balanceFormData.value.replace(/[^0-9]/g, ""),
+          notes: balanceFormData.notes,
+          update_by: user.user_name,
+        }),
+      });
+
+      if (response.ok) {
+        await logActivity("PUT", `Updated balance entry ID: ${selectedBalanceEntry.id}`);
+        showMessage("Balance entry updated successfully", "success");
+        setShowEditBalanceModal(false);
+        setSelectedBalanceEntry(null);
+        setBalanceFormData({ type_balance: "credit", value: "", notes: "" });
+        fetchBalance();
+      } else {
+        showMessage("Failed to update balance entry", "error");
+      }
+    } catch (error) {
+      showMessage("Failed to update balance entry", "error");
+    } finally {
+      setSubmittingBalance(false);
+    }
+  };
+
+  const handleDeleteBalance = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this balance entry?")) return;
+    try {
+      const response = await fetch(`/api/petty-cash/balance?id=${id}`, { method: "DELETE" });
+      if (response.ok) {
+        await logActivity("DELETE", `Deleted balance entry ID: ${id}`);
+        showMessage("Balance entry deleted successfully", "success");
+        fetchBalance();
+      } else {
+        showMessage("Failed to delete balance entry", "error");
+      }
+    } catch (error) {
+      showMessage("Failed to delete balance entry", "error");
     }
   };
 
@@ -752,6 +814,7 @@ export default function PettyCashPage() {
                             <th className="px-3 py-2 text-right font-semibold text-gray-700">Value</th>
                             <th className="px-3 py-2 text-left font-semibold text-gray-700">Notes</th>
                             <th className="px-3 py-2 text-left font-semibold text-gray-700">Update By</th>
+                            <th className="px-3 py-2 text-center font-semibold text-gray-700">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -779,6 +842,22 @@ export default function PettyCashPage() {
                               </td>
                               <td className="px-3 py-2">{entry.notes || "-"}</td>
                               <td className="px-3 py-2">{entry.update_by || "-"}</td>
+                              <td className="px-3 py-2">
+                                <div className="flex gap-1 justify-center">
+                                  <button
+                                    onClick={() => handleEditBalance(entry)}
+                                    className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteBalance(entry.id)}
+                                    className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -1160,6 +1239,74 @@ export default function PettyCashPage() {
                   className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
                 >
                   {submittingBalance ? "Submitting..." : "Add Entry"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Balance Modal */}
+      {showEditBalanceModal && selectedBalanceEntry && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-lg font-bold text-primary mb-4">Edit Balance Entry</h2>
+            <form onSubmit={handleUpdateBalance} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type*</label>
+                <select
+                  value={balanceFormData.type_balance}
+                  onChange={(e) => setBalanceFormData({ ...balanceFormData, type_balance: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  required
+                >
+                  <option value="credit">Credit (Pemasukan)</option>
+                  <option value="debit">Debit (Pengeluaran)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Value*</label>
+                <input
+                  type="text"
+                  value={balanceFormData.value}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9]/g, "");
+                    setBalanceFormData({ ...balanceFormData, value: val ? formatRupiah(val) : "" });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="Rp 0"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea
+                  value={balanceFormData.notes}
+                  onChange={(e) => setBalanceFormData({ ...balanceFormData, notes: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  rows={3}
+                  placeholder="Optional notes..."
+                />
+              </div>
+              <div className="flex gap-2 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditBalanceModal(false);
+                    setSelectedBalanceEntry(null);
+                    setBalanceFormData({ type_balance: "credit", value: "", notes: "" });
+                  }}
+                  disabled={submittingBalance}
+                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingBalance}
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {submittingBalance ? "Updating..." : "Update Entry"}
                 </button>
               </div>
             </form>

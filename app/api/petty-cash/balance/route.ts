@@ -197,3 +197,110 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export async function PUT(request: NextRequest) {
+  try {
+    const { id, type_balance, value, notes, update_by } = await request.json();
+
+    const credentials = getGoogleCredentials();
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Get all balance data to find the row index
+    const balanceData = await getBalanceSheetData();
+    const entryIndex = balanceData.findIndex((item: any) => item.id === id);
+    
+    if (entryIndex === -1) {
+      return NextResponse.json(
+        { error: 'Entry not found' },
+        { status: 404 }
+      );
+    }
+
+    const entry = balanceData[entryIndex];
+    const rowIndex = entryIndex + 2; // +2 for header and 0-based index
+    
+    const now = new Date().toISOString();
+    const rawValue = String(value).replace(/[^0-9]/g, '');
+
+    const updatedEntry = [
+      id,
+      type_balance,
+      rawValue,
+      notes || '',
+      update_by,
+      entry.created_at, // Keep original created_at
+      now // Update the update_at
+    ];
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_BALANCE,
+      range: `petty_cash_balance!A${rowIndex}:G${rowIndex}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [updatedEntry] },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error updating balance entry:', error);
+    return NextResponse.json(
+      { error: 'Failed to update balance entry' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const credentials = getGoogleCredentials();
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Get all balance data
+    const balanceData = await getBalanceSheetData();
+    const entryIndex = balanceData.findIndex((item: any) => item.id === id);
+    
+    if (entryIndex === -1) {
+      return NextResponse.json(
+        { error: 'Entry not found' },
+        { status: 404 }
+      );
+    }
+
+    const rowIndex = entryIndex + 2;
+    
+    // Clear the row by updating with empty values
+    const emptyRow = Array(7).fill(''); // 7 columns (id, type_balance, value, notes, update_by, created_at, update_at)
+    
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_BALANCE,
+      range: `petty_cash_balance!A${rowIndex}:G${rowIndex}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [emptyRow] },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting balance entry:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete balance entry' },
+      { status: 500 }
+    );
+  }
+}
