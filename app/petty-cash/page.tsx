@@ -51,6 +51,92 @@ interface CategoryDetail {
   example: string;
 }
 
+// ─── Drive Image Proxy Component ───────────────────────────────────────────────
+function extractDriveFileId(url: string): string | null {
+  const patterns = [
+    /\/file\/d\/([a-zA-Z0-9_-]+)/,
+    /id=([a-zA-Z0-9_-]+)/,
+    /\/d\/([a-zA-Z0-9_-]+)/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+function DriveImage({ href, fileId, alt }: { href: string; fileId: string; alt: string }) {
+  const proxyUrl = `/api/drive-image?id=${fileId}`;
+  const [zoom, setZoom] = useState(1);
+
+  const handleZoomIn = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setZoom((z) => Math.min(z + 0.25, 3));
+  };
+
+  const handleZoomOut = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setZoom((z) => Math.max(z - 0.25, 0.5));
+  };
+
+  const handleReset = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setZoom(1);
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      {/* Zoom controls */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleZoomOut}
+          disabled={zoom <= 0.5}
+          className="w-7 h-7 rounded-full bg-gray-200 hover:bg-gray-300 disabled:opacity-40 flex items-center justify-center text-gray-700 font-bold text-lg leading-none"
+        >
+          −
+        </button>
+        <button
+          onClick={handleReset}
+          className="px-2 py-0.5 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs"
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          onClick={handleZoomIn}
+          disabled={zoom >= 3}
+          className="w-7 h-7 rounded-full bg-gray-200 hover:bg-gray-300 disabled:opacity-40 flex items-center justify-center text-gray-700 font-bold text-lg leading-none"
+        >
+          +
+        </button>
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="px-2 py-0.5 rounded bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs"
+        >
+          Buka ↗
+        </a>
+      </div>
+
+      {/* Image with zoom */}
+      <div className="overflow-auto max-h-72 max-w-full rounded-lg border bg-gray-50 flex items-center justify-center">
+        <img
+          src={proxyUrl}
+          alt={alt}
+          style={{ transform: `scale(${zoom})`, transformOrigin: "center", transition: "transform 0.2s ease" }}
+          className="max-h-72 max-w-full w-auto h-auto object-contain rounded-lg cursor-zoom-in"
+          onClick={handleZoomIn}
+        />
+      </div>
+    </div>
+  );
+}
+// ───────────────────────────────────────────────────────────────────────────────
+
 export default function PettyCashPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -73,6 +159,10 @@ export default function PettyCashPage() {
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [updatingTransfer, setUpdatingTransfer] = useState<string | null>(null);
+
+  // Detail popup
+  const [showDetailPopup, setShowDetailPopup] = useState(false);
+  const [detailEntry, setDetailEntry] = useState<PettyCash | null>(null);
 
   // View mode
   const [viewMode, setViewMode] = useState<"list" | "report" | "balance">("list");
@@ -256,7 +346,6 @@ export default function PettyCashPage() {
           update_by: user.user_name,
         }),
       });
-
       if (response.ok) {
         await logActivity("POST", `Added balance entry: ${balanceFormData.type_balance} - ${balanceFormData.value}`);
         showMessage("Balance entry added successfully", "success");
@@ -299,7 +388,6 @@ export default function PettyCashPage() {
           update_by: user.user_name,
         }),
       });
-
       if (response.ok) {
         await logActivity("PUT", `Updated balance entry ID: ${selectedBalanceEntry.id}`);
         showMessage("Balance entry updated successfully", "success");
@@ -417,9 +505,8 @@ export default function PettyCashPage() {
     );
   };
 
-  const toTitleCase = (str: string) => {
-    return str.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
-  };
+  const toTitleCase = (str: string) =>
+    str.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 
   const formatRupiah = (value: string | number) => {
     const number =
@@ -525,9 +612,8 @@ export default function PettyCashPage() {
     }
   };
 
-  const canEditDelete = (entry: PettyCash) => {
-    return user.petty_cash_export || entry.update_by === user.user_name;
-  };
+  const canEditDelete = (entry: PettyCash) =>
+    user.petty_cash_export || entry.update_by === user.user_name;
 
   const exportToExcel = () => {
     const exportData = filteredData.map((item) => ({
@@ -643,18 +729,14 @@ export default function PettyCashPage() {
     return reportData.sort((a, b) => a.store.localeCompare(b.store));
   };
 
-  // Calculate Credit and Debit totals
   const calculateCreditDebit = () => {
     if (!balanceData) return { credit: 0, debit: 0 };
-
     const credit = balanceData.entries
       .filter((entry) => (entry.type_balance || "").toLowerCase() === "credit")
       .reduce((sum, entry) => sum + (parseInt((entry.value || "0").replace(/[^0-9]/g, "")) || 0), 0);
-
     const debit = balanceData.entries
       .filter((entry) => (entry.type_balance || "").toLowerCase() === "debit")
       .reduce((sum, entry) => sum + (parseInt((entry.value || "0").replace(/[^0-9]/g, "")) || 0), 0);
-
     return { credit, debit };
   };
 
@@ -713,7 +795,6 @@ export default function PettyCashPage() {
               >
                 Report View
               </button>
-              {/* ✅ FIX: Balance tab hanya tampil jika user punya permission petty_cash_balance */}
               {user.petty_cash_balance && (
                 <button
                   onClick={() => setViewMode("balance")}
@@ -725,50 +806,32 @@ export default function PettyCashPage() {
             </div>
           </div>
 
-          {/* ✅ FIX: Balance View hanya render jika user punya permission petty_cash_balance */}
           {viewMode === "balance" && user.petty_cash_balance ? (
             <div>
-              {/* Balance Date Filter with Add Balance Button */}
+              {/* Balance Date Filter */}
               <div className="bg-white rounded-lg shadow p-4 mb-4">
                 <div className="grid grid-cols-4 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Date From</label>
-                    <input
-                      type="date"
-                      value={balanceDateFrom}
-                      onChange={(e) => setBalanceDateFrom(e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
+                    <input type="date" value={balanceDateFrom} onChange={(e) => setBalanceDateFrom(e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Date To</label>
-                    <input
-                      type="date"
-                      value={balanceDateTo}
-                      onChange={(e) => setBalanceDateTo(e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
+                    <input type="date" value={balanceDateTo} onChange={(e) => setBalanceDateTo(e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
                   </div>
                   <div className="flex items-end">
-                    <button
-                      onClick={() => { setBalanceDateFrom(""); setBalanceDateTo(""); }}
-                      className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"
-                    >
+                    <button onClick={() => { setBalanceDateFrom(""); setBalanceDateTo(""); }} className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600">
                       Reset
                     </button>
                   </div>
                   <div className="flex items-end justify-end">
-                    <button
-                      onClick={() => setShowAddBalanceModal(true)}
-                      className="px-4 py-1.5 bg-primary text-white rounded text-xs hover:bg-primary/90"
-                    >
+                    <button onClick={() => setShowAddBalanceModal(true)} className="px-4 py-1.5 bg-primary text-white rounded text-xs hover:bg-primary/90">
                       Add Balance
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Balance Summary Cards - Now 5 cards */}
               {loadingBalance ? (
                 <div className="p-8 text-center bg-white rounded-lg shadow">Loading...</div>
               ) : balanceData ? (
@@ -776,9 +839,7 @@ export default function PettyCashPage() {
                   <div className="grid grid-cols-5 gap-4 mb-4">
                     <div className="bg-white rounded-lg shadow p-4">
                       <p className="text-xs text-gray-500 mb-1">Balance</p>
-                      <p className={`text-lg font-bold ${balanceData.balance >= 0 ? "text-green-600" : "text-red-600"}`}>
-                        {formatRupiah(Math.abs(balanceData.balance))}
-                      </p>
+                      <p className={`text-lg font-bold ${balanceData.balance >= 0 ? "text-green-600" : "text-red-600"}`}>{formatRupiah(Math.abs(balanceData.balance))}</p>
                       <p className="text-xs text-gray-400">{balanceData.balance >= 0 ? "Surplus" : "Deficit"}</p>
                     </div>
                     <div className="bg-white rounded-lg shadow p-4">
@@ -803,7 +864,6 @@ export default function PettyCashPage() {
                     </div>
                   </div>
 
-                  {/* Balance Entries Table */}
                   <div className="bg-white rounded-lg shadow overflow-hidden">
                     <div className="px-4 py-3 border-b bg-gray-50">
                       <h3 className="text-sm font-semibold text-gray-700">Balance History</h3>
@@ -824,41 +884,24 @@ export default function PettyCashPage() {
                           {balanceData.entries.map((entry, index) => (
                             <tr key={index} className="border-b hover:bg-gray-50">
                               <td className="px-3 py-2">
-                                {entry.created_at ? new Date(entry.created_at).toLocaleDateString("id-ID", {
-                                  day: "2-digit", month: "short", year: "numeric"
-                                }) : "-"}
+                                {entry.created_at ? new Date(entry.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : "-"}
                               </td>
                               <td className="px-3 py-2">
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                  (entry.type_balance || "").toLowerCase() === "credit"
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-red-100 text-red-700"
-                                }`}>
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${(entry.type_balance || "").toLowerCase() === "credit" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                                   {toTitleCase(entry.type_balance || "")}
                                 </span>
                               </td>
                               <td className="px-3 py-2 text-right">
                                 <span className={(entry.type_balance || "").toLowerCase() === "credit" ? "text-green-600" : "text-red-600"}>
-                                  {(entry.type_balance || "").toLowerCase() === "credit" ? "+" : "-"}
-                                  {formatRupiah(entry.value)}
+                                  {(entry.type_balance || "").toLowerCase() === "credit" ? "+" : "-"}{formatRupiah(entry.value)}
                                 </span>
                               </td>
                               <td className="px-3 py-2">{entry.notes || "-"}</td>
                               <td className="px-3 py-2">{entry.update_by || "-"}</td>
                               <td className="px-3 py-2">
                                 <div className="flex gap-1 justify-center">
-                                  <button
-                                    onClick={() => handleEditBalance(entry)}
-                                    className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteBalance(entry.id)}
-                                    className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                                  >
-                                    Delete
-                                  </button>
+                                  <button onClick={() => handleEditBalance(entry)} className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">Edit</button>
+                                  <button onClick={() => handleDeleteBalance(entry.id)} className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600">Delete</button>
                                 </div>
                               </td>
                             </tr>
@@ -872,13 +915,10 @@ export default function PettyCashPage() {
                   </div>
                 </>
               ) : (
-                <div className="p-8 text-center bg-white rounded-lg shadow text-gray-500">
-                  No data available
-                </div>
+                <div className="p-8 text-center bg-white rounded-lg shadow text-gray-500">No data available</div>
               )}
             </div>
           ) : viewMode === "balance" && !user.petty_cash_balance ? (
-            // ✅ FIX: Jika user mencoba akses balance tanpa permission, tampilkan pesan akses ditolak
             <div className="p-8 text-center bg-white rounded-lg shadow">
               <p className="text-gray-500 text-sm">You don&apos;t have permission to access Balance.</p>
             </div>
@@ -889,33 +929,18 @@ export default function PettyCashPage() {
                 <div className="grid grid-cols-5 gap-3 mb-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Date From</label>
-                    <input
-                      type="date"
-                      value={dateFrom}
-                      onChange={(e) => setDateFrom(e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
+                    <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Date To</label>
-                    <input
-                      type="date"
-                      value={dateTo}
-                      onChange={(e) => setDateTo(e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
+                    <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
                   </div>
                   {viewMode === "list" ? (
                     <>
                       <div className="relative" ref={categoryDropdownRef}>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
-                        <button
-                          onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
-                        >
-                          <span className="text-gray-500">
-                            {selectedCategories.length === 0 ? "Select category..." : `${selectedCategories.length} selected`}
-                          </span>
+                        <button onClick={() => setShowCategoryDropdown(!showCategoryDropdown)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center">
+                          <span className="text-gray-500">{selectedCategories.length === 0 ? "Select category..." : `${selectedCategories.length} selected`}</span>
                           <span className="text-gray-400">▼</span>
                         </button>
                         {showCategoryDropdown && (
@@ -931,13 +956,8 @@ export default function PettyCashPage() {
                       </div>
                       <div className="relative" ref={storeDropdownRef}>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
-                        <button
-                          onClick={() => setShowStoreDropdown(!showStoreDropdown)}
-                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
-                        >
-                          <span className="text-gray-500">
-                            {selectedStores.length === 0 ? "Select store..." : `${selectedStores.length} selected`}
-                          </span>
+                        <button onClick={() => setShowStoreDropdown(!showStoreDropdown)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center">
+                          <span className="text-gray-500">{selectedStores.length === 0 ? "Select store..." : `${selectedStores.length} selected`}</span>
                           <span className="text-gray-400">▼</span>
                         </button>
                         {showStoreDropdown && (
@@ -953,11 +973,7 @@ export default function PettyCashPage() {
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Transfer Status</label>
-                        <select
-                          value={transferFilter}
-                          onChange={(e) => setTransferFilter(e.target.value)}
-                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                        >
+                        <select value={transferFilter} onChange={(e) => setTransferFilter(e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
                           <option value="all">All</option>
                           <option value="false">Belum Transfer</option>
                           <option value="true">Sudah Transfer</option>
@@ -968,13 +984,8 @@ export default function PettyCashPage() {
                     <>
                       <div className="relative">
                         <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
-                        <button
-                          onClick={() => setShowStoreDropdown(!showStoreDropdown)}
-                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
-                        >
-                          <span className="text-gray-500">
-                            {selectedStores.length === 0 ? "All stores..." : `${selectedStores.length} selected`}
-                          </span>
+                        <button onClick={() => setShowStoreDropdown(!showStoreDropdown)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center">
+                          <span className="text-gray-500">{selectedStores.length === 0 ? "All stores..." : `${selectedStores.length} selected`}</span>
                           <span className="text-gray-400">▼</span>
                         </button>
                         {showStoreDropdown && (
@@ -990,11 +1001,7 @@ export default function PettyCashPage() {
                       </div>
                       <div className="col-span-2">
                         <label className="block text-xs font-medium text-gray-700 mb-1">Transfer Status</label>
-                        <select
-                          value={reportTransferFilter}
-                          onChange={(e) => setReportTransferFilter(e.target.value as "false" | "true")}
-                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                        >
+                        <select value={reportTransferFilter} onChange={(e) => setReportTransferFilter(e.target.value as "false" | "true")} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
                           <option value="false">Belum Transfer</option>
                           <option value="true">Sudah Transfer</option>
                         </select>
@@ -1003,35 +1010,21 @@ export default function PettyCashPage() {
                   )}
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                  <button onClick={resetFilters} className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600">
-                    Reset
-                  </button>
+                  <button onClick={resetFilters} className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600">Reset</button>
                   {user.petty_cash_export && (
                     <>
                       {viewMode === "list" ? (
                         <>
-                          <button onClick={exportToExcel} className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-secondary/90 ml-auto">
-                            Export XLSX
-                          </button>
-                          <button
-                            onClick={() => exportToDoc(1)}
-                            disabled={exporting}
-                            className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
-                          >
+                          <button onClick={exportToExcel} className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-secondary/90 ml-auto">Export XLSX</button>
+                          <button onClick={() => exportToDoc(1)} disabled={exporting} className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50">
                             {exporting ? "Exporting..." : "Export DOC"}
                           </button>
-                          <button
-                            onClick={() => exportToDoc(2)}
-                            disabled={exporting2}
-                            className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
-                          >
+                          <button onClick={() => exportToDoc(2)} disabled={exporting2} className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50">
                             {exporting2 ? "Exporting..." : "Export DOC 2"}
                           </button>
                         </>
                       ) : (
-                        <button onClick={exportReportToExcel} className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-secondary/90 ml-auto">
-                          Export Report XLSX
-                        </button>
+                        <button onClick={exportReportToExcel} className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-secondary/90 ml-auto">Export Report XLSX</button>
                       )}
                     </>
                   )}
@@ -1042,39 +1035,35 @@ export default function PettyCashPage() {
                 {loading ? (
                   <div className="p-8 text-center">Loading...</div>
                 ) : viewMode === "report" ? (
-                  <>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-gray-100 border-b">
-                          <tr>
-                            <th className="px-4 py-3 text-left font-semibold text-gray-700">Store</th>
-                            <th className="px-4 py-3 text-right font-semibold text-gray-700">Petty Cash</th>
-                            <th className="px-4 py-3 text-right font-semibold text-gray-700">Listrik</th>
-                            <th className="px-4 py-3 text-right font-semibold text-gray-700">Total</th>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-100 border-b">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">Store</th>
+                          <th className="px-4 py-3 text-right font-semibold text-gray-700">Petty Cash</th>
+                          <th className="px-4 py-3 text-right font-semibold text-gray-700">Listrik</th>
+                          <th className="px-4 py-3 text-right font-semibold text-gray-700">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {generateReportData().map((item, index) => (
+                          <tr key={index} className="border-b hover:bg-gray-50">
+                            <td className="px-4 py-3">{item.store}</td>
+                            <td className="px-4 py-3 text-right">{formatRupiah(item.pettyCash)}</td>
+                            <td className="px-4 py-3 text-right">{formatRupiah(item.listrik)}</td>
+                            <td className="px-4 py-3 text-right font-semibold text-green-600">{formatRupiah(item.total)}</td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {generateReportData().map((item, index) => (
-                            <tr key={index} className="border-b hover:bg-gray-50">
-                              <td className="px-4 py-3">{item.store}</td>
-                              <td className="px-4 py-3 text-right">{formatRupiah(item.pettyCash)}</td>
-                              <td className="px-4 py-3 text-right">{formatRupiah(item.listrik)}</td>
-                              <td className="px-4 py-3 text-right font-semibold text-green-600">{formatRupiah(item.total)}</td>
-                            </tr>
-                          ))}
-                          <tr className="bg-gray-50 font-semibold">
-                            <td className="px-4 py-3">Grand Total</td>
-                            <td className="px-4 py-3 text-right">{formatRupiah(generateReportData().reduce((sum, item) => sum + item.pettyCash, 0))}</td>
-                            <td className="px-4 py-3 text-right">{formatRupiah(generateReportData().reduce((sum, item) => sum + item.listrik, 0))}</td>
-                            <td className="px-4 py-3 text-right text-green-600">{formatRupiah(generateReportData().reduce((sum, item) => sum + item.total, 0))}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                      {generateReportData().length === 0 && (
-                        <div className="p-8 text-center text-gray-500">No data available</div>
-                      )}
-                    </div>
-                  </>
+                        ))}
+                        <tr className="bg-gray-50 font-semibold">
+                          <td className="px-4 py-3">Grand Total</td>
+                          <td className="px-4 py-3 text-right">{formatRupiah(generateReportData().reduce((sum, item) => sum + item.pettyCash, 0))}</td>
+                          <td className="px-4 py-3 text-right">{formatRupiah(generateReportData().reduce((sum, item) => sum + item.listrik, 0))}</td>
+                          <td className="px-4 py-3 text-right text-green-600">{formatRupiah(generateReportData().reduce((sum, item) => sum + item.total, 0))}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    {generateReportData().length === 0 && <div className="p-8 text-center text-gray-500">No data available</div>}
+                  </div>
                 ) : (
                   <>
                     <div className="overflow-x-auto">
@@ -1094,7 +1083,11 @@ export default function PettyCashPage() {
                         </thead>
                         <tbody>
                           {currentItems.map((item, index) => (
-                            <tr key={index} className="border-b hover:bg-gray-50">
+                            <tr
+                              key={index}
+                              className="border-b hover:bg-gray-50 cursor-pointer"
+                              onClick={() => { setDetailEntry(item); setShowDetailPopup(true); }}
+                            >
                               <td className="px-3 py-2">{item.date}</td>
                               <td className="px-3 py-2">{item.description}</td>
                               <td className="px-3 py-2">{item.category}</td>
@@ -1104,13 +1097,9 @@ export default function PettyCashPage() {
                               <td className="px-3 py-2 text-center">
                                 {user.petty_cash_export ? (
                                   <button
-                                    onClick={() => handleQuickToggleTransfer(item)}
+                                    onClick={(e) => { e.stopPropagation(); handleQuickToggleTransfer(item); }}
                                     disabled={updatingTransfer === item.id}
-                                    className={`w-5 h-5 flex items-center justify-center rounded border-2 transition-colors mx-auto ${
-                                      item.transfer === "TRUE"
-                                        ? "bg-green-500 border-green-500"
-                                        : "bg-white border-gray-300 hover:border-green-500"
-                                    } ${updatingTransfer === item.id ? "opacity-50 cursor-wait" : "cursor-pointer"}`}
+                                    className={`w-5 h-5 flex items-center justify-center rounded border-2 transition-colors mx-auto ${item.transfer === "TRUE" ? "bg-green-500 border-green-500" : "bg-white border-gray-300 hover:border-green-500"} ${updatingTransfer === item.id ? "opacity-50 cursor-wait" : "cursor-pointer"}`}
                                   >
                                     {item.transfer === "TRUE" && (
                                       <svg className="w-3 h-3 text-white" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" viewBox="0 0 24 24" stroke="currentColor">
@@ -1124,7 +1113,15 @@ export default function PettyCashPage() {
                               </td>
                               <td className="px-3 py-2 text-center">
                                 {item.link_url ? (
-                                  <a href={item.link_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">View</a>
+                                  <a
+                                    href={item.link_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:underline"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    View
+                                  </a>
                                 ) : (
                                   <span className="text-gray-400">-</span>
                                 )}
@@ -1132,8 +1129,18 @@ export default function PettyCashPage() {
                               <td className="px-3 py-2">
                                 {canEditDelete(item) && (
                                   <div className="flex gap-1 justify-center">
-                                    <button onClick={() => handleEdit(item)} className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">Edit</button>
-                                    <button onClick={() => handleDelete(item.id)} className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600">Delete</button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleEdit(item); }}
+                                      className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                                      className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                                    >
+                                      Delete
+                                    </button>
                                   </div>
                                 )}
                               </td>
@@ -1146,9 +1153,7 @@ export default function PettyCashPage() {
                           </tr>
                         </tbody>
                       </table>
-                      {filteredData.length === 0 && (
-                        <div className="p-8 text-center text-gray-500">No data available</div>
-                      )}
+                      {filteredData.length === 0 && <div className="p-8 text-center text-gray-500">No data available</div>}
                     </div>
 
                     {totalPages > 1 && (
@@ -1157,9 +1162,7 @@ export default function PettyCashPage() {
                           Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredData.length)} of {filteredData.length} entries
                         </div>
                         <div className="flex gap-1">
-                          <button onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))} disabled={currentPage === 1} className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">
-                            Previous
-                          </button>
+                          <button onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))} disabled={currentPage === 1} className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">Previous</button>
                           {[...Array(totalPages)].map((_, i) => {
                             const page = i + 1;
                             if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
@@ -1173,9 +1176,7 @@ export default function PettyCashPage() {
                             }
                             return null;
                           })}
-                          <button onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages} className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">
-                            Next
-                          </button>
+                          <button onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages} className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">Next</button>
                         </div>
                       </div>
                     )}
@@ -1187,6 +1188,99 @@ export default function PettyCashPage() {
         </div>
       </div>
 
+      {/* ─── Detail Popup ─────────────────────────────────────────────────────── */}
+      {showDetailPopup && detailEntry && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50"
+          onClick={() => setShowDetailPopup(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Receipt Image */}
+            {detailEntry.link_url && extractDriveFileId(detailEntry.link_url) ? (
+              <div className="flex justify-center p-4 bg-gray-50 border-b">
+                <DriveImage
+                  href={detailEntry.link_url}
+                  fileId={extractDriveFileId(detailEntry.link_url)!}
+                  alt="Receipt"
+                />
+              </div>
+            ) : detailEntry.link_url ? (
+              <div className="flex justify-center p-4 bg-gray-50 border-b">
+                <a
+                  href={detailEntry.link_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline text-sm"
+                >
+                  View Receipt
+                </a>
+              </div>
+            ) : (
+              <div className="h-14 bg-gray-100 flex items-center justify-center text-gray-400 text-sm border-b">
+                No receipt
+              </div>
+            )}
+
+            {/* Store */}
+            <div className="px-5 pt-4 pb-1">
+              <p className="text-xs font-bold text-primary uppercase tracking-widest">
+                {toTitleCase(detailEntry.store)}
+              </p>
+            </div>
+
+            {/* Fields */}
+            <div className="px-5 pb-4 pt-2 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+              <div>
+                <p className="text-xs text-gray-400 font-medium mb-0.5">Date</p>
+                <p className="font-semibold text-gray-800">{detailEntry.date || "-"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium mb-0.5">Category</p>
+                <p className="font-semibold text-gray-800">{detailEntry.category || "-"}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-xs text-gray-400 font-medium mb-0.5">Description</p>
+                <p className="font-semibold text-gray-800">{detailEntry.description || "-"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium mb-0.5">Value</p>
+                <p className="font-semibold text-green-700 text-base">{formatRupiah(detailEntry.value)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium mb-0.5">Transfer</p>
+                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${detailEntry.transfer === "TRUE" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}`}>
+                  {detailEntry.transfer === "TRUE" ? "Sudah Transfer" : "Belum Transfer"}
+                </span>
+              </div>
+              {detailEntry.ket && (
+                <div className="col-span-2">
+                  <p className="text-xs text-gray-400 font-medium mb-0.5">Dana Talang</p>
+                  <p className="text-gray-800 whitespace-pre-wrap text-sm">{detailEntry.ket}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-xs text-gray-400 font-medium mb-0.5">Update By</p>
+                <p className="font-semibold text-gray-800">{detailEntry.update_by || "-"}</p>
+              </div>
+            </div>
+
+            {/* Close */}
+            <div className="px-5 pb-4 flex justify-end border-t pt-3">
+              <button
+                onClick={() => setShowDetailPopup(false)}
+                className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ─────────────────────────────────────────────────────────────────────── */}
+
       {/* Add Balance Modal */}
       {showAddBalanceModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
@@ -1195,59 +1289,22 @@ export default function PettyCashPage() {
             <form onSubmit={handleAddBalance} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Type*</label>
-                <select
-                  value={balanceFormData.type_balance}
-                  onChange={(e) => setBalanceFormData({ ...balanceFormData, type_balance: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  required
-                >
+                <select value={balanceFormData.type_balance} onChange={(e) => setBalanceFormData({ ...balanceFormData, type_balance: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary" required>
                   <option value="credit">Credit (Pemasukan)</option>
                   <option value="debit">Debit (Pengeluaran)</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Value*</label>
-                <input
-                  type="text"
-                  value={balanceFormData.value}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/[^0-9]/g, "");
-                    setBalanceFormData({ ...balanceFormData, value: val ? formatRupiah(val) : "" });
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="Rp 0"
-                  required
-                />
+                <input type="text" value={balanceFormData.value} onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ""); setBalanceFormData({ ...balanceFormData, value: val ? formatRupiah(val) : "" }); }} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Rp 0" required />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea
-                  value={balanceFormData.notes}
-                  onChange={(e) => setBalanceFormData({ ...balanceFormData, notes: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  rows={3}
-                  placeholder="Optional notes..."
-                />
+                <textarea value={balanceFormData.notes} onChange={(e) => setBalanceFormData({ ...balanceFormData, notes: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary" rows={3} placeholder="Optional notes..." />
               </div>
               <div className="flex gap-2 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddBalanceModal(false);
-                    setBalanceFormData({ type_balance: "credit", value: "", notes: "" });
-                  }}
-                  disabled={submittingBalance}
-                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingBalance}
-                  className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {submittingBalance ? "Submitting..." : "Add Entry"}
-                </button>
+                <button type="button" onClick={() => { setShowAddBalanceModal(false); setBalanceFormData({ type_balance: "credit", value: "", notes: "" }); }} disabled={submittingBalance} className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50">Cancel</button>
+                <button type="submit" disabled={submittingBalance} className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">{submittingBalance ? "Submitting..." : "Add Entry"}</button>
               </div>
             </form>
           </div>
@@ -1262,67 +1319,29 @@ export default function PettyCashPage() {
             <form onSubmit={handleUpdateBalance} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Type*</label>
-                <select
-                  value={balanceFormData.type_balance}
-                  onChange={(e) => setBalanceFormData({ ...balanceFormData, type_balance: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  required
-                >
+                <select value={balanceFormData.type_balance} onChange={(e) => setBalanceFormData({ ...balanceFormData, type_balance: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary" required>
                   <option value="credit">Credit (Pemasukan)</option>
                   <option value="debit">Debit (Pengeluaran)</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Value*</label>
-                <input
-                  type="text"
-                  value={balanceFormData.value}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/[^0-9]/g, "");
-                    setBalanceFormData({ ...balanceFormData, value: val ? formatRupiah(val) : "" });
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="Rp 0"
-                  required
-                />
+                <input type="text" value={balanceFormData.value} onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ""); setBalanceFormData({ ...balanceFormData, value: val ? formatRupiah(val) : "" }); }} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Rp 0" required />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea
-                  value={balanceFormData.notes}
-                  onChange={(e) => setBalanceFormData({ ...balanceFormData, notes: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  rows={3}
-                  placeholder="Optional notes..."
-                />
+                <textarea value={balanceFormData.notes} onChange={(e) => setBalanceFormData({ ...balanceFormData, notes: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary" rows={3} placeholder="Optional notes..." />
               </div>
               <div className="flex gap-2 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEditBalanceModal(false);
-                    setSelectedBalanceEntry(null);
-                    setBalanceFormData({ type_balance: "credit", value: "", notes: "" });
-                  }}
-                  disabled={submittingBalance}
-                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingBalance}
-                  className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {submittingBalance ? "Updating..." : "Update Entry"}
-                </button>
+                <button type="button" onClick={() => { setShowEditBalanceModal(false); setSelectedBalanceEntry(null); setBalanceFormData({ type_balance: "credit", value: "", notes: "" }); }} disabled={submittingBalance} className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50">Cancel</button>
+                <button type="submit" disabled={submittingBalance} className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">{submittingBalance ? "Updating..." : "Update Entry"}</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Category Information Modal */}
+      {/* Category Info Modal */}
       {showInfoModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto" onClick={() => setShowInfoModal(false)}>
           <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 my-8 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>

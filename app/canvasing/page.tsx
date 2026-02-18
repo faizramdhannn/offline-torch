@@ -17,6 +17,22 @@ const RESULT_STATUS_OPTIONS = [
   "Cancel",
 ];
 
+// Component using server-side proxy to bypass CORS
+function DriveImage({ href, urls, alt }: { href: string; urls: string[]; alt: string }) {
+  // Extract fileId from first URL and use proxy
+  const proxyUrl = urls[0]; // Already set to /api/drive-image?id=...
+
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+      <img
+        src={proxyUrl}
+        alt={alt}
+        className="h-64 w-64 object-cover rounded-lg border hover:opacity-75 transition-opacity cursor-pointer"
+      />
+    </a>
+  );
+}
+
 export default function CanvasingPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -27,25 +43,28 @@ export default function CanvasingPage() {
   const [storeName, setStoreName] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "report">("list");
   const [exporting, setExporting] = useState(false);
-  
+
   const [showModal, setShowModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<Canvasing | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [submitting, setSubmitting] = useState(false);
-  
+
+  const [showDetailPopup, setShowDetailPopup] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<Canvasing | null>(null);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [storeFilter, setStoreFilter] = useState<string[]>([]);
   const [stores, setStores] = useState<string[]>([]);
   const [showStoreDropdown, setShowStoreDropdown] = useState(false);
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
   const storeDropdownRef = useRef<HTMLDivElement>(null);
-  
+
   const [formData, setFormData] = useState({
     name: "",
     contact_person: "",
@@ -61,7 +80,10 @@ export default function CanvasingPage() {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (storeDropdownRef.current && !storeDropdownRef.current.contains(event.target as Node)) {
+      if (
+        storeDropdownRef.current &&
+        !storeDropdownRef.current.contains(event.target as Node)
+      ) {
         setShowStoreDropdown(false);
       }
     };
@@ -115,18 +137,18 @@ export default function CanvasingPage() {
       setLoading(true);
       const response = await fetch(`/api/canvasing?username=${username}`);
       const result = await response.json();
-      
+
       setIsOwner(result.isOwner);
       setStoreName(result.storeName || "");
       setData(result.data);
       setFilteredData(result.data);
 
-      // If user is owner, lock the store filter
       if (result.isOwner) {
         setStoreFilter([result.storeName]);
       } else {
-        // Extract unique stores for filter
-        const uniqueStores = [...new Set(result.data.map((item: Canvasing) => item.store))].filter(Boolean);
+        const uniqueStores = [
+          ...new Set(result.data.map((item: Canvasing) => item.store)),
+        ].filter(Boolean);
         setStores(uniqueStores as string[]);
       }
     } catch (error) {
@@ -140,7 +162,9 @@ export default function CanvasingPage() {
     let filtered = [...data];
 
     if (statusFilter.length > 0) {
-      filtered = filtered.filter((item) => statusFilter.includes(item.result_status));
+      filtered = filtered.filter((item) =>
+        statusFilter.includes(item.result_status)
+      );
     }
 
     if (storeFilter.length > 0) {
@@ -149,11 +173,13 @@ export default function CanvasingPage() {
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((item) =>
-        item.name.toLowerCase().includes(query) ||
-        item.category.toLowerCase().includes(query) ||
-        item.sub_category.toLowerCase().includes(query) ||
-        (item.contact_person && item.contact_person.toLowerCase().includes(query))
+      filtered = filtered.filter(
+        (item) =>
+          item.name.toLowerCase().includes(query) ||
+          item.category.toLowerCase().includes(query) ||
+          item.sub_category.toLowerCase().includes(query) ||
+          (item.contact_person &&
+            item.contact_person.toLowerCase().includes(query))
       );
     }
 
@@ -164,7 +190,6 @@ export default function CanvasingPage() {
   const resetFilters = () => {
     setSearchQuery("");
     setStatusFilter([]);
-    // Only reset store filter if user is not owner
     if (!isOwner) {
       setStoreFilter([]);
     }
@@ -182,6 +207,11 @@ export default function CanvasingPage() {
     setStoreFilter((prev) =>
       prev.includes(store) ? prev.filter((s) => s !== store) : [...prev, store]
     );
+  };
+
+  const handleRowClick = (entry: Canvasing) => {
+    setSelectedEntry(entry);
+    setShowDetailPopup(true);
   };
 
   const handleOpenModal = (entry?: Canvasing) => {
@@ -234,14 +264,14 @@ export default function CanvasingPage() {
 
     try {
       const form = new FormData();
-      
+
       if (editingEntry) {
         form.append("id", editingEntry.id);
         form.append("keepExistingImages", formData.keepExistingImages.toString());
       } else {
         form.append("store", isOwner ? storeName : user.user_name);
       }
-      
+
       form.append("name", formData.name);
       form.append("contact_person", formData.contact_person);
       form.append("category", formData.category);
@@ -251,8 +281,7 @@ export default function CanvasingPage() {
       form.append("result_status", formData.result_status);
       form.append("notes", formData.notes);
       form.append("username", user.user_name);
-      
-      // Append multiple files
+
       formData.files.forEach((file, index) => {
         form.append(`file_${index}`, file);
       });
@@ -269,13 +298,13 @@ export default function CanvasingPage() {
         const action = editingEntry ? "Updated" : "Created";
         await logActivity(
           editingEntry ? "PUT" : "POST",
-          `${action} canvasing entry: ${formData.name}`,
+          `${action} canvasing entry: ${formData.name}`
         );
         showMessage(
           editingEntry
             ? "Entry updated successfully"
             : "Entry created successfully",
-          "success",
+          "success"
         );
         handleCloseModal();
         fetchData(user.user_name);
@@ -313,7 +342,33 @@ export default function CanvasingPage() {
     if (isOwner) {
       return entry.store.toLowerCase() === storeName.toLowerCase();
     }
-    return true; // Admin can edit all
+    return true;
+  };
+
+  const toTitleCase = (str: string) =>
+    str
+      .split(" ")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
+
+  const extractDriveFileId = (url: string): string | null => {
+    const patterns = [
+      /\/file\/d\/([a-zA-Z0-9_-]+)/,
+      /id=([a-zA-Z0-9_-]+)/,
+      /\/d\/([a-zA-Z0-9_-]+)/,
+    ];
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) return match[1];
+    }
+    return null;
+  };
+
+  const getDriveImageUrls = (url: string): string[] => {
+    const fileId = extractDriveFileId(url);
+    if (!fileId) return [url];
+    // Use server-side proxy to bypass CORS
+    return [`/api/drive-image?id=${fileId}`];
   };
 
   const generateReportData = () => {
@@ -325,7 +380,9 @@ export default function CanvasingPage() {
       const row: any = { store };
 
       statuses.forEach((status) => {
-        row[status] = storeData.filter((item) => item.result_status === status).length;
+        row[status] = storeData.filter(
+          (item) => item.result_status === status
+        ).length;
       });
 
       row.total = storeData.length;
@@ -343,7 +400,7 @@ export default function CanvasingPage() {
     XLSX.utils.book_append_sheet(wb, ws, "Canvasing Report");
     XLSX.writeFile(
       wb,
-      `canvasing_report_${new Date().toISOString().split("T")[0]}.xlsx`,
+      `canvasing_report_${new Date().toISOString().split("T")[0]}.xlsx`
     );
     logActivity("GET", "Exported canvasing report to Excel");
   };
@@ -365,14 +422,16 @@ export default function CanvasingPage() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `Canvasing_${isOwner ? storeName : 'All'}_${new Date().toISOString().split("T")[0]}.docx`;
+        a.download = `Canvasing_${isOwner ? storeName : "All"}_${
+          new Date().toISOString().split("T")[0]
+        }.docx`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
         await logActivity(
           "GET",
-          `Exported canvasing to DOC: ${filteredData.length} entries`,
+          `Exported canvasing to DOC: ${filteredData.length} entries`
         );
         showMessage("Document exported successfully", "success");
       } else {
@@ -555,7 +614,6 @@ export default function CanvasingPage() {
             {loading ? (
               <div className="p-8 text-center">Loading...</div>
             ) : viewMode === "list" ? (
-              /* List View */
               <>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
@@ -593,13 +651,23 @@ export default function CanvasingPage() {
                     <tbody>
                       {currentItems.map((item, index) => {
                         const images = item.image_url
-                          ? item.image_url.split(";").filter((url) => url.trim())
+                          ? item.image_url
+                              .split(";")
+                              .filter((url) => url.trim())
                           : [];
 
                         return (
-                          <tr key={index} className="border-b hover:bg-gray-50">
-                            <td className="px-3 py-2 font-medium">{item.name}</td>
-                            <td className="px-3 py-2">{item.contact_person || '-'}</td>
+                          <tr
+                            key={index}
+                            className="border-b hover:bg-gray-50 cursor-pointer"
+                            onClick={() => handleRowClick(item)}
+                          >
+                            <td className="px-3 py-2 font-medium">
+                              {item.name}
+                            </td>
+                            <td className="px-3 py-2">
+                              {item.contact_person || "-"}
+                            </td>
                             <td className="px-3 py-2">{item.category}</td>
                             <td className="px-3 py-2">{item.sub_category}</td>
                             <td className="px-3 py-2">{item.canvasser}</td>
@@ -610,11 +678,11 @@ export default function CanvasingPage() {
                                   item.result_status === "Deal"
                                     ? "bg-green-100 text-green-800"
                                     : item.result_status === "Interested"
-                                      ? "bg-blue-100 text-blue-800"
-                                      : item.result_status === "Reject" ||
-                                          item.result_status === "Cancel"
-                                        ? "bg-red-100 text-red-800"
-                                        : "bg-gray-100 text-gray-800"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : item.result_status === "Reject" ||
+                                      item.result_status === "Cancel"
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-gray-100 text-gray-800"
                                 }`}
                               >
                                 {item.result_status}
@@ -630,6 +698,7 @@ export default function CanvasingPage() {
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="text-blue-600 hover:underline text-xs"
+                                      onClick={(e) => e.stopPropagation()}
                                     >
                                       [{i + 1}]
                                     </a>
@@ -649,14 +718,20 @@ export default function CanvasingPage() {
                                 {canEdit(item) && (
                                   <>
                                     <button
-                                      onClick={() => handleOpenModal(item)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenModal(item);
+                                      }}
                                       className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
                                     >
                                       Edit
                                     </button>
                                     {!isOwner && (
                                       <button
-                                        onClick={() => handleDelete(item.id)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDelete(item.id);
+                                        }}
                                         className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
                                       >
                                         Delete
@@ -730,7 +805,7 @@ export default function CanvasingPage() {
                       <button
                         onClick={() =>
                           setCurrentPage((prev) =>
-                            Math.min(totalPages, prev + 1),
+                            Math.min(totalPages, prev + 1)
                           )
                         }
                         disabled={currentPage === totalPages}
@@ -791,6 +866,135 @@ export default function CanvasingPage() {
         </div>
       </div>
 
+      {/* Detail Popup */}
+      {showDetailPopup && selectedEntry && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50"
+          onClick={() => setShowDetailPopup(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Images */}
+            {selectedEntry.image_url && selectedEntry.image_url.trim() ? (
+              <div className="flex justify-center gap-2 overflow-x-auto p-4 bg-gray-50 border-b">
+                {selectedEntry.image_url
+                  .split(";")
+                  .filter((u) => u.trim())
+                  .map((url, i) => {
+                    const urls = getDriveImageUrls(url);
+                    return (
+                      <DriveImage
+                        key={i}
+                        href={url}
+                        urls={urls}
+                        alt={`Image ${i + 1}`}
+                      />
+                    );
+                  })}
+              </div>
+            ) : (
+              <div className="h-16 bg-gray-100 flex items-center justify-center text-gray-400 text-sm border-b">
+                No images
+              </div>
+            )}
+
+            {/* Store name */}
+            <div className="px-5 pt-4 pb-1">
+              <p className="text-xs font-bold text-primary uppercase tracking-widest">
+                {toTitleCase(selectedEntry.store)}
+              </p>
+            </div>
+
+            {/* Fields grid */}
+            <div className="px-5 pb-4 pt-2 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+              <div>
+                <p className="text-xs text-gray-400 font-medium mb-0.5">Name</p>
+                <p className="font-semibold text-gray-800">
+                  {selectedEntry.name || "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium mb-0.5">
+                  Contact Person
+                </p>
+                <p className="font-semibold text-gray-800">
+                  {selectedEntry.contact_person || "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium mb-0.5">
+                  Category
+                </p>
+                <p className="font-semibold text-gray-800">
+                  {selectedEntry.category || "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium mb-0.5">
+                  Sub Category
+                </p>
+                <p className="font-semibold text-gray-800">
+                  {selectedEntry.sub_category || "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium mb-0.5">
+                  Canvasser
+                </p>
+                <p className="font-semibold text-gray-800">
+                  {selectedEntry.canvasser || "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-medium mb-0.5">
+                  Visit At
+                </p>
+                <p className="font-semibold text-gray-800">
+                  {selectedEntry.visit_at || "-"}
+                </p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-xs text-gray-400 font-medium mb-0.5">
+                  Result Status
+                </p>
+                <span
+                  className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
+                    selectedEntry.result_status === "Deal"
+                      ? "bg-green-100 text-green-800"
+                      : selectedEntry.result_status === "Interested"
+                      ? "bg-blue-100 text-blue-800"
+                      : selectedEntry.result_status === "Reject" ||
+                        selectedEntry.result_status === "Cancel"
+                      ? "bg-red-100 text-red-800"
+                      : "bg-gray-100 text-gray-800"
+                  }`}
+                >
+                  {selectedEntry.result_status || "-"}
+                </span>
+              </div>
+              <div className="col-span-2">
+                <p className="text-xs text-gray-400 font-medium mb-0.5">Notes</p>
+                <p className="text-gray-800 whitespace-pre-wrap text-sm">
+                  {selectedEntry.notes || "-"}
+                </p>
+              </div>
+            </div>
+
+            {/* Close button */}
+            <div className="px-5 pb-4 flex justify-end border-t pt-3">
+              <button
+                onClick={() => setShowDetailPopup(false)}
+                className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
@@ -824,7 +1028,10 @@ export default function CanvasingPage() {
                     type="text"
                     value={formData.contact_person}
                     onChange={(e) =>
-                      setFormData({ ...formData, contact_person: e.target.value })
+                      setFormData({
+                        ...formData,
+                        contact_person: e.target.value,
+                      })
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
@@ -896,7 +1103,10 @@ export default function CanvasingPage() {
                   <select
                     value={formData.result_status}
                     onChange={(e) =>
-                      setFormData({ ...formData, result_status: e.target.value })
+                      setFormData({
+                        ...formData,
+                        result_status: e.target.value,
+                      })
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     required
@@ -978,8 +1188,8 @@ export default function CanvasingPage() {
                   {submitting
                     ? "Saving..."
                     : editingEntry
-                      ? "Update Entry"
-                      : "Create Entry"}
+                    ? "Update Entry"
+                    : "Create Entry"}
                 </button>
               </div>
             </form>
