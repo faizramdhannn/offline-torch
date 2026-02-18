@@ -152,13 +152,13 @@ export default function PettyCashPage() {
   }, [dateFrom, dateTo, selectedCategories, selectedStores, transferFilter, data]);
 
   useEffect(() => {
-    if (viewMode === "balance" && user) {
+    if (viewMode === "balance" && user && user.petty_cash_balance) {
       fetchBalance();
     }
   }, [viewMode]);
 
   useEffect(() => {
-    if (viewMode === "balance") {
+    if (viewMode === "balance" && user && user.petty_cash_balance) {
       fetchBalance();
     }
   }, [balanceDateFrom, balanceDateTo]);
@@ -646,15 +646,15 @@ export default function PettyCashPage() {
   // Calculate Credit and Debit totals
   const calculateCreditDebit = () => {
     if (!balanceData) return { credit: 0, debit: 0 };
-    
+
     const credit = balanceData.entries
       .filter((entry) => (entry.type_balance || "").toLowerCase() === "credit")
       .reduce((sum, entry) => sum + (parseInt((entry.value || "0").replace(/[^0-9]/g, "")) || 0), 0);
-    
+
     const debit = balanceData.entries
       .filter((entry) => (entry.type_balance || "").toLowerCase() === "debit")
       .reduce((sum, entry) => sum + (parseInt((entry.value || "0").replace(/[^0-9]/g, "")) || 0), 0);
-    
+
     return { credit, debit };
   };
 
@@ -713,17 +713,20 @@ export default function PettyCashPage() {
               >
                 Report View
               </button>
-              <button
-                onClick={() => setViewMode("balance")}
-                className={`px-4 py-1.5 rounded text-xs transition-colors ${viewMode === "balance" ? "bg-primary text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
-              >
-                Balance
-              </button>
+              {/* ✅ FIX: Balance tab hanya tampil jika user punya permission petty_cash_balance */}
+              {user.petty_cash_balance && (
+                <button
+                  onClick={() => setViewMode("balance")}
+                  className={`px-4 py-1.5 rounded text-xs transition-colors ${viewMode === "balance" ? "bg-primary text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                >
+                  Balance
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Balance View */}
-          {viewMode === "balance" ? (
+          {/* ✅ FIX: Balance View hanya render jika user punya permission petty_cash_balance */}
+          {viewMode === "balance" && user.petty_cash_balance ? (
             <div>
               {/* Balance Date Filter with Add Balance Button */}
               <div className="bg-white rounded-lg shadow p-4 mb-4">
@@ -873,6 +876,11 @@ export default function PettyCashPage() {
                   No data available
                 </div>
               )}
+            </div>
+          ) : viewMode === "balance" && !user.petty_cash_balance ? (
+            // ✅ FIX: Jika user mencoba akses balance tanpa permission, tampilkan pesan akses ditolak
+            <div className="p-8 text-center bg-white rounded-lg shadow">
+              <p className="text-gray-500 text-sm">You don&apos;t have permission to access Balance.</p>
             </div>
           ) : (
             <>
