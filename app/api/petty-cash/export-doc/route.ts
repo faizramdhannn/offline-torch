@@ -100,6 +100,11 @@ async function generateExport1(data: any[], username: string, dateFrom: string, 
           width: { size: 2700, type: WidthType.DXA },
           borders: borderStyle,
         }),
+          new TableCell({
+          children: [new Paragraph({ children: [new TextRun({ text: 'Store', bold: true })] })],
+          width: { size: 2700, type: WidthType.DXA },
+          borders: borderStyle,
+        }),
         new TableCell({
           children: [new Paragraph({ children: [new TextRun({ text: 'Value', bold: true })] })],
           width: { size: 1800, type: WidthType.DXA },
@@ -129,6 +134,11 @@ async function generateExport1(data: any[], username: string, dateFrom: string, 
       new TableCell({
         children: [new Paragraph(toTitleCase(item.description))],
         width: { size: 2700, type: WidthType.DXA },
+        borders: borderStyle,
+      }),
+      new TableCell({
+        children: [new Paragraph(toTitleCase(item.store))],
+        width: { size: 1350, type: WidthType.DXA },
         borders: borderStyle,
       }),
       new TableCell({
@@ -178,7 +188,7 @@ async function generateExport1(data: any[], username: string, dateFrom: string, 
     children: [
       new TableCell({
         children: [new Paragraph('')],
-        columnSpan: 2,
+        columnSpan: 3,
         borders: borderStyle,
       }),
       new TableCell({
@@ -197,7 +207,7 @@ async function generateExport1(data: any[], username: string, dateFrom: string, 
   children.push(new Table({
     rows: tableRows,
     width: { size: 9026, type: WidthType.DXA },
-    columnWidths: [1350, 2700, 1800, 3176],
+    columnWidths: [1350, 2700, 1350, 1800, 3176],
   }));
 
   const doc = new Document({
