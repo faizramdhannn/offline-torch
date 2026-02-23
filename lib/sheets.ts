@@ -150,3 +150,60 @@ export async function updateSheetRow(sheetName: string, rowIndex: number, data: 
     throw error;
   }
 }
+
+/**
+ * Update a sheet row in 2 separate ranges, skipping columns in between.
+ * Digunakan untuk master_bundling agar kolom torch_* yang berisi rumus tidak tertimpa.
+ *
+ * @param sheetName   - Nama sheet
+ * @param rowIndex    - Nomor baris (1-based, termasuk header = baris 1, data mulai baris 2)
+ * @param beforeData  - Data untuk kolom sebelum kolom yang di-skip (misal: A–R)
+ * @param afterData   - Data untuk kolom setelah kolom yang di-skip (misal: AG–AI)
+ * @param skipCount   - Jumlah kolom yang di-skip (misal: 14 untuk torch_cirebon s/d torch_tambun)
+ */
+export async function updateSheetRowSkipColumns(
+  sheetName: string,
+  rowIndex: number,
+  beforeData: any[],
+  afterData: any[],
+  skipCount: number
+) {
+  try {
+    const auth = new google.auth.GoogleAuth({
+      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || "{}"),
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    });
+    const sheets = google.sheets({ version: "v4", auth });
+    const spreadsheetId = getSpreadsheetId(sheetName);
+
+    // Range 1: kolom A s/d kolom ke-beforeData.length
+    const beforeEndCol = getColumnLetter(beforeData.length);
+    const range1 = `${sheetName}!A${rowIndex}:${beforeEndCol}${rowIndex}`;
+
+    // Range 2: kolom setelah skip s/d akhir afterData
+    const afterStartColNum = beforeData.length + skipCount + 1;
+    const afterEndColNum = afterStartColNum + afterData.length - 1;
+    const afterStartCol = getColumnLetter(afterStartColNum);
+    const afterEndCol = getColumnLetter(afterEndColNum);
+    const range2 = `${sheetName}!${afterStartCol}${rowIndex}:${afterEndCol}${rowIndex}`;
+
+    console.log(`Updating range1: ${range1}, range2: ${range2}`);
+
+    // Gunakan batchUpdate untuk 2 range sekaligus
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        valueInputOption: "RAW",
+        data: [
+          { range: range1, values: [beforeData] },
+          { range: range2, values: [afterData] },
+        ],
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating sheet row with skip:", error);
+    throw error;
+  }
+}
