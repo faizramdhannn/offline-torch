@@ -102,6 +102,12 @@ export interface Bundling {
   option_4: string;
   option_5: string;
   option_6: string;
+  discount_1: string;
+  discount_2: string;
+  discount_3: string;
+  discount_4: string;
+  discount_5: string;
+  discount_6: string;
   total_value: string;
   discount_percentage: string;
   discount_value: string;

@@ -19,30 +19,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       bundling_name,
-      option_1,
-      option_2,
-      option_3,
-      option_4,
-      option_5,
-      option_6,
+      option_1, option_2, option_3, option_4, option_5, option_6,
+      discount_1, discount_2, discount_3, discount_4, discount_5, discount_6,
       total_value,
       discount_percentage,
       discount_value,
       value,
-      torch_cirebon,
-      torch_jogja,
-      torch_karawaci,
-      torch_karawang,
-      torch_lampung,
-      torch_lembong,
-      torch_makassar,
-      torch_malang,
-      torch_margonda,
-      torch_medan,
-      torch_pekalongan,
-      torch_purwokerto,
-      torch_surabaya,
-      torch_tambun,
+      torch_cirebon, torch_jogja, torch_karawaci, torch_karawang,
+      torch_lampung, torch_lembong, torch_makassar, torch_malang,
+      torch_margonda, torch_medan, torch_pekalongan, torch_purwokerto,
+      torch_surabaya, torch_tambun,
       status,
     } = body;
 
@@ -58,6 +44,12 @@ export async function POST(request: NextRequest) {
       option_4 || '',
       option_5 || '',
       option_6 || '',
+      discount_1 || '0',
+      discount_2 || '0',
+      discount_3 || '0',
+      discount_4 || '0',
+      discount_5 || '0',
+      discount_6 || '0',
       total_value,
       discount_percentage,
       discount_value,
@@ -99,46 +91,28 @@ export async function PUT(request: NextRequest) {
     const {
       id,
       bundling_name,
-      option_1,
-      option_2,
-      option_3,
-      option_4,
-      option_5,
-      option_6,
+      option_1, option_2, option_3, option_4, option_5, option_6,
+      discount_1, discount_2, discount_3, discount_4, discount_5, discount_6,
       total_value,
       discount_percentage,
       discount_value,
       value,
-      torch_cirebon,
-      torch_jogja,
-      torch_karawaci,
-      torch_karawang,
-      torch_lampung,
-      torch_lembong,
-      torch_makassar,
-      torch_malang,
-      torch_margonda,
-      torch_medan,
-      torch_pekalongan,
-      torch_purwokerto,
-      torch_surabaya,
-      torch_tambun,
+      torch_cirebon, torch_jogja, torch_karawaci, torch_karawang,
+      torch_lampung, torch_lembong, torch_makassar, torch_malang,
+      torch_margonda, torch_medan, torch_pekalongan, torch_purwokerto,
+      torch_surabaya, torch_tambun,
       status,
     } = body;
 
-    // Get all bundling data to find the row index
     const bundlings = await getSheetData('master_bundling');
     const bundlingIndex = bundlings.findIndex((b: any) => b.id === id);
-    
+
     if (bundlingIndex === -1) {
-      return NextResponse.json(
-        { error: 'Bundling not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Bundling not found' }, { status: 404 });
     }
 
     const bundling = bundlings[bundlingIndex];
-    const rowIndex = bundlingIndex + 2; // +2 for header and 0-based index
+    const rowIndex = bundlingIndex + 2;
     const now = new Date().toISOString();
 
     const updatedRow = [
@@ -150,6 +124,12 @@ export async function PUT(request: NextRequest) {
       option_4 || '',
       option_5 || '',
       option_6 || '',
+      discount_1 || '0',
+      discount_2 || '0',
+      discount_3 || '0',
+      discount_4 || '0',
+      discount_5 || '0',
+      discount_6 || '0',
       total_value,
       discount_percentage,
       discount_value,
@@ -191,27 +171,19 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json(
-        { error: 'ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    // Get all bundling data
     const bundlings = await getSheetData('master_bundling');
     const bundlingIndex = bundlings.findIndex((b: any) => b.id === id);
-    
+
     if (bundlingIndex === -1) {
-      return NextResponse.json(
-        { error: 'Bundling not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Bundling not found' }, { status: 404 });
     }
 
     const rowIndex = bundlingIndex + 2;
-    
-    // Update status to 'deleted' instead of actually deleting
     const bundling = bundlings[bundlingIndex];
+
     const updatedRow = [
       bundling.id,
       bundling.bundling_name,
@@ -221,6 +193,12 @@ export async function DELETE(request: NextRequest) {
       bundling.option_4 || '',
       bundling.option_5 || '',
       bundling.option_6 || '',
+      bundling.discount_1 || '0',
+      bundling.discount_2 || '0',
+      bundling.discount_3 || '0',
+      bundling.discount_4 || '0',
+      bundling.discount_5 || '0',
+      bundling.discount_6 || '0',
       bundling.total_value,
       bundling.discount_percentage,
       bundling.discount_value,
