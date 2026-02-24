@@ -42,7 +42,6 @@ interface JavelinInventoryRecord {
 function cleanCookie(cookie: string): string {
   if (!cookie) return cookie;
   
-  // If cookie has metadata (Path, Expires, etc), extract just the sess= part
   if (cookie.includes(';')) {
     const parts = cookie.split(';');
     for (const part of parts) {
@@ -64,7 +63,6 @@ async function getJavelinAuthentication(cookie: string): Promise<JavelinAuthResp
   try {
     const cleanedCookie = cleanCookie(cookie);
     
-    // Step 1: Get code and verifier
     const codeUrl = `https://torch.javelin-apps.com/sess/code?c=${Date.now()}`;
     
     const codeResponse = await fetch(codeUrl, {
@@ -82,7 +80,6 @@ async function getJavelinAuthentication(cookie: string): Promise<JavelinAuthResp
     const codeData = await codeResponse.json();
     const { code, verifier } = codeData;
     
-    // Step 2: Login to get session tokens
     const loginUrl = 'https://torch.javelin-apps.com/v2/login';
     
     const loginResponse = await fetch(loginUrl, {
@@ -169,23 +166,12 @@ async function getJavelinInventory(cookie: string): Promise<JavelinInventoryReco
     const rawData = data.out_record;
     const parsedData = JSON.parse(rawData);
     
+    console.log(`   Retrieved ${parsedData.length} records from Javelin API`);
     return parsedData;
   } catch (error) {
     console.error('Fetch inventory error:', error);
     throw error;
   }
-}
-
-/**
- * Filter inventory data for PCA stock
- */
-function filterInventoryData(data: JavelinInventoryRecord[]): JavelinInventoryRecord[] {
-  return data.filter(item => {
-    const locationType = (item.location_type || '').toUpperCase();
-    const stockType = (item.stock_type || '').toUpperCase();
-    
-    return ['BULK', 'CAB', 'PICK', 'RECV'].includes(locationType) && stockType === 'AV';
-  });
 }
 
 /**
@@ -288,13 +274,11 @@ async function updateGoogleSheet(data: any[][], sheetName: string = 'javelin'): 
       throw new Error('SPREADSHEET_STOCK not set');
     }
     
-    // Clear existing data
     await sheets.spreadsheets.values.clear({
       spreadsheetId,
       range: `${sheetName}!A1:ZZ`,
     });
     
-    // Update with new data
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: `${sheetName}!A1`,
@@ -305,7 +289,7 @@ async function updateGoogleSheet(data: any[][], sheetName: string = 'javelin'): 
     });
     
     console.log(`Successfully updated ${data.length - 1} rows to sheet '${sheetName}'`);
-    return data.length - 1; // Exclude header
+    return data.length - 1;
   } catch (error) {
     console.error('Error updating Google Sheet:', error);
     throw error;
@@ -329,7 +313,6 @@ async function updateLastUpdateSheet(): Promise<void> {
       throw new Error('SPREADSHEET_STOCK not set');
     }
     
-    // Get current data
     let existingData: Record<string, string> = {};
     try {
       const response = await sheets.spreadsheets.values.get({
@@ -349,7 +332,6 @@ async function updateLastUpdateSheet(): Promise<void> {
       // Sheet doesn't exist or is empty
     }
     
-    // Format timestamp in Jakarta timezone
     const now = new Date();
     const jakartaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
     
@@ -362,22 +344,18 @@ async function updateLastUpdateSheet(): Promise<void> {
     
     const dateStr = `${day} ${month} ${year}, ${hours}:${minutes}`;
     
-    // Update Javelin timestamp
     existingData['Javelin'] = dateStr;
     
-    // Ensure ERP exists
     if (!existingData['ERP']) {
       existingData['ERP'] = '-';
     }
     
-    // Prepare data
     const values = [
       ['type', 'last_update'],
       ['ERP', existingData['ERP']],
       ['Javelin', existingData['Javelin']],
     ];
     
-    // Clear and update
     await sheets.spreadsheets.values.clear({
       spreadsheetId,
       range: 'last_update!A1:B',
@@ -393,7 +371,6 @@ async function updateLastUpdateSheet(): Promise<void> {
     console.log(`Updated last_update sheet with timestamp: ${dateStr}`);
   } catch (error) {
     console.error('Error updating last_update sheet:', error);
-    // Don't throw - this is not critical
   }
 }
 
@@ -404,32 +381,21 @@ export async function refreshJavelinInventory(cookie: string): Promise<{ success
   try {
     console.log('Starting Javelin inventory refresh...');
     
-    // Step 1: Fetch data from Javelin
     console.log('1. Fetching data from Javelin API...');
     const rawData = await getJavelinInventory(cookie);
-    console.log(`   Retrieved ${rawData.length} raw inventory records`);
     
-    // Step 2: Filter data
-    console.log('2. Filtering data (BULK, CAB, PICK, RECV + AV only)...');
-    const filteredData = filterInventoryData(rawData);
-    console.log(`   Filtered to ${filteredData.length} records`);
-    
-    if (filteredData.length === 0) {
-      console.log('   WARNING: No data matches filter criteria!');
-      return { success: false, message: 'No data matches filter criteria', rows: 0 };
+    if (rawData.length === 0) {
+      return { success: false, message: 'No data returned from Javelin API', rows: 0 };
     }
     
-    // Step 3: Format for sheets
-    console.log('3. Formatting data for Google Sheets...');
-    const formattedData = formatForSheets(filteredData);
+    console.log('2. Formatting data for Google Sheets...');
+    const formattedData = formatForSheets(rawData);
     console.log(`   Formatted ${formattedData.length - 1} rows with ${formattedData[0].length} columns`);
     
-    // Step 4: Update Google Sheet
-    console.log('4. Updating Google Sheet...');
+    console.log('3. Updating Google Sheet...');
     const rowsUpdated = await updateGoogleSheet(formattedData, 'javelin');
     
-    // Step 5: Update last_update sheet
-    console.log('5. Updating last_update sheet...');
+    console.log('4. Updating last_update sheet...');
     await updateLastUpdateSheet();
     
     console.log('✅ SUCCESS!');

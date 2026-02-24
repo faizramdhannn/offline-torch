@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, updateSheetRowSkipColumns } from '@/lib/sheets';
 
-// Kolom di sheet master_bundling:
-// A–R  (1–18)  : id, bundling_name, option_1–6, discount_1–6, total_value, disc_pct, disc_val, value
-// S–AF (19–32) : torch_cirebon s/d torch_tambun ← RUMUS, jangan disentuh
-// AG   (33)    : status
-// AH   (34)    : created_at
-// AI   (35)    : updated_at
-
 const TORCH_SKIP_COUNT = 14;
 
 function buildBeforeData(fields: {
