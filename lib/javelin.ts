@@ -19,21 +19,6 @@ interface JavelinInventoryRecord {
   base_qty?: string;
   base_uom?: string;
   stock_type?: string;
-  pick_qty?: string;
-  put_qty?: string;
-  aval_qty?: string;
-  storage_unit?: string;
-  last_movement_id?: string;
-  posting_date?: string;
-  product_group?: string;
-  product_type?: string;
-  product_section?: string;
-  aging_posting?: string;
-  aging_expiry?: string;
-  gross_weight?: string;
-  volume?: string;
-  update_by?: string;
-  update_time?: string;
 }
 
 /**
@@ -41,7 +26,7 @@ interface JavelinInventoryRecord {
  */
 function cleanCookie(cookie: string): string {
   if (!cookie) return cookie;
-  
+
   if (cookie.includes(';')) {
     const parts = cookie.split(';');
     for (const part of parts) {
@@ -52,7 +37,7 @@ function cleanCookie(cookie: string): string {
     }
     return parts[0].trim();
   }
-  
+
   return cookie.trim();
 }
 
@@ -62,33 +47,33 @@ function cleanCookie(cookie: string): string {
 async function getJavelinAuthentication(cookie: string): Promise<JavelinAuthResponse> {
   try {
     const cleanedCookie = cleanCookie(cookie);
-    
+
     const codeUrl = `https://torch.javelin-apps.com/sess/code?c=${Date.now()}`;
-    
+
     const codeResponse = await fetch(codeUrl, {
       headers: {
-        'accept': 'application/json',
-        'cookie': cleanedCookie,
+        accept: 'application/json',
+        cookie: cleanedCookie,
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
     });
-    
+
     if (!codeResponse.ok) {
       throw new Error(`Failed to get code: ${codeResponse.status}`);
     }
-    
+
     const codeData = await codeResponse.json();
     const { code, verifier } = codeData;
-    
+
     const loginUrl = 'https://torch.javelin-apps.com/v2/login';
-    
+
     const loginResponse = await fetch(loginUrl, {
       method: 'POST',
       headers: {
-        'accept': 'application/json',
-        'authorization': '982394jlksjdfjkh340884lsdfjsldkfisuerwjfds823498234xpudfs',
+        accept: 'application/json',
+        authorization: '982394jlksjdfjkh340884lsdfjsldkfisuerwjfds823498234xpudfs',
         'content-type': 'application/json',
-        'cookie': cleanedCookie,
+        cookie: cleanedCookie,
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
       body: JSON.stringify({
@@ -107,17 +92,17 @@ async function getJavelinAuthentication(cookie: string): Promise<JavelinAuthResp
         utc_offset: '420',
       }),
     });
-    
+
     if (!loginResponse.ok) {
       throw new Error(`Login failed: ${loginResponse.status}`);
     }
-    
+
     const loginData = await loginResponse.json();
-    
+
     if (!loginData.p_user_id) {
       throw new Error('Login response missing p_user_id');
     }
-    
+
     return {
       p_user_id: loginData.p_user_id,
       p_session_key: loginData.p_session_key,
@@ -135,16 +120,16 @@ async function getJavelinAuthentication(cookie: string): Promise<JavelinAuthResp
 async function getJavelinInventory(cookie: string): Promise<JavelinInventoryRecord[]> {
   try {
     const auth = await getJavelinAuthentication(cookie);
-    
+
     const inventoryUrl = 'https://torch.javelin-apps.com/v2/inventory_list';
-    
+
     const response = await fetch(inventoryUrl, {
       method: 'POST',
       headers: {
-        'accept': 'application/json',
-        'authorization': auth.p_session_token,
+        accept: 'application/json',
+        authorization: auth.p_session_token,
         'content-type': 'application/json',
-        'cookie': cleanCookie(cookie),
+        cookie: cleanCookie(cookie),
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
       body: JSON.stringify({
@@ -157,15 +142,15 @@ async function getJavelinInventory(cookie: string): Promise<JavelinInventoryReco
         },
       }),
     });
-    
+
     if (!response.ok) {
       throw new Error(`Fetch inventory failed: ${response.status}`);
     }
-    
+
     const data = await response.json();
     const rawData = data.out_record;
     const parsedData = JSON.parse(rawData);
-    
+
     console.log(`   Retrieved ${parsedData.length} records from Javelin API`);
     return parsedData;
   } catch (error) {
@@ -181,7 +166,7 @@ function convertTimestamp(timestamp: string | undefined): string {
   if (!timestamp || timestamp === '' || timestamp === '0') {
     return '';
   }
-  
+
   try {
     const date = new Date(parseInt(timestamp) * 1000);
     return date.toISOString().replace('T', ' ').substring(0, 19);
@@ -191,7 +176,7 @@ function convertTimestamp(timestamp: string | undefined): string {
 }
 
 /**
- * Format data for Google Sheets
+ * Format data for Google Sheets (only up to stock_type)
  */
 function formatForSheets(data: JavelinInventoryRecord[]): any[][] {
   const headers = [
@@ -207,23 +192,8 @@ function formatForSheets(data: JavelinInventoryRecord[]): any[][] {
     'Base Qty',
     'Base Uom',
     'Stock Type',
-    'Pick Qty',
-    'Put Qty',
-    'Aval Qty',
-    'Storage Unit',
-    'Last Movement ID',
-    'Posting Date',
-    'Product Group',
-    'Product Type',
-    'Product Section',
-    'Aging Posting',
-    'Aging Expiry',
-    'Gross Weight (KG)',
-    'Volume (M3)',
-    'Update By',
-    'Update Time',
   ];
-  
+
   const rows = data.map(item => [
     item.warehouse_id || '',
     item.location_type || '',
@@ -237,30 +207,67 @@ function formatForSheets(data: JavelinInventoryRecord[]): any[][] {
     item.base_qty || '',
     item.base_uom || '',
     item.stock_type || '',
-    item.pick_qty || '',
-    item.put_qty || '',
-    item.aval_qty || '',
-    item.storage_unit || '',
-    convertTimestamp(item.last_movement_id),
-    convertTimestamp(item.posting_date),
-    item.product_group || '',
-    item.product_type || '',
-    item.product_section || '',
-    item.aging_posting || '',
-    item.aging_expiry || '',
-    item.gross_weight || '',
-    item.volume || '',
-    item.update_by || '',
-    convertTimestamp(item.update_time),
   ]);
-  
+
   return [headers, ...rows];
+}
+
+/**
+ * Get sheet ID by name
+ */
+async function getSheetId(
+  sheets: any,
+  spreadsheetId: string,
+  sheetName: string
+): Promise<number> {
+  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
+  const sheet = spreadsheet.data.sheets?.find(
+    (s: any) => s.properties?.title === sheetName
+  );
+
+  if (!sheet) {
+    throw new Error(`Sheet '${sheetName}' not found`);
+  }
+
+  return sheet.properties.sheetId;
+}
+
+/**
+ * Ensure sheet has enough rows, extend if needed
+ */
+async function ensureSheetCapacity(
+  sheets: any,
+  spreadsheetId: string,
+  sheetName: string,
+  requiredRows: number
+): Promise<void> {
+  const sheetId = await getSheetId(sheets, spreadsheetId, sheetName);
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          appendDimension: {
+            sheetId,
+            dimension: 'ROWS',
+            length: requiredRows + 1000, // tambah buffer 1000
+          },
+        },
+      ],
+    },
+  });
+
+  console.log(`   Ensured sheet capacity: ${requiredRows + 1000} rows`);
 }
 
 /**
  * Update Google Sheet with new data
  */
-async function updateGoogleSheet(data: any[][], sheetName: string = 'javelin'): Promise<number> {
+async function updateGoogleSheet(
+  data: any[][],
+  sheetName: string = 'javelin'
+): Promise<number> {
   try {
     const auth = new google.auth.GoogleAuth({
       credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
@@ -269,16 +276,21 @@ async function updateGoogleSheet(data: any[][], sheetName: string = 'javelin'): 
 
     const sheets = google.sheets({ version: 'v4', auth });
     const spreadsheetId = process.env.SPREADSHEET_STOCK;
-    
+
     if (!spreadsheetId) {
       throw new Error('SPREADSHEET_STOCK not set');
     }
-    
+
+    // Pastikan sheet punya cukup baris sebelum update
+    await ensureSheetCapacity(sheets, spreadsheetId, sheetName, data.length);
+
+    // Clear existing data
     await sheets.spreadsheets.values.clear({
       spreadsheetId,
       range: `${sheetName}!A1:ZZ`,
     });
-    
+
+    // Upload semua data sekaligus (aman karena hanya 12 kolom)
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: `${sheetName}!A1`,
@@ -287,7 +299,7 @@ async function updateGoogleSheet(data: any[][], sheetName: string = 'javelin'): 
         values: data,
       },
     });
-    
+
     console.log(`Successfully updated ${data.length - 1} rows to sheet '${sheetName}'`);
     return data.length - 1;
   } catch (error) {
@@ -308,18 +320,18 @@ async function updateLastUpdateSheet(): Promise<void> {
 
     const sheets = google.sheets({ version: 'v4', auth });
     const spreadsheetId = process.env.SPREADSHEET_STOCK;
-    
+
     if (!spreadsheetId) {
       throw new Error('SPREADSHEET_STOCK not set');
     }
-    
+
     let existingData: Record<string, string> = {};
     try {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId,
         range: 'last_update!A1:B',
       });
-      
+
       const rows = response.data.values || [];
       if (rows.length > 1) {
         rows.slice(1).forEach(row => {
@@ -331,43 +343,43 @@ async function updateLastUpdateSheet(): Promise<void> {
     } catch {
       // Sheet doesn't exist or is empty
     }
-    
+
     const now = new Date();
     const jakartaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
-    
+
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
     const day = jakartaTime.getDate().toString().padStart(2, '0');
     const month = months[jakartaTime.getMonth()];
     const year = jakartaTime.getFullYear();
     const hours = jakartaTime.getHours().toString().padStart(2, '0');
     const minutes = jakartaTime.getMinutes().toString().padStart(2, '0');
-    
+
     const dateStr = `${day} ${month} ${year}, ${hours}:${minutes}`;
-    
+
     existingData['Javelin'] = dateStr;
-    
+
     if (!existingData['ERP']) {
       existingData['ERP'] = '-';
     }
-    
+
     const values = [
       ['type', 'last_update'],
       ['ERP', existingData['ERP']],
       ['Javelin', existingData['Javelin']],
     ];
-    
+
     await sheets.spreadsheets.values.clear({
       spreadsheetId,
       range: 'last_update!A1:B',
     });
-    
+
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: 'last_update!A1',
       valueInputOption: 'RAW',
       requestBody: { values },
     });
-    
+
     console.log(`Updated last_update sheet with timestamp: ${dateStr}`);
   } catch (error) {
     console.error('Error updating last_update sheet:', error);
@@ -377,30 +389,32 @@ async function updateLastUpdateSheet(): Promise<void> {
 /**
  * Main function to refresh Javelin inventory
  */
-export async function refreshJavelinInventory(cookie: string): Promise<{ success: boolean; message: string; rows: number }> {
+export async function refreshJavelinInventory(
+  cookie: string
+): Promise<{ success: boolean; message: string; rows: number }> {
   try {
     console.log('Starting Javelin inventory refresh...');
-    
+
     console.log('1. Fetching data from Javelin API...');
     const rawData = await getJavelinInventory(cookie);
-    
+
     if (rawData.length === 0) {
       return { success: false, message: 'No data returned from Javelin API', rows: 0 };
     }
-    
+
     console.log('2. Formatting data for Google Sheets...');
     const formattedData = formatForSheets(rawData);
     console.log(`   Formatted ${formattedData.length - 1} rows with ${formattedData[0].length} columns`);
-    
+
     console.log('3. Updating Google Sheet...');
     const rowsUpdated = await updateGoogleSheet(formattedData, 'javelin');
-    
+
     console.log('4. Updating last_update sheet...');
     await updateLastUpdateSheet();
-    
+
     console.log('✅ SUCCESS!');
     console.log(`   Total rows imported: ${rowsUpdated}`);
-    
+
     return {
       success: true,
       message: 'Javelin inventory refreshed successfully',
