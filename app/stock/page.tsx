@@ -804,10 +804,10 @@ export default function StockPage() {
                           );
                           const color =
                             entry.stock === maxStock
-                              ? "#2563eb"
+                              ? "#3de400"
                               : entry.stock === minStock && entry.stock > 0
-                              ? "#fbbf24"
-                              : "#bfdbfe";
+                              ? "#e20000"
+                              : "#cbe2ff";
                           return <Cell key={index} fill={color} />;
                         })}
                       </Bar>
