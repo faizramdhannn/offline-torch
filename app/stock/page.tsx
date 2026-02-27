@@ -757,6 +757,12 @@ export default function StockPage() {
                       {chartData.reduce((s, d) => s + d.stock, 0).toLocaleString()}
                     </span>
                   </div>
+                  <div className="text-xs text-gray-500">
+                    Total SKU:{" "}
+                    <span className="font-bold text-gray-800">
+                      {chartData.reduce((s, d) => s + d.sku, 0).toLocaleString()}
+                    </span>
+                  </div>
                 </div>
 
                 {/* STORE MODE */}
@@ -849,23 +855,34 @@ export default function StockPage() {
                           <Tooltip
                             content={({ active, payload, label }) => {
                               if (active && payload && payload.length) {
-                                const filtered = payload.filter((p) => Number(p.value) > 0);
-                                if (!filtered.length) return null;
+                                const half = Math.ceil(payload.length / 2);
+                                const col1 = payload.slice(0, half);
+                                const col2 = payload.slice(half);
                                 return (
-                                  <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-xs max-w-[200px]">
-                                    <p className="font-semibold text-gray-800 mb-1.5">{label}</p>
-                                    {filtered.map((p, i) => (
-                                      <div key={i} className="flex items-center gap-1.5 mb-0.5">
-                                        <span
-                                          className="w-2 h-2 rounded-full flex-shrink-0"
-                                          style={{ backgroundColor: p.color }}
-                                        />
-                                        <span className="text-gray-600 truncate">{p.dataKey}:</span>
-                                        <span className="font-bold text-gray-800 ml-auto pl-2">
-                                          {Number(p.value).toLocaleString()}
-                                        </span>
+                                  <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-xs">
+                                    <p className="font-semibold text-gray-800 mb-2">{label}</p>
+                                    <div className="flex gap-5">
+                                      <div className="flex flex-col gap-0.5">
+                                        {col1.map((p, i) => (
+                                          <div key={i} className="flex items-center gap-1.5">
+                                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+                                            <span className={`w-20 truncate ${Number(p.value) === 0 ? "text-gray-300" : "text-gray-600"}`}>{p.dataKey}:</span>
+                                            <span className={`w-8 text-right font-bold ${Number(p.value) === 0 ? "text-gray-300" : "text-gray-800"}`}>{Number(p.value).toLocaleString()}</span>
+                                          </div>
+                                        ))}
                                       </div>
-                                    ))}
+                                      {col2.length > 0 && (
+                                        <div className="flex flex-col gap-0.5">
+                                          {col2.map((p, i) => (
+                                            <div key={i} className="flex items-center gap-1.5">
+                                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+                                              <span className={`w-20 truncate ${Number(p.value) === 0 ? "text-gray-300" : "text-gray-600"}`}>{p.dataKey}:</span>
+                                              <span className={`w-8 text-right font-bold ${Number(p.value) === 0 ? "text-gray-300" : "text-gray-800"}`}>{Number(p.value).toLocaleString()}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 );
                               }
