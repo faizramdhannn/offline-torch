@@ -6,6 +6,16 @@ import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 
 interface StockItem {
   link_url?: string;
@@ -35,6 +45,63 @@ interface LastUpdate {
   last_update: string;
 }
 
+const WAREHOUSES = [
+  { name: "Margonda",   key: "Torch Margonda - T" },
+  { name: "Karawaci",   key: "Torch Karawaci - T" },
+  { name: "Jogja",      key: "Torch Jogja - T" },
+  { name: "Medan",      key: "Torch Store Medan - T" },
+  { name: "Makassar",   key: "Torch Makassar - T" },
+  { name: "Tambun",     key: "Torch Tambun - T" },
+  { name: "Malang",     key: "Torch Malang - T" },
+  { name: "Lampung",    key: "Torch Lampung - T" },
+  { name: "Surabaya",   key: "Torch Surabaya - T" },
+  { name: "Lembong",    key: "Torch Store Lembong - T" },
+  { name: "Karawang",   key: "Torch Karawang - T" },
+  { name: "Cirebon",    key: "Torch Store Cirebon - T" },
+  { name: "Pekalongan", key: "Torch Pekalongan - T" },
+  { name: "Purwokerto", key: "Torch Purwokerto - T" },
+];
+
+const CustomXTick = ({ x, y, payload }: any) => {
+  const name: string = payload.value || "";
+  const maxLen = 11;
+  const label = name.length > maxLen ? name.slice(0, maxLen) + "…" : name;
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        x={0}
+        y={0}
+        dy={12}
+        textAnchor="middle"
+        fill="#9ca3af"
+        fontSize={8.5}
+      >
+        {label}
+      </text>
+    </g>
+  );
+};
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-xs">
+        <p className="font-semibold text-gray-800 mb-1.5">{label}</p>
+        <div className="flex flex-col gap-0.5">
+          <p className="text-blue-600">
+            Stock: <span className="font-bold">{payload[0].value.toLocaleString()}</span>
+          </p>
+          <p className="text-gray-400">
+            SKU: <span className="font-semibold text-gray-600">{payload[0].payload.sku}</span>
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function StockPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -45,9 +112,7 @@ export default function StockPage() {
   const [grades, setGrades] = useState<string[]>([]);
   const [warehouses, setWarehouses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedView, setSelectedView] = useState<"store" | "pca" | "master">(
-    "store",
-  );
+  const [selectedView, setSelectedView] = useState<"store" | "pca" | "master">("store");
 
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [gradeFilter, setGradeFilter] = useState<string[]>([]);
@@ -69,6 +134,7 @@ export default function StockPage() {
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
 
+  const [chartMode, setChartMode] = useState<"store" | "category">("store");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
@@ -114,7 +180,6 @@ export default function StockPage() {
     }
     setUser(parsedUser);
 
-    // Set default view based on permissions
     if (parsedUser.stock_view_store) {
       setSelectedView("store");
     } else if (parsedUser.stock_view_pca) {
@@ -133,14 +198,7 @@ export default function StockPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [
-    categoryFilter,
-    gradeFilter,
-    warehouseFilter,
-    hpjFilter,
-    searchQuery,
-    data,
-  ]);
+  }, [categoryFilter, gradeFilter, warehouseFilter, hpjFilter, searchQuery, data]);
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);
@@ -155,10 +213,8 @@ export default function StockPage() {
       if (selectedView === "pca") sheetName = "pca_stock";
       if (selectedView === "master") sheetName = "master_item";
 
-      console.log("Fetching data for:", sheetName);
       const response = await fetch(`/api/stock?type=${sheetName}`);
       const result = await response.json();
-      console.log("Data received:", result.length, "items");
 
       const normalizedData = result.map((item: any) => ({
         ...item,
@@ -280,9 +336,7 @@ export default function StockPage() {
     let filtered = [...data];
 
     if (categoryFilter.length > 0) {
-      filtered = filtered.filter((item) =>
-        categoryFilter.includes(item.category),
-      );
+      filtered = filtered.filter((item) => categoryFilter.includes(item.category));
     }
 
     if (gradeFilter.length > 0) {
@@ -316,14 +370,8 @@ export default function StockPage() {
       filtered.sort((a, b) => {
         const stockA = parseInt(a.stock?.replace(/[^0-9]/g, "") || "0");
         const stockB = parseInt(b.stock?.replace(/[^0-9]/g, "") || "0");
-
-        if (stockB !== stockA) {
-          return stockB - stockA;
-        }
-
-        const gradeA = a.grade || "";
-        const gradeB = b.grade || "";
-        return gradeA.localeCompare(gradeB);
+        if (stockB !== stockA) return stockB - stockA;
+        return (a.grade || "").localeCompare(b.grade || "");
       });
     }
 
@@ -343,9 +391,7 @@ export default function StockPage() {
 
   const toggleCategory = (category: string) => {
     setCategoryFilter((prev) =>
-      prev.includes(category)
-        ? prev.filter((c) => c !== category)
-        : [...prev, category],
+      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category],
     );
   };
 
@@ -372,9 +418,7 @@ export default function StockPage() {
             parsedData = parsedData.filter(
               (row) =>
                 Array.isArray(row) &&
-                row.some(
-                  (cell) => cell !== null && cell !== undefined && cell !== "",
-                ),
+                row.some((cell) => cell !== null && cell !== undefined && cell !== ""),
             );
             resolve(parsedData);
           },
@@ -390,15 +434,11 @@ export default function StockPage() {
             const workbook = XLSX.read(data, { type: "binary" });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
-            let jsonData = XLSX.utils.sheet_to_json(worksheet, {
-              header: 1,
-            }) as any[][];
+            let jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
             jsonData = jsonData.filter(
               (row) =>
                 Array.isArray(row) &&
-                row.some(
-                  (cell) => cell !== null && cell !== undefined && cell !== "",
-                ),
+                row.some((cell) => cell !== null && cell !== undefined && cell !== ""),
             );
             resolve(jsonData);
           } catch (error) {
@@ -433,12 +473,8 @@ export default function StockPage() {
             const response = await fetch("/api/stock/import", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                sheetName: "erp_stock_balance",
-                data: parsedData,
-              }),
+              body: JSON.stringify({ sheetName: "erp_stock_balance", data: parsedData }),
             });
-
             if (response.ok) {
               const result = await response.json();
               results.push(`ERP Stock: ${result.rowsImported} rows imported`);
@@ -447,9 +483,7 @@ export default function StockPage() {
             }
           }
         } catch (error) {
-          errors.push(
-            `ERP Stock: ${error instanceof Error ? error.message : "Import failed"}`,
-          );
+          errors.push(`ERP Stock: ${error instanceof Error ? error.message : "Import failed"}`);
         }
       }
 
@@ -464,7 +498,6 @@ export default function StockPage() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ sheetName: "javelin", data: parsedData }),
             });
-
             if (response.ok) {
               const result = await response.json();
               results.push(`Javelin: ${result.rowsImported} rows imported`);
@@ -473,19 +506,13 @@ export default function StockPage() {
             }
           }
         } catch (error) {
-          errors.push(
-            `Javelin: ${error instanceof Error ? error.message : "Import failed"}`,
-          );
+          errors.push(`Javelin: ${error instanceof Error ? error.message : "Import failed"}`);
         }
       }
 
       let message = "";
-      if (results.length > 0) {
-        message += "Success:\n" + results.join("\n");
-      }
-      if (errors.length > 0) {
-        message += (message ? "\n\n" : "") + "Errors:\n" + errors.join("\n");
-      }
+      if (results.length > 0) message += "Success:\n" + results.join("\n");
+      if (errors.length > 0) message += (message ? "\n\n" : "") + "Errors:\n" + errors.join("\n");
 
       await logActivity("POST", `Imported stock data: ${results.join(", ")}`);
       showMessage(
@@ -516,24 +543,11 @@ export default function StockPage() {
         Grade: toProperCase(item.grade),
       };
 
-      if (selectedView !== "master") {
-        base["Stock"] = item.stock;
-      }
-
-      if (selectedView === "store") {
-        base["Warehouse"] = item.warehouse;
-      }
-
-      // Only add price columns if user has permission
-      if (user?.stock_view_hpp) {
-        base["HPP"] = item.hpp;
-      }
-      if (user?.stock_view_hpt) {
-        base["HPT"] = item.hpt;
-      }
-      if (user?.stock_view_hpj) {
-        base["HPJ"] = item.hpj;
-      }
+      if (selectedView !== "master") base["Stock"] = item.stock;
+      if (selectedView === "store") base["Warehouse"] = item.warehouse;
+      if (user?.stock_view_hpp) base["HPP"] = item.hpp;
+      if (user?.stock_view_hpt) base["HPT"] = item.hpt;
+      if (user?.stock_view_hpj) base["HPJ"] = item.hpj;
 
       return base;
     });
@@ -541,22 +555,54 @@ export default function StockPage() {
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Stock");
-    XLSX.writeFile(
-      wb,
-      `stock_${selectedView}_${new Date().toISOString().split("T")[0]}.xlsx`,
-    );
-    logActivity(
-      "GET",
-      `Exported stock data (${selectedView} view): ${filteredData.length} items`,
-    );
+    XLSX.writeFile(wb, `stock_${selectedView}_${new Date().toISOString().split("T")[0]}.xlsx`);
+    logActivity("GET", `Exported stock data (${selectedView} view): ${filteredData.length} items`);
   };
+
+  // Chart data - store mode
+  const chartData = WAREHOUSES.map((wh) => {
+    const whData = filteredData.filter(
+      (item) => (item.warehouse || "").toString().trim() === wh.key,
+    );
+    const totalStock = whData.reduce((sum, item) => {
+      return sum + (parseInt((item.stock || "0").toString().replace(/[^0-9-]/g, "")) || 0);
+    }, 0);
+    return { name: wh.name, stock: totalStock, sku: whData.length };
+  });
+
+  const maxStock = Math.max(...chartData.map((d) => d.stock), 1);
+
+  // Chart data - category mode: each group = category, each bar = warehouse
+  const uniqueCategories = [...new Set(
+    filteredData.map((item) => item.category).filter(Boolean)
+  )].sort() as string[];
+
+  const WAREHOUSE_COLORS = [
+    "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#16a34a",
+    "#0891b2", "#ca8a04", "#9333ea", "#e11d48", "#65a30d",
+    "#0284c7", "#b45309", "#4f46e5", "#059669",
+  ];
+
+  const categoryChartData = uniqueCategories.map((cat) => {
+    const row: any = { name: cat };
+    WAREHOUSES.forEach((wh) => {
+      const whCatData = filteredData.filter(
+        (item) =>
+          (item.warehouse || "").toString().trim() === wh.key &&
+          item.category === cat
+      );
+      row[wh.name] = whCatData.reduce((sum, item) => {
+        return sum + (parseInt((item.stock || "0").toString().replace(/[^0-9-]/g, "")) || 0);
+      }, 0);
+    });
+    return row;
+  });
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
-  // Check if user can see any view
   const canSeeAnyView =
     user?.stock_view_store || user?.stock_view_pca || user?.stock_view_master;
 
@@ -569,9 +615,7 @@ export default function StockPage() {
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center text-gray-500">
             <p className="text-lg font-semibold mb-2">No View Access</p>
-            <p className="text-sm">
-              You don't have permission to view any stock data.
-            </p>
+            <p className="text-sm">You don't have permission to view any stock data.</p>
             <p className="text-sm">Please contact administrator.</p>
           </div>
         </div>
@@ -585,9 +629,7 @@ export default function StockPage() {
 
       <div className="flex-1 overflow-auto">
         <div className="p-6">
-          <h1 className="text-2xl font-bold text-primary mb-6">
-            Stock Management
-          </h1>
+          <h1 className="text-2xl font-bold text-primary mb-6">Stock Management</h1>
 
           {/* Import/Export & Last Update & Refresh Javelin */}
           <div className="bg-white rounded-lg shadow p-4 mb-4">
@@ -622,19 +664,16 @@ export default function StockPage() {
               <div className="text-xs text-gray-600">
                 {lastUpdate.map((lu) => (
                   <div key={lu.type}>
-                    <span className="font-semibold">{lu.type}:</span>{" "}
-                    {lu.last_update}
+                    <span className="font-semibold">{lu.type}:</span> {lu.last_update}
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* View Selection - Only show tabs user has access to */}
+          {/* View Selection */}
           <div className="bg-white rounded-lg shadow p-4 mb-4">
-            <label className="block text-xs font-medium text-gray-700 mb-2">
-              Select View
-            </label>
+            <label className="block text-xs font-medium text-gray-700 mb-2">Select View</label>
             <div className="flex gap-2">
               {user.stock_view_store && (
                 <button
@@ -675,228 +714,334 @@ export default function StockPage() {
             </div>
           </div>
 
-          {/* Filters */}
+          {/* Chart + Filters - gabungan satu card */}
           <div className="bg-white rounded-lg shadow p-4 mb-4">
-            <div className="grid grid-cols-6 gap-3 mb-3">
-              <div className="relative" ref={categoryDropdownRef}>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Category
-                </label>
-                <button
-                  onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
-                >
-                  <span className="text-gray-500">
-                    {categoryFilter.length === 0
-                      ? "All"
-                      : `${categoryFilter.length} selected`}
-                  </span>
-                  <span className="text-gray-400">▼</span>
-                </button>
-                {showCategoryDropdown && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
-                    {categories.map((category) => (
-                      <label
-                        key={category}
-                        className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={categoryFilter.includes(category)}
-                          onChange={() => toggleCategory(category)}
-                          className="mr-2"
-                        />
-                        {category}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
 
-              <div className="relative" ref={gradeDropdownRef}>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Grade
-                </label>
-                <button
-                  onClick={() => setShowGradeDropdown(!showGradeDropdown)}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
-                >
-                  <span className="text-gray-500">
-                    {gradeFilter.length === 0
-                      ? "All"
-                      : `${gradeFilter.length} selected`}
-                  </span>
-                  <span className="text-gray-400">▼</span>
-                </button>
-                {showGradeDropdown && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
-                    {grades.map((grade) => (
-                      <label
-                        key={grade}
-                        className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={gradeFilter.includes(grade)}
-                          onChange={() => toggleGrade(grade)}
-                          className="mr-2"
-                        />
-                        {grade}
-                      </label>
-                    ))}
+            {/* Warehouse Chart - hanya tampil di view store */}
+            {selectedView === "store" && (
+              <div className="mb-5">
+                {/* Header with toggle */}
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-700">
+                    Stock Summary by Warehouse
+                  </h3>
+                  <div className="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
+                    <button
+                      onClick={() => setChartMode("store")}
+                      className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                        chartMode === "store"
+                          ? "bg-white text-blue-600 shadow-sm"
+                          : "text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      Store
+                    </button>
+                    <button
+                      onClick={() => setChartMode("category")}
+                      className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                        chartMode === "category"
+                          ? "bg-white text-blue-600 shadow-sm"
+                          : "text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      Category
+                    </button>
                   </div>
-                )}
-              </div>
+                </div>
 
-              {selectedView === "store" && (
-                <div className="relative" ref={warehouseDropdownRef}>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Warehouse
-                  </label>
+                {/* Summary totals */}
+                <div className="flex gap-4 mb-3">
+                  <div className="text-xs text-gray-500">
+                    Total Stock:{" "}
+                    <span className="font-bold text-gray-800">
+                      {chartData.reduce((s, d) => s + d.stock, 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* STORE MODE */}
+                {chartMode === "store" && (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart
+                      data={chartData}
+                      margin={{ top: 16, right: 4, left: 0, bottom: 0 }}
+                      barCategoryGap="30%"
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                      <XAxis
+                        dataKey="name"
+                        tick={<CustomXTick />}
+                        axisLine={false}
+                        tickLine={false}
+                        interval={0}
+                        height={24}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 9, fill: "#9ca3af" }}
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={(v) =>
+                          v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v
+                        }
+                        width={32}
+                      />
+                      <Tooltip content={<CustomTooltip />} cursor={{ fill: "#f9fafb" }} />
+                      <Bar
+                        dataKey="stock"
+                        radius={[3, 3, 0, 0]}
+                        maxBarSize={32}
+                        label={{
+                          position: "top",
+                          fontSize: 8,
+                          fill: "#6b7280",
+                          formatter: (v: any) =>
+                            Number(v) > 0 ? Number(v).toLocaleString() : "",
+                        }}
+                      >
+                        {chartData.map((entry, index) => {
+                          const minStock = Math.min(
+                            ...chartData.filter((d) => d.stock > 0).map((d) => d.stock)
+                          );
+                          const color =
+                            entry.stock === maxStock
+                              ? "#2563eb"
+                              : entry.stock === minStock && entry.stock > 0
+                              ? "#fbbf24"
+                              : "#bfdbfe";
+                          return <Cell key={index} fill={color} />;
+                        })}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+
+                {/* CATEGORY MODE */}
+                {chartMode === "category" && (
+                  <>
+                    <div className="overflow-x-auto">
+                      <div style={{ width: Math.max(900, categoryChartData.length * 60), minWidth: "100%" }}>
+                        <BarChart
+                          width={Math.max(900, categoryChartData.length * 60)}
+                          height={220}
+                          data={categoryChartData}
+                          margin={{ top: 8, right: 4, left: 0, bottom: 0 }}
+                          barCategoryGap="20%"
+                          barGap={1}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                          <XAxis
+                            dataKey="name"
+                            tick={<CustomXTick />}
+                            axisLine={false}
+                            tickLine={false}
+                            interval={0}
+                            height={24}
+                          />
+                          <YAxis
+                            tick={{ fontSize: 9, fill: "#9ca3af" }}
+                            axisLine={false}
+                            tickLine={false}
+                            tickFormatter={(v) =>
+                              v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v
+                            }
+                            width={32}
+                          />
+                          <Tooltip
+                            content={({ active, payload, label }) => {
+                              if (active && payload && payload.length) {
+                                const filtered = payload.filter((p) => Number(p.value) > 0);
+                                if (!filtered.length) return null;
+                                return (
+                                  <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-xs max-w-[200px]">
+                                    <p className="font-semibold text-gray-800 mb-1.5">{label}</p>
+                                    {filtered.map((p, i) => (
+                                      <div key={i} className="flex items-center gap-1.5 mb-0.5">
+                                        <span
+                                          className="w-2 h-2 rounded-full flex-shrink-0"
+                                          style={{ backgroundColor: p.color }}
+                                        />
+                                        <span className="text-gray-600 truncate">{p.dataKey}:</span>
+                                        <span className="font-bold text-gray-800 ml-auto pl-2">
+                                          {Number(p.value).toLocaleString()}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }}
+                            cursor={{ fill: "#f9fafb" }}
+                          />
+                          {WAREHOUSES.map((wh, i) => (
+                            <Bar
+                              key={wh.name}
+                              dataKey={wh.name}
+                              fill={WAREHOUSE_COLORS[i % WAREHOUSE_COLORS.length]}
+                              radius={[2, 2, 0, 0]}
+                              maxBarSize={8}
+                            />
+                          ))}
+                        </BarChart>
+                      </div>
+                    </div>
+
+                    {/* Legend - warehouses */}
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                      {WAREHOUSES.map((wh, i) => (
+                        <div key={wh.name} className="flex items-center gap-1">
+                          <span
+                            className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+                            style={{ backgroundColor: WAREHOUSE_COLORS[i % WAREHOUSE_COLORS.length] }}
+                          />
+                          <span className="text-[10px] text-gray-500">{wh.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                <div className="border-t border-gray-100 mt-3 mb-4" />
+              </div>
+            )}
+
+            {/* Filters */}
+            <div>
+              <div className="grid grid-cols-6 gap-3 mb-3">
+                <div className="relative" ref={categoryDropdownRef}>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
                   <button
-                    onClick={() =>
-                      setShowWarehouseDropdown(!showWarehouseDropdown)
-                    }
+                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
                     className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
                   >
                     <span className="text-gray-500">
-                      {warehouseFilter.length === 0
-                        ? "All"
-                        : `${warehouseFilter.length} selected`}
+                      {categoryFilter.length === 0 ? "All" : `${categoryFilter.length} selected`}
                     </span>
                     <span className="text-gray-400">▼</span>
                   </button>
-                  {showWarehouseDropdown && (
+                  {showCategoryDropdown && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
-                      {warehouses.map((warehouse) => (
+                      {categories.map((category) => (
                         <label
-                          key={warehouse}
+                          key={category}
                           className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
                         >
                           <input
                             type="checkbox"
-                            checked={warehouseFilter.includes(warehouse)}
-                            onChange={() => toggleWarehouse(warehouse)}
+                            checked={categoryFilter.includes(category)}
+                            onChange={() => toggleCategory(category)}
                             className="mr-2"
                           />
-                          {warehouse}
+                          {category}
                         </label>
                       ))}
                     </div>
                   )}
                 </div>
-              )}
 
-              {user.stock_view_hpj && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Max HPJ
-                  </label>
+                <div className="relative" ref={gradeDropdownRef}>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Grade</label>
+                  <button
+                    onClick={() => setShowGradeDropdown(!showGradeDropdown)}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
+                  >
+                    <span className="text-gray-500">
+                      {gradeFilter.length === 0 ? "All" : `${gradeFilter.length} selected`}
+                    </span>
+                    <span className="text-gray-400">▼</span>
+                  </button>
+                  {showGradeDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                      {grades.map((grade) => (
+                        <label
+                          key={grade}
+                          className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={gradeFilter.includes(grade)}
+                            onChange={() => toggleGrade(grade)}
+                            className="mr-2"
+                          />
+                          {grade}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {selectedView === "store" && (
+                  <div className="relative" ref={warehouseDropdownRef}>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Warehouse
+                    </label>
+                    <button
+                      onClick={() => setShowWarehouseDropdown(!showWarehouseDropdown)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
+                    >
+                      <span className="text-gray-500">
+                        {warehouseFilter.length === 0
+                          ? "All"
+                          : `${warehouseFilter.length} selected`}
+                      </span>
+                      <span className="text-gray-400">▼</span>
+                    </button>
+                    {showWarehouseDropdown && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                        {warehouses.map((warehouse) => (
+                          <label
+                            key={warehouse}
+                            className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={warehouseFilter.includes(warehouse)}
+                              onChange={() => toggleWarehouse(warehouse)}
+                              className="mr-2"
+                            />
+                            {warehouse}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {user.stock_view_hpj && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Max HPJ</label>
+                    <input
+                      type="text"
+                      value={hpjFilter}
+                      onChange={(e) => setHpjFilter(e.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder="Filter by max HPJ"
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                )}
+
+                <div className={selectedView === "store" ? "col-span-2" : "col-span-3"}>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
                   <input
                     type="text"
-                    value={hpjFilter}
-                    onChange={(e) =>
-                      setHpjFilter(e.target.value.replace(/[^0-9]/g, ""))
-                    }
-                    placeholder="Filter by max HPJ"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by SKU or Product Name..."
                     className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
-              )}
-
-              <div
-                className={
-                  selectedView === "store" ? "col-span-2" : "col-span-3"
-                }
-              >
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Search
-                </label>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by SKU or Product Name..."
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                />
               </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={resetFilters}
-                className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"
-              >
-                Reset Filters
-              </button>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={resetFilters}
+                  className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"
+                >
+                  Reset Filters
+                </button>
+              </div>
             </div>
           </div>
-
-          {selectedView === "store" && (
-            <div className="bg-white rounded-lg shadow p-4 mb-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">
-                Stock Summary by Warehouse
-              </h3>
-              <div className="overflow-x-auto">
-                <div className="flex gap-4 pb-2">
-                  {[
-                    { name: "Margonda", key: "Torch Margonda - T" },
-                    { name: "Karawaci", key: "Torch Karawaci - T" },
-                    { name: "Jogja", key: "Torch Jogja - T" },
-                    { name: "Medan", key: "Torch Store Medan - T" },
-                    { name: "Makassar", key: "Torch Makassar - T" },
-                    { name: "Tambun", key: "Torch Tambun - T" },
-                    { name: "Malang", key: "Torch Malang - T" },
-                    { name: "Lampung", key: "Torch Lampung - T" },
-                    { name: "Surabaya", key: "Torch Surabaya - T" },
-                    { name: "Lembong", key: "Torch Store Lembong - T" },
-                    { name: "Karawang", key: "Torch Karawang - T" },
-                    { name: "Cirebon", key: "Torch Store Cirebon - T" },
-                    { name: "Pekalongan", key: "Torch Pekalongan - T" },
-                    { name: "Purwokerto", key: "Torch Purwokerto - T" },
-                  ].map((warehouse) => {
-                    // Filter data by warehouse column matching warehouse.key
-                    // Use filteredData instead of data to respect active filters
-                    const warehouseData = filteredData.filter((item) => {
-                      // Normalize warehouse name for comparison (case-insensitive, trim spaces)
-                      const itemWarehouse = (item.warehouse || "")
-                        .toString()
-                        .trim();
-                      return itemWarehouse === warehouse.key;
-                    });
-
-                    // Sum the stock column from result_stock sheet
-                    const totalStock = warehouseData.reduce((sum, item) => {
-                      // Get stock value from the stock column
-                      const stockValue =
-                        parseInt(
-                          (item.stock || "0")
-                            .toString()
-                            .replace(/[^0-9-]/g, ""),
-                        ) || 0;
-                      return sum + stockValue;
-                    }, 0);
-
-                    return (
-                      <div
-                        key={warehouse.key}
-                        className="flex-shrink-0 bg-gray-50 border border-gray-200 rounded-lg p-3 min-w-[120px]"
-                      >
-                        <div className="text-xs text-gray-600 mb-1">
-                          {warehouse.name}
-                        </div>
-                        <div className="text-lg font-bold text-primary">
-                          {totalStock.toLocaleString()}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {warehouseData.length} SKU
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Data Table */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -908,45 +1053,25 @@ export default function StockPage() {
                   <table className="w-full text-xs">
                     <thead className="bg-gray-100 border-b">
                       <tr>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">
-                          Image
-                        </th>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">
-                          SKU
-                        </th>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">
-                          Product Name
-                        </th>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">
-                          Category
-                        </th>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">
-                          Grade
-                        </th>
+                        <th className="px-2 py-2 text-left font-semibold text-gray-700">Image</th>
+                        <th className="px-2 py-2 text-left font-semibold text-gray-700">SKU</th>
+                        <th className="px-2 py-2 text-left font-semibold text-gray-700">Product Name</th>
+                        <th className="px-2 py-2 text-left font-semibold text-gray-700">Category</th>
+                        <th className="px-2 py-2 text-left font-semibold text-gray-700">Grade</th>
                         {selectedView !== "master" && (
-                          <th className="px-2 py-2 text-left font-semibold text-gray-700">
-                            Stock
-                          </th>
+                          <th className="px-2 py-2 text-left font-semibold text-gray-700">Stock</th>
                         )}
                         {selectedView === "store" && (
-                          <th className="px-2 py-2 text-left font-semibold text-gray-700">
-                            Warehouse
-                          </th>
+                          <th className="px-2 py-2 text-left font-semibold text-gray-700">Warehouse</th>
                         )}
                         {user.stock_view_hpp && (
-                          <th className="px-2 py-2 text-left font-semibold text-gray-700">
-                            HPP
-                          </th>
+                          <th className="px-2 py-2 text-left font-semibold text-gray-700">HPP</th>
                         )}
                         {user.stock_view_hpt && (
-                          <th className="px-2 py-2 text-left font-semibold text-gray-700">
-                            HPT
-                          </th>
+                          <th className="px-2 py-2 text-left font-semibold text-gray-700">HPT</th>
                         )}
                         {user.stock_view_hpj && (
-                          <th className="px-2 py-2 text-left font-semibold text-gray-700">
-                            HPJ
-                          </th>
+                          <th className="px-2 py-2 text-left font-semibold text-gray-700">HPJ</th>
                         )}
                       </tr>
                     </thead>
@@ -971,15 +1096,9 @@ export default function StockPage() {
                             )}
                           </td>
                           <td className="px-2 py-2">{item.sku}</td>
-                          <td className="px-2 py-2">
-                            {toProperCase(item.item_name)}
-                          </td>
-                          <td className="px-2 py-2">
-                            {toProperCase(item.category)}
-                          </td>
-                          <td className="px-2 py-2">
-                            {toProperCase(item.grade)}
-                          </td>
+                          <td className="px-2 py-2">{toProperCase(item.item_name)}</td>
+                          <td className="px-2 py-2">{toProperCase(item.category)}</td>
+                          <td className="px-2 py-2">{toProperCase(item.grade)}</td>
                           {selectedView !== "master" && (
                             <td className="px-2 py-2">{item.stock}</td>
                           )}
@@ -1000,9 +1119,7 @@ export default function StockPage() {
                     </tbody>
                   </table>
                   {filteredData.length === 0 && (
-                    <div className="p-8 text-center text-gray-500">
-                      No data available
-                    </div>
+                    <div className="p-8 text-center text-gray-500">No data available</div>
                   )}
                 </div>
 
@@ -1015,9 +1132,7 @@ export default function StockPage() {
                     </div>
                     <div className="flex gap-1">
                       <button
-                        onClick={() =>
-                          setCurrentPage((prev) => Math.max(1, prev - 1))
-                        }
+                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                         disabled={currentPage === 1}
                         className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                       >
@@ -1043,10 +1158,7 @@ export default function StockPage() {
                               {page}
                             </button>
                           );
-                        } else if (
-                          page === currentPage - 2 ||
-                          page === currentPage + 2
-                        ) {
+                        } else if (page === currentPage - 2 || page === currentPage + 2) {
                           return (
                             <span key={page} className="px-2">
                               ...
@@ -1057,9 +1169,7 @@ export default function StockPage() {
                       })}
                       <button
                         onClick={() =>
-                          setCurrentPage((prev) =>
-                            Math.min(totalPages, prev + 1),
-                          )
+                          setCurrentPage((prev) => Math.min(totalPages, prev + 1))
                         }
                         disabled={currentPage === totalPages}
                         className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
@@ -1079,9 +1189,7 @@ export default function StockPage() {
       {showImportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
-            <h2 className="text-lg font-bold text-primary mb-4">
-              Import Stock Data
-            </h2>
+            <h2 className="text-lg font-bold text-primary mb-4">Import Stock Data</h2>
 
             <div className="space-y-4">
               <p className="text-sm text-gray-600 mb-4">
@@ -1100,16 +1208,12 @@ export default function StockPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90 disabled:opacity-50"
                 />
                 {erpFile && (
-                  <p className="text-xs text-green-600 mt-2">
-                    ✓ Selected: {erpFile.name}
-                  </p>
+                  <p className="text-xs text-green-600 mt-2">✓ Selected: {erpFile.name}</p>
                 )}
               </div>
 
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Javelin
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Javelin</label>
                 <input
                   type="file"
                   accept=".csv,.xlsx,.xls"
@@ -1118,17 +1222,13 @@ export default function StockPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90 disabled:opacity-50"
                 />
                 {javelinFile && (
-                  <p className="text-xs text-green-600 mt-2">
-                    ✓ Selected: {javelinFile.name}
-                  </p>
+                  <p className="text-xs text-green-600 mt-2">✓ Selected: {javelinFile.name}</p>
                 )}
               </div>
 
               {importing && (
                 <div className="text-sm text-gray-600 text-center py-3">
-                  <div className="animate-pulse">
-                    Importing files... Please wait.
-                  </div>
+                  <div className="animate-pulse">Importing files... Please wait.</div>
                 </div>
               )}
             </div>
