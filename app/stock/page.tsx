@@ -723,7 +723,7 @@ export default function StockPage() {
                 {/* Header with toggle */}
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-gray-700">
-                    Stock Summary by Warehouse
+                    Stock Summary
                   </h3>
                   <div className="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
                     <button
@@ -755,12 +755,6 @@ export default function StockPage() {
                     Total Stock:{" "}
                     <span className="font-bold text-gray-800">
                       {chartData.reduce((s, d) => s + d.stock, 0).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    Total SKU:{" "}
-                    <span className="font-bold text-gray-800">
-                      {chartData.reduce((s, d) => s + d.sku, 0).toLocaleString()}
                     </span>
                   </div>
                 </div>
