@@ -6,6 +6,7 @@ import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
+import { QRCodeSVG } from "qrcode.react";
 import {
   BarChart,
   Bar,
@@ -102,6 +103,98 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
+// QR Label Popup (5x2 cm ratio)
+const QRLabelPopup = ({
+  item,
+  onClose,
+}: {
+  item: StockItem;
+  onClose: () => void;
+}) => {
+  const toProperCase = (str: string) => {
+    if (!str) return "";
+    return str
+      .toLowerCase()
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "500px",
+          height: "200px",
+          background: "#fff",
+          border: "1px solid #d1d5db",
+          borderRadius: "8px",
+          display: "flex",
+          alignItems: "stretch",
+          overflow: "hidden",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+        }}
+      >
+        {/* Left: SKU, Name, HPJ */}
+        <div
+          style={{
+            flex: 1,
+            padding: "18px 16px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            gap: "6px",
+            borderRight: "1px solid #e5e7eb",
+          }}
+        >
+          <div style={{ fontSize: "13px", fontWeight: 700, color: "#111827", letterSpacing: "0.04em" }}>
+            {item.sku}
+          </div>
+          <div
+            style={{
+              fontSize: "11px",
+              color: "#374151",
+              fontWeight: 500,
+              lineHeight: 1.4,
+              wordBreak: "break-word",
+            }}
+          >
+            {toProperCase(item.item_name)}
+          </div>
+          {item.hpj && (
+            <div style={{ fontSize: "12px", color: "#2563eb", fontWeight: 700, marginTop: "4px" }}>
+              HPJ: {item.hpj}
+            </div>
+          )}
+        </div>
+
+        {/* Right: QR Code */}
+        <div
+          style={{
+            width: "200px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#f9fafb",
+            padding: "12px",
+          }}
+        >
+          <QRCodeSVG
+            value={item.sku}
+            size={160}
+            level="H"
+            includeMargin={false}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function StockPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -137,6 +230,9 @@ export default function StockPage() {
   const [chartMode, setChartMode] = useState<"store" | "category">("store");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
+
+  // QR Label popup state
+  const [qrItem, setQrItem] = useState<StockItem | null>(null);
 
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const gradeDropdownRef = useRef<HTMLDivElement>(null);
@@ -572,7 +668,7 @@ export default function StockPage() {
 
   const maxStock = Math.max(...chartData.map((d) => d.stock), 1);
 
-  // Chart data - category mode: each group = category, each bar = warehouse
+  // Chart data - category mode
   const uniqueCategories = [...new Set(
     filteredData.map((item) => item.category).filter(Boolean)
   )].sort() as string[];
@@ -714,13 +810,11 @@ export default function StockPage() {
             </div>
           </div>
 
-          {/* Chart + Filters - gabungan satu card */}
+          {/* Chart + Filters */}
           <div className="bg-white rounded-lg shadow p-4 mb-4">
 
-            {/* Warehouse Chart - hanya tampil di view store */}
             {selectedView === "store" && (
               <div className="mb-5">
-                {/* Header with toggle */}
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-gray-700">
                     Stock Summary
@@ -749,7 +843,6 @@ export default function StockPage() {
                   </div>
                 </div>
 
-                {/* Summary totals */}
                 <div className="flex gap-4 mb-3">
                   <div className="text-xs text-gray-500">
                     Total Stock:{" "}
@@ -759,7 +852,6 @@ export default function StockPage() {
                   </div>
                 </div>
 
-                {/* STORE MODE */}
                 {chartMode === "store" && (
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart
@@ -815,7 +907,6 @@ export default function StockPage() {
                   </ResponsiveContainer>
                 )}
 
-                {/* CATEGORY MODE */}
                 {chartMode === "category" && (
                   <>
                     <div className="overflow-x-auto">
@@ -897,7 +988,6 @@ export default function StockPage() {
                       </div>
                     </div>
 
-                    {/* Legend - warehouses */}
                     <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
                       {WAREHOUSES.map((wh, i) => (
                         <div key={wh.name} className="flex items-center gap-1">
@@ -1088,8 +1178,12 @@ export default function StockPage() {
                     </thead>
                     <tbody>
                       {currentItems.map((item, index) => (
-                        <tr key={index} className="border-b hover:bg-gray-50">
-                          <td className="px-2 py-2">
+                        <tr
+                          key={index}
+                          className="border-b hover:bg-gray-50 cursor-pointer"
+                          onClick={() => setQrItem(item)}
+                        >
+                          <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                             {item.link_url || item.image_url ? (
                               <img
                                 src={item.link_url || item.image_url}
@@ -1266,6 +1360,11 @@ export default function StockPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* QR Label Popup */}
+      {qrItem && (
+        <QRLabelPopup item={qrItem} onClose={() => setQrItem(null)} />
       )}
 
       <Popup
