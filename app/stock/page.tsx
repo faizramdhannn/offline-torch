@@ -166,8 +166,8 @@ const QRLabelPopup = ({
             {toProperCase(item.item_name)}
           </div>
           {item.hpj && (
-            <div style={{ fontSize: "12px", color: "#2563eb", fontWeight: 700, marginTop: "4px" }}>
-              HPJ: {item.hpj}
+            <div style={{ fontSize: "12px", color: "#000000", fontWeight: 700, marginTop: "4px" }}>
+              {item.hpj}
             </div>
           )}
         </div>
