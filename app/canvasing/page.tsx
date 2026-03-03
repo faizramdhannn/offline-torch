@@ -6,6 +6,19 @@ import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
 import { Canvasing } from "@/types";
 import * as XLSX from "xlsx";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
 const RESULT_STATUS_OPTIONS = [
   "Interested",
@@ -16,6 +29,16 @@ const RESULT_STATUS_OPTIONS = [
   "Reject",
   "Cancel",
 ];
+
+const STATUS_COLORS: Record<string, string> = {
+  "Interested": "#3B82F6",
+  "Document Submitted": "#8B5CF6",
+  "Waiting Approval": "#F59E0B",
+  "Follow Up": "#06B6D4",
+  "Deal": "#10B981",
+  "Reject": "#EF4444",
+  "Cancel": "#6B7280",
+};
 
 function DriveImage({ href, urls, alt }: { href: string; urls: string[]; alt: string }) {
   const proxyUrl = urls[0];
@@ -125,12 +148,20 @@ export default function CanvasingPage() {
       const result = await response.json();
       setIsOwner(result.isOwner);
       setStoreName(result.storeName || "");
-      setData(result.data);
-      setFilteredData(result.data);
+
+      // Sort newest first by created_at
+      const sorted = [...(result.data || [])].sort((a: Canvasing, b: Canvasing) => {
+        const dateA = new Date((a as any).created_at || 0).getTime();
+        const dateB = new Date((b as any).created_at || 0).getTime();
+        return dateB - dateA;
+      });
+
+      setData(sorted);
+      setFilteredData(sorted);
       if (result.isOwner) {
         setStoreFilter([result.storeName]);
       } else {
-        const uniqueStores = [...new Set(result.data.map((item: Canvasing) => item.store))].filter(Boolean);
+        const uniqueStores = [...new Set(sorted.map((item: Canvasing) => item.store))].filter(Boolean);
         setStores(uniqueStores as string[]);
       }
     } catch (error) {
@@ -161,14 +192,15 @@ export default function CanvasingPage() {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (item) =>
-          item.name.toLowerCase().includes(query) ||
-          item.category.toLowerCase().includes(query) ||
-          item.sub_category.toLowerCase().includes(query) ||
+          item.name?.toLowerCase().includes(query) ||
+          item.store?.toLowerCase().includes(query) ||
+          item.canvasser?.toLowerCase().includes(query) ||
+          item.category?.toLowerCase().includes(query) ||
+          item.sub_category?.toLowerCase().includes(query) ||
           (item.contact_person && item.contact_person.toLowerCase().includes(query))
       );
     }
 
-    // Date range filter on visit_at
     if (dateFrom) {
       const from = new Date(dateFrom);
       from.setHours(0, 0, 0, 0);
@@ -199,12 +231,6 @@ export default function CanvasingPage() {
     if (!isOwner) setStoreFilter([]);
     setFilteredData(data);
     setCurrentPage(1);
-  };
-
-  const toggleStatus = (status: string) => {
-    setStatusFilter((prev) =>
-      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
-    );
   };
 
   const toggleStore = (store: string) => {
@@ -316,7 +342,7 @@ export default function CanvasingPage() {
   };
 
   const toTitleCase = (str: string) =>
-    str.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+    str ? str.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ") : "-";
 
   const extractDriveFileId = (url: string): string | null => {
     const patterns = [/\/file\/d\/([a-zA-Z0-9_-]+)/, /id=([a-zA-Z0-9_-]+)/, /\/d\/([a-zA-Z0-9_-]+)/];
@@ -337,13 +363,20 @@ export default function CanvasingPage() {
     const storesInData = [...new Set(filteredData.map((item) => item.store))];
     return storesInData.map((store) => {
       const storeData = filteredData.filter((item) => item.store === store);
-      const row: any = { store };
+      const row: any = { store: toTitleCase(store) };
       RESULT_STATUS_OPTIONS.forEach((status) => {
         row[status] = storeData.filter((item) => item.result_status === status).length;
       });
       row.total = storeData.length;
       return row;
     });
+  };
+
+  const generatePieData = () => {
+    return RESULT_STATUS_OPTIONS.map((status) => ({
+      name: status,
+      value: filteredData.filter((item) => item.result_status === status).length,
+    })).filter((d) => d.value > 0);
   };
 
   const exportReportToExcel = () => {
@@ -392,6 +425,9 @@ export default function CanvasingPage() {
 
   if (!user) return null;
 
+  const reportData = generateReportData();
+  const pieData = generatePieData();
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar userName={user.name} permissions={user} />
@@ -418,11 +454,10 @@ export default function CanvasingPage() {
             </div>
           </div>
 
-          {/* Filters */}
+          {/* Filters - List Mode */}
           {viewMode === "list" && (
             <div className="bg-white rounded-lg shadow p-4 mb-4">
               <div className="grid grid-cols-4 gap-3 mb-3">
-                {/* Status */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
                   <select
@@ -437,7 +472,6 @@ export default function CanvasingPage() {
                   </select>
                 </div>
 
-                {/* Store Filter */}
                 <div className="relative" ref={storeDropdownRef}>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Store {isOwner && <span className="text-red-500">🔒</span>}
@@ -465,7 +499,7 @@ export default function CanvasingPage() {
                           {stores.map((store) => (
                             <label key={store} className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50">
                               <input type="checkbox" checked={storeFilter.includes(store)} onChange={() => toggleStore(store)} className="mr-2" />
-                              {store}
+                              {toTitleCase(store)}
                             </label>
                           ))}
                         </div>
@@ -474,7 +508,6 @@ export default function CanvasingPage() {
                   )}
                 </div>
 
-                {/* Date From */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Visit Date From</label>
                   <input
@@ -485,7 +518,6 @@ export default function CanvasingPage() {
                   />
                 </div>
 
-                {/* Date To */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Visit Date To</label>
                   <input
@@ -496,14 +528,13 @@ export default function CanvasingPage() {
                   />
                 </div>
 
-                {/* Search - full width second row */}
                 <div className="col-span-4">
                   <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search by name, category, or CP..."
+                    placeholder="Search by name, store, category, canvasser, or CP..."
                     className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
@@ -525,7 +556,7 @@ export default function CanvasingPage() {
             </div>
           )}
 
-          {/* Report Export */}
+          {/* Filters - Report Mode */}
           {viewMode === "report" && (
             <div className="bg-white rounded-lg shadow p-4 mb-4">
               <div className="grid grid-cols-3 gap-3 mb-3">
@@ -562,7 +593,7 @@ export default function CanvasingPage() {
             </div>
           )}
 
-          {/* Content */}
+          {/* Main Content */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             {loading ? (
               <div className="p-8 text-center">Loading...</div>
@@ -572,6 +603,7 @@ export default function CanvasingPage() {
                   <table className="w-full text-xs">
                     <thead className="bg-gray-100 border-b">
                       <tr>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Store</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700">Name</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700">CP</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700">Category</th>
@@ -588,6 +620,7 @@ export default function CanvasingPage() {
                         const images = item.image_url ? item.image_url.split(";").filter((url) => url.trim()) : [];
                         return (
                           <tr key={index} className="border-b hover:bg-gray-50 cursor-pointer" onClick={() => handleRowClick(item)}>
+                            <td className="px-3 py-2 font-medium text-gray-700">{toTitleCase(item.store)}</td>
                             <td className="px-3 py-2 font-medium">{item.name}</td>
                             <td className="px-3 py-2">{item.contact_person || "-"}</td>
                             <td className="px-3 py-2">{item.category}</td>
@@ -680,32 +713,161 @@ export default function CanvasingPage() {
                 )}
               </>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-100 border-b">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Store</th>
-                      {RESULT_STATUS_OPTIONS.map((status) => (
-                        <th key={status} className="px-4 py-3 text-center font-semibold text-gray-700">{status}</th>
-                      ))}
-                      <th className="px-4 py-3 text-center font-semibold text-gray-700 bg-blue-50">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {generateReportData().map((row, index) => (
-                      <tr key={index} className="border-b hover:bg-gray-50">
-                        <td className="px-4 py-3 font-medium">{row.store}</td>
+              /* ===== REPORT VIEW ===== */
+              <div className="p-4">
+
+                {/* Summary Cards */}
+<div className="grid grid-cols-4 gap-3 mb-6">
+  {[
+    { label: "Total Visits", value: filteredData.length },
+    { label: "Deal", value: filteredData.filter((d) => d.result_status === "Deal").length },
+    { label: "Interested", value: filteredData.filter((d) => d.result_status === "Interested").length },
+    { label: "Reject / Cancel", value: filteredData.filter((d) => d.result_status === "Reject" || d.result_status === "Cancel").length },
+  ].map((card) => (
+    <div key={card.label} className="bg-gray-50 rounded-lg p-3 text-center border border-gray-200">
+      <p className="text-2xl font-bold text-gray-700">{card.value}</p>
+      <p className="text-xs text-gray-500 font-medium mt-1">{card.label}</p>
+    </div>
+  ))}
+</div>
+
+{/* Charts */}
+<div className="grid grid-cols-2 gap-6 mb-6">
+  {/* Stacked Bar Chart */}
+<div className="bg-gray-50 rounded-lg p-4 border">
+  <h3 className="text-sm font-semibold text-gray-700 mb-3">Visits by Store</h3>
+  {reportData.length > 0 ? (
+    <ResponsiveContainer width="100%" height={Math.max(300, reportData.length * 45)}>
+      <BarChart
+        data={reportData}
+        layout="vertical"
+        margin={{ top: 4, right: 16, left: 4, bottom: 4 }}
+      >
+        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+        <XAxis type="number" tick={{ fontSize: 10 }} allowDecimals={false} />
+        <YAxis
+          type="category"
+          dataKey="store"
+          tick={{ fontSize: 11 }}
+          width={80}
+        />
+        <Tooltip contentStyle={{ fontSize: "11px", padding: "6px 10px" }} />
+        {RESULT_STATUS_OPTIONS.map((status) => (
+          <Bar key={status} dataKey={status} stackId="a" fill={STATUS_COLORS[status]} 
+          />
+        ))}
+      </BarChart>
+    </ResponsiveContainer>
+  ) : (
+    <div className="h-64 flex items-center justify-center text-gray-400 text-sm">No data</div>
+  )}
+  {/* Custom Legend */}
+  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 justify-center">
+    {RESULT_STATUS_OPTIONS.map((status) => (
+      <div key={status} className="flex items-center gap-1">
+        <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: STATUS_COLORS[status] }} />
+        <span className="text-xs text-gray-600">{status}</span>
+      </div>
+    ))}
+  </div>
+</div>
+
+  {/* Pie Chart */}
+  <div className="bg-gray-50 rounded-lg p-4 border">
+    <h3 className="text-sm font-semibold text-gray-700 mb-3">Status Distribution</h3>
+    {pieData.length > 0 ? (
+      <>
+        <ResponsiveContainer width="100%" height={220}>
+          <PieChart>
+tsx<Pie
+  data={pieData}
+  cx="50%"
+  cy="50%"
+  innerRadius={35}
+  outerRadius={95}
+  dataKey="value"
+  label={false}
+  labelLine={false}
+>
+              {pieData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.name] || "#8884d8"} />
+              ))}
+            </Pie>
+            <Tooltip   formatter={(value, name) => [`${value} visits`, name]}
+              contentStyle={{ fontSize: "11px", padding: "6px 10px" }}/>
+          </PieChart>
+        </ResponsiveContainer>
+        {/* Custom Legend */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-3 px-2">
+          {pieData.map((entry) => (
+            <div key={entry.name} className="flex items-center gap-2 min-w-0">
+              <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: STATUS_COLORS[entry.name] || "#8884d8" }} />
+              <span className="text-xs text-gray-600 truncate">{entry.name}</span>
+              <span className="text-xs font-semibold text-gray-800 ml-auto flex-shrink-0">
+                {((entry.value / filteredData.length) * 100).toFixed(0)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      </>
+    ) : (
+      <div className="h-64 flex items-center justify-center text-gray-400 text-sm">No data</div>
+    )}
+  </div>
+</div>
+
+                {/* Report Table */}
+                <div className="overflow-x-auto rounded-lg border">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100 border-b">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Store</th>
                         {RESULT_STATUS_OPTIONS.map((status) => (
-                          <td key={status} className="px-4 py-3 text-center">{row[status]}</td>
+                          <th key={status} className="px-4 py-3 text-center font-semibold text-gray-700">{status}</th>
                         ))}
-                        <td className="px-4 py-3 text-center font-semibold text-blue-600 bg-blue-50">{row.total}</td>
+                        <th className="px-4 py-3 text-center font-semibold text-gray-700 bg-blue-50">Total</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {generateReportData().length === 0 && (
-                  <div className="p-8 text-center text-gray-500">No data available</div>
-                )}
+                    </thead>
+                    <tbody>
+                      {reportData.map((row, index) => (
+                        <tr key={index} className="border-b hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium">{row.store}</td>
+                          {RESULT_STATUS_OPTIONS.map((status) => (
+                            <td key={status} className="px-4 py-3 text-center">
+                              {row[status] > 0 ? (
+                                <span className="font-medium" style={{ color: STATUS_COLORS[status] }}>{row[status]}</span>
+                              ) : (
+                                <span className="text-gray-300">-</span>
+                              )}
+                            </td>
+                          ))}
+                          <td className="px-4 py-3 text-center font-semibold text-blue-600 bg-blue-50">{row.total}</td>
+                        </tr>
+                      ))}
+                      {/* Grand Total Row */}
+                      {reportData.length > 1 && (
+                        <tr className="bg-gray-100 border-t-2">
+                          <td className="px-4 py-3 font-bold text-gray-700">Total</td>
+                          {RESULT_STATUS_OPTIONS.map((status) => {
+                            const total = reportData.reduce((sum, row) => sum + (row[status] || 0), 0);
+                            return (
+                              <td key={status} className="px-4 py-3 text-center font-bold"
+                                style={{ color: total > 0 ? STATUS_COLORS[status] : "#D1D5DB" }}>
+                                {total > 0 ? total : "-"}
+                              </td>
+                            );
+                          })}
+                          <td className="px-4 py-3 text-center font-bold text-blue-700 bg-blue-100">
+                            {reportData.reduce((sum, row) => sum + row.total, 0)}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                  {reportData.length === 0 && (
+                    <div className="p-8 text-center text-gray-500">No data available</div>
+                  )}
+                </div>
               </div>
             )}
           </div>
