@@ -469,6 +469,7 @@ export default function OrderReportPage() {
       Warehouse: item.warehouse,
       Status: item.status,
       "Sales Channel": item.sales_channel,
+      "Channel Name": item.channel_name || "-",
       "Payment Method": item.payment_method,
       "Value Amount": item.value_amount,
       "Delivery Note": item.delivery_note || "-",
@@ -775,6 +776,9 @@ export default function OrderReportPage() {
                           Sales Channel
                         </th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700">
+                          Channel Name
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
                           Payment Method
                         </th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700">
@@ -798,6 +802,7 @@ export default function OrderReportPage() {
                           <td className="px-3 py-2">{item.warehouse}</td>
                           <td className="px-3 py-2">{item.status}</td>
                           <td className="px-3 py-2">{item.sales_channel}</td>
+                          <td className="px-3 py-2">{item.channel_name || "-"}</td>
                           <td className="px-3 py-2">{item.payment_method}</td>
                           <td className="px-3 py-2">{item.value_amount}</td>
                           <td className="px-3 py-2">

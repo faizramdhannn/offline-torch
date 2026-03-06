@@ -48,6 +48,7 @@ export interface OrderReport {
   warehouse: string;
   status: string;
   sales_channel: string;
+  channel_name: string;
   payment_method: string;
   value_amount: string;
   delivery_note: string | null;
