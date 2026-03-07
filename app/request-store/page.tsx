@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
@@ -53,6 +53,7 @@ export default function RequestStorePage() {
   const [notifPermission, setNotifPermission] = useState<string>("default");
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const knownIdsRef = useRef<Set<string>>(new Set());
+  const sseRef = useRef<EventSource | null>(null);
   const itemsPerPage = 10;
 
   const [form, setForm] = useState({
@@ -78,59 +79,86 @@ export default function RequestStorePage() {
     const parsedUser = JSON.parse(userData);
     if (!parsedUser.request) { router.push("/dashboard"); return; }
     setUser(parsedUser);
-    fetchData();
     fetchDropdowns();
     if ("Notification" in window) setNotifPermission(Notification.permission);
   }, []);
 
-  // Register SW once user is set
+  // Start SSE after user is set
   useEffect(() => {
     if (!user) return;
-    if ("serviceWorker" in navigator && Notification.permission === "granted") {
-      registerPush(user.user_name);
-    }
+    startSSE(user);
+    return () => {
+      sseRef.current?.close();
+    };
   }, [user]);
 
-  // Poll every 30s to detect new assignments and send push
-  useEffect(() => {
-    if (!user) return;
-    const interval = setInterval(async () => {
+  const startSSE = (currentUser: any) => {
+    if (sseRef.current) sseRef.current.close();
+
+    const es = new EventSource(`/api/request-store-sse?username=${currentUser.user_name}`);
+    sseRef.current = es;
+
+    es.onmessage = (event) => {
       try {
-        const res = await fetch("/api/request-store");
-        if (!res.ok) return;
-        const newData: RequestItem[] = await res.json();
-        setData(newData);
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'init' || msg.type === 'update') {
+          const newData: RequestItem[] = msg.data;
 
-        // Check for brand new items assigned to this user
-        newData.forEach((item) => {
-          if (
-            item.assigned_to === user.user_name &&
-            item.status === "Pending" &&
-            !knownIdsRef.current.has(item.id)
-          ) {
-            // It's new — trigger OS notification
-            if (Notification.permission === "granted") {
-              new Notification("📋 Request Baru Untukmu", {
-                body: `${item.requester}: ${item.reason_request}`,
-                icon: "/logo_offline_torch.png",
-                tag: item.id,
-              });
-            }
+          if (msg.type === 'update') {
+            // Check for new items assigned to this user
+            newData.forEach((item) => {
+              if (
+                item.assigned_to === currentUser.user_name &&
+                item.status === "Pending" &&
+                !knownIdsRef.current.has(item.id)
+              ) {
+                triggerNotification(
+                  "📋 Request Baru Untukmu",
+                  `${item.requester}: ${item.reason_request}`
+                );
+              }
+              knownIdsRef.current.add(item.id);
+            });
+          } else {
+            // init — seed known IDs, no notification
+            newData.forEach((item) => knownIdsRef.current.add(item.id));
           }
-          knownIdsRef.current.add(item.id);
-        });
-      } catch {}
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [user]);
 
-  // Seed known IDs after first load so we don't re-notify old items
-  useEffect(() => {
-    data.forEach((item) => knownIdsRef.current.add(item.id));
-  }, [data]);
+          setData(newData);
+          setLoading(false);
+        }
+      } catch {}
+    };
+
+    es.onerror = () => {
+      // Reconnect after 5s on error
+      es.close();
+      setTimeout(() => startSSE(currentUser), 5000);
+    };
+  };
+
+  const triggerNotification = (title: string, body: string) => {
+    if (Notification.permission === "granted") {
+      new Notification(title, {
+        body,
+        icon: "/logo_offline_torch.png",
+        tag: "request-store-notif",
+      });
+    }
+  };
+
+  const requestNotificationPermission = async () => {
+    if (!("Notification" in window)) return;
+    const permission = await Notification.requestPermission();
+    setNotifPermission(permission);
+    if (permission === "granted" && user) {
+      await registerPush(user.user_name);
+    }
+  };
 
   const registerPush = async (username: string) => {
     try {
+      if (!("serviceWorker" in navigator)) return;
       const reg = await navigator.serviceWorker.register("/sw.js");
       await navigator.serviceWorker.ready;
       const existing = await reg.pushManager.getSubscription();
@@ -148,30 +176,8 @@ export default function RequestStorePage() {
     }
   };
 
-  const requestNotificationPermission = async () => {
-    if (!("Notification" in window)) return;
-    const permission = await Notification.requestPermission();
-    setNotifPermission(permission);
-    if (permission === "granted" && user) {
-      await registerPush(user.user_name);
-    }
-  };
-
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message); setPopupType(type); setShowPopup(true);
-  };
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/request-store");
-      if (res.ok) {
-        const d = await res.json();
-        setData(d);
-        d.forEach((item: RequestItem) => knownIdsRef.current.add(item.id));
-      }
-    } catch { showMessage("Failed to fetch data", "error"); }
-    finally { setLoading(false); }
   };
 
   const fetchDropdowns = async () => {
@@ -182,6 +188,7 @@ export default function RequestStorePage() {
   };
 
   const logActivity = async (method: string, activity: string) => {
+    if (!user) return;
     try {
       await fetch("/api/activity-log", {
         method: "POST",
@@ -191,7 +198,6 @@ export default function RequestStorePage() {
     } catch {}
   };
 
-  // Inline status toggle — only for edit_request users
   const handleStatusChange = async (item: RequestItem, newStatus: string) => {
     setUpdatingStatus(item.id);
     try {
@@ -202,7 +208,7 @@ export default function RequestStorePage() {
       });
       if (res.ok) {
         setData(prev => prev.map(d => d.id === item.id ? { ...d, status: newStatus } : d));
-        await logActivity("PUT", `Changed status request ID: ${item.id} → ${newStatus}`);
+        await logActivity("PUT", `Status request ID: ${item.id} → ${newStatus}`);
       } else {
         showMessage("Gagal update status", "error");
       }
@@ -222,7 +228,7 @@ export default function RequestStorePage() {
         body: JSON.stringify({ ...form, created_by: user.user_name }),
       });
       if (res.ok) {
-        // Send push notification to assigned user
+        // Send push notification
         await fetch("/api/push-notify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -231,11 +237,11 @@ export default function RequestStorePage() {
             title: "📋 Request Baru Untukmu",
             body: `${form.requester}: ${form.reason_request}`,
           }),
-        });
+        }).catch(() => {}); // non-fatal
+
         showMessage("Request berhasil dibuat", "success");
         setShowAddModal(false);
         setForm({ date: new Date().toISOString().split("T")[0], requester: "", assigned_to: "", reason_request: "", notes: "" });
-        fetchData();
         await logActivity("POST", `Created request: ${form.reason_request} → ${form.assigned_to}`);
       } else {
         showMessage("Gagal membuat request", "error");
@@ -256,7 +262,6 @@ export default function RequestStorePage() {
       if (res.ok) {
         showMessage("Request berhasil diupdate", "success");
         setShowEditModal(false); setSelectedItem(null);
-        fetchData();
         await logActivity("PUT", `Updated request ID: ${selectedItem.id}`);
       } else {
         showMessage("Gagal update request", "error");
@@ -271,7 +276,6 @@ export default function RequestStorePage() {
       const res = await fetch(`/api/request-store?id=${item.id}`, { method: "DELETE" });
       if (res.ok) {
         showMessage("Request dihapus", "success");
-        fetchData();
         await logActivity("DELETE", `Deleted request ID: ${item.id}`);
       } else {
         showMessage("Gagal menghapus request", "error");
@@ -296,19 +300,14 @@ export default function RequestStorePage() {
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar userName={user.name} permissions={user} />
-
       <div className="flex-1 overflow-auto">
         <div className="p-6">
-          {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-primary">Request Store</h1>
             <div className="flex items-center gap-3">
-              {/* Notification bell */}
-              {"Notification" in window && notifPermission !== "granted" && (
-                <button
-                  onClick={requestNotificationPermission}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-50 border border-yellow-300 text-yellow-700 rounded text-xs hover:bg-yellow-100 transition-colors"
-                >
+              {typeof window !== "undefined" && "Notification" in window && notifPermission !== "granted" && (
+                <button onClick={requestNotificationPermission}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-50 border border-yellow-300 text-yellow-700 rounded text-xs hover:bg-yellow-100">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                   </svg>
@@ -324,10 +323,8 @@ export default function RequestStorePage() {
                 </span>
               )}
               {user.request && (
-                <button
-                  onClick={() => setShowAddModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 transition-colors"
-                >
+                <button onClick={() => setShowAddModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
@@ -337,7 +334,6 @@ export default function RequestStorePage() {
             </div>
           </div>
 
-          {/* Table */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             {loading ? (
               <div className="p-8 text-center text-sm text-gray-500">Loading...</div>
@@ -352,7 +348,7 @@ export default function RequestStorePage() {
                         <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">Assigned To</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700">Reason</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700 w-40">Notes</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">Status</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-32">Status</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">Action</th>
                       </tr>
                     </thead>
@@ -366,7 +362,6 @@ export default function RequestStorePage() {
                           <td className="px-3 py-2 text-gray-600 max-w-xs truncate" title={item.notes}>{item.notes || "-"}</td>
                           <td className="px-3 py-2">
                             {canEdit ? (
-                              // Inline status toggle for edit_request users
                               <div className="flex gap-1">
                                 <button
                                   onClick={() => item.status !== "Pending" && handleStatusChange(item, "Pending")}
@@ -376,9 +371,7 @@ export default function RequestStorePage() {
                                       ? "bg-yellow-100 text-yellow-800 ring-1 ring-yellow-400 cursor-default"
                                       : "bg-gray-100 text-gray-400 hover:bg-yellow-50 hover:text-yellow-700 cursor-pointer"
                                   }`}
-                                >
-                                  Pending
-                                </button>
+                                >Pending</button>
                                 <button
                                   onClick={() => item.status !== "Completed" && handleStatusChange(item, "Completed")}
                                   disabled={updatingStatus === item.id || item.status === "Completed"}
@@ -387,36 +380,23 @@ export default function RequestStorePage() {
                                       ? "bg-green-100 text-green-800 ring-1 ring-green-400 cursor-default"
                                       : "bg-gray-100 text-gray-400 hover:bg-green-50 hover:text-green-700 cursor-pointer"
                                   }`}
-                                >
-                                  {updatingStatus === item.id ? "..." : "Completed"}
-                                </button>
+                                >{updatingStatus === item.id ? "..." : "Completed"}</button>
                               </div>
                             ) : (
-                              // Read-only badge for non-edit users
                               <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                                 item.status === "Completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                              }`}>
-                                {item.status}
-                              </span>
+                              }`}>{item.status}</span>
                             )}
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex gap-1">
                               {canEdit && (
-                                <button
-                                  onClick={() => openEdit(item)}
-                                  className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
-                                >
-                                  Edit
-                                </button>
+                                <button onClick={() => openEdit(item)}
+                                  className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">Edit</button>
                               )}
                               {item.created_by === user.user_name && item.status === "Pending" && (
-                                <button
-                                  onClick={() => handleDelete(item)}
-                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                                >
-                                  Cancel
-                                </button>
+                                <button onClick={() => handleDelete(item)}
+                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600">Cancel</button>
                               )}
                             </div>
                           </td>
@@ -424,9 +404,7 @@ export default function RequestStorePage() {
                       ))}
                     </tbody>
                   </table>
-                  {data.length === 0 && (
-                    <div className="p-8 text-center text-gray-500">No requests found</div>
-                  )}
+                  {data.length === 0 && <div className="p-8 text-center text-gray-500">No requests found</div>}
                 </div>
 
                 {totalPages > 1 && (
@@ -554,7 +532,7 @@ export default function RequestStorePage() {
                   Notes <span className="text-gray-400">(Sales Order, Delivery Note, Sales Invoice)</span>
                 </label>
                 <textarea value={editForm.notes} onChange={e => setEditForm({ ...editForm, notes: e.target.value })}
-                  rows={3} placeholder="e.g. #464140, MP-DN-2026-40521, MP-SINV-2026-40150"
+                  rows={3} placeholder="e.g. SO/2024/001"
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
               </div>
               <div>
