@@ -346,8 +346,8 @@ export default function RequestStorePage() {
                         <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">Date</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">Requester</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">Assigned To</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Reason</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-40">Notes</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-40">Reason</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Notes</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700 w-32">Status</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">Action</th>
                       </tr>
@@ -451,7 +451,7 @@ export default function RequestStorePage() {
                 <label className="block text-xs font-medium text-gray-700 mb-1">Requester <span className="text-red-500">*</span></label>
                 <select value={form.requester} onChange={e => setForm({ ...form, requester: e.target.value })}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-                  <option value="">-- Select Requester --</option>
+                  <option value="">Select Requester</option>
                   {dropdownData.requesters.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
@@ -459,7 +459,7 @@ export default function RequestStorePage() {
                 <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To <span className="text-red-500">*</span></label>
                 <select value={form.assigned_to} onChange={e => setForm({ ...form, assigned_to: e.target.value })}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-                  <option value="">-- Select Assignee --</option>
+                  <option value="">Select Assignee</option>
                   {dropdownData.assignees.map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
@@ -467,7 +467,7 @@ export default function RequestStorePage() {
                 <label className="block text-xs font-medium text-gray-700 mb-1">Reason Request <span className="text-red-500">*</span></label>
                 <select value={form.reason_request} onChange={e => setForm({ ...form, reason_request: e.target.value })}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-                  <option value="">-- Select Reason --</option>
+                  <option value="">Select Reason</option>
                   {dropdownData.reasons.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
@@ -476,7 +476,7 @@ export default function RequestStorePage() {
                   Notes <span className="text-gray-400">(Sales Order, Delivery Note, Sales Invoice)</span>
                 </label>
                 <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })}
-                  rows={3} placeholder="e.g. SO/2024/001, DN/2024/001"
+                  rows={3} placeholder="e.g. #464140, MP-DN-2026-40521, MP-SINV-2026-40150"
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
               </div>
             </div>
@@ -507,7 +507,7 @@ export default function RequestStorePage() {
                 <label className="block text-xs font-medium text-gray-700 mb-1">Requester</label>
                 <select value={editForm.requester} onChange={e => setEditForm({ ...editForm, requester: e.target.value })}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-                  <option value="">-- Select Requester --</option>
+                  <option value="">Select Requester</option>
                   {dropdownData.requesters.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
@@ -515,7 +515,7 @@ export default function RequestStorePage() {
                 <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To</label>
                 <select value={editForm.assigned_to} onChange={e => setEditForm({ ...editForm, assigned_to: e.target.value })}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-                  <option value="">-- Select Assignee --</option>
+                  <option value="">Select Assignee</option>
                   {dropdownData.assignees.map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
@@ -523,7 +523,7 @@ export default function RequestStorePage() {
                 <label className="block text-xs font-medium text-gray-700 mb-1">Reason Request</label>
                 <select value={editForm.reason_request} onChange={e => setEditForm({ ...editForm, reason_request: e.target.value })}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-                  <option value="">-- Select Reason --</option>
+                  <option value="">Select Reason</option>
                   {dropdownData.reasons.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
@@ -532,7 +532,7 @@ export default function RequestStorePage() {
                   Notes <span className="text-gray-400">(Sales Order, Delivery Note, Sales Invoice)</span>
                 </label>
                 <textarea value={editForm.notes} onChange={e => setEditForm({ ...editForm, notes: e.target.value })}
-                  rows={3} placeholder="e.g. SO/2024/001"
+                  rows={3} placeholder="e.g. #464140, MP-DN-2026-40521, MP-SINV-2026-40150"
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
               </div>
               <div>
