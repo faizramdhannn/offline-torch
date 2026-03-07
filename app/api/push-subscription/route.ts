@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData } from '@/lib/sheets';
-import webpush from 'web-push';
 
 const SUBSCRIPTION_KEY_PREFIX = 'push_sub_';
 
@@ -9,7 +8,6 @@ export async function POST(request: NextRequest) {
     const { assignedTo, title, body } = await request.json();
     if (!assignedTo) return NextResponse.json({ error: 'assignedTo required' }, { status: 400 });
 
-    // Set VAPID details inside the function, not at module level
     const publicKey = process.env.VAPID_PUBLIC_KEY || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
     const privateKey = process.env.VAPID_PRIVATE_KEY || '';
 
@@ -18,6 +16,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'VAPID keys not configured' });
     }
 
+    // Lazy require to avoid module-level validation by web-push
+    const webpush = require('web-push');
     webpush.setVapidDetails('mailto:admin@torch.id', publicKey, privateKey);
 
     const data = await getSheetData('system_config');
@@ -29,7 +29,6 @@ export async function POST(request: NextRequest) {
     }
 
     const subscription = JSON.parse(entry.config_value);
-
     await webpush.sendNotification(
       subscription,
       JSON.stringify({ title: title || 'New Request', body: body || 'You have a new request.' })
