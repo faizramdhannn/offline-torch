@@ -1,0 +1,586 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import Sidebar from "@/components/Sidebar";
+import Popup from "@/components/Popup";
+
+interface RequestItem {
+  id: string;
+  date: string;
+  requester: string;
+  assigned_to: string;
+  reason_request: string;
+  notes: string;
+  status: string;
+  created_by: string;
+  update_by: string;
+  created_at: string;
+  update_at: string;
+}
+
+interface DropdownData {
+  requesters: string[];
+  assignees: string[];
+  reasons: string[];
+}
+
+export default function RequestStorePage() {
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [data, setData] = useState<RequestItem[]>([]);
+  const [dropdownData, setDropdownData] = useState<DropdownData>({ requesters: [], assignees: [], reasons: [] });
+  const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<RequestItem | null>(null);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupMessage, setPopupMessage] = useState("");
+  const [popupType, setPopupType] = useState<"success" | "error">("success");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>("default");
+  const itemsPerPage = 10;
+
+  const [form, setForm] = useState({
+    date: new Date().toISOString().split("T")[0],
+    requester: "",
+    assigned_to: "",
+    reason_request: "",
+    notes: "",
+  });
+
+  const [editForm, setEditForm] = useState({
+    date: "",
+    requester: "",
+    assigned_to: "",
+    reason_request: "",
+    notes: "",
+    status: "Pending",
+  });
+
+  useEffect(() => {
+    const userData = localStorage.getItem("user");
+    if (!userData) { router.push("/login"); return; }
+    const parsedUser = JSON.parse(userData);
+    if (!parsedUser.request) { router.push("/dashboard"); return; }
+    setUser(parsedUser);
+    fetchData();
+    fetchDropdowns();
+    checkNotificationPermission();
+  }, []);
+
+  const checkNotificationPermission = () => {
+    if ("Notification" in window) {
+      setNotifPermission(Notification.permission);
+    }
+  };
+
+  const requestNotificationPermission = async () => {
+    if (!("Notification" in window)) return;
+    const permission = await Notification.requestPermission();
+    setNotifPermission(permission);
+    if (permission === "granted" && user) {
+      await registerServiceWorkerAndSubscribe(user.user_name);
+    }
+  };
+
+  const registerServiceWorkerAndSubscribe = async (username: string) => {
+    try {
+      if (!("serviceWorker" in navigator)) return;
+      const reg = await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
+      // Save basic subscription info
+      await fetch("/api/push-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, subscription: { endpoint: username, type: "browser" } }),
+      });
+    } catch (err) {
+      console.error("SW registration failed:", err);
+    }
+  };
+
+  const showNotification = useCallback((title: string, body: string) => {
+    if (Notification.permission === "granted") {
+      new Notification(title, {
+        body,
+        icon: "/logo_offline_torch.png",
+        badge: "/logo_offline_torch.png",
+      });
+    }
+  }, []);
+
+  // Poll for new assignments every 30s
+  useEffect(() => {
+    if (!user) return;
+    const poll = setInterval(async () => {
+      try {
+        const res = await fetch("/api/request-store");
+        if (!res.ok) return;
+        const newData: RequestItem[] = await res.json();
+        const myNew = newData.filter(
+          (item) =>
+            item.assigned_to === user.user_name &&
+            item.status === "Pending" &&
+            // Only notify for items created in last 60s
+            Date.now() - new Date(item.created_at).getTime() < 60000
+        );
+        myNew.forEach((item) => {
+          showNotification(
+            "New Request Assigned",
+            `${item.requester} assigned a request to you: ${item.reason_request}`
+          );
+        });
+      } catch {}
+    }, 30000);
+    return () => clearInterval(poll);
+  }, [user, showNotification]);
+
+  const showMessage = (message: string, type: "success" | "error") => {
+    setPopupMessage(message);
+    setPopupType(type);
+    setShowPopup(true);
+  };
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/request-store");
+      if (res.ok) setData(await res.json());
+    } catch { showMessage("Failed to fetch data", "error"); }
+    finally { setLoading(false); }
+  };
+
+  const fetchDropdowns = async () => {
+    try {
+      const res = await fetch("/api/master-dropdown");
+      if (res.ok) {
+        const d = await res.json();
+        setDropdownData(d);
+      }
+    } catch {}
+  };
+
+  const handleAdd = async () => {
+    if (!form.date || !form.requester || !form.assigned_to || !form.reason_request) {
+      showMessage("Please fill all required fields", "error");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/request-store", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, created_by: user.user_name }),
+      });
+      if (res.ok) {
+        showMessage("Request created successfully", "success");
+        setShowAddModal(false);
+        setForm({ date: new Date().toISOString().split("T")[0], requester: "", assigned_to: "", reason_request: "", notes: "" });
+        fetchData();
+        // Log activity
+        await fetch("/api/activity-log", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user: user.user_name, method: "POST", activity_log: `Created request: ${form.reason_request} assigned to ${form.assigned_to}` }),
+        });
+      } else {
+        showMessage("Failed to create request", "error");
+      }
+    } catch { showMessage("Failed to create request", "error"); }
+    finally { setSubmitting(false); }
+  };
+
+  const handleEdit = async () => {
+    if (!selectedItem) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/request-store", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: selectedItem.id, ...editForm, update_by: user.user_name }),
+      });
+      if (res.ok) {
+        showMessage("Request updated successfully", "success");
+        setShowEditModal(false);
+        setSelectedItem(null);
+        fetchData();
+        await fetch("/api/activity-log", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user: user.user_name, method: "PUT", activity_log: `Updated request ID: ${selectedItem.id} status: ${editForm.status}` }),
+        });
+      } else {
+        showMessage("Failed to update request", "error");
+      }
+    } catch { showMessage("Failed to update request", "error"); }
+    finally { setSubmitting(false); }
+  };
+
+  const handleDelete = async (item: RequestItem) => {
+    if (!confirm("Cancel and delete this request?")) return;
+    try {
+      const res = await fetch(`/api/request-store?id=${item.id}`, { method: "DELETE" });
+      if (res.ok) {
+        showMessage("Request deleted", "success");
+        fetchData();
+        await fetch("/api/activity-log", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user: user.user_name, method: "DELETE", activity_log: `Deleted request ID: ${item.id}` }),
+        });
+      } else {
+        showMessage("Failed to delete request", "error");
+      }
+    } catch { showMessage("Failed to delete request", "error"); }
+  };
+
+  const openEdit = (item: RequestItem) => {
+    setSelectedItem(item);
+    setEditForm({
+      date: item.date,
+      requester: item.requester,
+      assigned_to: item.assigned_to,
+      reason_request: item.reason_request,
+      notes: item.notes || "",
+      status: item.status,
+    });
+    setShowEditModal(true);
+  };
+
+  const indexOfLast = currentPage * itemsPerPage;
+  const indexOfFirst = indexOfLast - itemsPerPage;
+  const currentItems = data.slice(indexOfFirst, indexOfLast);
+  const totalPages = Math.ceil(data.length / itemsPerPage);
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "-";
+    try {
+      return new Date(dateStr).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+    } catch { return dateStr; }
+  };
+
+  if (!user) return null;
+
+  const canEdit = user.edit_request;
+  const canAdd = user.request;
+
+  return (
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar userName={user.name} permissions={user} />
+
+      <div className="flex-1 overflow-auto">
+        <div className="p-6">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-primary">Request Store</h1>
+            <div className="flex items-center gap-3">
+              {/* Notification bell */}
+              {"Notification" in window && notifPermission !== "granted" && (
+                <button
+                  onClick={requestNotificationPermission}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-50 border border-yellow-300 text-yellow-700 rounded text-xs hover:bg-yellow-100 transition-colors"
+                  title="Enable notifications to get alerted when a request is assigned to you"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  Enable Notifications
+                </button>
+              )}
+              {notifPermission === "granted" && (
+                <span className="flex items-center gap-1 text-xs text-green-600">
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  Notifications On
+                </span>
+              )}
+              {canAdd && (
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Request
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            {loading ? (
+              <div className="p-8 text-center text-sm text-gray-500">Loading...</div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-100 border-b">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">Date</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">Requester</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">Assigned To</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Reason</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-40">Notes</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">Status</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentItems.map((item, idx) => (
+                        <tr key={item.id} className={`border-b ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}>
+                          <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{item.date}</td>
+                          <td className="px-3 py-2 text-gray-700">{item.requester}</td>
+                          <td className="px-3 py-2 text-gray-700">{item.assigned_to}</td>
+                          <td className="px-3 py-2 text-gray-700">{item.reason_request}</td>
+                          <td className="px-3 py-2 text-gray-600 max-w-xs truncate" title={item.notes}>{item.notes || "-"}</td>
+                          <td className="px-3 py-2">
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                              item.status === "Completed"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-yellow-100 text-yellow-800"
+                            }`}>
+                              {item.status}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex gap-1">
+                              {canEdit && (
+                                <button
+                                  onClick={() => openEdit(item)}
+                                  className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+                                >
+                                  Edit
+                                </button>
+                              )}
+                              {item.created_by === user.user_name && item.status === "Pending" && (
+                                <button
+                                  onClick={() => handleDelete(item)}
+                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                                >
+                                  Cancel
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {data.length === 0 && (
+                    <div className="p-8 text-center text-gray-500">No requests found</div>
+                  )}
+                </div>
+
+                {totalPages > 1 && (
+                  <div className="flex justify-between items-center px-4 py-3 border-t">
+                    <div className="text-xs text-gray-600">
+                      Showing {indexOfFirst + 1} to {Math.min(indexOfLast, data.length)} of {data.length} entries
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 text-xs border rounded disabled:opacity-50 hover:bg-gray-50"
+                      >Previous</button>
+                      {[...Array(totalPages)].map((_, i) => {
+                        const page = i + 1;
+                        if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                          return (
+                            <button key={page} onClick={() => setCurrentPage(page)}
+                              className={`px-3 py-1 text-xs border rounded ${currentPage === page ? "bg-primary text-white" : "hover:bg-gray-50"}`}>
+                              {page}
+                            </button>
+                          );
+                        } else if (page === currentPage - 2 || page === currentPage + 2) {
+                          return <span key={page} className="px-2 text-xs">...</span>;
+                        }
+                        return null;
+                      })}
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1 text-xs border rounded disabled:opacity-50 hover:bg-gray-50"
+                      >Next</button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Add Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h2 className="text-lg font-bold text-primary mb-4">Add New Request</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Date <span className="text-red-500">*</span></label>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={e => setForm({ ...form, date: e.target.value })}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Requester <span className="text-red-500">*</span></label>
+                <select
+                  value={form.requester}
+                  onChange={e => setForm({ ...form, requester: e.target.value })}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">-- Select Requester --</option>
+                  {dropdownData.requesters.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To <span className="text-red-500">*</span></label>
+                <select
+                  value={form.assigned_to}
+                  onChange={e => setForm({ ...form, assigned_to: e.target.value })}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">-- Select Assignee --</option>
+                  {dropdownData.assignees.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Reason Request <span className="text-red-500">*</span></label>
+                <select
+                  value={form.reason_request}
+                  onChange={e => setForm({ ...form, reason_request: e.target.value })}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">-- Select Reason --</option>
+                  {dropdownData.reasons.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Notes
+                  <span className="text-gray-400 ml-1">(masukan Sales Order, Delivery Note, Sales Invoice)</span>
+                </label>
+                <textarea
+                  value={form.notes}
+                  onChange={e => setForm({ ...form, notes: e.target.value })}
+                  rows={3}
+                  placeholder="e.g. #464140, MP-DN-2026-40521, MP-SINV-2026-40150"
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={() => { setShowAddModal(false); setForm({ date: new Date().toISOString().split("T")[0], requester: "", assigned_to: "", reason_request: "", notes: "" }); }}
+                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
+              >Cancel</button>
+              <button
+                onClick={handleAdd}
+                disabled={submitting}
+                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
+              >{submitting ? "Saving..." : "Submit"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && selectedItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h2 className="text-lg font-bold text-primary mb-4">Edit Request</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={editForm.date}
+                  onChange={e => setEditForm({ ...editForm, date: e.target.value })}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Requester</label>
+                <select
+                  value={editForm.requester}
+                  onChange={e => setEditForm({ ...editForm, requester: e.target.value })}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">-- Select Requester --</option>
+                  {dropdownData.requesters.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To</label>
+                <select
+                  value={editForm.assigned_to}
+                  onChange={e => setEditForm({ ...editForm, assigned_to: e.target.value })}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">-- Select Assignee --</option>
+                  {dropdownData.assignees.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Reason Request</label>
+                <select
+                  value={editForm.reason_request}
+                  onChange={e => setEditForm({ ...editForm, reason_request: e.target.value })}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">-- Select Reason --</option>
+                  {dropdownData.reasons.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Notes
+                  <span className="text-gray-400 ml-1">(masukan Sales Order, Delivery Note, Sales Invoice)</span>
+                </label>
+                <textarea
+                  value={editForm.notes}
+                  onChange={e => setEditForm({ ...editForm, notes: e.target.value })}
+                  rows={3}
+                  placeholder="e.g. SO/2024/001, DN/2024/001, SI/2024/001"
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  value={editForm.status}
+                  onChange={e => setEditForm({ ...editForm, status: e.target.value })}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={() => { setShowEditModal(false); setSelectedItem(null); }}
+                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
+              >Cancel</button>
+              <button
+                onClick={handleEdit}
+                disabled={submitting}
+                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
+              >{submitting ? "Saving..." : "Save"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
+    </div>
+  );
+}

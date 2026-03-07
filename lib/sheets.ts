@@ -12,6 +12,7 @@ const SPREADSHEET_MAP: Record<string, string> = {
   master_dropdown: process.env.SPREADSHEET_MASTER || "",
   master_item: process.env.SPREADSHEET_STOCK || "",
   erp_stock_balance: process.env.SPREADSHEET_STOCK || "",
+  request_store: process.env.SPREADSHEET_STORE || "",
   javelin: process.env.SPREADSHEET_STOCK || "",
   result_stock: process.env.SPREADSHEET_STOCK || "",
   pca_stock: process.env.SPREADSHEET_STOCK || "",

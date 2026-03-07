@@ -84,6 +84,8 @@ export async function PUT(request: NextRequest) {
       permissions.customer ? 'TRUE' : 'FALSE',
       permissions.voucher ? 'TRUE' : 'FALSE',
       permissions.bundling ? 'TRUE' : 'FALSE',
+      permissions.request ? 'TRUE' : 'FALSE',
+      permissions.edit_request ? 'TRUE' : 'FALSE',
       // Stock permissions
       permissions.stock_import ? 'TRUE' : 'FALSE',
       permissions.stock_export ? 'TRUE' : 'FALSE',

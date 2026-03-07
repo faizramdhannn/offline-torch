@@ -19,6 +19,8 @@ export interface User {
   bundling: boolean;
   canvasing: boolean;
   canvasing_export: boolean;
+  request: boolean;
+  edit_request: boolean;
   stock_opname: boolean;
   // Stock permissions
   stock_import: boolean;
