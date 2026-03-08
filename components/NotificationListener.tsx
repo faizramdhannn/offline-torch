@@ -8,7 +8,8 @@ interface Props {
 
 export default function NotificationListener({ username }: Props) {
   const sseRef = useRef<EventSource | null>(null);
-  const knownIdsRef = useRef<Set<string>>(new Set());
+  // Track id → status so we can detect status changes
+  const knownStatusRef = useRef<Map<string, string>>(new Map());
   const isInitializedRef = useRef(false);
 
   useEffect(() => {
@@ -37,25 +38,43 @@ export default function NotificationListener({ username }: Props) {
         const msg = JSON.parse(event.data);
 
         if (msg.type === "init") {
-          // Seed known IDs — no notification on first load
-          msg.data.forEach((item: any) => knownIdsRef.current.add(item.id));
+          // Seed known statuses — no notification on first load
+          msg.data.forEach((item: any) => {
+            knownStatusRef.current.set(item.id, item.status);
+          });
           isInitializedRef.current = true;
           return;
         }
 
         if (msg.type === "update" && isInitializedRef.current) {
           msg.data.forEach((item: any) => {
-            if (
-              item.assigned_to === username &&
-              item.status === "Pending" &&
-              !knownIdsRef.current.has(item.id)
-            ) {
-              triggerNotification(
-                "Request Baru Untukmu",
-                `${item.requester}: ${item.reason_request}`
-              );
+            const prevStatus = knownStatusRef.current.get(item.id);
+
+            if (prevStatus === undefined) {
+              // New item — notify if assigned to current user and Pending
+              if (
+                item.assigned_to === username &&
+                item.status === "Pending"
+              ) {
+                triggerNotification(
+                  "📋 Request Baru Untukmu",
+                  `${item.requester}: ${item.reason_request}`
+                );
+              }
+            } else if (prevStatus !== item.status) {
+              // Status changed — notify requester (created_by) when Completed
+              if (
+                item.status === "Completed" &&
+                item.created_by === username
+              ) {
+                triggerNotification(
+                  "✅ Request Selesai",
+                  `Request "${item.reason_request}" sudah diselesaikan`
+                );
+              }
             }
-            knownIdsRef.current.add(item.id);
+
+            knownStatusRef.current.set(item.id, item.status);
           });
         }
       } catch {}
