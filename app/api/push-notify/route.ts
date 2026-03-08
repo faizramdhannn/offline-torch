@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData } from '@/lib/sheets';
-import { createSign } from 'crypto';
+import { createSign, createPrivateKey } from 'crypto';
 
 const SUBSCRIPTION_KEY_PREFIX = 'push_sub_';
 
@@ -14,6 +14,10 @@ function bufferToBase64Url(buf: Buffer): string {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
+/**
+ * Build VAPID JWT using JWK key import.
+ * Avoids manual PKCS8 DER construction which causes ERR_OSSL_UNSUPPORTED.
+ */
 async function buildVapidToken(
   audience: string,
   subject: string,
@@ -29,75 +33,19 @@ async function buildVapidToken(
   );
   const signingInput = `${header}.${payload}`;
 
-  // Convert raw 32-byte EC private key (base64url) to PKCS8 PEM
-  // ASN.1 DER structure for EC P-256 private key in PKCS8:
-  // SEQUENCE {
-  //   INTEGER 0
-  //   SEQUENCE { OID ecPublicKey, OID P-256 }
-  //   OCTET STRING {
-  //     SEQUENCE {
-  //       INTEGER 1
-  //       OCTET STRING <32-byte private key>
-  //       [1] BIT STRING <65-byte uncompressed public key>
-  //     }
-  //   }
-  // }
-  const privKeyBuf = urlBase64ToBuffer(privateKey);
-  const pubKeyBuf = urlBase64ToBuffer(publicKey);
+  // Extract x, y from uncompressed public key (0x04 || 32 bytes x || 32 bytes y)
+  const pubBuf = urlBase64ToBuffer(publicKey);
+  const x = bufferToBase64Url(pubBuf.slice(1, 33));
+  const y = bufferToBase64Url(pubBuf.slice(33, 65));
 
-  // ECPrivateKey inner sequence (RFC 5915)
-  // 30 77 02 01 01 04 20 <32 priv> a1 44 03 42 00 <65 pub>
-  const ecPrivKey = Buffer.concat([
-    Buffer.from('3077020101042', 'hex').slice(0, -1), // partial — build properly below
-  ]);
-
-  // Build ECPrivateKey manually
-  const privPart = Buffer.concat([
-    Buffer.from('3077', 'hex'),       // SEQUENCE, length 119
-    Buffer.from('020101', 'hex'),     // INTEGER 1
-    Buffer.from('0420', 'hex'),       // OCTET STRING, length 32
-    privKeyBuf,                        // 32-byte private key
-    Buffer.from('a144034200', 'hex'), // [1] BIT STRING, length 66 (0x00 + 65 bytes)
-    pubKeyBuf,                         // 65-byte uncompressed public key
-  ]);
-
-  // PKCS8 wrapper
-  // SEQUENCE {
-  //   INTEGER 0
-  //   SEQUENCE { OID 1.2.840.10045.2.1 (ecPublicKey), OID 1.2.840.10045.3.1.7 (P-256) }
-  //   OCTET STRING { <ECPrivateKey> }
-  // }
-  const algIdentifier = Buffer.from(
-    '301306072a8648ce3d020106082a8648ce3d030107',
-    'hex'
-  );
-
-  const octetWrapped = Buffer.concat([
-    Buffer.from([0x04, privPart.length]), // OCTET STRING tag + length
-    privPart,
-  ]);
-
-  const innerSeq = Buffer.concat([
-    Buffer.from([0x02, 0x01, 0x00]), // INTEGER 0
-    algIdentifier,
-    octetWrapped,
-  ]);
-
-  const pkcs8Der = Buffer.concat([
-    Buffer.from([0x30, innerSeq.length]), // SEQUENCE
-    innerSeq,
-  ]);
-
-  const pem = [
-    '-----BEGIN PRIVATE KEY-----',
-    ...pkcs8Der.toString('base64').match(/.{1,64}/g)!,
-    '-----END PRIVATE KEY-----',
-  ].join('\n');
+  // Import as JWK — no PKCS8 needed, supported on Node 15+
+  const jwk = { kty: 'EC', crv: 'P-256', d: privateKey, x, y };
+  const key = createPrivateKey({ key: jwk, format: 'jwk' } as any);
 
   const sign = createSign('SHA256');
   sign.update(signingInput);
   sign.end();
-  const sig = sign.sign({ key: pem, dsaEncoding: 'ieee-p1363' });
+  const sig = sign.sign({ key, dsaEncoding: 'ieee-p1363' } as any);
 
   return `${signingInput}.${bufferToBase64Url(sig)}`;
 }
