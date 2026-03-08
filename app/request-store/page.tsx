@@ -98,7 +98,14 @@ export default function RequestStorePage() {
     }
     setUser(parsedUser);
     fetchDropdowns();
-    if ("Notification" in window) setNotifPermission(Notification.permission);
+    if ("Notification" in window) {
+      const perm = Notification.permission;
+      setNotifPermission(perm);
+      // Auto re-register push subscription every load to avoid stale subscriptions
+      if (perm === "granted") {
+        registerPushForUser(parsedUser.user_name);
+      }
+    }
   }, []);
 
   // Start SSE after user is set
@@ -193,26 +200,35 @@ export default function RequestStorePage() {
     }
   };
 
-  const registerPush = async (username: string) => {
+  // Standalone helper so it can be called before user state is set
+  const registerPushForUser = async (username: string) => {
     try {
       if (!("serviceWorker" in navigator)) return;
       const reg = await navigator.serviceWorker.register("/sw.js");
       await navigator.serviceWorker.ready;
+
+      // Always unsubscribe + re-subscribe to avoid stale/expired subscriptions
       const existing = await reg.pushManager.getSubscription();
-      const sub =
-        existing ||
-        (await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-        }));
+      if (existing) await existing.unsubscribe();
+
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+
       await fetch("/api/push-subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, subscription: sub.toJSON() }),
       });
+      console.log("Push subscription refreshed for", username);
     } catch (err) {
       console.error("Push registration failed:", err);
     }
+  };
+
+  const registerPush = async (username: string) => {
+    await registerPushForUser(username);
   };
 
   const showMessage = (message: string, type: "success" | "error") => {

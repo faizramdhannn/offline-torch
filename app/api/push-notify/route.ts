@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSheetData } from '@/lib/sheets';
+import { getSheetData, updateSheetRow } from '@/lib/sheets';
 import { createSign, createPrivateKey } from 'crypto';
 
 const SUBSCRIPTION_KEY_PREFIX = 'push_sub_';
@@ -14,31 +14,23 @@ function bufferToBase64Url(buf: Buffer): string {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
-/**
- * Build VAPID JWT using JWK key import.
- * Avoids manual PKCS8 DER construction which causes ERR_OSSL_UNSUPPORTED.
- */
 async function buildVapidToken(
   audience: string,
   subject: string,
   publicKey: string,
   privateKey: string
 ): Promise<string> {
-  const header = bufferToBase64Url(
-    Buffer.from(JSON.stringify({ typ: 'JWT', alg: 'ES256' }))
-  );
+  const header = bufferToBase64Url(Buffer.from(JSON.stringify({ typ: 'JWT', alg: 'ES256' })));
   const now = Math.floor(Date.now() / 1000);
   const payload = bufferToBase64Url(
     Buffer.from(JSON.stringify({ aud: audience, exp: now + 12 * 3600, sub: subject }))
   );
   const signingInput = `${header}.${payload}`;
 
-  // Extract x, y from uncompressed public key (0x04 || 32 bytes x || 32 bytes y)
   const pubBuf = urlBase64ToBuffer(publicKey);
   const x = bufferToBase64Url(pubBuf.slice(1, 33));
   const y = bufferToBase64Url(pubBuf.slice(33, 65));
 
-  // Import as JWK — no PKCS8 needed, supported on Node 15+
   const jwk = { kty: 'EC', crv: 'P-256', d: privateKey, x, y };
   const key = createPrivateKey({ key: jwk, format: 'jwk' } as any);
 
@@ -56,7 +48,7 @@ async function sendPushToSubscription(
   body: string,
   publicKey: string,
   privateKey: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; expired?: boolean; error?: string }> {
   const endpoint: string = subscription.endpoint;
   const origin = new URL(endpoint).origin;
 
@@ -77,7 +69,6 @@ async function sendPushToSubscription(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      // Correct VAPID authorization header format
       Authorization: `vapid t=${jwt},k=${publicKey}`,
       TTL: '86400',
     },
@@ -87,7 +78,9 @@ async function sendPushToSubscription(
   if (!res.ok) {
     const text = await res.text();
     console.error('Push failed:', res.status, text);
-    return { success: false, error: `Push failed: ${res.status} - ${text}` };
+    // 410 = expired/unsubscribed, 404 = not found — both mean stale subscription
+    const expired = res.status === 410 || res.status === 404;
+    return { success: false, expired, error: `Push failed: ${res.status}` };
   }
 
   return { success: true };
@@ -97,7 +90,6 @@ export async function POST(request: NextRequest) {
   try {
     const { assignedTo, requesterUsername, title, body } = await request.json();
 
-    // Must have at least one recipient
     if (!assignedTo && !requesterUsername) {
       return NextResponse.json(
         { error: 'assignedTo or requesterUsername required' },
@@ -114,19 +106,16 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await getSheetData('system_config');
-
     const results: Record<string, any> = {};
 
-    // Collect unique recipients (avoid sending twice if same user)
-    const recipients = new Map<string, string>(); // username → title/body override
-    if (assignedTo) recipients.set(assignedTo, assignedTo);
-    if (requesterUsername && requesterUsername !== assignedTo) {
-      recipients.set(requesterUsername, requesterUsername);
-    }
+    const recipients = new Set<string>();
+    if (assignedTo) recipients.add(assignedTo);
+    if (requesterUsername && requesterUsername !== assignedTo) recipients.add(requesterUsername);
 
-    for (const [username] of recipients) {
+    for (const username of recipients) {
       const key = `${SUBSCRIPTION_KEY_PREFIX}${username}`;
-      const entry = data.find((row: any) => row.config_key === key);
+      const entryIdx = data.findIndex((row: any) => row.config_key === key);
+      const entry = data[entryIdx];
 
       if (!entry?.config_value) {
         results[username] = { success: false, message: 'No subscription found' };
@@ -148,6 +137,17 @@ export async function POST(request: NextRequest) {
         publicKey,
         privateKey
       );
+
+      // Auto-cleanup stale subscription from sheet (410/404)
+      if (result.expired) {
+        console.log(`Clearing expired subscription for ${username}`);
+        try {
+          await updateSheetRow('system_config', entryIdx + 2, [key, '', username, '']);
+        } catch (e) {
+          console.error('Failed to clear expired subscription:', e);
+        }
+      }
+
       results[username] = result;
     }
 

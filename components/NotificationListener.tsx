@@ -2,22 +2,41 @@
 
 import { useEffect, useRef } from "react";
 
+const VAPID_PUBLIC_KEY =
+  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
+  "BLCpcWVe7ON_yEBseUerxJ6xyX26S3fZjj2CE5X_-Q5EKiRdHh6zr79iD62PjiefZ3X2oAuk_itov_398VAGXPo";
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i)
+    outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
 interface Props {
   username: string;
 }
 
 export default function NotificationListener({ username }: Props) {
   const sseRef = useRef<EventSource | null>(null);
-  // Track id → status so we can detect status changes
   const knownStatusRef = useRef<Map<string, string>>(new Map());
   const isInitializedRef = useRef(false);
 
   useEffect(() => {
     if (!username) return;
 
-    // Request permission automatically on first load
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
+    if ("Notification" in window) {
+      if (Notification.permission === "default") {
+        Notification.requestPermission().then((perm) => {
+          if (perm === "granted") registerPush();
+        });
+      } else if (Notification.permission === "granted") {
+        // Always re-register on mount to refresh potentially expired subscription
+        registerPush();
+      }
     }
 
     startSSE();
@@ -26,6 +45,32 @@ export default function NotificationListener({ username }: Props) {
       sseRef.current?.close();
     };
   }, [username]);
+
+  const registerPush = async () => {
+    try {
+      if (!("serviceWorker" in navigator)) return;
+      const reg = await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
+
+      // Unsubscribe old + re-subscribe fresh to avoid stale/410 subscriptions
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) await existing.unsubscribe();
+
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+
+      await fetch("/api/push-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, subscription: sub.toJSON() }),
+      });
+      console.log("Push subscription refreshed for", username);
+    } catch (err) {
+      console.error("Push registration failed:", err);
+    }
+  };
 
   const startSSE = () => {
     if (sseRef.current) sseRef.current.close();
@@ -38,7 +83,6 @@ export default function NotificationListener({ username }: Props) {
         const msg = JSON.parse(event.data);
 
         if (msg.type === "init") {
-          // Seed known statuses — no notification on first load
           msg.data.forEach((item: any) => {
             knownStatusRef.current.set(item.id, item.status);
           });
@@ -51,22 +95,16 @@ export default function NotificationListener({ username }: Props) {
             const prevStatus = knownStatusRef.current.get(item.id);
 
             if (prevStatus === undefined) {
-              // New item — notify if assigned to current user and Pending
-              if (
-                item.assigned_to === username &&
-                item.status === "Pending"
-              ) {
+              // New item — notify assignee
+              if (item.assigned_to === username && item.status === "Pending") {
                 triggerNotification(
                   "📋 Request Baru Untukmu",
                   `${item.requester}: ${item.reason_request}`
                 );
               }
             } else if (prevStatus !== item.status) {
-              // Status changed — notify requester (created_by) when Completed
-              if (
-                item.status === "Completed" &&
-                item.created_by === username
-              ) {
+              // Status changed — notify requester when completed
+              if (item.status === "Completed" && item.created_by === username) {
                 triggerNotification(
                   "✅ Request Selesai",
                   `Request "${item.reason_request}" sudah diselesaikan`
