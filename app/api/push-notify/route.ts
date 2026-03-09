@@ -223,21 +223,15 @@ async function sendPush(
   // ter-register akan menggunakan Chrome's standard Web Push endpoint.
   // ─────────────────────────────────────────────────────────────────────────
 
+  // Legacy FCM endpoint → pakai FCM HTTP v1 API
   if (endpoint.includes('fcm.googleapis.com/fcm/send/')) {
-    // Legacy FCM endpoint — token ini kemungkinan besar sudah expired
-    // karena dibuat dengan VAPID key yang salah. Tandai sebagai expired
-    // langsung agar auto-cleanup, dan client akan re-register dengan key benar.
-    console.log('Legacy FCM endpoint detected — marking as expired for cleanup');
-    console.log('User harus refresh browser untuk re-register dengan VAPID key yang benar');
-    return {
-      success: false,
-      expired: true,
-      error: 'Legacy FCM endpoint — subscription needs refresh',
-    };
+    const fcmToken = endpoint.split('/fcm/send/')[1];
+    console.log('Using FCM v1 API for legacy endpoint, token:', fcmToken.substring(0, 20) + '...');
+    return sendViaFCMv1(fcmToken, title, body);
   }
 
   // Standard Web Push (Chrome modern, Firefox, dll) → pakai VAPID
-  console.log('Using VAPID for standard Web Push endpoint');
+  console.log('Using VAPID for standard Web Push endpoint:', endpoint.substring(0, 50) + '...');
   return sendViaVapid(subscription, title, body, publicKey, privateKey);
 }
 
