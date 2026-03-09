@@ -150,6 +150,55 @@ const PieLegend = ({ data }: { data: { name: string; value: number; color: strin
   </div>
 );
 
+// ─── Reusable Pagination Component ───────────────────────────────────────────
+function Pagination({ page, total, pageSize, onChange }: {
+  page: number;
+  total: number;
+  pageSize: number;
+  onChange: (p: number) => void;
+}) {
+  const totalPages = Math.ceil(total / pageSize);
+  if (totalPages <= 1) return null;
+  const pages: (number | "...")[] = [];
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) {
+      pages.push(i);
+    } else if (pages[pages.length - 1] !== "...") {
+      pages.push("...");
+    }
+  }
+  return (
+    <div className="flex items-center justify-between pt-3 border-t mt-2">
+      <p className="text-xs text-gray-400">
+        {Math.min((page - 1) * pageSize + 1, total)}–{Math.min(page * pageSize, total)} dari {total}
+      </p>
+      <div className="flex gap-1">
+        <button
+          onClick={() => onChange(page - 1)}
+          disabled={page === 1}
+          className="px-2 py-1 text-xs border rounded disabled:opacity-30 hover:bg-gray-50"
+        >‹</button>
+        {pages.map((p, i) =>
+          p === "..." ? (
+            <span key={i} className="px-2 py-1 text-xs text-gray-400">…</span>
+          ) : (
+            <button
+              key={i}
+              onClick={() => onChange(p as number)}
+              className={`px-2.5 py-1 text-xs border rounded ${page === p ? "bg-primary text-white border-primary" : "hover:bg-gray-50"}`}
+            >{p}</button>
+          )
+        )}
+        <button
+          onClick={() => onChange(page + 1)}
+          disabled={page === totalPages}
+          className="px-2 py-1 text-xs border rounded disabled:opacity-30 hover:bg-gray-50"
+        >›</button>
+      </div>
+    </div>
+  );
+}
+
 export default function AnalyticsOrderPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -162,6 +211,15 @@ export default function AnalyticsOrderPage() {
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [activeTab, setActiveTab] = useState("store");
+
+  // Pagination per tab
+  const [pageStore, setPageStore] = useState(1);
+  const [pageTraffic, setPageTraffic] = useState(1);
+  const [pageDiscount, setPageDiscount] = useState(1);
+  const [pageProduct, setPageProduct] = useState(1);
+  const [pageEmployee, setPageEmployee] = useState(1);
+  const PAGE_SIZE = 10;
+  const [hideUnknownTraffic, setHideUnknownTraffic] = useState(false);
 
   // Filters
   const [dateFrom, setDateFrom] = useState("");
@@ -604,7 +662,7 @@ export default function AnalyticsOrderPage() {
                               </tr>
                             </thead>
                             <tbody>
-                              {revenueByStore.map((s, i) => {
+                              {revenueByStore.slice((pageStore - 1) * PAGE_SIZE, pageStore * PAGE_SIZE).map((s, i) => {
                                 const orders = orderCountByStore.find(o => o.name === s.name)?.count || 0;
                                 return (
                                   <tr key={i} className="border-b hover:bg-gray-50">
@@ -617,6 +675,7 @@ export default function AnalyticsOrderPage() {
                               })}
                             </tbody>
                           </table>
+                          <Pagination page={pageStore} total={revenueByStore.length} pageSize={PAGE_SIZE} onChange={setPageStore} />
                         </div>
                       </div>
                     </div>
@@ -625,13 +684,25 @@ export default function AnalyticsOrderPage() {
                   {/* ── Tab 2: Traffic Source ────────────────────────────── */}
                   {activeTab === "traffic" && (
                     <div className="space-y-8">
+                      {/* Toggle exclude unknown */}
+                      <div className="flex items-center gap-2">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <div
+                            onClick={() => setHideUnknownTraffic(v => !v)}
+                            className={`w-9 h-5 rounded-full transition-colors relative ${hideUnknownTraffic ? "bg-primary" : "bg-gray-300"}`}
+                          >
+                            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${hideUnknownTraffic ? "translate-x-4" : "translate-x-0.5"}`} />
+                          </div>
+                          <span className="text-xs text-gray-600">Sembunyikan <strong>"Tidak Diketahui"</strong> di chart</span>
+                        </label>
+                      </div>
                       <div className="grid grid-cols-2 gap-8">
                         <div>
                           <h3 className="text-sm font-semibold text-gray-700 mb-4">Distribusi Traffic Source</h3>
                           <ResponsiveContainer width="100%" height={300}>
                             <PieChart>
                               <Pie
-                                data={trafficData}
+                                data={hideUnknownTraffic ? trafficData.filter(d => d.name !== "Tidak Diketahui") : trafficData}
                                 dataKey="value"
                                 nameKey="name"
                                 cx="50%"
@@ -640,7 +711,7 @@ export default function AnalyticsOrderPage() {
                                 label={(props) => (props.percent ?? 0) > 0.04 ? `${((props.percent ?? 0) * 100).toFixed(0)}%` : ""}
                                 labelLine={false}
                               >
-                                {trafficData.map((_, i) => (
+                                {(hideUnknownTraffic ? trafficData.filter(d => d.name !== "Tidak Diketahui") : trafficData).map((_, i) => (
                                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                 ))}
                               </Pie>
@@ -667,14 +738,14 @@ export default function AnalyticsOrderPage() {
                               />
                             </PieChart>
                           </ResponsiveContainer>
-                          <PieLegend data={trafficData.map((d, i) => ({ name: d.name, value: d.value, color: COLORS[i % COLORS.length] }))} />
+                          <PieLegend data={(hideUnknownTraffic ? trafficData.filter(d => d.name !== "Tidak Diketahui") : trafficData).map((d, i) => ({ name: d.name, value: d.value, color: COLORS[i % COLORS.length] }))} />
                         </div>
 
                         <div>
                           <h3 className="text-sm font-semibold text-gray-700 mb-4">Jumlah Order per Traffic</h3>
                           <ResponsiveContainer width="100%" height={300}>
                             <BarChart
-                              data={trafficData.slice(0, 12)}
+                              data={(hideUnknownTraffic ? trafficData.filter(d => d.name !== "Tidak Diketahui") : trafficData).slice(0, 12)}
                               layout="vertical"
                               margin={{ top: 4, right: 48, left: 8, bottom: 4 }}
                             >
@@ -684,7 +755,7 @@ export default function AnalyticsOrderPage() {
                               <Tooltip content={<DarkTooltip />} />
                               <Bar dataKey="value" name="Orders" radius={[0, 4, 4, 0]} maxBarSize={20}
                                 label={{ position: "right", fontSize: 9, fill: "#6b7280" }}>
-                                {trafficData.map((_, i) => (
+                                {(hideUnknownTraffic ? trafficData.filter(d => d.name !== "Tidak Diketahui") : trafficData).slice(0, 12).map((_, i) => (
                                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                 ))}
                               </Bar>
@@ -706,23 +777,27 @@ export default function AnalyticsOrderPage() {
                               </tr>
                             </thead>
                             <tbody>
-                              {trafficData.map((t, i) => {
+                              {(() => {
                                 const total = trafficData.reduce((s, d) => s + d.value, 0);
-                                return (
-                                  <tr key={i} className="border-b hover:bg-gray-50">
-                                    <td className="px-3 py-2 flex items-center gap-2">
-                                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                                      {t.name}
-                                    </td>
-                                    <td className="px-3 py-2 text-right font-medium">{t.value}</td>
-                                    <td className="px-3 py-2 text-right text-gray-500">
-                                      {total ? `${((t.value / total) * 100).toFixed(1)}%` : "-"}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
+                                return trafficData.slice((pageTraffic - 1) * PAGE_SIZE, pageTraffic * PAGE_SIZE).map((t, i) => {
+                                  const globalIdx = (pageTraffic - 1) * PAGE_SIZE + i;
+                                  return (
+                                    <tr key={i} className="border-b hover:bg-gray-50">
+                                      <td className="px-3 py-2 flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[globalIdx % COLORS.length] }} />
+                                        {t.name}
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-medium">{t.value}</td>
+                                      <td className="px-3 py-2 text-right text-gray-500">
+                                        {total ? `${((t.value / total) * 100).toFixed(1)}%` : "-"}
+                                      </td>
+                                    </tr>
+                                  );
+                                });
+                              })()}
                             </tbody>
                           </table>
+                          <Pagination page={pageTraffic} total={trafficData.length} pageSize={PAGE_SIZE} onChange={setPageTraffic} />
                         </div>
                       </div>
                     </div>
@@ -779,7 +854,7 @@ export default function AnalyticsOrderPage() {
                               </tr>
                             </thead>
                             <tbody>
-                              {discountData.map((d, i) => (
+                              {discountData.slice((pageDiscount - 1) * PAGE_SIZE, pageDiscount * PAGE_SIZE).map((d, i) => (
                                 <tr key={i} className="border-b hover:bg-gray-50">
                                   <td className="px-3 py-2 font-mono">{d.name}</td>
                                   <td className="px-3 py-2 text-right">{d.count}</td>
@@ -788,6 +863,7 @@ export default function AnalyticsOrderPage() {
                               ))}
                             </tbody>
                           </table>
+                          <Pagination page={pageDiscount} total={discountData.length} pageSize={PAGE_SIZE} onChange={setPageDiscount} />
                         </div>
                       </div>
                     </div>
@@ -864,7 +940,7 @@ export default function AnalyticsOrderPage() {
                               </tr>
                             </thead>
                             <tbody>
-                              {productData.map((p, i) => (
+                              {productData.slice((pageProduct - 1) * PAGE_SIZE, pageProduct * PAGE_SIZE).map((p, i) => (
                                 <tr key={i} className="border-b hover:bg-gray-50">
                                   <td className="px-3 py-2">{p.name}</td>
                                   <td className="px-3 py-2 text-right">{p.qty}</td>
@@ -873,6 +949,7 @@ export default function AnalyticsOrderPage() {
                               ))}
                             </tbody>
                           </table>
+                          <Pagination page={pageProduct} total={productData.length} pageSize={PAGE_SIZE} onChange={setPageProduct} />
                         </div>
                       </div>
                     </div>
@@ -930,7 +1007,7 @@ export default function AnalyticsOrderPage() {
                               </tr>
                             </thead>
                             <tbody>
-                              {employeeData.map((e, i) => (
+                              {employeeData.slice((pageEmployee - 1) * PAGE_SIZE, pageEmployee * PAGE_SIZE).map((e, i) => (
                                 <tr key={i} className="border-b hover:bg-gray-50">
                                   <td className="px-3 py-2">{e.name}</td>
                                   <td className="px-3 py-2 text-right">{e.orders}</td>
@@ -942,6 +1019,7 @@ export default function AnalyticsOrderPage() {
                               ))}
                             </tbody>
                           </table>
+                          <Pagination page={pageEmployee} total={employeeData.length} pageSize={PAGE_SIZE} onChange={setPageEmployee} />
                         </div>
                       </div>
                     </div>
