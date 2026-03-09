@@ -1,10 +1,27 @@
-self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (e) => e.waitUntil(clients.claim()));
+// public/sw.js — Pure Web Push service worker, tanpa Firebase SDK
+
+self.addEventListener('install', (e) => {
+  console.log('[SW] Installing sw.js');
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (e) => {
+  console.log('[SW] Activating sw.js');
+  e.waitUntil(
+    // Claim semua clients agar SW langsung aktif tanpa tunggu refresh
+    clients.claim()
+  );
+});
 
 self.addEventListener('push', (event) => {
   if (!event.data) return;
+
   let data = {};
-  try { data = event.data.json(); } catch { data = { title: 'New Request', body: event.data.text() }; }
+  try {
+    data = event.data.json();
+  } catch {
+    data = { title: 'New Request', body: event.data.text() };
+  }
 
   event.waitUntil(
     self.registration.showNotification(data.title || 'New Request', {
@@ -22,11 +39,13 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      for (const c of list) {
-        if (c.url.includes('/request-store') && 'focus' in c) return c.focus();
-      }
-      return clients.openWindow('/request-store');
-    })
+    clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((list) => {
+        for (const c of list) {
+          if (c.url.includes('/request-store') && 'focus' in c) return c.focus();
+        }
+        return clients.openWindow('/request-store');
+      })
   );
 });

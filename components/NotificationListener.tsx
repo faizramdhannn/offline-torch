@@ -62,6 +62,20 @@ export default function NotificationListener({ username }: Props) {
   const registerPush = async () => {
     try {
       if (!("serviceWorker" in navigator)) return;
+
+      // ─── FIX: Unregister SEMUA service worker lama (termasuk firebase-messaging-sw.js)
+      // Token APA91b... ter-generate karena Firebase SW lama masih aktif di cache browser.
+      // Kita unregister semua SW selain /sw.js sebelum register ulang.
+      const allRegs = await navigator.serviceWorker.getRegistrations();
+      for (const r of allRegs) {
+        const swUrl = r.active?.scriptURL || r.installing?.scriptURL || r.waiting?.scriptURL || '';
+        if (!swUrl.endsWith('/sw.js')) {
+          console.log('Unregistering old SW:', swUrl);
+          await r.unregister();
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       const reg = await navigator.serviceWorker.register("/sw.js");
       await navigator.serviceWorker.ready;
 
