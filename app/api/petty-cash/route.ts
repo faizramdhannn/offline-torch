@@ -1,6 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow } from '@/lib/sheets';
 import { uploadToGoogleDrive } from '@/lib/drive';
+import { google } from 'googleapis';
+
+function getGoogleCredentials() {
+  const credsEnv = process.env.GOOGLE_CREDENTIALS;
+  if (!credsEnv) throw new Error('GOOGLE_CREDENTIALS environment variable is not set');
+  try {
+    const credentials = JSON.parse(credsEnv);
+    if (!credentials.client_email) throw new Error('GOOGLE_CREDENTIALS missing client_email field');
+    if (!credentials.private_key) throw new Error('GOOGLE_CREDENTIALS missing private_key field');
+    return credentials;
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new Error('GOOGLE_CREDENTIALS is not valid JSON');
+    throw error;
+  }
+}
+
+// Auto-add debit entry to petty_cash_balance
+async function addBalanceDebit(value: string, notes: string, updateBy: string) {
+  const credentials = getGoogleCredentials();
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+  const sheets = google.sheets({ version: 'v4', auth });
+  const SPREADSHEET_BALANCE = process.env.SPREADSHEET_BALANCE || '';
+
+  const id = Date.now().toString().slice(-8);
+  const now = new Date().toISOString();
+  const rawValue = String(value).replace(/[^0-9]/g, '');
+
+  const newEntry = [id, 'debit', rawValue, notes, updateBy, now, now];
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_BALANCE,
+    range: 'petty_cash_balance!A2',
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: { values: [newEntry] },
+  });
+}
+
+// Check if ket contains both "dana talang" and "odi"
+function isDanaTalangOdi(ket: string): boolean {
+  const lower = (ket || '').toLowerCase();
+  return lower.includes('dana talang') && lower.includes('odi');
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,22 +56,22 @@ export async function GET(request: NextRequest) {
     
     const data = await getSheetData('petty_cash');
     
-    // Sort by update_at (newest first)
-const months: { [key: string]: number } = {
-  Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
-  Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
-};
-const parseDate = (dateString: string) => {
-  if (!dateString) return new Date(0);
-  const parts = dateString.split(' ');
-  if (parts.length === 3) {
-    return new Date(parseInt(parts[2]), months[parts[1]], parseInt(parts[0]));
-  }
-  return new Date(dateString);
-};
-const sortedData = data.sort((a: any, b: any) => {
-  return parseDate(b.date).getTime() - parseDate(a.date).getTime();
-});
+    // Sort by date (newest first)
+    const months: { [key: string]: number } = {
+      Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+      Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+    };
+    const parseDate = (dateString: string) => {
+      if (!dateString) return new Date(0);
+      const parts = dateString.split(' ');
+      if (parts.length === 3) {
+        return new Date(parseInt(parts[2]), months[parts[1]], parseInt(parts[0]));
+      }
+      return new Date(dateString);
+    };
+    const sortedData = data.sort((a: any, b: any) => {
+      return parseDate(b.date).getTime() - parseDate(a.date).getTime();
+    });
     
     // Filter based on user permissions
     if (!isAdmin && username) {
@@ -78,7 +124,7 @@ export async function POST(request: NextRequest) {
 
     const createdAt = now.toISOString();
     
-    // Extract raw number from value (remove Rp, dots, commas, spaces)
+    // Extract raw number from value
     const rawValue = value.replace(/[^0-9]/g, '');
     
     const newEntry = [
@@ -86,7 +132,7 @@ export async function POST(request: NextRequest) {
       date,
       description,
       category,
-      rawValue, // Save as raw number only (e.g., "100000" instead of "Rp 100.000")
+      rawValue,
       store,
       ket,
       transfer ? 'TRUE' : 'FALSE',
@@ -97,6 +143,16 @@ export async function POST(request: NextRequest) {
     ];
 
     await appendSheetData('petty_cash', [newEntry]);
+
+    // ── Auto debit balance jika dana talang + odi dan transfer TRUE saat POST ──
+    if (transfer && isDanaTalangOdi(ket)) {
+      await addBalanceDebit(
+        rawValue,
+        `Auto debit - ${description} (${store})`,
+        username
+      );
+    }
+    // ──────────────────────────────────────────────────────────────────────────
 
     return NextResponse.json({ success: true, id });
   } catch (error) {
@@ -115,11 +171,11 @@ export async function PUT(request: NextRequest) {
     const description = formData.get('description') as string;
     const category = formData.get('category') as string;
     const value = formData.get('value') as string;
-    const store = formData.get('store') as string; // Use the store from form (original store)
+    const store = formData.get('store') as string;
     const ket = formData.get('ket') as string || '';
     const transfer = formData.get('transfer') === 'true';
     const file = formData.get('file') as File | null;
-    const username = formData.get('username') as string; // This is update_by
+    const username = formData.get('username') as string;
 
     // Get all petty cash data to find the row index
     const pettyCashData = await getSheetData('petty_cash');
@@ -133,7 +189,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const entry = pettyCashData[entryIndex];
-    const rowIndex = entryIndex + 2; // +2 for header and 0-based index
+    const rowIndex = entryIndex + 2;
     
     let linkUrl = entry.link_url || '';
     
@@ -153,26 +209,41 @@ export async function PUT(request: NextRequest) {
     }
 
     const now = new Date().toISOString();
-    
-    // Extract raw number from value
     const rawValue = value.replace(/[^0-9]/g, '');
     
     const updatedEntry = [
       id,
-      entry.date, // Keep original date
+      entry.date,
       description,
       category,
-      rawValue, // Save as raw number only
-      store, // Keep original store (not username)
+      rawValue,
+      store,
       ket,
       transfer ? 'TRUE' : 'FALSE',
       linkUrl,
-      username, // Update by (this changes)
-      entry.created_at, // Keep original created_at
-      now // Update the update_at
+      username,
+      entry.created_at,
+      now
     ];
 
     await updateSheetRow('petty_cash', rowIndex, updatedEntry);
+
+    // ── Auto debit balance jika: ──────────────────────────────────────────────
+    // 1. transfer sekarang TRUE
+    // 2. ket mengandung "dana talang" dan "odi"
+    // 3. sebelumnya transfer BELUM TRUE (hindari double debit)
+    const wasAlreadyTransferred = (entry.transfer || '').toUpperCase() === 'TRUE';
+    const isNowTransferred = transfer === true;
+    const ketHasDanaTalangOdi = isDanaTalangOdi(ket);
+
+    if (isNowTransferred && ketHasDanaTalangOdi && !wasAlreadyTransferred) {
+      await addBalanceDebit(
+        rawValue,
+        `Auto debit - ${description} (${store})`,
+        username
+      );
+    }
+    // ──────────────────────────────────────────────────────────────────────────
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -208,11 +279,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const rowIndex = entryIndex + 2;
-    
-    // Mark as deleted by updating status or removing
-    // For now, we'll actually delete the row by clearing it
-    const entry = pettyCashData[entryIndex];
-    const updatedRow = Array(12).fill(''); // Clear all columns
+    const updatedRow = Array(12).fill('');
     
     await updateSheetRow('petty_cash', rowIndex, updatedRow);
 
