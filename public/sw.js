@@ -18,14 +18,18 @@ self.addEventListener('push', (event) => {
 
   if (!event.data) {
     console.log('[SW] No data in push event, showing default notification');
+    const tag = `request-${Date.now()}`;
     event.waitUntil(
       self.registration.showNotification('New Request', {
         body: 'You have a new request.',
         icon: '/logo_offline_torch.png',
         badge: '/logo_offline_torch.png',
-        tag: 'request-store',
-        renotify: true,
-        requireInteraction: true,
+        tag: tag,
+        requireInteraction: false,
+      }).then(() => {
+        console.log('[SW] Default notification shown, tag:', tag);
+      }).catch((err) => {
+        console.error('[SW] showNotification failed:', err.name, err.message);
       })
     );
     return;
@@ -40,25 +44,32 @@ self.addEventListener('push', (event) => {
     data = { title: 'New Request', body: event.data.text() };
   }
 
+  const notifTag = `request-${Date.now()}`;
+  console.log('[SW] Showing notification, tag:', notifTag);
+
   event.waitUntil(
     self.registration.showNotification(data.title || 'New Request', {
       body: data.body || 'You have a new request assigned.',
       icon: '/logo_offline_torch.png',
       badge: '/logo_offline_torch.png',
-      tag: 'request-store',
-      renotify: true,
-      requireInteraction: true,
+      tag: notifTag,
+      requireInteraction: false,
       vibrate: [200, 100, 200],
+      data: { url: data.url || '/request-store' },
     }).then(() => {
-      console.log('[SW] Notification shown successfully');
+      console.log('[SW] Notification shown successfully, tag:', notifTag);
     }).catch((err) => {
-      console.error('[SW] showNotification failed:', err);
+      console.error('[SW] showNotification failed:', err.name, err.message);
     })
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url)
+    ? event.notification.data.url
+    : '/request-store';
+
   event.waitUntil(
     clients
       .matchAll({ type: 'window', includeUncontrolled: true })
@@ -66,7 +77,7 @@ self.addEventListener('notificationclick', (event) => {
         for (const c of list) {
           if (c.url.includes('/request-store') && 'focus' in c) return c.focus();
         }
-        return clients.openWindow('/request-store');
+        return clients.openWindow(targetUrl);
       })
   );
 });
