@@ -621,7 +621,27 @@ export default function AnalyticsOrderPage() {
                                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                 ))}
                               </Pie>
-                              <Tooltip formatter={(v) => [`${v} orders`, ""]} />
+                              <Tooltip
+                                content={({ active, payload }) => {
+                                  if (!active || !payload || !payload.length) return null;
+                                  const item = payload[0];
+                                  const total = trafficData.reduce((s, d) => s + d.value, 0);
+                                  const pct = total ? ((Number(item.value) / total) * 100).toFixed(1) : "0";
+                                  return (
+                                    <div style={{ background: "#1e293b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", minWidth: 180 }}>
+                                      <p style={{ fontSize: 12, fontWeight: 700, color: "#f1f5f9", marginBottom: 6 }}>{item.name}</p>
+                                      <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                                        <span style={{ fontSize: 11, color: "#94a3b8" }}>Jumlah Order</span>
+                                        <span style={{ fontSize: 11, fontWeight: 700, color: item.payload?.fill || "#60a5fa" }}>{Number(item.value).toLocaleString()}</span>
+                                      </div>
+                                      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginTop: 2 }}>
+                                        <span style={{ fontSize: 11, color: "#94a3b8" }}>Persentase</span>
+                                        <span style={{ fontSize: 11, fontWeight: 600, color: "#e2e8f0" }}>{pct}%</span>
+                                      </div>
+                                    </div>
+                                  );
+                                }}
+                              />
                             </PieChart>
                           </ResponsiveContainer>
                           <PieLegend data={trafficData.map((d, i) => ({ name: d.name, value: d.value, color: COLORS[i % COLORS.length] }))} />
