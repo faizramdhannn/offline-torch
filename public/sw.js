@@ -14,12 +14,29 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('push', (event) => {
-  if (!event.data) return;
+  console.log('[SW] Push received:', event.data ? event.data.text() : 'no data');
+
+  if (!event.data) {
+    console.log('[SW] No data in push event, showing default notification');
+    event.waitUntil(
+      self.registration.showNotification('New Request', {
+        body: 'You have a new request.',
+        icon: '/logo_offline_torch.png',
+        badge: '/logo_offline_torch.png',
+        tag: 'request-store',
+        renotify: true,
+        requireInteraction: true,
+      })
+    );
+    return;
+  }
 
   let data = {};
   try {
     data = event.data.json();
+    console.log('[SW] Push data parsed as JSON:', JSON.stringify(data));
   } catch {
+    console.log('[SW] Push data is not JSON, using as text');
     data = { title: 'New Request', body: event.data.text() };
   }
 
@@ -32,6 +49,10 @@ self.addEventListener('push', (event) => {
       renotify: true,
       requireInteraction: true,
       vibrate: [200, 100, 200],
+    }).then(() => {
+      console.log('[SW] Notification shown successfully');
+    }).catch((err) => {
+      console.error('[SW] showNotification failed:', err);
     })
   );
 });
