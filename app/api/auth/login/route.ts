@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
       user_name: user.user_name,
       dashboard: user.dashboard === 'TRUE',
       order_report: user.order_report === 'TRUE',
+      analytics_order: user.analytics_order === 'TRUE',
       stock: user.stock === 'TRUE',
       registration_request: user.registration_request === 'TRUE',
       user_setting: user.user_setting === 'TRUE',

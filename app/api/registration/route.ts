@@ -54,6 +54,7 @@ export async function PUT(request: NextRequest) {
         permissions.order_report_import ? 'TRUE' : 'FALSE',
         permissions.order_report_export ? 'TRUE' : 'FALSE',
         permissions.customer ? 'TRUE' : 'FALSE',
+        permissions.analytics_order ? 'TRUE' : 'FALSE',
         permissions.voucher ? 'TRUE' : 'FALSE',
         permissions.bundling ? 'TRUE' : 'FALSE',
         permissions.request ? 'TRUE' : 'FALSE',
