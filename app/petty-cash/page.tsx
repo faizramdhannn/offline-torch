@@ -427,11 +427,12 @@ export default function PettyCashPage() {
     try {
       const form = new FormData();
       form.append("id", entry.id);
-      form.append("description", entry.description);
-      form.append("category", entry.category);
-      form.append("value", entry.value.replace(/[^0-9]/g, ""));
-      form.append("store", entry.store);
-      form.append("ket", entry.ket);
+      form.append("description", entry.description || "");
+      form.append("category", entry.category || "");
+      // FIX: null-safe replace
+      form.append("value", (entry.value || "0").replace(/[^0-9]/g, ""));
+      form.append("store", entry.store || "");
+      form.append("ket", entry.ket || "");
       form.append("transfer", (entry.transfer !== "TRUE").toString());
       form.append("username", user.user_name);
       const response = await fetch("/api/petty-cash", { method: "PUT", body: form });
@@ -449,12 +450,16 @@ export default function PettyCashPage() {
   };
 
   const parseDate = (dateString: string) => {
+    if (!dateString) return new Date(0);
     const months: { [key: string]: number } = {
       Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
       Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
     };
     const parts = dateString.split(" ");
-    return new Date(parseInt(parts[2]), months[parts[1]], parseInt(parts[0]));
+    if (parts.length === 3) {
+      return new Date(parseInt(parts[2]), months[parts[1]], parseInt(parts[0]));
+    }
+    return new Date(dateString);
   };
 
   const applyFilters = () => {
@@ -506,13 +511,13 @@ export default function PettyCashPage() {
   };
 
   const toTitleCase = (str: string) =>
-    str.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+    (str || "").toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 
   const formatRupiah = (value: string | number) => {
     const number =
       typeof value === "string"
-        ? parseInt(value.replace(/[^0-9]/g, "") || "0")
-        : value;
+        ? parseInt((value || "0").replace(/[^0-9]/g, "") || "0")
+        : value || 0;
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
@@ -553,10 +558,10 @@ export default function PettyCashPage() {
   const handleEdit = (entry: PettyCash) => {
     setSelectedEntry(entry);
     setFormData({
-      description: entry.description,
-      category: entry.category,
+      description: entry.description || "",
+      category: entry.category || "",
       value: formatRupiah(entry.value),
-      ket: entry.ket,
+      ket: entry.ket || "",
       transfer: entry.transfer === "TRUE",
       file: null,
     });
@@ -620,7 +625,8 @@ export default function PettyCashPage() {
       Date: item.date,
       Description: toTitleCase(item.description),
       Category: item.category,
-      Value: parseInt(item.value || "0"),
+      // FIX: null-safe
+      Value: parseInt((item.value || "0").replace(/[^0-9]/g, "") || "0"),
       Store: item.store,
       Ket: item.ket,
       Transfer: item.transfer === "TRUE" ? "Yes" : "No",
@@ -706,18 +712,20 @@ export default function PettyCashPage() {
     const reportData = uniqueStores.map((store) => {
       const storeData = reportFilteredData.filter((item) => item.store === store);
       const pettyCashData = storeData.filter((item) => {
-        const desc = item.description.toLowerCase();
+        const desc = (item.description || "").toLowerCase();
         return !desc.includes("listrik") && !desc.includes("token");
       });
+      // FIX: null-safe reduce
       const pettyCashTotal = pettyCashData.reduce((sum, item) => {
-        return sum + parseInt(item.value.replace(/[^0-9]/g, "") || "0");
+        return sum + parseInt((item.value || "0").replace(/[^0-9]/g, "") || "0");
       }, 0);
       const listrikData = storeData.filter((item) => {
-        const desc = item.description.toLowerCase();
+        const desc = (item.description || "").toLowerCase();
         return desc.includes("listrik") || desc.includes("token");
       });
+      // FIX: null-safe reduce
       const listrikTotal = listrikData.reduce((sum, item) => {
-        return sum + parseInt(item.value.replace(/[^0-9]/g, "") || "0");
+        return sum + parseInt((item.value || "0").replace(/[^0-9]/g, "") || "0");
       }, 0);
       return {
         store: toTitleCase(store),
@@ -733,9 +741,11 @@ export default function PettyCashPage() {
     if (!balanceData) return { credit: 0, debit: 0 };
     const credit = balanceData.entries
       .filter((entry) => (entry.type_balance || "").toLowerCase() === "credit")
+      // FIX: null-safe
       .reduce((sum, entry) => sum + (parseInt((entry.value || "0").replace(/[^0-9]/g, "")) || 0), 0);
     const debit = balanceData.entries
       .filter((entry) => (entry.type_balance || "").toLowerCase() === "debit")
+      // FIX: null-safe
       .reduce((sum, entry) => sum + (parseInt((entry.value || "0").replace(/[^0-9]/g, "")) || 0), 0);
     return { credit, debit };
   };
@@ -745,8 +755,9 @@ export default function PettyCashPage() {
   const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
+  // FIX: null-safe totalValue
   const totalValue = filteredData.reduce((sum, item) => {
-    return sum + parseInt(item.value.replace(/[^0-9]/g, "") || "0");
+    return sum + parseInt((item.value || "0").replace(/[^0-9]/g, "") || "0");
   }, 0);
 
   if (!user) return null;

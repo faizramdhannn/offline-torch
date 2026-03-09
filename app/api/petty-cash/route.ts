@@ -11,11 +11,21 @@ export async function GET(request: NextRequest) {
     const data = await getSheetData('petty_cash');
     
     // Sort by update_at (newest first)
-    const sortedData = data.sort((a: any, b: any) => {
-      const dateA = new Date(a.update_at || a.created_at).getTime();
-      const dateB = new Date(b.update_at || b.created_at).getTime();
-      return dateB - dateA;
-    });
+const months: { [key: string]: number } = {
+  Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+  Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+};
+const parseDate = (dateString: string) => {
+  if (!dateString) return new Date(0);
+  const parts = dateString.split(' ');
+  if (parts.length === 3) {
+    return new Date(parseInt(parts[2]), months[parts[1]], parseInt(parts[0]));
+  }
+  return new Date(dateString);
+};
+const sortedData = data.sort((a: any, b: any) => {
+  return parseDate(b.date).getTime() - parseDate(a.date).getTime();
+});
     
     // Filter based on user permissions
     if (!isAdmin && username) {
