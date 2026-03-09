@@ -56,20 +56,33 @@ function parseSubtotal(val: string | null | undefined): number {
 
 function extractTrafficCode(notes: string | null | undefined): string | null {
   if (!notes) return null;
-  const trimmed = notes.trim();
-  const words = trimmed.split(/\s+/);
-  if (words.length < 1) return null;
-  // Try last word first (2 chars)
-  const last = words[words.length - 1].toUpperCase().replace(/[^A-Z]/g, "");
-  if (TRAFFIC_MAP[last]) return last;
-  // Try second to last
-  if (words.length >= 2) {
-    const secondLast = words[words.length - 2].toUpperCase().replace(/[^A-Z]/g, "");
-    if (TRAFFIC_MAP[secondLast]) return secondLast;
+
+  // Normalize: uppercase + trim
+  const upper = notes.trim().toUpperCase();
+
+  // Split by whitespace OR comma, strip non-alpha from each token, filter empty
+  // Handles: "TO", "To", "tO", "B, N, RG, TO", "B, N, RG, TO ", "BNRGTO"
+  const tokens = upper
+    .split(/[\s,]+/)
+    .map((t) => t.replace(/[^A-Z]/g, ""))
+    .filter(Boolean);
+
+  if (tokens.length === 0) return null;
+
+  // Iterate tokens from last to first — traffic code is usually at the end
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    const token = tokens[i];
+
+    // 1. Exact match (e.g. "TO", "WG")
+    if (TRAFFIC_MAP[token]) return token;
+
+    // 2. Last 2 chars of token (e.g. "BNRGTO" → "TO")
+    if (token.length > 2) {
+      const tail = token.slice(-2);
+      if (TRAFFIC_MAP[tail]) return tail;
+    }
   }
-  // Try full trimmed as code
-  const full = trimmed.toUpperCase().replace(/[^A-Z]/g, "");
-  if (TRAFFIC_MAP[full]) return full;
+
   return null;
 }
 
