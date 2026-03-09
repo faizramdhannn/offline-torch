@@ -144,64 +144,53 @@ export default function OrderReportPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "";
-    const [datePart] = dateString.split(" ");
-    const [day, month, year] = datePart.split("-");
-    const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-    return `${day} ${months[parseInt(month) - 1]} ${year}`;
+  // ─── Date Helpers ──────────────────────────────────────────────────────────
+  // Handles both "DD-MM-YYYY HH:mm:ss" and "YYYY-MM-DD HH:mm:ss"
+  const parseOrderDate = (dateString: string): Date => {
+    if (!dateString) return new Date(0);
+    const datePart = dateString.split(" ")[0];
+    const parts = datePart.split("-");
+
+    if (parts[0].length === 4) {
+      // Format: YYYY-MM-DD
+      return new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
+    } else {
+      // Format: DD-MM-YYYY
+      return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+    }
   };
+
+  const formatDate = (dateString: string): string => {
+    if (!dateString) return "";
+    const months = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    const date = parseOrderDate(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    return `${date.getDate().toString().padStart(2, "0")} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  };
+  // ──────────────────────────────────────────────────────────────────────────
 
   const sortByEmptyFields = (dataToSort: OrderReport[]) => {
     return [...dataToSort].sort((a, b) => {
-      // Check if delivery_note is null/empty
-      const aDeliveryEmpty =
-        !a.delivery_note ||
-        a.delivery_note === "" ||
-        a.delivery_note === "null";
-      const bDeliveryEmpty =
-        !b.delivery_note ||
-        b.delivery_note === "" ||
-        b.delivery_note === "null";
+      const aDeliveryEmpty = !a.delivery_note || a.delivery_note === "" || a.delivery_note === "null";
+      const bDeliveryEmpty = !b.delivery_note || b.delivery_note === "" || b.delivery_note === "null";
+      const aInvoiceEmpty = !a.sales_invoice || a.sales_invoice === "" || a.sales_invoice === "null";
+      const bInvoiceEmpty = !b.sales_invoice || b.sales_invoice === "" || b.sales_invoice === "null";
 
-      // Check if sales_invoice is null/empty
-      const aInvoiceEmpty =
-        !a.sales_invoice ||
-        a.sales_invoice === "" ||
-        a.sales_invoice === "null";
-      const bInvoiceEmpty =
-        !b.sales_invoice ||
-        b.sales_invoice === "" ||
-        b.sales_invoice === "null";
-
-      // Priority 1: Both delivery_note AND sales_invoice are empty (highest priority)
       const aBothEmpty = aDeliveryEmpty && aInvoiceEmpty;
       const bBothEmpty = bDeliveryEmpty && bInvoiceEmpty;
 
       if (aBothEmpty && !bBothEmpty) return -1;
       if (!aBothEmpty && bBothEmpty) return 1;
 
-      // Priority 2: Either delivery_note OR sales_invoice is empty
       const aEitherEmpty = aDeliveryEmpty || aInvoiceEmpty;
       const bEitherEmpty = bDeliveryEmpty || bInvoiceEmpty;
 
       if (aEitherEmpty && !bEitherEmpty) return -1;
       if (!aEitherEmpty && bEitherEmpty) return 1;
 
-      // If both have same empty status, maintain original order
       return 0;
     });
   };
@@ -209,34 +198,20 @@ export default function OrderReportPage() {
   const applyFilters = () => {
     let filtered = [...data];
 
-    // STEP 1: Apply warehouse lock if user doesn't have import permission
+    // STEP 1: Apply warehouse lock
     if (lockedWarehouse && !user?.order_report_import) {
       filtered = filtered.filter((item) => item.warehouse === lockedWarehouse);
     } else if (warehouseFilter.length > 0) {
-      filtered = filtered.filter((item) =>
-        warehouseFilter.includes(item.warehouse),
-      );
+      filtered = filtered.filter((item) => warehouseFilter.includes(item.warehouse));
     }
 
     // STEP 2: Apply date filters
     if (dateFrom) {
-      filtered = filtered.filter((item) => {
-        const itemDate = new Date(
-          item.order_date.split(" ")[0].split("-").reverse().join("-"),
-        );
-        const fromDate = new Date(dateFrom);
-        return itemDate >= fromDate;
-      });
+      filtered = filtered.filter((item) => parseOrderDate(item.order_date) >= new Date(dateFrom));
     }
 
     if (dateTo) {
-      filtered = filtered.filter((item) => {
-        const itemDate = new Date(
-          item.order_date.split(" ")[0].split("-").reverse().join("-"),
-        );
-        const toDate = new Date(dateTo);
-        return itemDate <= toDate;
-      });
+      filtered = filtered.filter((item) => parseOrderDate(item.order_date) <= new Date(dateTo));
     }
 
     // STEP 3: Apply status filter
@@ -248,11 +223,11 @@ export default function OrderReportPage() {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((item) =>
-        item.sales_order.toLowerCase().includes(query),
+        item.sales_order.toLowerCase().includes(query)
       );
     }
 
-    // STEP 5: Sort by empty fields (AFTER all filters applied)
+    // STEP 5: Sort by empty fields
     const sorted = sortByEmptyFields(filtered);
 
     setFilteredData(sorted);
@@ -264,19 +239,13 @@ export default function OrderReportPage() {
     setDateTo("");
     setStatusFilter([]);
     setSearchQuery("");
-    // Only reset warehouse filter if user has import permission
     if (user?.order_report_import) {
       setWarehouseFilter([]);
     }
 
-    // Apply sorting to full data
     let dataToShow = [...data];
-
-    // If user is locked, still filter by warehouse even on reset
     if (lockedWarehouse && !user?.order_report_import) {
-      dataToShow = dataToShow.filter(
-        (item) => item.warehouse === lockedWarehouse,
-      );
+      dataToShow = dataToShow.filter((item) => item.warehouse === lockedWarehouse);
     }
 
     const sorted = sortByEmptyFields(dataToShow);
@@ -286,17 +255,13 @@ export default function OrderReportPage() {
 
   const toggleStatus = (status: string) => {
     setStatusFilter((prev) =>
-      prev.includes(status)
-        ? prev.filter((s) => s !== status)
-        : [...prev, status],
+      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
     );
   };
 
   const toggleWarehouse = (warehouse: string) => {
     setWarehouseFilter((prev) =>
-      prev.includes(warehouse)
-        ? prev.filter((w) => w !== warehouse)
-        : [...prev, warehouse],
+      prev.includes(warehouse) ? prev.filter((w) => w !== warehouse) : [...prev, warehouse]
     );
   };
 
@@ -309,17 +274,13 @@ export default function OrderReportPage() {
             parsedData = parsedData.filter(
               (row) =>
                 Array.isArray(row) &&
-                row.some(
-                  (cell) => cell !== null && cell !== undefined && cell !== "",
-                ),
+                row.some((cell) => cell !== null && cell !== undefined && cell !== "")
             );
             resolve(parsedData);
           },
           header: false,
           skipEmptyLines: true,
-          error: (error) => {
-            reject(error);
-          },
+          error: (error) => reject(error),
         });
       } else if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
         const reader = new FileReader();
@@ -329,24 +290,18 @@ export default function OrderReportPage() {
             const workbook = XLSX.read(data, { type: "binary" });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
-            let jsonData = XLSX.utils.sheet_to_json(worksheet, {
-              header: 1,
-            }) as any[][];
+            let jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
             jsonData = jsonData.filter(
               (row) =>
                 Array.isArray(row) &&
-                row.some(
-                  (cell) => cell !== null && cell !== undefined && cell !== "",
-                ),
+                row.some((cell) => cell !== null && cell !== undefined && cell !== "")
             );
             resolve(jsonData);
           } catch (error) {
             reject(error);
           }
         };
-        reader.onerror = () => {
-          reject(new Error("Failed to read file"));
-        };
+        reader.onerror = () => reject(new Error("Failed to read file"));
         reader.readAsBinaryString(file);
       } else {
         reject(new Error("Unsupported file format"));
@@ -358,10 +313,7 @@ export default function OrderReportPage() {
     const response = await fetch("/api/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sheetName: sheetName,
-        data: importData,
-      }),
+      body: JSON.stringify({ sheetName, data: importData }),
     });
 
     if (!response.ok) {
@@ -389,16 +341,11 @@ export default function OrderReportPage() {
           if (parsedData.length === 0) {
             errors.push("PowerBiz: No valid data found");
           } else {
-            const result = await uploadToSheet(
-              "powerbiz_salesorder",
-              parsedData,
-            );
+            const result = await uploadToSheet("powerbiz_salesorder", parsedData);
             results.push(`PowerBiz: ${result.rowsImported} rows imported`);
           }
         } catch (error) {
-          errors.push(
-            `PowerBiz: ${error instanceof Error ? error.message : "Import failed"}`,
-          );
+          errors.push(`PowerBiz: ${error instanceof Error ? error.message : "Import failed"}`);
         }
       }
 
@@ -412,9 +359,7 @@ export default function OrderReportPage() {
             results.push(`Delivery Note: ${result.rowsImported} rows imported`);
           }
         } catch (error) {
-          errors.push(
-            `Delivery Note: ${error instanceof Error ? error.message : "Import failed"}`,
-          );
+          errors.push(`Delivery Note: ${error instanceof Error ? error.message : "Import failed"}`);
         }
       }
 
@@ -428,32 +373,23 @@ export default function OrderReportPage() {
             results.push(`Sales Invoice: ${result.rowsImported} rows imported`);
           }
         } catch (error) {
-          errors.push(
-            `Sales Invoice: ${error instanceof Error ? error.message : "Import failed"}`,
-          );
+          errors.push(`Sales Invoice: ${error instanceof Error ? error.message : "Import failed"}`);
         }
       }
 
-      let message = "";
       if (results.length > 0) {
-        // Log activity
-        await logActivity(
-          "POST",
-          `Imported order report: ${results.join(", ")}`,
-        );
-
+        await logActivity("POST", `Imported order report: ${results.join(", ")}`);
         showMessage(
-          message || "Import completed",
-          results.length > 0 && errors.length === 0 ? "success" : "error",
+          results.join(", "),
+          errors.length === 0 ? "success" : "error"
         );
-
-        if (results.length > 0) {
-          setShowImportModal(false);
-          setPowerbizFile(null);
-          setDeliveryFile(null);
-          setInvoiceFile(null);
-          fetchData();
-        }
+        setShowImportModal(false);
+        setPowerbizFile(null);
+        setDeliveryFile(null);
+        setInvoiceFile(null);
+        fetchData();
+      } else {
+        showMessage(errors.join(", ") || "Import failed", "error");
       }
     } catch (error) {
       showMessage("Failed to import data. Please try again.", "error");
@@ -479,10 +415,7 @@ export default function OrderReportPage() {
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Order Report");
-    XLSX.writeFile(
-      wb,
-      `order_report_${new Date().toISOString().split("T")[0]}.xlsx`,
-    );
+    XLSX.writeFile(wb, `order_report_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -543,9 +476,7 @@ export default function OrderReportPage() {
                 ) : (
                   <>
                     <button
-                      onClick={() =>
-                        setShowWarehouseDropdown(!showWarehouseDropdown)
-                      }
+                      onClick={() => setShowWarehouseDropdown(!showWarehouseDropdown)}
                       className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
                     >
                       <span className="text-gray-500">
@@ -615,7 +546,7 @@ export default function OrderReportPage() {
                 </div>
               </div>
 
-              {/* Search Column - sekarang ada di samping Status */}
+              {/* Search */}
               <div className="col-span-2">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Search
@@ -665,45 +596,26 @@ export default function OrderReportPage() {
                   {(() => {
                     if (filteredData.length === 0) return "-";
 
-                    // Get date range from filtered data
                     const dates = filteredData
-                      .map((item) => {
-                        const [datePart] = item.order_date.split(" ");
-                        const [day, month, year] = datePart.split("-");
-                        return new Date(
-                          parseInt(year),
-                          parseInt(month) - 1,
-                          parseInt(day),
-                        );
-                      })
+                      .map((item) => parseOrderDate(item.order_date))
+                      .filter((d) => !isNaN(d.getTime()))
                       .sort((a, b) => a.getTime() - b.getTime());
+
+                    if (dates.length === 0) return "-";
 
                     const minDate = dates[0];
                     const maxDate = dates[dates.length - 1];
 
-                    const formatDate = (date: Date) => {
+                    const fmt = (date: Date) => {
                       const months = [
-                        "Jan",
-                        "Feb",
-                        "Mar",
-                        "Apr",
-                        "May",
-                        "Jun",
-                        "Jul",
-                        "Aug",
-                        "Sep",
-                        "Oct",
-                        "Nov",
-                        "Dec",
+                        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
                       ];
                       return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
                     };
 
-                    if (minDate.getTime() === maxDate.getTime()) {
-                      return formatDate(minDate);
-                    }
-
-                    return `${formatDate(minDate)} - ${formatDate(maxDate)}`;
+                    if (minDate.getTime() === maxDate.getTime()) return fmt(minDate);
+                    return `${fmt(minDate)} - ${fmt(maxDate)}`;
                   })()}
                 </div>
               </div>
@@ -716,36 +628,30 @@ export default function OrderReportPage() {
               </div>
 
               <div className="border-r border-gray-200 pr-4">
-                <div className="text-xs text-gray-600 mb-1">
-                  Delivery Note Null
-                </div>
+                <div className="text-xs text-gray-600 mb-1">Delivery Note Null</div>
                 <div className="text-sm font-semibold text-red-600">
-                  {(() => {
-                    const nullCount = filteredData.filter(
+                  {filteredData
+                    .filter(
                       (item) =>
                         !item.delivery_note ||
                         item.delivery_note === "" ||
-                        item.delivery_note === "null",
-                    ).length;
-                    return nullCount.toLocaleString();
-                  })()}
+                        item.delivery_note === "null"
+                    )
+                    .length.toLocaleString()}
                 </div>
               </div>
 
               <div>
-                <div className="text-xs text-gray-600 mb-1">
-                  Sales Invoice Null
-                </div>
+                <div className="text-xs text-gray-600 mb-1">Sales Invoice Null</div>
                 <div className="text-sm font-semibold text-red-600">
-                  {(() => {
-                    const nullCount = filteredData.filter(
+                  {filteredData
+                    .filter(
                       (item) =>
                         !item.sales_invoice ||
                         item.sales_invoice === "" ||
-                        item.sales_invoice === "null",
-                    ).length;
-                    return nullCount.toLocaleString();
-                  })()}
+                        item.sales_invoice === "null"
+                    )
+                    .length.toLocaleString()}
                 </div>
               </div>
             </div>
@@ -760,44 +666,22 @@ export default function OrderReportPage() {
                   <table className="w-full text-xs">
                     <thead className="bg-gray-100 border-b">
                       <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
-                          Order Date
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
-                          Sales Order
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
-                          Warehouse
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
-                          Status
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
-                          Sales Channel
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
-                          Channel Name
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
-                          Payment Method
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
-                          Value Amount
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
-                          Delivery Note
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
-                          Sales Invoice
-                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Order Date</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Sales Order</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Warehouse</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Status</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Sales Channel</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Channel Name</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Payment Method</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Value Amount</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Delivery Note</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Sales Invoice</th>
                       </tr>
                     </thead>
                     <tbody>
                       {currentItems.map((item, index) => (
                         <tr key={index} className="border-b hover:bg-gray-50">
-                          <td className="px-3 py-2">
-                            {formatDate(item.order_date)}
-                          </td>
+                          <td className="px-3 py-2">{formatDate(item.order_date)}</td>
                           <td className="px-3 py-2">{item.sales_order}</td>
                           <td className="px-3 py-2">{item.warehouse}</td>
                           <td className="px-3 py-2">{item.status}</td>
@@ -806,16 +690,14 @@ export default function OrderReportPage() {
                           <td className="px-3 py-2">{item.payment_method}</td>
                           <td className="px-3 py-2">{item.value_amount}</td>
                           <td className="px-3 py-2">
-                            {item.delivery_note &&
-                            item.delivery_note !== "null" ? (
+                            {item.delivery_note && item.delivery_note !== "null" ? (
                               item.delivery_note
                             ) : (
                               <span className="text-red-500">-</span>
                             )}
                           </td>
                           <td className="px-3 py-2">
-                            {item.sales_invoice &&
-                            item.sales_invoice !== "null" ? (
+                            {item.sales_invoice && item.sales_invoice !== "null" ? (
                               item.sales_invoice
                             ) : (
                               <span className="text-red-500">-</span>
@@ -826,9 +708,7 @@ export default function OrderReportPage() {
                     </tbody>
                   </table>
                   {filteredData.length === 0 && (
-                    <div className="p-8 text-center text-gray-500">
-                      No data available
-                    </div>
+                    <div className="p-8 text-center text-gray-500">No data available</div>
                   )}
                 </div>
 
@@ -841,9 +721,7 @@ export default function OrderReportPage() {
                     </div>
                     <div className="flex gap-1">
                       <button
-                        onClick={() =>
-                          setCurrentPage((prev) => Math.max(1, prev - 1))
-                        }
+                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                         disabled={currentPage === 1}
                         className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                       >
@@ -869,10 +747,7 @@ export default function OrderReportPage() {
                               {page}
                             </button>
                           );
-                        } else if (
-                          page === currentPage - 2 ||
-                          page === currentPage + 2
-                        ) {
+                        } else if (page === currentPage - 2 || page === currentPage + 2) {
                           return (
                             <span key={page} className="px-2">
                               ...
@@ -882,11 +757,7 @@ export default function OrderReportPage() {
                         return null;
                       })}
                       <button
-                        onClick={() =>
-                          setCurrentPage((prev) =>
-                            Math.min(totalPages, prev + 1),
-                          )
-                        }
+                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                         disabled={currentPage === totalPages}
                         className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                       >
@@ -908,9 +779,8 @@ export default function OrderReportPage() {
 
             <div className="space-y-4">
               <p className="text-sm text-gray-600 mb-4">
-                Upload files for PowerBiz Sales Order, Delivery Note, and/or
-                Sales Invoice. You can upload one, two, or all three files at
-                once.
+                Upload files for PowerBiz Sales Order, Delivery Note, and/or Sales Invoice.
+                You can upload one, two, or all three files at once.
               </p>
 
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
@@ -925,9 +795,7 @@ export default function OrderReportPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90 disabled:opacity-50"
                 />
                 {powerbizFile && (
-                  <p className="text-xs text-green-600 mt-2 flex items-center">
-                    ✓ Selected: {powerbizFile.name}
-                  </p>
+                  <p className="text-xs text-green-600 mt-2">✓ Selected: {powerbizFile.name}</p>
                 )}
               </div>
 
@@ -943,9 +811,7 @@ export default function OrderReportPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90 disabled:opacity-50"
                 />
                 {deliveryFile && (
-                  <p className="text-xs text-green-600 mt-2 flex items-center">
-                    ✓ Selected: {deliveryFile.name}
-                  </p>
+                  <p className="text-xs text-green-600 mt-2">✓ Selected: {deliveryFile.name}</p>
                 )}
               </div>
 
@@ -961,9 +827,7 @@ export default function OrderReportPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90 disabled:opacity-50"
                 />
                 {invoiceFile && (
-                  <p className="text-xs text-green-600 mt-2 flex items-center">
-                    ✓ Selected: {invoiceFile.name}
-                  </p>
+                  <p className="text-xs text-green-600 mt-2">✓ Selected: {invoiceFile.name}</p>
                 )}
               </div>
 
@@ -976,9 +840,7 @@ export default function OrderReportPage() {
 
               {importing && (
                 <div className="text-sm text-gray-600 text-center py-3">
-                  <div className="animate-pulse">
-                    Importing files... Please wait.
-                  </div>
+                  <div className="animate-pulse">Importing files... Please wait.</div>
                 </div>
               )}
             </div>
@@ -998,9 +860,7 @@ export default function OrderReportPage() {
               </button>
               <button
                 onClick={handleImportAll}
-                disabled={
-                  importing || (!powerbizFile && !deliveryFile && !invoiceFile)
-                }
+                disabled={importing || (!powerbizFile && !deliveryFile && !invoiceFile)}
                 className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
               >
                 {importing ? "Importing..." : "Import Selected Files"}
