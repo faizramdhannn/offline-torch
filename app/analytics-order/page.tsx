@@ -57,11 +57,8 @@ function parseSubtotal(val: string | null | undefined): number {
 function extractTrafficCode(notes: string | null | undefined): string | null {
   if (!notes) return null;
 
-  // Normalize: uppercase + trim
   const upper = notes.trim().toUpperCase();
 
-  // Split by whitespace OR comma, strip non-alpha from each token, filter empty
-  // Handles: "TO", "To", "tO", "B, N, RG, TO", "B, N, RG, TO ", "BNRGTO"
   const tokens = upper
     .split(/[\s,]+/)
     .map((t) => t.replace(/[^A-Z]/g, ""))
@@ -69,14 +66,11 @@ function extractTrafficCode(notes: string | null | undefined): string | null {
 
   if (tokens.length === 0) return null;
 
-  // Iterate tokens from last to first — traffic code is usually at the end
   for (let i = tokens.length - 1; i >= 0; i--) {
     const token = tokens[i];
 
-    // 1. Exact match (e.g. "TO", "WG")
     if (TRAFFIC_MAP[token]) return token;
 
-    // 2. Last 2 chars of token (e.g. "BNRGTO" → "TO")
     if (token.length > 2) {
       const tail = token.slice(-2);
       if (TRAFFIC_MAP[tail]) return tail;
@@ -88,9 +82,6 @@ function extractTrafficCode(notes: string | null | undefined): string | null {
 
 function cleanLocationName(loc: string | null | undefined): string {
   if (!loc) return "Unknown";
-  // "Torch Store Lembong - Bandung" → "Lembong"
-  // "Torch Store Medan - Medan" → "Medan"
-  // "Torch Surabaya - Jawa Timur" → "Surabaya"
   return loc
     .replace(/Torch Store\s*/i, "")
     .replace(/Torch\s*/i, "")
@@ -226,7 +217,7 @@ export default function AnalyticsOrderPage() {
   const [dateTo, setDateTo] = useState("");
   const [storeFilter, setStoreFilter] = useState("all");
 
-  // Store filter options (for traffic/product/employee tabs)
+  // Store filter options
   const [stores, setStores] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -252,7 +243,6 @@ export default function AnalyticsOrderPage() {
       const res = await fetch("/api/shopify-analytics");
       const data = await res.json();
       setRows(Array.isArray(data) ? data : []);
-      // Build unique stores
       const uniq = [...new Set((Array.isArray(data) ? data : []).map((r: Row) => cleanLocationName(r.Location)).filter(Boolean))] as string[];
       setStores(uniq.sort());
     } catch {
@@ -313,7 +303,7 @@ export default function AnalyticsOrderPage() {
   const filteredRows = useCallback(() => {
     return rows.filter((r) => {
       const rawDate = r["Created at"] || "";
-      const dateStr = rawDate.split(" ")[0]; // "2026-03-09"
+      const dateStr = rawDate.split(" ")[0];
       if (dateFrom && dateStr < dateFrom) return false;
       if (dateTo && dateStr > dateTo) return false;
       if (storeFilter !== "all") {
@@ -327,7 +317,6 @@ export default function AnalyticsOrderPage() {
   const fr = filteredRows();
 
   // ─── 1. Revenue per Store ─────────────────────────────────────────────────
-  // Aggregate by order Name to avoid counting multi-line items twice
   const revenueByStore = (() => {
     const orderSeen = new Set<string>();
     const map: Record<string, number> = {};
@@ -377,6 +366,9 @@ export default function AnalyticsOrderPage() {
     if (nullCount > 0) result.push({ name: "Tidak Diketahui", value: nullCount });
     return result;
   })();
+
+  // Traffic data tanpa "Tidak Diketahui" — dipakai khusus untuk pie chart
+  const trafficDataForPie = trafficData.filter(d => d.name !== "Tidak Diketahui");
 
   // Traffic per store
   const trafficByStore = (() => {
@@ -684,7 +676,7 @@ export default function AnalyticsOrderPage() {
                   {/* ── Tab 2: Traffic Source ────────────────────────────── */}
                   {activeTab === "traffic" && (
                     <div className="space-y-8">
-                      {/* Toggle exclude unknown */}
+                      {/* Toggle exclude unknown — hanya berlaku untuk bar chart */}
                       <div className="flex items-center gap-2">
                         <label className="flex items-center gap-2 cursor-pointer select-none">
                           <div
@@ -693,16 +685,18 @@ export default function AnalyticsOrderPage() {
                           >
                             <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${hideUnknownTraffic ? "translate-x-4" : "translate-x-0.5"}`} />
                           </div>
-                          <span className="text-xs text-gray-600">Sembunyikan <strong>"Tidak Diketahui"</strong> di chart</span>
+                          <span className="text-xs text-gray-600">Sembunyikan <strong>"Tidak Diketahui"</strong> di bar chart</span>
                         </label>
                       </div>
+
                       <div className="grid grid-cols-2 gap-8">
+                        {/* Pie chart — selalu exclude "Tidak Diketahui" */}
                         <div>
                           <h3 className="text-sm font-semibold text-gray-700 mb-4">Distribusi Traffic Source</h3>
                           <ResponsiveContainer width="100%" height={300}>
                             <PieChart>
                               <Pie
-                                data={hideUnknownTraffic ? trafficData.filter(d => d.name !== "Tidak Diketahui") : trafficData}
+                                data={trafficDataForPie}
                                 dataKey="value"
                                 nameKey="name"
                                 cx="50%"
@@ -711,7 +705,7 @@ export default function AnalyticsOrderPage() {
                                 label={(props) => (props.percent ?? 0) > 0.04 ? `${((props.percent ?? 0) * 100).toFixed(0)}%` : ""}
                                 labelLine={false}
                               >
-                                {(hideUnknownTraffic ? trafficData.filter(d => d.name !== "Tidak Diketahui") : trafficData).map((_, i) => (
+                                {trafficDataForPie.map((_, i) => (
                                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                 ))}
                               </Pie>
@@ -719,7 +713,7 @@ export default function AnalyticsOrderPage() {
                                 content={({ active, payload }) => {
                                   if (!active || !payload || !payload.length) return null;
                                   const item = payload[0];
-                                  const total = trafficData.reduce((s, d) => s + d.value, 0);
+                                  const total = trafficDataForPie.reduce((s, d) => s + d.value, 0);
                                   const pct = total ? ((Number(item.value) / total) * 100).toFixed(1) : "0";
                                   return (
                                     <div style={{ background: "#1e293b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", minWidth: 180 }}>
@@ -738,9 +732,16 @@ export default function AnalyticsOrderPage() {
                               />
                             </PieChart>
                           </ResponsiveContainer>
-                          <PieLegend data={(hideUnknownTraffic ? trafficData.filter(d => d.name !== "Tidak Diketahui") : trafficData).map((d, i) => ({ name: d.name, value: d.value, color: COLORS[i % COLORS.length] }))} />
+                          <PieLegend
+                            data={trafficDataForPie.map((d, i) => ({
+                              name: d.name,
+                              value: d.value,
+                              color: COLORS[i % COLORS.length],
+                            }))}
+                          />
                         </div>
 
+                        {/* Bar chart — ikuti toggle hideUnknownTraffic */}
                         <div>
                           <h3 className="text-sm font-semibold text-gray-700 mb-4">Jumlah Order per Traffic</h3>
                           <ResponsiveContainer width="100%" height={300}>
@@ -1044,7 +1045,6 @@ export default function AnalyticsOrderPage() {
                 : "Semua data yang ada akan dihapus dan diganti dengan data dari file ini. Gunakan ini jika ingin reset total."}
             </p>
 
-            {/* Warning for refresh */}
             {importMode === "refresh" && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-5 flex gap-2">
                 <span className="text-red-500 text-sm mt-0.5">⚠️</span>
@@ -1054,7 +1054,6 @@ export default function AnalyticsOrderPage() {
               </div>
             )}
 
-            {/* Info for append */}
             {importMode === "append" && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-5 flex gap-2">
                 <span className="text-blue-500 text-sm mt-0.5">ℹ️</span>
