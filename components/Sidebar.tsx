@@ -39,6 +39,25 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
   const { isOpen, isCollapsed, toggleOpen, toggleCollapsed } = useSidebar();
   const { isDark, toggleTheme } = useTheme();
 
+  // ─── FIX: Ambil user_name (login name) dari localStorage ─────────────────
+  // userName prop bisa berisi display name (misal "Torch Lembong"),
+  // tapi push subscription harus pakai user_name (misal "lembong")
+  // agar key push_sub_lembong cocok dengan assigned_to / created_by di sheet.
+  const loginName =
+    typeof window !== "undefined"
+      ? (() => {
+          try {
+            return (
+              JSON.parse(localStorage.getItem("user") || "{}").user_name ||
+              userName
+            );
+          } catch {
+            return userName;
+          }
+        })()
+      : userName;
+  // ─────────────────────────────────────────────────────────────────────────
+
   const handleLogout = () => {
     localStorage.removeItem("user");
     router.push("/login");
@@ -216,9 +235,9 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
 
   return (
     <>
-      {/* NotificationListener — aktif di semua halaman selama user login dan punya permission request */}
+      {/* NotificationListener — pakai loginName (user_name) bukan display name */}
       {permissions?.request && (
-        <NotificationListener username={userName} />
+        <NotificationListener username={loginName} />
       )}
 
       {/* Mobile overlay */}

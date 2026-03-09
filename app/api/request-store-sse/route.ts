@@ -6,8 +6,8 @@ export const dynamic = 'force-dynamic';
 // ─── Server-side shared cache ────────────────────────────────────────────────
 // Semua koneksi SSE berbagi satu cache ini.
 // Sheets API hanya di-hit maksimal 1x per CACHE_TTL_MS, berapapun user aktif.
-const CACHE_TTL_MS = 20_000; // refresh setiap 20 detik
-const POLL_INTERVAL_MS = 20_000; // interval tiap klien cek cache
+const CACHE_TTL_MS = 20_000;
+const POLL_INTERVAL_MS = 20_000;
 
 let cachedData: any[] | null = null;
 let cacheTimestamp = 0;
@@ -16,17 +16,14 @@ let isFetching = false;
 async function getCachedData(): Promise<any[]> {
   const now = Date.now();
 
-  // Kembalikan cache jika masih segar
   if (cachedData !== null && now - cacheTimestamp < CACHE_TTL_MS) {
     return cachedData;
   }
 
-  // Jika sedang ada fetch berjalan, tunggu sebentar lalu pakai cache lama
   if (isFetching) {
     return cachedData ?? [];
   }
 
-  // Fetch baru dari Sheets
   isFetching = true;
   try {
     const data = await getSheetData('request_store');
@@ -41,9 +38,15 @@ async function getCachedData(): Promise<any[]> {
     isFetching = false;
   }
 }
-// ─────────────────────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
+  // ─── FIX: username param tidak dipakai di sini lagi ──────────────────────
+  // Dulu username dipakai untuk filter notif, tapi sekarang notifikasi sudah
+  // sepenuhnya dihandle oleh NotificationListener di client.
+  // SSE ini hanya mengirim data tabel ke semua koneksi aktif.
+  // Tidak ada logika notifikasi di server-side SSE ini.
+  // ─────────────────────────────────────────────────────────────────────────
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({

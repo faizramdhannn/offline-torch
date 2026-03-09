@@ -1,10 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 
+// ─── FIX: Pakai env var, bukan hardcode key berbeda ──────────────────────────
+// Dulu ada 2 key berbeda antara file ini dan page.tsx → subscription mismatch
 const VAPID_PUBLIC_KEY =
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-  "BLCpcWVe7ON_yEBseUerxJ6xyX26S3fZjj2CE5X_-Q5EKiRdHh6zr79iD62PjiefZ3X2oAuk_itov_398VAGXPo";
+  "BPRJgdT0HHzl7GeptF_hhQ4JncvHV2AzNfdihGrDrd3FEvjIZK_T-t7_1Ggib3UTMA9OYuVyrdnx6X7xWmveLZY";
+// ─────────────────────────────────────────────────────────────────────────────
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -17,10 +21,14 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 interface Props {
+  // username HARUS berisi user_name (login name), bukan display name
+  // Contoh: "lembong" bukan "Torch Lembong"
+  // Sidebar sudah difix untuk selalu kirim user_name ke sini
   username: string;
 }
 
 export default function NotificationListener({ username }: Props) {
+  const pathname = usePathname();
   const sseRef = useRef<EventSource | null>(null);
   const knownStatusRef = useRef<Map<string, string>>(new Map());
   const isInitializedRef = useRef(false);
@@ -28,13 +36,18 @@ export default function NotificationListener({ username }: Props) {
   useEffect(() => {
     if (!username) return;
 
+    // ─── FIX: Cek apakah sedang di halaman request-store ─────────────────
+    // Jika ya, page.tsx sudah DIHAPUS logika SSE-nya sehingga hanya
+    // NotificationListener ini yang jalan (tidak ada duplikasi).
+    // ─────────────────────────────────────────────────────────────────────
+
     if ("Notification" in window) {
       if (Notification.permission === "default") {
         Notification.requestPermission().then((perm) => {
           if (perm === "granted") registerPush();
         });
       } else if (Notification.permission === "granted") {
-        // Always re-register on mount to refresh potentially expired subscription
+        // Refresh subscription setiap mount agar tidak stale
         registerPush();
       }
     }
@@ -52,7 +65,7 @@ export default function NotificationListener({ username }: Props) {
       const reg = await navigator.serviceWorker.register("/sw.js");
       await navigator.serviceWorker.ready;
 
-      // Unsubscribe old + re-subscribe fresh to avoid stale/410 subscriptions
+      // Unsubscribe lama + subscribe baru untuk hindari stale token
       const existing = await reg.pushManager.getSubscription();
       if (existing) await existing.unsubscribe();
 
@@ -95,7 +108,8 @@ export default function NotificationListener({ username }: Props) {
             const prevStatus = knownStatusRef.current.get(item.id);
 
             if (prevStatus === undefined) {
-              // New item — notify assignee
+              // Item baru — notify assignee
+              // assigned_to berisi user_name (misal "faizramdhann")
               if (item.assigned_to === username && item.status === "Pending") {
                 triggerNotification(
                   "📋 Request Baru Untukmu",
@@ -103,7 +117,8 @@ export default function NotificationListener({ username }: Props) {
                 );
               }
             } else if (prevStatus !== item.status) {
-              // Status changed — notify requester when completed
+              // Status berubah — notify requester (created_by)
+              // created_by berisi user_name, cocok dengan username di sini
               if (item.status === "Completed" && item.created_by === username) {
                 triggerNotification(
                   "✅ Request Selesai",

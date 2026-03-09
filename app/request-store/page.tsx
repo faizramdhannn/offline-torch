@@ -5,9 +5,13 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
 
-const VAPID_PUBLIC_KEY =
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-  "BPRJgdT0HHzl7GeptF_hhQ4JncvHV2AzNfdihGrDrd3FEvjIZK_T-t7_1Ggib3UTMA9OYuVyrdnx6X7xWmveLZY";
+// ─── FIX: Hapus VAPID_PUBLIC_KEY dan semua push/SSE logic dari page ini ──────
+// Push subscription & SSE sekarang HANYA dihandle oleh NotificationListener
+// yang di-mount via Sidebar. Duplikasi dulu menyebabkan:
+// 1. Race condition: dua komponen saling overwrite token di sheet
+// 2. Double SSE connection per user
+// 3. VAPID key berbeda antara file ini dan NotificationListener
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface RequestItem {
   id: string;
@@ -29,18 +33,6 @@ interface DropdownData {
   reasons: string[];
 }
 
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding)
-    .replace(/-/g, "+")
-    .replace(/_/g, "/");
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i)
-    outputArray[i] = rawData.charCodeAt(i);
-  return outputArray;
-}
-
 export default function RequestStorePage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -59,12 +51,13 @@ export default function RequestStorePage() {
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [currentPage, setCurrentPage] = useState(1);
   const [submitting, setSubmitting] = useState(false);
-  const [notifPermission, setNotifPermission] = useState<string>("default");
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
-  // SSE + notification tracking
-  const knownStatusRef = useRef<Map<string, string>>(new Map()); // id → status
+  // ─── SSE untuk real-time update data tabel ───────────────────────────────
+  // Notifikasi (lokal & push) sudah dihandle NotificationListener di Sidebar.
+  // SSE di sini HANYA untuk update data tabel, tidak trigger notif.
   const sseRef = useRef<EventSource | null>(null);
+  // ─────────────────────────────────────────────────────────────────────────
 
   const itemsPerPage = 10;
 
@@ -98,78 +91,34 @@ export default function RequestStorePage() {
     }
     setUser(parsedUser);
     fetchDropdowns();
-    if ("Notification" in window) {
-      const perm = Notification.permission;
-      setNotifPermission(perm);
-      // Auto re-register push subscription every load to avoid stale subscriptions
-      if (perm === "granted") {
-        registerPushForUser(parsedUser.user_name);
-      }
-    }
+    // ─── FIX: Hapus registerPushForUser() dari sini ───────────────────────
+    // Dulu: if (perm === "granted") { registerPushForUser(parsedUser.user_name) }
+    // Sekarang: NotificationListener yang handle, tidak perlu di sini
+    // ─────────────────────────────────────────────────────────────────────
   }, []);
 
-  // Start SSE after user is set
+  // Start SSE setelah user diset — HANYA untuk update data tabel
   useEffect(() => {
     if (!user) return;
-    startSSE(user);
+    startSSE();
     return () => {
       sseRef.current?.close();
     };
   }, [user]);
 
-  const startSSE = (currentUser: any) => {
+  const startSSE = () => {
     if (sseRef.current) sseRef.current.close();
 
-    const es = new EventSource(
-      `/api/request-store-sse?username=${currentUser.user_name}`
-    );
+    // SSE tidak perlu kirim username karena tidak dipakai untuk filter notif
+    const es = new EventSource("/api/request-store-sse");
     sseRef.current = es;
 
     es.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === "init" || msg.type === "update") {
-          const newData: RequestItem[] = msg.data;
-
-          if (msg.type === "init") {
-            // Seed known statuses — no notification on first load
-            newData.forEach((item) => {
-              knownStatusRef.current.set(item.id, item.status);
-            });
-          } else {
-            // update — check for new items or status changes
-            newData.forEach((item) => {
-              const prevStatus = knownStatusRef.current.get(item.id);
-
-              if (prevStatus === undefined) {
-                // Brand new item — notify assignee
-                if (
-                  item.assigned_to === currentUser.user_name &&
-                  item.status === "Pending"
-                ) {
-                  triggerLocalNotification(
-                    "📋 Request Baru Untukmu",
-                    `${item.requester}: ${item.reason_request}`
-                  );
-                }
-              } else if (prevStatus !== item.status) {
-                // Status changed — notify the original requester (created_by)
-                if (
-                  item.status === "Completed" &&
-                  item.created_by === currentUser.user_name
-                ) {
-                  triggerLocalNotification(
-                    "✅ Request Selesai",
-                    `Request "${item.reason_request}" sudah diselesaikan`
-                  );
-                }
-              }
-
-              knownStatusRef.current.set(item.id, item.status);
-            });
-          }
-
-          setData(newData);
+          // Hanya update data tabel, TIDAK ada logika notifikasi di sini
+          setData(msg.data);
           setLoading(false);
         }
       } catch {}
@@ -177,58 +126,8 @@ export default function RequestStorePage() {
 
     es.onerror = () => {
       es.close();
-      setTimeout(() => startSSE(currentUser), 5000);
+      setTimeout(() => startSSE(), 5000);
     };
-  };
-
-  const triggerLocalNotification = (title: string, body: string) => {
-    if (Notification.permission === "granted") {
-      new Notification(title, {
-        body,
-        icon: "/logo_offline_torch.png",
-        tag: `request-${Date.now()}`,
-      });
-    }
-  };
-
-  const requestNotificationPermission = async () => {
-    if (!("Notification" in window)) return;
-    const permission = await Notification.requestPermission();
-    setNotifPermission(permission);
-    if (permission === "granted" && user) {
-      await registerPush(user.user_name);
-    }
-  };
-
-  // Standalone helper so it can be called before user state is set
-  const registerPushForUser = async (username: string) => {
-    try {
-      if (!("serviceWorker" in navigator)) return;
-      const reg = await navigator.serviceWorker.register("/sw.js");
-      await navigator.serviceWorker.ready;
-
-      // Always unsubscribe + re-subscribe to avoid stale/expired subscriptions
-      const existing = await reg.pushManager.getSubscription();
-      if (existing) await existing.unsubscribe();
-
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-      });
-
-      await fetch("/api/push-subscription", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, subscription: sub.toJSON() }),
-      });
-      console.log("Push subscription refreshed for", username);
-    } catch (err) {
-      console.error("Push registration failed:", err);
-    }
-  };
-
-  const registerPush = async (username: string) => {
-    await registerPushForUser(username);
   };
 
   const showMessage = (message: string, type: "success" | "error") => {
@@ -260,9 +159,9 @@ export default function RequestStorePage() {
   };
 
   /**
-   * Send push notification via server.
-   * assignedTo  → notified when new request is created
-   * requesterUsername → notified when status changes to Completed
+   * Kirim push notification via server.
+   * assignedTo      → notif saat request baru dibuat (pakai user_name)
+   * requesterUsername → notif saat status → Completed (pakai user_name / created_by)
    */
   const sendPushNotification = async (params: {
     assignedTo?: string;
@@ -299,10 +198,10 @@ export default function RequestStorePage() {
           prev.map((d) => (d.id === item.id ? { ...d, status: newStatus } : d))
         );
 
-        // Notify the requester (created_by) when status becomes Completed
+        // Notify requester (created_by = user_name) saat Completed
         if (newStatus === "Completed") {
           await sendPushNotification({
-            requesterUsername: item.created_by,
+            requesterUsername: item.created_by, // ini user_name, cocok dengan subscription key
             title: "✅ Request Selesai",
             body: `Request "${item.reason_request}" sudah diselesaikan oleh ${user.user_name}`,
           });
@@ -341,9 +240,9 @@ export default function RequestStorePage() {
       });
 
       if (res.ok) {
-        // Notify the assignee about the new request
+        // Notify assignee — form.assigned_to berisi user_name (dari master_dropdown)
         await sendPushNotification({
-          assignedTo: form.assigned_to,
+          assignedTo: form.assigned_to, // user_name, cocok dengan subscription key
           title: "📋 Request Baru Untukmu",
           body: `${form.requester}: ${form.reason_request}`,
         });
@@ -386,25 +285,25 @@ export default function RequestStorePage() {
       });
 
       if (res.ok) {
-        // If editor changed status to Completed via edit modal, notify requester
+        // Status berubah ke Completed via edit modal → notify requester
         if (
           editForm.status === "Completed" &&
           selectedItem.status !== "Completed"
         ) {
           await sendPushNotification({
-            requesterUsername: selectedItem.created_by,
+            requesterUsername: selectedItem.created_by, // user_name
             title: "✅ Request Selesai",
             body: `Request "${selectedItem.reason_request}" sudah diselesaikan`,
           });
         }
 
-        // If assigned_to changed, notify new assignee
+        // assigned_to berubah → notify assignee baru
         if (
           editForm.assigned_to !== selectedItem.assigned_to &&
           editForm.status === "Pending"
         ) {
           await sendPushNotification({
-            assignedTo: editForm.assigned_to,
+            assignedTo: editForm.assigned_to, // user_name
             title: "📋 Request Ditugaskan ke Kamu",
             body: `${editForm.requester}: ${editForm.reason_request}`,
           });
@@ -470,41 +369,6 @@ export default function RequestStorePage() {
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-primary">Request Store</h1>
             <div className="flex items-center gap-3">
-              {typeof window !== "undefined" &&
-                "Notification" in window &&
-                notifPermission !== "granted" && (
-                  <button
-                    onClick={requestNotificationPermission}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-50 border border-yellow-300 text-yellow-700 rounded text-xs hover:bg-yellow-100"
-                  >
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.8}
-                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                      />
-                    </svg>
-                    Enable Notifications
-                  </button>
-                )}
-              {notifPermission === "granted" && (
-                <span className="flex items-center gap-1 text-xs text-green-600">
-                  <svg
-                    className="w-3.5 h-3.5"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                  Notifications On
-                </span>
-              )}
               {user.request && (
                 <button
                   onClick={() => setShowAddModal(true)}
