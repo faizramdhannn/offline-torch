@@ -156,6 +156,8 @@ export default function AnalyticsOrderPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
+  const [importMode, setImportMode] = useState<"append" | "refresh" | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
@@ -204,7 +206,8 @@ export default function AnalyticsOrderPage() {
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !importMode) return;
+    setShowImportModal(false);
     setImporting(true);
     try {
       await new Promise<void>((resolve, reject) => {
@@ -217,11 +220,11 @@ export default function AnalyticsOrderPage() {
               const res = await fetch("/api/shopify-analytics", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ data }),
+                body: JSON.stringify({ data, mode: importMode }),
               });
               const result = await res.json();
               if (res.ok && result.success) {
-                showMessage(`Import berhasil!\n${result.rowsImported} baris baru ditambahkan`, "success");
+                showMessage(`Import berhasil!\n${result.message}`, "success");
                 await fetchData();
               } else {
                 showMessage(result.error || "Import failed", "error");
@@ -238,8 +241,14 @@ export default function AnalyticsOrderPage() {
       showMessage("Gagal import data", "error");
     } finally {
       setImporting(false);
+      setImportMode(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  };
+
+  const triggerImport = (mode: "append" | "refresh") => {
+    setImportMode(mode);
+    setShowImportModal(true);
   };
 
   // ─── Filtered Rows ────────────────────────────────────────────────────────
@@ -427,7 +436,7 @@ export default function AnalyticsOrderPage() {
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-primary">Analytics Order</h1>
-            <div>
+            <div className="flex gap-2 items-center">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -436,12 +445,26 @@ export default function AnalyticsOrderPage() {
                 className="hidden"
                 id="shopify-import"
               />
-              <label
-                htmlFor="shopify-import"
-                className={`cursor-pointer px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 transition-colors ${importing ? "opacity-50 pointer-events-none" : ""}`}
-              >
-                {importing ? "Importing..." : "Import CSV Shopify"}
-              </label>
+              {importing ? (
+                <span className="px-4 py-2 bg-gray-400 text-white rounded text-sm opacity-70 cursor-not-allowed">
+                  Importing...
+                </span>
+              ) : (
+                <>
+                  <button
+                    onClick={() => triggerImport("append")}
+                    className="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 transition-colors"
+                  >
+                    + Tambah Data
+                  </button>
+                  <button
+                    onClick={() => triggerImport("refresh")}
+                    className="px-4 py-2 bg-gray-700 text-white rounded text-sm hover:bg-gray-600 transition-colors"
+                  >
+                    ↺ Refresh Semua
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -929,6 +952,56 @@ export default function AnalyticsOrderPage() {
           </div>
         </div>
       </div>
+
+      {/* Import Mode Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <h2 className="text-base font-bold text-gray-800 mb-1">
+              {importMode === "append" ? "Tambah Data Baru" : "Refresh Semua Data"}
+            </h2>
+            <p className="text-xs text-gray-500 mb-5">
+              {importMode === "append"
+                ? "Data baru akan ditambahkan ke data yang sudah ada. Data lama tidak akan terhapus. Duplikat (berdasarkan Order Name) akan diabaikan."
+                : "Semua data yang ada akan dihapus dan diganti dengan data dari file ini. Gunakan ini jika ingin reset total."}
+            </p>
+
+            {/* Warning for refresh */}
+            {importMode === "refresh" && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-5 flex gap-2">
+                <span className="text-red-500 text-sm mt-0.5">⚠️</span>
+                <p className="text-xs text-red-600">
+                  <strong>Perhatian:</strong> Seluruh data historis akan terhapus permanen dan diganti data dari file baru.
+                </p>
+              </div>
+            )}
+
+            {/* Info for append */}
+            {importMode === "append" && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-5 flex gap-2">
+                <span className="text-blue-500 text-sm mt-0.5">ℹ️</span>
+                <p className="text-xs text-blue-600">
+                  Data yang sudah ada akan tetap tersimpan. Hanya order baru yang akan ditambahkan.
+                </p>
+              </div>
+            )}
+
+            <label
+              htmlFor="shopify-import"
+              onClick={() => {}}
+              className="block w-full text-center cursor-pointer px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors mb-3"
+            >
+              Pilih File CSV
+            </label>
+            <button
+              onClick={() => { setShowImportModal(false); setImportMode(null); }}
+              className="w-full px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+            >
+              Batal
+            </button>
+          </div>
+        </div>
+      )}
 
       <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
     </div>

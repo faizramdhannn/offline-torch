@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { data } = await request.json();
+    // mode: "refresh" = replace all, "append" = add new only (default)
+    const { data, mode = 'append' } = await request.json();
 
     if (!data || !Array.isArray(data) || data.length === 0) {
       return NextResponse.json({ error: 'No valid data to import' }, { status: 400 });
@@ -27,7 +28,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No valid data after cleaning' }, { status: 400 });
     }
 
-    // Get existing data to append (keep old + add new, deduplicate by Name+Lineitem)
+    const headers = cleanedData[0] as string[];
+    const newRows = cleanedData.slice(1);
+    const nameIdx = headers.indexOf('Name');
+    const lineitemIdx = headers.indexOf('Lineitem name');
+
+    // ── REFRESH MODE: replace all data ──────────────────────────────────────
+    if (mode === 'refresh') {
+      await updateSheetDataWithHeader('shopify_import', [headers, ...newRows]);
+      return NextResponse.json({
+        success: true,
+        rowsImported: newRows.length,
+        message: `Data direset. ${newRows.length} baris diimport.`,
+      });
+    }
+
+    // ── APPEND MODE: deduplicate by Name + Lineitem name, add only new ───────
     let existingData: any[] = [];
     try {
       existingData = await getSheetData('shopify_import');
@@ -35,13 +51,7 @@ export async function POST(request: NextRequest) {
       existingData = [];
     }
 
-    const headers = cleanedData[0] as string[];
-    const newRows = cleanedData.slice(1);
-
-    // Build set of existing keys (Name + Lineitem name) for deduplication
-    const nameIdx = headers.indexOf('Name');
-    const lineitemIdx = headers.indexOf('Lineitem name');
-
+    // Dedup key: Name + Lineitem name
     const existingKeys = new Set(
       existingData.map((row: any) => `${row['Name']}__${row['Lineitem name']}`)
     );
@@ -52,24 +62,23 @@ export async function POST(request: NextRequest) {
     });
 
     if (dedupedNewRows.length === 0) {
-      return NextResponse.json({ 
-        success: true, 
+      return NextResponse.json({
+        success: true,
         rowsImported: 0,
-        message: 'All rows already exist (no duplicates imported)'
+        message: 'Semua data sudah ada, tidak ada yang ditambahkan.',
       });
     }
 
-    // If sheet is empty, write with header; otherwise append rows only
     if (existingData.length === 0) {
       await updateSheetDataWithHeader('shopify_import', [headers, ...dedupedNewRows]);
     } else {
       await appendSheetData('shopify_import', dedupedNewRows);
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       rowsImported: dedupedNewRows.length,
-      message: `${dedupedNewRows.length} new rows imported`
+      message: `${dedupedNewRows.length} baris baru ditambahkan.`,
     });
   } catch (error) {
     console.error('Import error:', error);
