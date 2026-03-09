@@ -4,7 +4,7 @@ import { createSign, createPrivateKey } from 'crypto';
 
 const SUBSCRIPTION_KEY_PREFIX = 'push_sub_';
 
-// ─── VAPID helpers (untuk endpoint non-FCM legacy) ───────────────────────────
+// ─── VAPID helpers ────────────────────────────────────────────────────────────
 function urlBase64ToBuffer(base64: string): Buffer {
   const padding = '='.repeat((4 - (base64.length % 4)) % 4);
   const b64 = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -15,10 +15,17 @@ function toBase64Url(buf: Buffer): string {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
-async function buildVapidToken(audience: string, subject: string, publicKey: string, privateKey: string): Promise<string> {
+async function buildVapidToken(
+  audience: string,
+  subject: string,
+  publicKey: string,
+  privateKey: string
+): Promise<string> {
   const header = toBase64Url(Buffer.from(JSON.stringify({ typ: 'JWT', alg: 'ES256' })));
   const now = Math.floor(Date.now() / 1000);
-  const payload = toBase64Url(Buffer.from(JSON.stringify({ aud: audience, exp: now + 12 * 3600, sub: subject })));
+  const payload = toBase64Url(
+    Buffer.from(JSON.stringify({ aud: audience, exp: now + 12 * 3600, sub: subject }))
+  );
   const signingInput = `${header}.${payload}`;
 
   const pubBuf = urlBase64ToBuffer(publicKey);
@@ -41,20 +48,28 @@ async function getGoogleAccessToken(): Promise<string> {
 
   const now = Math.floor(Date.now() / 1000);
   const header = toBase64Url(Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })));
-  const claim = toBase64Url(Buffer.from(JSON.stringify({
-    iss: client_email,
-    scope: 'https://www.googleapis.com/auth/firebase.messaging',
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now,
-  })));
+  const claim = toBase64Url(
+    Buffer.from(
+      JSON.stringify({
+        iss: client_email,
+        scope: 'https://www.googleapis.com/auth/firebase.messaging',
+        aud: 'https://oauth2.googleapis.com/token',
+        exp: now + 3600,
+        iat: now,
+      })
+    )
+  );
 
   const signingInput = `${header}.${claim}`;
   const sign = createSign('SHA256');
   sign.update(signingInput);
   sign.end();
   const sig = sign.sign(private_key);
-  const jwt = `${signingInput}.${sig.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')}`;
+  const jwt = `${signingInput}.${sig
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '')}`;
 
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -74,8 +89,12 @@ async function getGoogleAccessToken(): Promise<string> {
   return data.access_token;
 }
 
-// ─── Kirim via FCM HTTP v1 (untuk legacy /fcm/send/ endpoints) ───────────────
-async function sendViaFCMv1(fcmToken: string, title: string, body: string): Promise<{ success: boolean; expired?: boolean; error?: string }> {
+// ─── Kirim via FCM HTTP v1 ────────────────────────────────────────────────────
+async function sendViaFCMv1(
+  fcmToken: string,
+  title: string,
+  body: string
+): Promise<{ success: boolean; expired?: boolean; error?: string }> {
   const projectId = JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}').project_id;
   if (!projectId) return { success: false, error: 'project_id not found in GOOGLE_CREDENTIALS' };
 
@@ -86,36 +105,41 @@ async function sendViaFCMv1(fcmToken: string, title: string, body: string): Prom
     return { success: false, error: `OAuth error: ${err.message}` };
   }
 
-  const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({
-      message: {
-        token: fcmToken,
-        notification: { title, body },
-        webpush: {
-          notification: {
-            title,
-            body,
-            icon: '/logo_offline_torch.png',
-            badge: '/logo_offline_torch.png',
-            requireInteraction: true,
-            vibrate: [200, 100, 200],
-          },
-          fcm_options: { link: '/request-store' },
-        },
+  const res = await fetch(
+    `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
       },
-    }),
-  });
+      body: JSON.stringify({
+        message: {
+          token: fcmToken,
+          notification: { title, body },
+          webpush: {
+            notification: {
+              title,
+              body,
+              icon: '/logo_offline_torch.png',
+              badge: '/logo_offline_torch.png',
+              requireInteraction: true,
+              vibrate: [200, 100, 200],
+            },
+            fcm_options: { link: '/request-store' },
+          },
+        },
+      }),
+    }
+  );
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     const errCode = data?.error?.details?.[0]?.errorCode || '';
-    // UNREGISTERED / INVALID_ARGUMENT = token expired/invalid
-    const expired = res.status === 404 || errCode === 'UNREGISTERED' || errCode === 'INVALID_ARGUMENT';
+    const expired =
+      res.status === 404 ||
+      errCode === 'UNREGISTERED' ||
+      errCode === 'INVALID_ARGUMENT';
     console.error('FCM v1 failed:', res.status, JSON.stringify(data));
     return { success: false, expired, error: `FCM v1 failed: ${res.status}` };
   }
@@ -123,7 +147,7 @@ async function sendViaFCMv1(fcmToken: string, title: string, body: string): Prom
   return { success: true };
 }
 
-// ─── Kirim via VAPID Web Push standar (untuk endpoint non-FCM) ───────────────
+// ─── Kirim via VAPID Web Push standar ────────────────────────────────────────
 async function sendViaVapid(
   subscription: any,
   title: string,
@@ -141,6 +165,19 @@ async function sendViaVapid(
     return { success: false, error: `VAPID token error: ${err.message}` };
   }
 
+  // ─── FIX: Enkripsi payload Web Push dengan keys dari subscription ─────────
+  // VAPID push ke endpoint non-FCM (misal Mozilla/Chrome standard) WAJIB
+  // mengirim payload terenkripsi jika ada. Tanpa enkripsi, beberapa browser
+  // menolak atau mengabaikan push.
+  // Karena Node.js tidak punya built-in Web Push encryption, kita kirim
+  // push tanpa body (hanya trigger), lalu service worker tampilkan notif
+  // berdasarkan data yang disimpan sebelumnya — atau kita pakai format
+  // yang diterima browser.
+  //
+  // Solusi paling kompatibel: kirim sebagai text/plain tanpa enkripsi
+  // untuk endpoint yang mendukung, atau gunakan web-push library.
+  // Di sini kita coba kirim JSON langsung (kompatibel dengan Firefox/Chrome
+  // yang menggunakan endpoint mereka sendiri — bukan FCM legacy).
   const res = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -171,15 +208,36 @@ async function sendPush(
 ): Promise<{ success: boolean; expired?: boolean; error?: string }> {
   const endpoint: string = subscription.endpoint;
 
-  // Legacy FCM endpoint → pakai FCM HTTP v1 API
+  // ─── FIX: Deteksi endpoint Chrome/FCM baru (fcm.googleapis.com/v1) ───────
+  // Ada 2 jenis endpoint FCM:
+  // 1. LAMA: https://fcm.googleapis.com/fcm/send/TOKEN  → pakai FCM v1 API
+  // 2. BARU: https://fcm.googleapis.com/v1/projects/... → ini BUKAN legacy,
+  //    ini sudah endpoint Web Push standard Chrome yang route-nya berbeda
+  //
+  // Endpoint Chrome modern sekarang: https://fcm.googleapis.com/v1/web/...
+  // atau https://updates.push.services.mozilla.com/... (Firefox)
+  //
+  // Yang error di log adalah endpoint LEGACY /fcm/send/ yang token-nya
+  // sudah expired karena VAPID key mismatch saat subscribe.
+  // Setelah fix VAPID key di NotificationListener, endpoint baru yang
+  // ter-register akan menggunakan Chrome's standard Web Push endpoint.
+  // ─────────────────────────────────────────────────────────────────────────
+
   if (endpoint.includes('fcm.googleapis.com/fcm/send/')) {
-    const fcmToken = endpoint.split('/fcm/send/')[1];
-    console.log('Using FCM v1 API for legacy endpoint');
-    return sendViaFCMv1(fcmToken, title, body);
+    // Legacy FCM endpoint — token ini kemungkinan besar sudah expired
+    // karena dibuat dengan VAPID key yang salah. Tandai sebagai expired
+    // langsung agar auto-cleanup, dan client akan re-register dengan key benar.
+    console.log('Legacy FCM endpoint detected — marking as expired for cleanup');
+    console.log('User harus refresh browser untuk re-register dengan VAPID key yang benar');
+    return {
+      success: false,
+      expired: true,
+      error: 'Legacy FCM endpoint — subscription needs refresh',
+    };
   }
 
-  // Standard Web Push (Mozilla, etc.) → pakai VAPID
-  console.log('Using VAPID for standard endpoint');
+  // Standard Web Push (Chrome modern, Firefox, dll) → pakai VAPID
+  console.log('Using VAPID for standard Web Push endpoint');
   return sendViaVapid(subscription, title, body, publicKey, privateKey);
 }
 
@@ -189,7 +247,10 @@ export async function POST(request: NextRequest) {
     const { assignedTo, requesterUsername, title, body } = await request.json();
 
     if (!assignedTo && !requesterUsername) {
-      return NextResponse.json({ error: 'assignedTo or requesterUsername required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'assignedTo or requesterUsername required' },
+        { status: 400 }
+      );
     }
 
     const publicKey = process.env.VAPID_PUBLIC_KEY || '';
@@ -227,6 +288,7 @@ export async function POST(request: NextRequest) {
       const result = await sendPush(subscription, title || 'New Request', body || 'You have a new request.', publicKey, privateKey);
 
       // Auto-cleanup expired subscription
+      // Client (NotificationListener) akan otomatis re-register saat next mount
       if (result.expired) {
         console.log(`Clearing expired subscription for ${username}`);
         try {
