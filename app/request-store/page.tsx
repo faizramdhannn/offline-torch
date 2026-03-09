@@ -1,17 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
-
-// ─── FIX: Hapus VAPID_PUBLIC_KEY dan semua push/SSE logic dari page ini ──────
-// Push subscription & SSE sekarang HANYA dihandle oleh NotificationListener
-// yang di-mount via Sidebar. Duplikasi dulu menyebabkan:
-// 1. Race condition: dua komponen saling overwrite token di sheet
-// 2. Double SSE connection per user
-// 3. VAPID key berbeda antara file ini dan NotificationListener
-// ─────────────────────────────────────────────────────────────────────────────
 
 interface RequestItem {
   id: string;
@@ -53,12 +45,6 @@ export default function RequestStorePage() {
   const [submitting, setSubmitting] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
-  // ─── SSE untuk real-time update data tabel ───────────────────────────────
-  // Notifikasi (lokal & push) sudah dihandle NotificationListener di Sidebar.
-  // SSE di sini HANYA untuk update data tabel, tidak trigger notif.
-  const sseRef = useRef<EventSource | null>(null);
-  // ─────────────────────────────────────────────────────────────────────────
-
   const itemsPerPage = 10;
 
   const [form, setForm] = useState({
@@ -78,6 +64,7 @@ export default function RequestStorePage() {
     status: "Pending",
   });
 
+  // ─── Auth & init ──────────────────────────────────────────────────────────
   useEffect(() => {
     const userData = localStorage.getItem("user");
     if (!userData) {
@@ -91,45 +78,36 @@ export default function RequestStorePage() {
     }
     setUser(parsedUser);
     fetchDropdowns();
-    // ─── FIX: Hapus registerPushForUser() dari sini ───────────────────────
-    // Dulu: if (perm === "granted") { registerPushForUser(parsedUser.user_name) }
-    // Sekarang: NotificationListener yang handle, tidak perlu di sini
-    // ─────────────────────────────────────────────────────────────────────
   }, []);
 
-  // Start SSE setelah user diset — HANYA untuk update data tabel
+  // ─── Polling (menggantikan SSE) ───────────────────────────────────────────
+  // Fetch data setiap 20 detik. Jauh lebih hemat CPU dibanding SSE yang
+  // menahan koneksi 300 detik hingga timeout di Vercel Hobby plan.
   useEffect(() => {
     if (!user) return;
-    startSSE();
-    return () => {
-      sseRef.current?.close();
-    };
-  }, [user]);
 
-  const startSSE = () => {
-    if (sseRef.current) sseRef.current.close();
+    let isMounted = true;
 
-    // SSE tidak perlu kirim username karena tidak dipakai untuk filter notif
-    const es = new EventSource("/api/request-store-sse");
-    sseRef.current = es;
-
-    es.onmessage = (event) => {
+    const fetchData = async () => {
       try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === "init" || msg.type === "update") {
-          // Hanya update data tabel, TIDAK ada logika notifikasi di sini
-          setData(msg.data);
+        const res = await fetch("/api/request-store");
+        if (res.ok && isMounted) {
+          setData(await res.json());
           setLoading(false);
         }
       } catch {}
     };
 
-    es.onerror = () => {
-      es.close();
-      setTimeout(() => startSSE(), 5000);
-    };
-  };
+    fetchData(); // fetch langsung saat mount
+    const interval = setInterval(fetchData, 20_000); // poll tiap 20 detik
 
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [user]);
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);
     setPopupType(type);
@@ -158,11 +136,6 @@ export default function RequestStorePage() {
     } catch {}
   };
 
-  /**
-   * Kirim push notification via server.
-   * assignedTo      → notif saat request baru dibuat (pakai user_name)
-   * requesterUsername → notif saat status → Completed (pakai user_name / created_by)
-   */
   const sendPushNotification = async (params: {
     assignedTo?: string;
     requesterUsername?: string;
@@ -175,11 +148,10 @@ export default function RequestStorePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(params),
       });
-    } catch {
-      // non-fatal
-    }
+    } catch {}
   };
 
+  // ─── CRUD handlers ────────────────────────────────────────────────────────
   const handleStatusChange = async (item: RequestItem, newStatus: string) => {
     setUpdatingStatus(item.id);
     try {
@@ -194,23 +166,20 @@ export default function RequestStorePage() {
       });
 
       if (res.ok) {
+        // Optimistic update — tidak perlu tunggu polling berikutnya
         setData((prev) =>
           prev.map((d) => (d.id === item.id ? { ...d, status: newStatus } : d))
         );
 
-        // Notify requester (created_by = user_name) saat Completed
         if (newStatus === "Completed") {
           await sendPushNotification({
-            requesterUsername: item.created_by, // ini user_name, cocok dengan subscription key
+            requesterUsername: item.created_by,
             title: "✅ Request Selesai",
             body: `Request "${item.reason_request}" sudah diselesaikan oleh ${user.user_name}`,
           });
         }
 
-        await logActivity(
-          "PUT",
-          `Status request ID: ${item.id} → ${newStatus}`
-        );
+        await logActivity("PUT", `Status request ID: ${item.id} → ${newStatus}`);
       } else {
         showMessage("Gagal update status", "error");
       }
@@ -222,12 +191,7 @@ export default function RequestStorePage() {
   };
 
   const handleAdd = async () => {
-    if (
-      !form.date ||
-      !form.requester ||
-      !form.assigned_to ||
-      !form.reason_request
-    ) {
+    if (!form.date || !form.requester || !form.assigned_to || !form.reason_request) {
       showMessage("Please fill all required fields", "error");
       return;
     }
@@ -240,9 +204,8 @@ export default function RequestStorePage() {
       });
 
       if (res.ok) {
-        // Notify assignee — form.assigned_to berisi user_name (dari master_dropdown)
         await sendPushNotification({
-          assignedTo: form.assigned_to, // user_name, cocok dengan subscription key
+          assignedTo: form.assigned_to,
           title: "📋 Request Baru Untukmu",
           body: `${form.requester}: ${form.reason_request}`,
         });
@@ -256,10 +219,11 @@ export default function RequestStorePage() {
           reason_request: "",
           notes: "",
         });
-        await logActivity(
-          "POST",
-          `Created request: ${form.reason_request} → ${form.assigned_to}`
-        );
+        await logActivity("POST", `Created request: ${form.reason_request} → ${form.assigned_to}`);
+
+        // Refresh data segera setelah add
+        const fresh = await fetch("/api/request-store");
+        if (fresh.ok) setData(await fresh.json());
       } else {
         showMessage("Gagal membuat request", "error");
       }
@@ -285,25 +249,17 @@ export default function RequestStorePage() {
       });
 
       if (res.ok) {
-        // Status berubah ke Completed via edit modal → notify requester
-        if (
-          editForm.status === "Completed" &&
-          selectedItem.status !== "Completed"
-        ) {
+        if (editForm.status === "Completed" && selectedItem.status !== "Completed") {
           await sendPushNotification({
-            requesterUsername: selectedItem.created_by, // user_name
+            requesterUsername: selectedItem.created_by,
             title: "✅ Request Selesai",
             body: `Request "${selectedItem.reason_request}" sudah diselesaikan`,
           });
         }
 
-        // assigned_to berubah → notify assignee baru
-        if (
-          editForm.assigned_to !== selectedItem.assigned_to &&
-          editForm.status === "Pending"
-        ) {
+        if (editForm.assigned_to !== selectedItem.assigned_to && editForm.status === "Pending") {
           await sendPushNotification({
-            assignedTo: editForm.assigned_to, // user_name
+            assignedTo: editForm.assigned_to,
             title: "📋 Request Ditugaskan ke Kamu",
             body: `${editForm.requester}: ${editForm.reason_request}`,
           });
@@ -313,6 +269,10 @@ export default function RequestStorePage() {
         setShowEditModal(false);
         setSelectedItem(null);
         await logActivity("PUT", `Updated request ID: ${selectedItem.id}`);
+
+        // Refresh data segera setelah edit
+        const fresh = await fetch("/api/request-store");
+        if (fresh.ok) setData(await fresh.json());
       } else {
         showMessage("Gagal update request", "error");
       }
@@ -330,6 +290,8 @@ export default function RequestStorePage() {
         method: "DELETE",
       });
       if (res.ok) {
+        // Optimistic remove
+        setData((prev) => prev.filter((d) => d.id !== item.id));
         showMessage("Request dihapus", "success");
         await logActivity("DELETE", `Deleted request ID: ${item.id}`);
       } else {
@@ -353,6 +315,7 @@ export default function RequestStorePage() {
     setShowEditModal(true);
   };
 
+  // ─── Pagination ───────────────────────────────────────────────────────────
   const indexOfLast = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
   const currentItems = data.slice(indexOfFirst, indexOfLast);
@@ -374,18 +337,8 @@ export default function RequestStorePage() {
                   onClick={() => setShowAddModal(true)}
                   className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   Add Request
                 </button>
@@ -395,76 +348,41 @@ export default function RequestStorePage() {
 
           <div className="bg-white rounded-lg shadow overflow-hidden">
             {loading ? (
-              <div className="p-8 text-center text-sm text-gray-500">
-                Loading...
-              </div>
+              <div className="p-8 text-center text-sm text-gray-500">Loading...</div>
             ) : (
               <>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead className="bg-gray-100 border-b">
                       <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">
-                          Date
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">
-                          Requester
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">
-                          Assigned To
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-40">
-                          Reason
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">
-                          Notes
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-32">
-                          Status
-                        </th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">
-                          Action
-                        </th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">Date</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">Requester</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">Assigned To</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-40">Reason</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Notes</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-32">Status</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {currentItems.map((item, idx) => (
                         <tr
                           key={item.id}
-                          className={`border-b ${
-                            idx % 2 === 0 ? "bg-white" : "bg-gray-50"
-                          } hover:bg-gray-100`}
+                          className={`border-b ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}
                         >
-                          <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
-                            {item.date}
-                          </td>
-                          <td className="px-3 py-2 text-gray-700">
-                            {item.requester}
-                          </td>
-                          <td className="px-3 py-2 text-gray-700">
-                            {item.assigned_to}
-                          </td>
-                          <td className="px-3 py-2 text-gray-700">
-                            {item.reason_request}
-                          </td>
-                          <td
-                            className="px-3 py-2 text-gray-600 max-w-xs truncate"
-                            title={item.notes}
-                          >
+                          <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{item.date}</td>
+                          <td className="px-3 py-2 text-gray-700">{item.requester}</td>
+                          <td className="px-3 py-2 text-gray-700">{item.assigned_to}</td>
+                          <td className="px-3 py-2 text-gray-700">{item.reason_request}</td>
+                          <td className="px-3 py-2 text-gray-600 max-w-xs truncate" title={item.notes}>
                             {item.notes || "-"}
                           </td>
                           <td className="px-3 py-2">
                             {canEdit ? (
                               <div className="flex gap-1">
                                 <button
-                                  onClick={() =>
-                                    item.status !== "Pending" &&
-                                    handleStatusChange(item, "Pending")
-                                  }
-                                  disabled={
-                                    updatingStatus === item.id ||
-                                    item.status === "Pending"
-                                  }
+                                  onClick={() => item.status !== "Pending" && handleStatusChange(item, "Pending")}
+                                  disabled={updatingStatus === item.id || item.status === "Pending"}
                                   className={`px-2 py-0.5 rounded text-xs font-medium transition-all ${
                                     item.status === "Pending"
                                       ? "bg-yellow-100 text-yellow-800 ring-1 ring-yellow-400 cursor-default"
@@ -474,23 +392,15 @@ export default function RequestStorePage() {
                                   Pending
                                 </button>
                                 <button
-                                  onClick={() =>
-                                    item.status !== "Completed" &&
-                                    handleStatusChange(item, "Completed")
-                                  }
-                                  disabled={
-                                    updatingStatus === item.id ||
-                                    item.status === "Completed"
-                                  }
+                                  onClick={() => item.status !== "Completed" && handleStatusChange(item, "Completed")}
+                                  disabled={updatingStatus === item.id || item.status === "Completed"}
                                   className={`px-2 py-0.5 rounded text-xs font-medium transition-all ${
                                     item.status === "Completed"
                                       ? "bg-green-100 text-green-800 ring-1 ring-green-400 cursor-default"
                                       : "bg-gray-100 text-gray-400 hover:bg-green-50 hover:text-green-700 cursor-pointer"
                                   }`}
                                 >
-                                  {updatingStatus === item.id
-                                    ? "..."
-                                    : "Completed"}
+                                  {updatingStatus === item.id ? "..." : "Completed"}
                                 </button>
                               </div>
                             ) : (
@@ -515,15 +425,14 @@ export default function RequestStorePage() {
                                   Edit
                                 </button>
                               )}
-                              {item.created_by === user.user_name &&
-                                item.status === "Pending" && (
-                                  <button
-                                    onClick={() => handleDelete(item)}
-                                    className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                                  >
-                                    Cancel
-                                  </button>
-                                )}
+                              {item.created_by === user.user_name && item.status === "Pending" && (
+                                <button
+                                  onClick={() => handleDelete(item)}
+                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                                >
+                                  Cancel
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -531,24 +440,18 @@ export default function RequestStorePage() {
                     </tbody>
                   </table>
                   {data.length === 0 && (
-                    <div className="p-8 text-center text-gray-500">
-                      No requests found
-                    </div>
+                    <div className="p-8 text-center text-gray-500">No requests found</div>
                   )}
                 </div>
 
                 {totalPages > 1 && (
                   <div className="flex justify-between items-center px-4 py-3 border-t">
                     <div className="text-xs text-gray-600">
-                      Showing {indexOfFirst + 1} to{" "}
-                      {Math.min(indexOfLast, data.length)} of {data.length}{" "}
-                      entries
+                      Showing {indexOfFirst + 1} to {Math.min(indexOfLast, data.length)} of {data.length} entries
                     </div>
                     <div className="flex gap-1">
                       <button
-                        onClick={() =>
-                          setCurrentPage((p) => Math.max(1, p - 1))
-                        }
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                         disabled={currentPage === 1}
                         className="px-3 py-1 text-xs border rounded disabled:opacity-50 hover:bg-gray-50"
                       >
@@ -556,40 +459,25 @@ export default function RequestStorePage() {
                       </button>
                       {[...Array(totalPages)].map((_, i) => {
                         const page = i + 1;
-                        if (
-                          page === 1 ||
-                          page === totalPages ||
-                          (page >= currentPage - 1 && page <= currentPage + 1)
-                        ) {
+                        if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
                           return (
                             <button
                               key={page}
                               onClick={() => setCurrentPage(page)}
                               className={`px-3 py-1 text-xs border rounded ${
-                                currentPage === page
-                                  ? "bg-primary text-white"
-                                  : "hover:bg-gray-50"
+                                currentPage === page ? "bg-primary text-white" : "hover:bg-gray-50"
                               }`}
                             >
                               {page}
                             </button>
                           );
-                        } else if (
-                          page === currentPage - 2 ||
-                          page === currentPage + 2
-                        ) {
-                          return (
-                            <span key={page} className="px-2 text-xs">
-                              ...
-                            </span>
-                          );
+                        } else if (page === currentPage - 2 || page === currentPage + 2) {
+                          return <span key={page} className="px-2 text-xs">...</span>;
                         }
                         return null;
                       })}
                       <button
-                        onClick={() =>
-                          setCurrentPage((p) => Math.min(totalPages, p + 1))
-                        }
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                         disabled={currentPage === totalPages}
                         className="px-3 py-1 text-xs border rounded disabled:opacity-50 hover:bg-gray-50"
                       >
@@ -608,9 +496,7 @@ export default function RequestStorePage() {
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-            <h2 className="text-lg font-bold text-primary mb-4">
-              Add New Request
-            </h2>
+            <h2 className="text-lg font-bold text-primary mb-4">Add New Request</h2>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -629,16 +515,12 @@ export default function RequestStorePage() {
                 </label>
                 <select
                   value={form.requester}
-                  onChange={(e) =>
-                    setForm({ ...form, requester: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, requester: e.target.value })}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="">Select Requester</option>
                   {dropdownData.requesters.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
+                    <option key={r} value={r}>{r}</option>
                   ))}
                 </select>
               </div>
@@ -648,16 +530,12 @@ export default function RequestStorePage() {
                 </label>
                 <select
                   value={form.assigned_to}
-                  onChange={(e) =>
-                    setForm({ ...form, assigned_to: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="">Select Assignee</option>
                   {dropdownData.assignees.map((a) => (
-                    <option key={a} value={a}>
-                      {a}
-                    </option>
+                    <option key={a} value={a}>{a}</option>
                   ))}
                 </select>
               </div>
@@ -667,25 +545,18 @@ export default function RequestStorePage() {
                 </label>
                 <select
                   value={form.reason_request}
-                  onChange={(e) =>
-                    setForm({ ...form, reason_request: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, reason_request: e.target.value })}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="">Select Reason</option>
                   {dropdownData.reasons.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
+                    <option key={r} value={r}>{r}</option>
                   ))}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Notes{" "}
-                  <span className="text-gray-400">
-                    (Sales Order, Delivery Note, Sales Invoice)
-                  </span>
+                  Notes <span className="text-gray-400">(Sales Order, Delivery Note, Sales Invoice)</span>
                 </label>
                 <textarea
                   value={form.notes}
@@ -728,109 +599,73 @@ export default function RequestStorePage() {
       {showEditModal && selectedItem && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-            <h2 className="text-lg font-bold text-primary mb-4">
-              Edit Request
-            </h2>
+            <h2 className="text-lg font-bold text-primary mb-4">Edit Request</h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Date
-                </label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Date</label>
                 <input
                   type="date"
                   value={editForm.date}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, date: e.target.value })
-                  }
+                  onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Requester
-                </label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Requester</label>
                 <select
                   value={editForm.requester}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, requester: e.target.value })
-                  }
+                  onChange={(e) => setEditForm({ ...editForm, requester: e.target.value })}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="">Select Requester</option>
                   {dropdownData.requesters.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
+                    <option key={r} value={r}>{r}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Assigned To
-                </label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To</label>
                 <select
                   value={editForm.assigned_to}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, assigned_to: e.target.value })
-                  }
+                  onChange={(e) => setEditForm({ ...editForm, assigned_to: e.target.value })}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="">Select Assignee</option>
                   {dropdownData.assignees.map((a) => (
-                    <option key={a} value={a}>
-                      {a}
-                    </option>
+                    <option key={a} value={a}>{a}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Reason Request
-                </label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Reason Request</label>
                 <select
                   value={editForm.reason_request}
-                  onChange={(e) =>
-                    setEditForm({
-                      ...editForm,
-                      reason_request: e.target.value,
-                    })
-                  }
+                  onChange={(e) => setEditForm({ ...editForm, reason_request: e.target.value })}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="">Select Reason</option>
                   {dropdownData.reasons.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
+                    <option key={r} value={r}>{r}</option>
                   ))}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Notes{" "}
-                  <span className="text-gray-400">
-                    (Sales Order, Delivery Note, Sales Invoice)
-                  </span>
+                  Notes <span className="text-gray-400">(Sales Order, Delivery Note, Sales Invoice)</span>
                 </label>
                 <textarea
                   value={editForm.notes}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, notes: e.target.value })
-                  }
+                  onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
                   rows={3}
                   placeholder="e.g. #464140, MP-DN-2026-40521, MP-SINV-2026-40150"
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Status
-                </label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
                 <select
                   value={editForm.status}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, status: e.target.value })
-                  }
+                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="Pending">Pending</option>
