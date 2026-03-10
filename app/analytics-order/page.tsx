@@ -608,12 +608,12 @@ export default function AnalyticsOrderPage() {
             {/* Data range info */}
             {dataDateRange && (
               <div className="mt-3 flex items-center gap-2">
-                <span className="text-[10px] text-gray-400">📅 Data tersedia:</span>
+                <span className="text-[10px] text-gray-400">Data tersedia:</span>
                 <span className="text-[10px] font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
-                  {formatDisplayDate(dataDateRange.min)} — {formatDisplayDate(dataDateRange.max)}
+                  {formatDisplayDate(dataDateRange.min)} - {formatDisplayDate(dataDateRange.max)}
                 </span>
                 <span className="text-[10px] text-gray-400 ml-1">
-                  (filter aktif: {formatDisplayDate(dateFrom) || "—"} s/d {formatDisplayDate(dateTo) || "—"})
+                  (filter aktif: {formatDisplayDate(dateFrom) || "-"} s/d {formatDisplayDate(dateTo) || "-"})
                 </span>
               </div>
             )}
