@@ -400,10 +400,10 @@ export default function RequestStorePage() {
                         <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">Requester</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">Assigned To</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700 w-36">Reason</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Notes</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">SO</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">DN</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">SI</th>
+                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Notes</th>
                         <th className="px-3 py-2 text-center font-semibold text-gray-700 w-12">Foto</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700 w-32">Status</th>
                         <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">Action</th>
@@ -419,12 +419,12 @@ export default function RequestStorePage() {
                           <td className="px-3 py-2 text-gray-700">{item.requester}</td>
                           <td className="px-3 py-2 text-gray-700">{item.assigned_to}</td>
                           <td className="px-3 py-2 text-gray-700">{item.reason_request}</td>
-                          <td className="px-3 py-2 text-gray-600 max-w-[120px] truncate" title={item.notes}>
-                            {item.notes || "-"}
-                          </td>
                           <td className="px-3 py-2 text-gray-600 font-mono text-[10px]">{item.sales_order || "-"}</td>
                           <td className="px-3 py-2 text-gray-600 font-mono text-[10px]">{item.delivery_note || "-"}</td>
                           <td className="px-3 py-2 text-gray-600 font-mono text-[10px]">{item.sales_invoice || "-"}</td>
+                          <td className="px-3 py-2 text-gray-600 max-w-[120px] truncate" title={item.notes}>
+                            {item.notes || "-"}
+                          </td>
                           <td className="px-3 py-2 text-center">
                             {item.image_url ? (
                               <a
@@ -578,12 +578,6 @@ export default function RequestStorePage() {
                   {dropdownData.reasons.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
-                <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
-              </div>
-
               {/* Doc fields */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-2">Dokumen Referensi</label>
@@ -591,6 +585,12 @@ export default function RequestStorePage() {
                   { sales_order: form.sales_order, delivery_note: form.delivery_note, sales_invoice: form.sales_invoice },
                   (k, v) => setForm((prev) => ({ ...prev, [k]: v }))
                 )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+                <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
               </div>
 
               {/* Image upload */}
@@ -656,20 +656,6 @@ export default function RequestStorePage() {
                   {dropdownData.reasons.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
-                <textarea value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} rows={2}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
-                <select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-                  <option value="Pending">Pending</option>
-                  <option value="Completed">Completed</option>
-                </select>
-              </div>
-
               {/* Doc fields */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-2">Dokumen Referensi</label>
@@ -677,6 +663,21 @@ export default function RequestStorePage() {
                   { sales_order: editForm.sales_order, delivery_note: editForm.delivery_note, sales_invoice: editForm.sales_invoice },
                   (k, v) => setEditForm((prev) => ({ ...prev, [k]: v }))
                 )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+                <textarea value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} rows={2}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+                <select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
+                  <option value="Pending">Pending</option>
+                  <option value="Completed">Completed</option>
+                </select>
               </div>
 
               {/* Image upload */}
