@@ -89,6 +89,13 @@ function cleanLocationName(loc: string | null | undefined): string {
     .trim() || loc;
 }
 
+function formatDisplayDate(dateStr: string): string {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  const months = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+  return `${d} ${months[parseInt(m) - 1]} ${y}`;
+}
+
 interface Row {
   Name?: string;
   "Created at"?: string;
@@ -212,9 +219,15 @@ export default function AnalyticsOrderPage() {
   const PAGE_SIZE = 10;
   const [hideUnknownTraffic, setHideUnknownTraffic] = useState(false);
 
-  // Filters
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  // ─── Filters — default: awal bulan ini s/d hari ini ──────────────────────
+  const getTodayStr = () => new Date().toISOString().split("T")[0];
+  const getFirstOfMonthStr = () => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+  };
+
+  const [dateFrom, setDateFrom] = useState(getFirstOfMonthStr);
+  const [dateTo, setDateTo] = useState(getTodayStr);
   const [storeFilter, setStoreFilter] = useState("all");
 
   // Store filter options
@@ -316,6 +329,16 @@ export default function AnalyticsOrderPage() {
 
   const fr = filteredRows();
 
+  // ─── Data range info (min & max date dari SEMUA data) ─────────────────────
+  const dataDateRange = (() => {
+    const dates = rows
+      .map((r) => (r["Created at"] || "").split(" ")[0])
+      .filter((d) => d && d.length === 10)
+      .sort();
+    if (dates.length === 0) return null;
+    return { min: dates[0], max: dates[dates.length - 1] };
+  })();
+
   // ─── 1. Revenue per Store ─────────────────────────────────────────────────
   const revenueByStore = (() => {
     const orderSeen = new Set<string>();
@@ -367,10 +390,8 @@ export default function AnalyticsOrderPage() {
     return result;
   })();
 
-  // Traffic data tanpa "Tidak Diketahui" — dipakai khusus untuk pie chart
   const trafficDataForPie = trafficData.filter(d => d.name !== "Tidak Diketahui");
 
-  // Traffic per store
   const trafficByStore = (() => {
     if (storeFilter !== "all") return [];
     const storeList = [...new Set(fr.map(r => cleanLocationName(r.Location)))].sort();
@@ -566,13 +587,30 @@ export default function AnalyticsOrderPage() {
               </div>
               <div>
                 <button
-                  onClick={() => { setDateFrom(""); setDateTo(""); setStoreFilter("all"); }}
+                  onClick={() => {
+                    setDateFrom(getFirstOfMonthStr());
+                    setDateTo(getTodayStr());
+                    setStoreFilter("all");
+                  }}
                   className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600 w-full"
                 >
                   Reset Filter
                 </button>
               </div>
             </div>
+
+            {/* Data range info */}
+            {dataDateRange && (
+              <div className="mt-3 flex items-center gap-2">
+                <span className="text-[10px] text-gray-400">📅 Data tersedia:</span>
+                <span className="text-[10px] font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
+                  {formatDisplayDate(dataDateRange.min)} — {formatDisplayDate(dataDateRange.max)}
+                </span>
+                <span className="text-[10px] text-gray-400 ml-1">
+                  (filter aktif: {formatDisplayDate(dateFrom) || "—"} s/d {formatDisplayDate(dateTo) || "—"})
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Tabs */}
@@ -640,7 +678,6 @@ export default function AnalyticsOrderPage() {
                         </ResponsiveContainer>
                       </div>
 
-                      {/* Summary Table */}
                       <div>
                         <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail per Store</h3>
                         <div className="overflow-x-auto">
@@ -676,7 +713,6 @@ export default function AnalyticsOrderPage() {
                   {/* ── Tab 2: Traffic Source ────────────────────────────── */}
                   {activeTab === "traffic" && (
                     <div className="space-y-8">
-                      {/* Toggle exclude unknown — hanya berlaku untuk bar chart */}
                       <div className="flex items-center gap-2">
                         <label className="flex items-center gap-2 cursor-pointer select-none">
                           <div
@@ -690,7 +726,6 @@ export default function AnalyticsOrderPage() {
                       </div>
 
                       <div className="grid grid-cols-2 gap-8">
-                        {/* Pie chart — selalu exclude "Tidak Diketahui" */}
                         <div>
                           <h3 className="text-sm font-semibold text-gray-700 mb-4">Distribusi Traffic Source</h3>
                           <ResponsiveContainer width="100%" height={300}>
@@ -741,7 +776,6 @@ export default function AnalyticsOrderPage() {
                           />
                         </div>
 
-                        {/* Bar chart — ikuti toggle hideUnknownTraffic */}
                         <div>
                           <h3 className="text-sm font-semibold text-gray-700 mb-4">Jumlah Order per Traffic</h3>
                           <ResponsiveContainer width="100%" height={300}>
@@ -765,7 +799,6 @@ export default function AnalyticsOrderPage() {
                         </div>
                       </div>
 
-                      {/* Traffic Table */}
                       <div>
                         <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Traffic Source</h3>
                         <div className="overflow-x-auto">
@@ -842,7 +875,6 @@ export default function AnalyticsOrderPage() {
                         </ResponsiveContainer>
                       </div>
 
-                      {/* Discount Table */}
                       <div>
                         <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Discount Code</h3>
                         <div className="overflow-x-auto">
@@ -928,7 +960,6 @@ export default function AnalyticsOrderPage() {
                         </ResponsiveContainer>
                       </div>
 
-                      {/* Product Table */}
                       <div>
                         <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Produk Terjual</h3>
                         <div className="overflow-x-auto">
@@ -994,7 +1025,6 @@ export default function AnalyticsOrderPage() {
                         </ResponsiveContainer>
                       </div>
 
-                      {/* Employee Table */}
                       <div>
                         <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Karyawan</h3>
                         <div className="overflow-x-auto">

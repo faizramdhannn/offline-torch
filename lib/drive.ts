@@ -3,6 +3,8 @@ import { google } from 'googleapis';
 const PARENT_FOLDER_ID = process.env.DRIVE_PARENT_FOLDER_ID || '';
 const CUSTOMER_FOLDER_ID = process.env.DRIVE_CUSTOMER_FOLDER_ID || '';
 const CANVASING_FOLDER_ID = process.env.DRIVE_CANVASING_FOLDER_ID || '';
+// Folder ID untuk request store: https://drive.google.com/drive/folders/0AMy7t8kP47--Uk9PVA
+const REQUEST_STORE_FOLDER_ID = process.env.DRIVE_REQUEST_STORE_FOLDER_ID || '';
 
 const userFolderCache = new Map<string, string>();
 
@@ -93,16 +95,23 @@ export async function uploadToGoogleDrive(
 
     // Determine which parent folder to use
     let parentFolderId = PARENT_FOLDER_ID;
+    let folderUsername = username;
+
     if (username === 'customer_followup') {
       parentFolderId = CUSTOMER_FOLDER_ID;
-      username = 'followup'; // Use 'followup' as folder name for customer uploads
+      folderUsername = 'followup';
     } else if (username === 'canvasing') {
       // For canvasing uploads, use the canvasing folder directly without subfolder
       parentFolderId = CANVASING_FOLDER_ID;
-      username = 'canvasing';
+      folderUsername = 'canvasing';
+    } else if (username === 'request_store') {
+      // Request store photos: upload directly to REQUEST_STORE_FOLDER_ID
+      // (no sub-folder needed)
+      parentFolderId = REQUEST_STORE_FOLDER_ID;
+      folderUsername = 'photos';
     }
 
-    const userFolderId = await getUserFolder(username, drive, parentFolderId);
+    const userFolderId = await getUserFolder(folderUsername, drive, parentFolderId);
 
     let extension = '';
     if (mimeType.includes('jpeg') || mimeType.includes('jpg')) extension = '.jpg';
