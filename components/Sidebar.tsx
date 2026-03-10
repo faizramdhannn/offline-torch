@@ -23,6 +23,8 @@ interface SidebarProps {
     canvasing?: boolean;
     stock_opname?: boolean;
     request?: boolean;
+    traffic_store?: boolean;
+    report_store?: boolean;
   };
 }
 
@@ -85,9 +87,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     }
   };
 
-  // ─── Menu: Dashboard (atas) → fitur A-Z → Registration & Settings (bawah) ─
   const menuItems: MenuItem[] = [
-    // ── 1. Dashboard ──────────────────────────────────────────────────────────
     {
       name: "Dashboard",
       path: "/dashboard",
@@ -99,8 +99,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         </svg>
       ),
     },
-
-    // ── 2. Fitur (A-Z) ────────────────────────────────────────────────────────
     {
       name: "Analytics Order",
       path: "/analytics-order",
@@ -201,6 +199,17 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       ),
     },
     {
+      name: "Traffic Store",
+      path: "/traffic-store",
+      permission: "traffic_store",
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+            d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        </svg>
+      ),
+    },
+    {
       name: "Voucher",
       path: "/voucher",
       permission: "voucher",
@@ -211,8 +220,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         </svg>
       ),
     },
-
-    // ── 3. Admin (selalu paling bawah) ────────────────────────────────────────
     {
       name: "Registration",
       path: "/registration",
@@ -246,14 +253,21 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     }
   };
 
+  // Determine if a menu item should be shown
+  const checkPermission = (item: MenuItem): boolean => {
+    // Traffic Store menu shows if user has traffic_store OR report_store
+    if (item.permission === "traffic_store") {
+      return !!(permissions.traffic_store || permissions.report_store);
+    }
+    return !!permissions[item.permission as keyof typeof permissions];
+  };
+
   return (
     <>
-      {/* NotificationListener */}
       {permissions?.request && (
         <NotificationListener username={loginName} />
       )}
 
-      {/* Mobile overlay */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-30 md:hidden"
@@ -261,7 +275,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         />
       )}
 
-      {/* Mobile hamburger button */}
       <button
         onClick={toggleOpen}
         className={`
@@ -278,7 +291,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         </svg>
       </button>
 
-      {/* Sidebar */}
       <aside
         className={`
           fixed md:relative z-40
@@ -290,11 +302,8 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           shrink-0
         `}
       >
-        {/* Header */}
         <div
-          className={`border-b border-white/10 ${
-            isCollapsed ? "p-2" : "p-3"
-          } flex items-center justify-between`}
+          className={`border-b border-white/10 ${isCollapsed ? "p-2" : "p-3"} flex items-center justify-between`}
         >
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
@@ -313,13 +322,10 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
 
           {isCollapsed && (
             <div className="w-full flex justify-center py-1">
-              <span className="text-xs font-bold text-white/50 tracking-widest">
-                OT
-              </span>
+              <span className="text-xs font-bold text-white/50 tracking-widest">OT</span>
             </div>
           )}
 
-          {/* Desktop collapse toggle */}
           <button
             onClick={toggleCollapsed}
             className={`
@@ -331,50 +337,27 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             <svg
-              className={`w-3.5 h-3.5 text-white/50 transition-transform ${
-                isCollapsed ? "rotate-180" : ""
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+              className={`w-3.5 h-3.5 text-white/50 transition-transform ${isCollapsed ? "rotate-180" : ""}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 19l-7-7 7-7M18 19l-7-7 7-7"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
             </svg>
           </button>
 
-          {/* Mobile close button */}
           <button
             onClick={toggleOpen}
             className="md:hidden flex items-center justify-center w-7 h-7 rounded-md hover:bg-white/10 ml-1 shrink-0"
             aria-label="Close menu"
           >
-            <svg
-              className="w-4 h-4 text-white/70"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+            <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 py-1.5 overflow-y-auto overflow-x-hidden">
           {menuItems.map((item) => {
-            const hasPermission =
-              permissions[item.permission as keyof typeof permissions];
-            if (!hasPermission) return null;
+            if (!checkPermission(item)) return null;
             const isActive = pathname === item.path;
 
             return (
@@ -384,35 +367,23 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
                 title={isCollapsed ? item.name : undefined}
                 className={`
                   w-full flex items-center gap-3 transition-colors
-                  ${
-                    isCollapsed
-                      ? "justify-center px-0 py-2.5"
-                      : "px-4 py-2.5"
-                  }
-                  ${
-                    isActive
-                      ? "bg-white/15 text-white border-r-2 border-white"
-                      : "text-white/60 hover:text-white hover:bg-white/8"
+                  ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}
+                  ${isActive
+                    ? "bg-white/15 text-white border-r-2 border-white"
+                    : "text-white/60 hover:text-white hover:bg-white/8"
                   }
                 `}
               >
-                <span
-                  className={`shrink-0 ${
-                    isActive ? "opacity-100" : "opacity-70"
-                  }`}
-                >
+                <span className={`shrink-0 ${isActive ? "opacity-100" : "opacity-70"}`}>
                   {item.icon}
                 </span>
                 {!isCollapsed && (
-                  <span className="text-xs truncate font-normal">
-                    {item.name}
-                  </span>
+                  <span className="text-xs truncate font-normal">{item.name}</span>
                 )}
               </button>
             );
           })}
 
-          {/* E-Catalog — hanya tampil di halaman canvasing */}
           {permissions?.canvasing && pathname === "/canvasing" && (
             <button
               onClick={handleGenerateCatalog}
@@ -426,18 +397,9 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
               `}
             >
               <span className="shrink-0 opacity-70">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.8}
-                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                  />
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
               </span>
               {!isCollapsed && (
@@ -449,15 +411,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           )}
         </nav>
 
-        {/* Footer: dark mode + logout */}
-        <div
-          className={`border-t border-white/10 ${
-            isCollapsed
-              ? "p-2 flex flex-col gap-2"
-              : "p-3 flex items-center gap-2"
-          }`}
-        >
-          {/* Dark mode toggle */}
+        <div className={`border-t border-white/10 ${isCollapsed ? "p-2 flex flex-col gap-2" : "p-3 flex items-center gap-2"}`}>
           <button
             onClick={toggleTheme}
             title={isDark ? "Light mode" : "Dark mode"}
@@ -468,57 +422,28 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
               transition-all duration-200
               ${isCollapsed ? "w-full h-8" : "w-8 h-8 shrink-0"}
             `}
-            aria-label="Toggle dark mode"
           >
             {isDark ? (
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.8}
-                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-                />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
             ) : (
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.8}
-                  d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-                />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                  d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
               </svg>
             )}
           </button>
 
-          {/* Logout */}
           {!isCollapsed ? (
             <button
               onClick={handleLogout}
               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-white/10 hover:bg-red-500/80 text-white/70 hover:text-white rounded text-xs transition-colors"
             >
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                />
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
               Logout
             </button>
@@ -528,18 +453,9 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
               title="Logout"
               className="w-full h-8 flex items-center justify-center text-white/60 hover:text-white bg-white/8 hover:bg-red-500/80 rounded-lg transition-colors"
             >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
             </button>
           )}

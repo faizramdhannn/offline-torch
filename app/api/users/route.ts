@@ -100,6 +100,9 @@ export async function PUT(request: NextRequest) {
       permissions.canvasing_export ? 'TRUE' : 'FALSE',
       permissions.canvasing ? 'TRUE' : 'FALSE',
       permissions.petty_cash_balance ? 'TRUE' : 'FALSE',
+      // Traffic Store permissions
+      permissions.traffic_store ? 'TRUE' : 'FALSE',
+      permissions.report_store ? 'TRUE' : 'FALSE',
       timestamp,
     ];
 

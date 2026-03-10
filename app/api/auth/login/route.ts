@@ -51,6 +51,9 @@ export async function POST(request: NextRequest) {
       stock_view_hpt: user.stock_view_hpt === 'TRUE',
       stock_view_hpj: user.stock_view_hpj === 'TRUE',
       stock_refresh_javelin: user.stock_refresh_javelin === 'TRUE',
+      // Traffic Store permissions
+      traffic_store: user.traffic_store === 'TRUE',
+      report_store: user.report_store === 'TRUE',
     });
   } catch (error) {
     return NextResponse.json({ error: 'Authentication failed' }, { status: 500 });

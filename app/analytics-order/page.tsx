@@ -11,7 +11,6 @@ import {
   LineChart, Line, RadarChart, Radar, PolarGrid, PolarAngleAxis,
 } from "recharts";
 
-// ─── Traffic Code Map ────────────────────────────────────────────────────────
 const TRAFFIC_MAP: Record<string, string> = {
   WG: "Whatsapp Group",
   TO: "Traffic Organic / Walk In",
@@ -36,6 +35,7 @@ const TRAFFIC_MAP: Record<string, string> = {
   KK: "Karyawan",
   DY: "Dealer Yamaha",
   TB: "T Banner",
+  TS: "Tiktok Store",
 };
 
 const COLORS = [
