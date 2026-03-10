@@ -220,10 +220,16 @@ export default function AnalyticsOrderPage() {
   const [hideUnknownTraffic, setHideUnknownTraffic] = useState(false);
 
   // ─── Filters — default: awal bulan ini s/d hari ini ──────────────────────
-  const getTodayStr = () => new Date().toISOString().split("T")[0];
+  const toLocalDateStr = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+  const getTodayStr = () => toLocalDateStr(new Date());
   const getFirstOfMonthStr = () => {
     const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+    return toLocalDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
   };
 
   const [dateFrom, setDateFrom] = useState(getFirstOfMonthStr);
