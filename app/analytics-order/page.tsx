@@ -10,6 +10,13 @@ import {
   ResponsiveContainer, Cell, PieChart, Pie, Legend,
   LineChart, Line, RadarChart, Radar, PolarGrid, PolarAngleAxis,
 } from "recharts";
+import {
+  exportStoreTab,
+  exportTrafficTab,
+  exportDiscountTab,
+  exportProductTab,
+  exportEmployeeTab,
+} from "@/lib/analyticsExport";
 
 const TRAFFIC_MAP: Record<string, string> = {
   WG: "Whatsapp Group",
@@ -56,27 +63,20 @@ function parseSubtotal(val: string | null | undefined): number {
 
 function extractTrafficCode(notes: string | null | undefined): string | null {
   if (!notes) return null;
-
   const upper = notes.trim().toUpperCase();
-
   const tokens = upper
     .split(/[\s,]+/)
     .map((t) => t.replace(/[^A-Z]/g, ""))
     .filter(Boolean);
-
   if (tokens.length === 0) return null;
-
   for (let i = tokens.length - 1; i >= 0; i--) {
     const token = tokens[i];
-
     if (TRAFFIC_MAP[token]) return token;
-
     if (token.length > 2) {
       const tail = token.slice(-2);
       if (TRAFFIC_MAP[tail]) return tail;
     }
   }
-
   return null;
 }
 
@@ -197,6 +197,22 @@ function Pagination({ page, total, pageSize, onChange }: {
   );
 }
 
+// ─── Export Button ────────────────────────────────────────────────────────────
+function ExportButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors"
+    >
+      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+      </svg>
+      Export CSV
+    </button>
+  );
+}
+
 export default function AnalyticsOrderPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -219,7 +235,7 @@ export default function AnalyticsOrderPage() {
   const PAGE_SIZE = 10;
   const [hideUnknownTraffic, setHideUnknownTraffic] = useState(false);
 
-  // ─── Filters — default: awal bulan ini s/d hari ini ──────────────────────
+  // ─── Filters ─────────────────────────────────────────────────────────────
   const toLocalDateStr = (d: Date) => {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -235,8 +251,6 @@ export default function AnalyticsOrderPage() {
   const [dateFrom, setDateFrom] = useState(getFirstOfMonthStr);
   const [dateTo, setDateTo] = useState(getTodayStr);
   const [storeFilter, setStoreFilter] = useState("all");
-
-  // Store filter options
   const [stores, setStores] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -335,7 +349,7 @@ export default function AnalyticsOrderPage() {
 
   const fr = filteredRows();
 
-  // ─── Data range info (min & max date dari SEMUA data) ─────────────────────
+  // ─── Data range info ─────────────────────────────────────────────────────
   const dataDateRange = (() => {
     const dates = rows
       .map((r) => (r["Created at"] || "").split(" ")[0])
@@ -397,35 +411,6 @@ export default function AnalyticsOrderPage() {
   })();
 
   const trafficDataForPie = trafficData.filter(d => d.name !== "Tidak Diketahui");
-
-  const trafficByStore = (() => {
-    if (storeFilter !== "all") return [];
-    const storeList = [...new Set(fr.map(r => cleanLocationName(r.Location)))].sort();
-    const codes = [...new Set(
-      fr.map(r => {
-        const code = extractTrafficCode(r.Notes);
-        return code ? (TRAFFIC_MAP[code] || code) : null;
-      }).filter(Boolean)
-    )] as string[];
-
-    const orderSeen = new Set<string>();
-    const map: Record<string, Record<string, number>> = {};
-    fr.forEach((r) => {
-      const key = r.Name || "";
-      if (orderSeen.has(key)) return;
-      orderSeen.add(key);
-      const store = cleanLocationName(r.Location);
-      const code = extractTrafficCode(r.Notes);
-      const label = code ? (TRAFFIC_MAP[code] || code) : "Tidak Diketahui";
-      if (!map[store]) map[store] = {};
-      map[store][label] = (map[store][label] || 0) + 1;
-    });
-
-    return storeList.map(store => ({
-      name: store,
-      ...codes.reduce((acc, c) => ({ ...acc, [c]: map[store]?.[c] || 0 }), {}),
-    }));
-  })();
 
   // ─── 3. Discount Code ────────────────────────────────────────────────────
   const discountData = (() => {
@@ -501,6 +486,18 @@ export default function AnalyticsOrderPage() {
   const totalDiscountUsed = new Set(
     fr.filter(r => r["Discount Code"]?.trim()).map(r => r.Name).filter(Boolean)
   ).size;
+
+  // ─── Export handlers ──────────────────────────────────────────────────────
+  const handleExport = () => {
+    if (fr.length === 0) { showMessage("Tidak ada data untuk diexport", "error"); return; }
+    switch (activeTab) {
+      case "store":    exportStoreTab(fr);    break;
+      case "traffic":  exportTrafficTab(fr);  break;
+      case "discount": exportDiscountTab(fr); break;
+      case "product":  exportProductTab(fr);  break;
+      case "employee": exportEmployeeTab(fr); break;
+    }
+  };
 
   if (!user) return null;
 
@@ -605,7 +602,6 @@ export default function AnalyticsOrderPage() {
               </div>
             </div>
 
-            {/* Data range info */}
             {dataDateRange && (
               <div className="mt-3 flex items-center gap-2">
                 <span className="text-[10px] text-gray-400">Data tersedia:</span>
@@ -621,20 +617,26 @@ export default function AnalyticsOrderPage() {
 
           {/* Tabs */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="flex border-b overflow-x-auto">
-              {CHART_TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`px-5 py-3 text-xs font-medium whitespace-nowrap transition-colors border-b-2 ${
-                    activeTab === tab.id
-                      ? "border-primary text-primary bg-primary/5"
-                      : "border-transparent text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            {/* Tab bar + Export button */}
+            <div className="flex items-center justify-between border-b pr-4">
+              <div className="flex overflow-x-auto">
+                {CHART_TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`px-5 py-3 text-xs font-medium whitespace-nowrap transition-colors border-b-2 ${
+                      activeTab === tab.id
+                        ? "border-primary text-primary bg-primary/5"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              {!loading && fr.length > 0 && (
+                <ExportButton onClick={handleExport} />
+              )}
             </div>
 
             <div className="p-6">
@@ -1101,7 +1103,6 @@ export default function AnalyticsOrderPage() {
 
             <label
               htmlFor="shopify-import"
-              onClick={() => {}}
               className="block w-full text-center cursor-pointer px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors mb-3"
             >
               Pilih File CSV
