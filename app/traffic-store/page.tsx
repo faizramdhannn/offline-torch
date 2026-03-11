@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
@@ -140,41 +140,68 @@ export default function TrafficStorePage() {
     }
   };
 
-  // Derive user's store location
-  const userStore = (() => {
-    if (!user) return null;
-    const username = user.user_name?.toLowerCase() || "";
-    // If username matches a store key or name
+  // ─── Derive user's store location ────────────────────────────────────────
+  // Pakai useMemo agar re-compute setelah master ter-load
+  const userStore = useMemo(() => {
+    if (!user || master.length === 0) return null;
+    const username = user.user_name?.toLowerCase().trim() || "";
+
+    // 1. Exact match dari master store_location
+    const masterStores = [...new Set(master.map(m => m.store_location).filter(Boolean))];
+    const exactMatch = masterStores.find(s => s.toLowerCase().trim() === username);
+    if (exactMatch) return exactMatch;
+
+    // 2. Partial match (username mengandung nama store atau sebaliknya)
+    const partialMatch = masterStores.find(
+      s => username.includes(s.toLowerCase().trim()) || s.toLowerCase().trim().includes(username)
+    );
+    if (partialMatch) return partialMatch;
+
+    // 3. Fallback ke STORE_NAME_MAP
     const storeKeys = Object.keys(STORE_NAME_MAP);
-    const match = storeKeys.find(k => username === k || username === k.replace(/\s/g, "") || username.includes(k));
-    // Also check from master data
-    const masterStores = [...new Set(master.map(m => m.store_location))];
-    const masterMatch = masterStores.find(s => s.toLowerCase() === username || username.includes(s.toLowerCase()));
-    return masterMatch || match || null;
-  })();
+    const mapMatch = storeKeys.find(
+      k => username === k || username === k.replace(/\s/g, "") || username.includes(k)
+    );
+    return mapMatch || null;
+  }, [user, master]);
 
-  const isStoreUser = !!userStore && user?.traffic_store && !user?.report_store;
+  const isStoreUser = useMemo(
+    () => !!userStore && !!user?.traffic_store && !user?.report_store,
+    [userStore, user]
+  );
 
-  // Tafts for selected store (in form)
-  const taftsForStore = master
-    .filter(m => m.store_location?.toLowerCase() === (userStore?.toLowerCase() || ""))
-    .map(m => m.taft_name)
-    .filter(Boolean);
+  // Tafts untuk store yang sedang login
+  const taftsForStore = useMemo(() => {
+    if (!userStore) return [];
+    return master
+      .filter(m => m.store_location?.toLowerCase().trim() === userStore.toLowerCase().trim())
+      .map(m => m.taft_name)
+      .filter(Boolean);
+  }, [master, userStore]);
 
-  // Unique dropdown values from master
-  const trafficSources = [...new Set(master.map(m => m.traffic_source).filter(Boolean))];
-  const intentions = [...new Set(master.map(m => m.intention).filter(Boolean))];
+  // Unique dropdown values dari master
+  const trafficSources = useMemo(
+    () => [...new Set(master.map(m => m.traffic_source).filter(Boolean))],
+    [master]
+  );
+  const intentions = useMemo(
+    () => [...new Set(master.map(m => m.intention).filter(Boolean))],
+    [master]
+  );
 
   // Cases filtered by selected intention
-  const casesForIntention = form.intention
-    ? [...new Set(master.filter(m => m.intention === form.intention).map(m => m.case).filter(Boolean))]
-    : [];
+  const casesForIntention = useMemo(() => {
+    if (!form.intention) return [];
+    return [...new Set(
+      master.filter(m => m.intention === form.intention).map(m => m.case).filter(Boolean)
+    )];
+  }, [master, form.intention]);
 
   // Filtered data
   const filteredData = useCallback(() => {
     let rows = data.filter(r => r.id);
     if (isStoreUser && userStore) {
-      rows = rows.filter(r => r.store_location?.toLowerCase() === userStore.toLowerCase());
+      rows = rows.filter(r => r.store_location?.toLowerCase().trim() === userStore.toLowerCase().trim());
     }
     if (filterStore !== "all" && !isStoreUser) {
       rows = rows.filter(r => r.store_location?.toLowerCase() === filterStore.toLowerCase());
@@ -190,9 +217,9 @@ export default function TrafficStorePage() {
   const paginated = fd.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // Report: aggregate by store + traffic source
-  const reportData = (() => {
+  const reportData = useMemo(() => {
     const rows = isStoreUser && userStore
-      ? data.filter(r => r.id && r.store_location?.toLowerCase() === userStore.toLowerCase())
+      ? data.filter(r => r.id && r.store_location?.toLowerCase().trim() === userStore.toLowerCase().trim())
       : data.filter(r => r.id);
 
     const stores = [...new Set(rows.map(r => r.store_location).filter(Boolean))].sort();
@@ -205,7 +232,7 @@ export default function TrafficStorePage() {
     });
 
     return { stores, sources, map };
-  })();
+  }, [data, isStoreUser, userStore]);
 
   const openAdd = () => {
     setEditEntry(null);
@@ -231,7 +258,7 @@ export default function TrafficStorePage() {
     }
     setSaving(true);
     try {
-      const storeLocation = userStore || filterStore !== "all" ? (userStore || filterStore) : "";
+      const storeLocation = userStore || (filterStore !== "all" ? filterStore : "");
       if (!storeLocation && !editEntry) {
         showMessage("Store tidak dikenali", "error"); setSaving(false); return;
       }
@@ -281,7 +308,6 @@ export default function TrafficStorePage() {
       toTitleCase(store),
       ...sources.map(src => String(map[store]?.[src] || 0)),
     ]);
-    // Add totals row
     const totals = ["TOTAL", ...sources.map(src =>
       String(stores.reduce((s, store) => s + (map[store]?.[src] || 0), 0))
     )];
@@ -310,7 +336,10 @@ export default function TrafficStorePage() {
     URL.revokeObjectURL(url);
   };
 
-  const allStores = [...new Set(master.map(m => m.store_location).filter(Boolean))].sort();
+  const allStores = useMemo(
+    () => [...new Set(master.map(m => m.store_location).filter(Boolean))].sort(),
+    [master]
+  );
 
   if (!user) return null;
 
