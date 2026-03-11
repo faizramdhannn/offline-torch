@@ -91,22 +91,23 @@ export async function GET(request: NextRequest) {
     };
 
     // Filter balance data by date
-    let filteredBalance = balanceData.filter((item: any) => item.id); // filter empty rows
-    if (dateFrom) {
-      const from = new Date(dateFrom);
-      filteredBalance = filteredBalance.filter((item: any) => {
-        const d = item.created_at ? new Date(item.created_at) : parseDate(item.created_at);
-        return d && d >= from;
-      });
-    }
-    if (dateTo) {
-      const to = new Date(dateTo);
-      to.setHours(23, 59, 59, 999);
-      filteredBalance = filteredBalance.filter((item: any) => {
-        const d = item.created_at ? new Date(item.created_at) : parseDate(item.created_at);
-        return d && d <= to;
-      });
-    }
+let filteredBalance = balanceData.filter((item: any) => item.id);
+if (dateFrom) {
+  const [y, m, d] = dateFrom.split("-").map(Number);
+  const from = new Date(y, m - 1, d, 0, 0, 0, 0);
+  filteredBalance = filteredBalance.filter((item: any) => {
+    const parsed = parseDate(item.date);
+    return parsed && parsed >= from;
+  });
+}
+if (dateTo) {
+  const [y, m, d] = dateTo.split("-").map(Number);
+  const to = new Date(y, m - 1, d, 23, 59, 59, 999);
+  filteredBalance = filteredBalance.filter((item: any) => {
+    const parsed = parseDate(item.date);
+    return parsed && parsed <= to;
+  });
+}
 
     // Calculate balance (credit - debit)
     let balance = 0;

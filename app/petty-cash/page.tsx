@@ -463,15 +463,18 @@ export default function PettyCashPage() {
   };
 
   const applyFilters = () => {
-    let filtered = [...data];
-    if (dateFrom) {
-      const fromDate = new Date(dateFrom);
-      filtered = filtered.filter((item) => parseDate(item.date) >= fromDate);
-    }
-    if (dateTo) {
-      const toDate = new Date(dateTo);
-      filtered = filtered.filter((item) => parseDate(item.date) <= toDate);
-    }
+  let filtered = [...data];
+  if (dateFrom) {
+    // Parse "YYYY-MM-DD" as local date, bukan UTC
+    const [y, m, d] = dateFrom.split("-").map(Number);
+    const fromDate = new Date(y, m - 1, d, 0, 0, 0, 0);
+    filtered = filtered.filter((item) => parseDate(item.date) >= fromDate);
+  }
+  if (dateTo) {
+    const [y, m, d] = dateTo.split("-").map(Number);
+    const toDate = new Date(y, m - 1, d, 23, 59, 59, 999);
+    filtered = filtered.filter((item) => parseDate(item.date) <= toDate);
+  }
     if (selectedCategories.length > 0) {
       filtered = filtered.filter((item) => selectedCategories.includes(item.category));
     }
