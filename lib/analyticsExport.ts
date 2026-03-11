@@ -1,6 +1,8 @@
 // ─── analyticsExport.ts ───────────────────────────────────────────────────────
-// Drop this file at: lib/analyticsExport.ts
 // Usage: import { exportStoreTab, exportTrafficTab, ... } from '@/lib/analyticsExport'
+// Requires: xlsx (SheetJS) — npm install xlsx
+
+import * as XLSX from "xlsx";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatRupiahRaw(val: number) {
@@ -35,7 +37,7 @@ const TRAFFIC_MAP: Record<string, string> = {
   LB: "Liat Banyak yang Pakai", WS: "Webstore", AD: "Ads Promote",
   EM: "Email", WB: "Whatsapp Blast", PB: "Pernah Beli / Cust Lama",
   PH: "Perusahaan", DE: "Dari Eiger", KK: "Karyawan",
-  DY: "Dealer Yamaha", TB: "T Banner",
+  DY: "Dealer Yamaha", TB: "T Banner", TS: "Tiktok Store",
 };
 
 function extractTrafficCode(notes: string | null | undefined): string | null {
@@ -54,10 +56,12 @@ function extractTrafficCode(notes: string | null | undefined): string | null {
   return null;
 }
 
-// Download a CSV string as a file
-function downloadCsv(csvContent: string, filename: string) {
-  const BOM = "\uFEFF"; // UTF-8 BOM for Excel compatibility
-  const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
+// ─── XLSX download helper ─────────────────────────────────────────────────────
+function downloadXlsx(wb: XLSX.WorkBook, filename: string) {
+  const wbOut = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const blob = new Blob([wbOut], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -66,18 +70,6 @@ function downloadCsv(csvContent: string, filename: string) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-}
-
-function escapeCell(val: string | number | null | undefined): string {
-  const s = String(val ?? "");
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
-
-function buildCsv(rows: (string | number)[][]): string {
-  return rows.map((row) => row.map(escapeCell).join(",")).join("\n");
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -97,8 +89,6 @@ interface Row {
 }
 
 // ─── TAB 1: Revenue per Store ─────────────────────────────────────────────────
-// Rows: metric (Revenue, Orders, Avg/Order)
-// Cols: Store A | Store B | Store C | ...
 export function exportStoreTab(filteredRows: Row[]) {
   const orderSeen = new Set<string>();
   const revenueMap: Record<string, number> = {};
@@ -114,60 +104,50 @@ export function exportStoreTab(filteredRows: Row[]) {
     }
   });
 
-  const stores = Object.keys(revenueMap).sort((a, b) =>
-    revenueMap[b] - revenueMap[a]
-  );
+  const stores = Object.keys(revenueMap).sort((a, b) => revenueMap[b] - revenueMap[a]);
 
-  const headerRow = ["Metrik", ...stores];
-  const revenueRow = [
-    "Revenue (IDR)",
-    ...stores.map((s) => revenueMap[s] || 0),
-  ];
-  const ordersRow = [
-    "Jumlah Order",
-    ...stores.map((s) => orderMap[s]?.size || 0),
-  ];
-  const avgRow = [
-    "Avg Revenue / Order (IDR)",
+  // Sheet 1: Summary per store
+  const summaryData = [
+    ["Store", "Jumlah Order", "Revenue (IDR)", "Revenue (Rp)", "Avg/Order (IDR)", "Avg/Order (Rp)"],
     ...stores.map((s) => {
       const orders = orderMap[s]?.size || 0;
-      return orders > 0 ? Math.round((revenueMap[s] || 0) / orders) : 0;
+      const rev = revenueMap[s] || 0;
+      const avg = orders > 0 ? Math.round(rev / orders) : 0;
+      return [s, orders, rev, formatRupiahRaw(rev), avg, orders > 0 ? formatRupiahRaw(avg) : "-"];
     }),
   ];
 
-  // Also add formatted rupiah rows
-  const revenueRowFormatted = [
-    "Revenue (Rp)",
-    ...stores.map((s) => formatRupiahRaw(revenueMap[s] || 0)),
-  ];
-  const avgRowFormatted = [
-    "Avg Revenue / Order (Rp)",
-    ...stores.map((s) => {
-      const orders = orderMap[s]?.size || 0;
-      return orders > 0
-        ? formatRupiahRaw(Math.round((revenueMap[s] || 0) / orders))
-        : "-";
-    }),
+  // Sheet 2: Daily revenue per store
+  const dailyMap: Record<string, Record<string, number>> = {};
+  const allDates = new Set<string>();
+  const dailySeen = new Set<string>();
+  filteredRows.forEach((r) => {
+    const key = r.Name || "";
+    if (dailySeen.has(key)) return;
+    dailySeen.add(key);
+    const store = cleanLocationName(r.Location);
+    const date = (r["Created at"] || "").split(" ")[0];
+    if (!date) return;
+    allDates.add(date);
+    if (!dailyMap[date]) dailyMap[date] = {};
+    dailyMap[date][store] = (dailyMap[date][store] || 0) + parseSubtotal(r.Subtotal);
+  });
+
+  const sortedDates = [...allDates].sort();
+  const dailyData = [
+    ["Tanggal", ...stores],
+    ...sortedDates.map((d) => [d, ...stores.map((s) => dailyMap[d]?.[s] || 0)]),
   ];
 
-  const csv = buildCsv([
-    headerRow,
-    revenueRow,
-    revenueRowFormatted,
-    ordersRow,
-    avgRow,
-    avgRowFormatted,
-  ]);
-
-  downloadCsv(csv, `Analytics_Revenue_per_Store_${Date.now()}.csv`);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), "Summary per Store");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dailyData), "Daily Revenue per Store");
+  downloadXlsx(wb, `Analytics_Revenue_per_Store_${Date.now()}.xlsx`);
 }
 
 // ─── TAB 2: Traffic Source ────────────────────────────────────────────────────
-// Rows: traffic source name
-// Cols: Store A | Store B | ... | TOTAL
 export function exportTrafficTab(filteredRows: Row[]) {
   const orderSeen = new Set<string>();
-  // map: store -> traffic_label -> count
   const storeTrafficMap: Record<string, Record<string, number>> = {};
   const allStores = new Set<string>();
   const allTraffics = new Set<string>();
@@ -176,14 +156,11 @@ export function exportTrafficTab(filteredRows: Row[]) {
     const key = r.Name || "";
     if (orderSeen.has(key)) return;
     orderSeen.add(key);
-
     const store = cleanLocationName(r.Location);
     allStores.add(store);
-
     const code = extractTrafficCode(r.Notes);
     const label = code ? (TRAFFIC_MAP[code] || code) : "Tidak Diketahui";
     allTraffics.add(label);
-
     if (!storeTrafficMap[store]) storeTrafficMap[store] = {};
     storeTrafficMap[store][label] = (storeTrafficMap[store][label] || 0) + 1;
   });
@@ -195,34 +172,48 @@ export function exportTrafficTab(filteredRows: Row[]) {
     return a.localeCompare(b);
   });
 
-  const headerRow = ["Traffic Source", ...stores, "TOTAL"];
-  const dataRows = traffics.map((traffic) => {
-    const storeCounts = stores.map((s) => storeTrafficMap[s]?.[traffic] || 0);
-    const total = storeCounts.reduce((a, b) => a + b, 0);
-    return [traffic, ...storeCounts, total];
-  });
-
-  // Totals row
-  const totalsRow = [
-    "TOTAL",
-    ...stores.map((s) =>
-      Object.values(storeTrafficMap[s] || {}).reduce((a, b) => a + b, 0)
-    ),
-    filteredRows.filter((r, i, arr) =>
-      arr.findIndex((x) => x.Name === r.Name) === i && r.Name
-    ).length,
+  const summaryData = [
+    ["Traffic Source", ...stores, "TOTAL"],
+    ...traffics.map((t) => {
+      const counts = stores.map((s) => storeTrafficMap[s]?.[t] || 0);
+      return [t, ...counts, counts.reduce((a, b) => a + b, 0)];
+    }),
+    ["TOTAL", ...stores.map((s) => Object.values(storeTrafficMap[s] || {}).reduce((a, b) => a + b, 0)),
+      [...orderSeen].length],
   ];
 
-  const csv = buildCsv([headerRow, ...dataRows, totalsRow]);
-  downloadCsv(csv, `Analytics_Traffic_Source_${Date.now()}.csv`);
+  // Daily traffic trend
+  const dailyTrafficMap: Record<string, Record<string, number>> = {};
+  const allDates = new Set<string>();
+  const dailySeen = new Set<string>();
+  filteredRows.forEach((r) => {
+    const key = r.Name || "";
+    if (dailySeen.has(key)) return;
+    dailySeen.add(key);
+    const date = (r["Created at"] || "").split(" ")[0];
+    if (!date) return;
+    allDates.add(date);
+    const code = extractTrafficCode(r.Notes);
+    const label = code ? (TRAFFIC_MAP[code] || code) : "Tidak Diketahui";
+    if (!dailyTrafficMap[date]) dailyTrafficMap[date] = {};
+    dailyTrafficMap[date][label] = (dailyTrafficMap[date][label] || 0) + 1;
+  });
+
+  const sortedDates = [...allDates].sort();
+  const dailyData = [
+    ["Tanggal", ...traffics],
+    ...sortedDates.map((d) => [d, ...traffics.map((t) => dailyTrafficMap[d]?.[t] || 0)]),
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), "Traffic per Store");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dailyData), "Daily Traffic Trend");
+  downloadXlsx(wb, `Analytics_Traffic_Source_${Date.now()}.xlsx`);
 }
 
 // ─── TAB 3: Discount Code ─────────────────────────────────────────────────────
-// Rows: discount code
-// Cols: Store A orders | Store A amount | Store B orders | Store B amount | ... | TOTAL orders | TOTAL amount
 export function exportDiscountTab(filteredRows: Row[]) {
   const orderSeen = new Set<string>();
-  // map: store -> code -> { count, total }
   const storeDiscountMap: Record<string, Record<string, { count: number; total: number }>> = {};
   const allStores = new Set<string>();
   const allCodes = new Set<string>();
@@ -231,14 +222,11 @@ export function exportDiscountTab(filteredRows: Row[]) {
     const key = r.Name || "";
     if (orderSeen.has(key)) return;
     orderSeen.add(key);
-
     const store = cleanLocationName(r.Location);
     const code = r["Discount Code"]?.trim();
     if (!code) return;
-
     allStores.add(store);
     allCodes.add(code);
-
     if (!storeDiscountMap[store]) storeDiscountMap[store] = {};
     if (!storeDiscountMap[store][code]) storeDiscountMap[store][code] = { count: 0, total: 0 };
     storeDiscountMap[store][code].count += 1;
@@ -247,35 +235,60 @@ export function exportDiscountTab(filteredRows: Row[]) {
 
   const stores = [...allStores].sort();
   const codes = [...allCodes].sort((a, b) => {
-    // Sort by total usage desc
     const totalA = stores.reduce((s, st) => s + (storeDiscountMap[st]?.[a]?.count || 0), 0);
     const totalB = stores.reduce((s, st) => s + (storeDiscountMap[st]?.[b]?.count || 0), 0);
     return totalB - totalA;
   });
 
-  // Header: Discount Code | StoreA Orders | StoreA Amount | StoreB Orders | ...| TOTAL Orders | TOTAL Amount
   const storeHeaders = stores.flatMap((s) => [`${s} - Pakai`, `${s} - Potongan (IDR)`]);
-  const headerRow = ["Discount Code", ...storeHeaders, "TOTAL Pakai", "TOTAL Potongan (IDR)"];
+  const summaryData = [
+    ["Discount Code", ...storeHeaders, "TOTAL Pakai", "TOTAL Potongan (IDR)"],
+    ...codes.map((code) => {
+      const cells = stores.flatMap((s) => [
+        storeDiscountMap[s]?.[code]?.count || 0,
+        storeDiscountMap[s]?.[code]?.total || 0,
+      ]);
+      const totalCount = stores.reduce((s, st) => s + (storeDiscountMap[st]?.[code]?.count || 0), 0);
+      const totalAmt = stores.reduce((s, st) => s + (storeDiscountMap[st]?.[code]?.total || 0), 0);
+      return [code, ...cells, totalCount, totalAmt];
+    }),
+  ];
 
-  const dataRows = codes.map((code) => {
-    const storeCells = stores.flatMap((s) => [
-      storeDiscountMap[s]?.[code]?.count || 0,
-      storeDiscountMap[s]?.[code]?.total || 0,
-    ]);
-    const totalCount = stores.reduce((s, st) => s + (storeDiscountMap[st]?.[code]?.count || 0), 0);
-    const totalAmount = stores.reduce((s, st) => s + (storeDiscountMap[st]?.[code]?.total || 0), 0);
-    return [code, ...storeCells, totalCount, totalAmount];
+  // Daily discount usage
+  const dailyDiscountMap: Record<string, Record<string, number>> = {};
+  const allDates = new Set<string>();
+  const dailySeen = new Set<string>();
+  filteredRows.forEach((r) => {
+    const key = r.Name || "";
+    if (dailySeen.has(key)) return;
+    dailySeen.add(key);
+    const code = r["Discount Code"]?.trim();
+    if (!code) return;
+    const date = (r["Created at"] || "").split(" ")[0];
+    if (!date) return;
+    allDates.add(date);
+    if (!dailyDiscountMap[date]) dailyDiscountMap[date] = {};
+    dailyDiscountMap[date][code] = (dailyDiscountMap[date][code] || 0) + 1;
   });
 
-  const csv = buildCsv([headerRow, ...dataRows]);
-  downloadCsv(csv, `Analytics_Discount_Code_${Date.now()}.csv`);
+  const sortedDates = [...allDates].sort();
+  const topCodes = codes.slice(0, 10);
+  const dailyData = [
+    ["Tanggal", ...topCodes, "Total Discount Hari Ini"],
+    ...sortedDates.map((d) => {
+      const counts = topCodes.map((c) => dailyDiscountMap[d]?.[c] || 0);
+      return [d, ...counts, counts.reduce((a, b) => a + b, 0)];
+    }),
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), "Discount per Store");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dailyData), "Daily Discount Trend");
+  downloadXlsx(wb, `Analytics_Discount_Code_${Date.now()}.xlsx`);
 }
 
 // ─── TAB 4: Product Sales ─────────────────────────────────────────────────────
-// Rows: product name
-// Cols: Store A qty | Store A revenue | Store B qty | ... | TOTAL qty | TOTAL revenue
 export function exportProductTab(filteredRows: Row[]) {
-  // map: store -> product -> { qty, revenue }
   const storeProductMap: Record<string, Record<string, { qty: number; revenue: number }>> = {};
   const allStores = new Set<string>();
   const allProducts = new Set<string>();
@@ -284,13 +297,10 @@ export function exportProductTab(filteredRows: Row[]) {
     const store = cleanLocationName(r.Location);
     const name = r["Lineitem name"]?.trim();
     if (!name) return;
-
     allStores.add(store);
     allProducts.add(name);
-
     const qty = parseInt(r["Lineitem quantity"] || "1") || 1;
     const price = parseSubtotal(r["Lineitem price"]);
-
     if (!storeProductMap[store]) storeProductMap[store] = {};
     if (!storeProductMap[store][name]) storeProductMap[store][name] = { qty: 0, revenue: 0 };
     storeProductMap[store][name].qty += qty;
@@ -305,28 +315,52 @@ export function exportProductTab(filteredRows: Row[]) {
   });
 
   const storeHeaders = stores.flatMap((s) => [`${s} - Qty`, `${s} - Revenue (IDR)`]);
-  const headerRow = ["Produk", ...storeHeaders, "TOTAL Qty", "TOTAL Revenue (IDR)"];
+  const summaryData = [
+    ["Produk", ...storeHeaders, "TOTAL Qty", "TOTAL Revenue (IDR)"],
+    ...products.map((p) => {
+      const cells = stores.flatMap((s) => [
+        storeProductMap[s]?.[p]?.qty || 0,
+        storeProductMap[s]?.[p]?.revenue || 0,
+      ]);
+      const totalQty = stores.reduce((s, st) => s + (storeProductMap[st]?.[p]?.qty || 0), 0);
+      const totalRev = stores.reduce((s, st) => s + (storeProductMap[st]?.[p]?.revenue || 0), 0);
+      return [p, ...cells, totalQty, totalRev];
+    }),
+  ];
 
-  const dataRows = products.map((product) => {
-    const storeCells = stores.flatMap((s) => [
-      storeProductMap[s]?.[product]?.qty || 0,
-      storeProductMap[s]?.[product]?.revenue || 0,
-    ]);
-    const totalQty = stores.reduce((s, st) => s + (storeProductMap[st]?.[product]?.qty || 0), 0);
-    const totalRev = stores.reduce((s, st) => s + (storeProductMap[st]?.[product]?.revenue || 0), 0);
-    return [product, ...storeCells, totalQty, totalRev];
+  // Daily product sales (top 10 products)
+  const dailyProductMap: Record<string, Record<string, number>> = {};
+  const allDates = new Set<string>();
+  filteredRows.forEach((r) => {
+    const name = r["Lineitem name"]?.trim();
+    if (!name) return;
+    const date = (r["Created at"] || "").split(" ")[0];
+    if (!date) return;
+    allDates.add(date);
+    const qty = parseInt(r["Lineitem quantity"] || "1") || 1;
+    if (!dailyProductMap[date]) dailyProductMap[date] = {};
+    dailyProductMap[date][name] = (dailyProductMap[date][name] || 0) + qty;
   });
 
-  const csv = buildCsv([headerRow, ...dataRows]);
-  downloadCsv(csv, `Analytics_Product_Sales_${Date.now()}.csv`);
+  const sortedDates = [...allDates].sort();
+  const topProducts = products.slice(0, 10);
+  const dailyData = [
+    ["Tanggal", ...topProducts, "Total Qty Hari Ini"],
+    ...sortedDates.map((d) => {
+      const counts = topProducts.map((p) => dailyProductMap[d]?.[p] || 0);
+      return [d, ...counts, counts.reduce((a, b) => a + b, 0)];
+    }),
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), "Product per Store");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dailyData), "Daily Product Trend");
+  downloadXlsx(wb, `Analytics_Product_Sales_${Date.now()}.xlsx`);
 }
 
 // ─── TAB 5: Employee ──────────────────────────────────────────────────────────
-// Rows: employee name
-// Cols: Store A orders | Store A revenue | Store B orders | ... | TOTAL orders | TOTAL revenue
 export function exportEmployeeTab(filteredRows: Row[]) {
   const orderSeen = new Set<string>();
-  // map: store -> employee -> { orders: Set, subtotal }
   const storeEmpMap: Record<string, Record<string, { orders: Set<string>; subtotal: number }>> = {};
   const allStores = new Set<string>();
   const allEmps = new Set<string>();
@@ -335,10 +369,8 @@ export function exportEmployeeTab(filteredRows: Row[]) {
     const store = cleanLocationName(r.Location);
     const emp = r.Employee?.trim();
     if (!emp) return;
-
     allStores.add(store);
     allEmps.add(emp);
-
     if (!storeEmpMap[store]) storeEmpMap[store] = {};
     if (!storeEmpMap[store][emp]) storeEmpMap[store][emp] = { orders: new Set(), subtotal: 0 };
     if (r.Name) storeEmpMap[store][emp].orders.add(r.Name);
@@ -356,18 +388,49 @@ export function exportEmployeeTab(filteredRows: Row[]) {
   });
 
   const storeHeaders = stores.flatMap((s) => [`${s} - Orders`, `${s} - Revenue (IDR)`]);
-  const headerRow = ["Karyawan", ...storeHeaders, "TOTAL Orders", "TOTAL Revenue (IDR)"];
+  const summaryData = [
+    ["Karyawan", ...storeHeaders, "TOTAL Orders", "TOTAL Revenue (IDR)"],
+    ...emps.map((emp) => {
+      const cells = stores.flatMap((s) => [
+        storeEmpMap[s]?.[emp]?.orders.size || 0,
+        storeEmpMap[s]?.[emp]?.subtotal || 0,
+      ]);
+      const totalOrders = stores.reduce((s, st) => s + (storeEmpMap[st]?.[emp]?.orders.size || 0), 0);
+      const totalRev = stores.reduce((s, st) => s + (storeEmpMap[st]?.[emp]?.subtotal || 0), 0);
+      return [emp, ...cells, totalOrders, totalRev];
+    }),
+  ];
 
-  const dataRows = emps.map((emp) => {
-    const storeCells = stores.flatMap((s) => [
-      storeEmpMap[s]?.[emp]?.orders.size || 0,
-      storeEmpMap[s]?.[emp]?.subtotal || 0,
-    ]);
-    const totalOrders = stores.reduce((s, st) => s + (storeEmpMap[st]?.[emp]?.orders.size || 0), 0);
-    const totalRev = stores.reduce((s, st) => s + (storeEmpMap[st]?.[emp]?.subtotal || 0), 0);
-    return [emp, ...storeCells, totalOrders, totalRev];
+  // Daily employee revenue trend
+  const dailyEmpMap: Record<string, Record<string, { orders: Set<string>; revenue: number }>> = {};
+  const allDates = new Set<string>();
+  const dailySeen = new Set<string>();
+  filteredRows.forEach((r) => {
+    const emp = r.Employee?.trim();
+    if (!emp) return;
+    const date = (r["Created at"] || "").split(" ")[0];
+    if (!date) return;
+    allDates.add(date);
+    if (!dailyEmpMap[date]) dailyEmpMap[date] = {};
+    if (!dailyEmpMap[date][emp]) dailyEmpMap[date][emp] = { orders: new Set(), revenue: 0 };
+    if (r.Name) dailyEmpMap[date][emp].orders.add(r.Name);
+    if (!dailySeen.has(`${date}__${r.Name || ""}`)) {
+      dailySeen.add(`${date}__${r.Name || ""}`);
+      dailyEmpMap[date][emp].revenue += parseSubtotal(r.Subtotal);
+    }
   });
 
-  const csv = buildCsv([headerRow, ...dataRows]);
-  downloadCsv(csv, `Analytics_Employee_${Date.now()}.csv`);
+  const sortedDates = [...allDates].sort();
+  const dailyData = [
+    ["Tanggal", ...emps.map((e) => `${e} - Revenue`), "Total Revenue Hari Ini"],
+    ...sortedDates.map((d) => {
+      const revenues = emps.map((e) => dailyEmpMap[d]?.[e]?.revenue || 0);
+      return [d, ...revenues, revenues.reduce((a, b) => a + b, 0)];
+    }),
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), "Employee per Store");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dailyData), "Daily Employee Trend");
+  downloadXlsx(wb, `Analytics_Employee_${Date.now()}.xlsx`);
 }

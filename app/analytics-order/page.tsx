@@ -7,8 +7,8 @@ import Popup from "@/components/Popup";
 import Papa from "papaparse";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell, PieChart, Pie, Legend,
-  LineChart, Line, RadarChart, Radar, PolarGrid, PolarAngleAxis,
+  ResponsiveContainer, Cell, PieChart, Pie,
+  LineChart, Line, Legend,
 } from "recharts";
 import {
   exportStoreTab,
@@ -96,6 +96,12 @@ function formatDisplayDate(dateStr: string): string {
   return `${d} ${months[parseInt(m) - 1]} ${y}`;
 }
 
+function formatShortDate(dateStr: string): string {
+  if (!dateStr) return "";
+  const [, m, d] = dateStr.split("-");
+  return `${d}/${m}`;
+}
+
 interface Row {
   Name?: string;
   "Created at"?: string;
@@ -119,7 +125,7 @@ const CHART_TABS = [
   { id: "employee", label: "Employee" },
 ];
 
-// Custom dark tooltip
+// ─── Custom dark tooltip ──────────────────────────────────────────────────────
 const DarkTooltip = ({ active, payload, label, formatter }: any) => {
   if (!active || !payload || !payload.length) return null;
   return (
@@ -128,7 +134,7 @@ const DarkTooltip = ({ active, payload, label, formatter }: any) => {
       {payload.map((p: any, i: number) => (
         <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 16, marginBottom: 2 }}>
           <span style={{ fontSize: 11, color: "#94a3b8" }}>{p.name || p.dataKey}</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: p.fill || p.color || "#60a5fa" }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: p.fill || p.color || p.stroke || "#60a5fa" }}>
             {formatter ? formatter(p.value) : p.value?.toLocaleString?.() ?? p.value}
           </span>
         </div>
@@ -148,22 +154,37 @@ const PieLegend = ({ data }: { data: { name: string; value: number; color: strin
   </div>
 );
 
-// ─── Reusable Pagination Component ───────────────────────────────────────────
+// ─── View Toggle ──────────────────────────────────────────────────────────────
+function ViewToggle({ view, onChange }: { view: "all" | "daily"; onChange: (v: "all" | "daily") => void }) {
+  return (
+    <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+      {(["all", "daily"] as const).map((v) => (
+        <button
+          key={v}
+          onClick={() => onChange(v)}
+          className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+            view === v
+              ? "bg-white text-gray-800 shadow-sm"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          {v === "all" ? "All" : "Daily"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── Pagination ───────────────────────────────────────────────────────────────
 function Pagination({ page, total, pageSize, onChange }: {
-  page: number;
-  total: number;
-  pageSize: number;
-  onChange: (p: number) => void;
+  page: number; total: number; pageSize: number; onChange: (p: number) => void;
 }) {
   const totalPages = Math.ceil(total / pageSize);
   if (totalPages <= 1) return null;
   const pages: (number | "...")[] = [];
   for (let i = 1; i <= totalPages; i++) {
-    if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) {
-      pages.push(i);
-    } else if (pages[pages.length - 1] !== "...") {
-      pages.push("...");
-    }
+    if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) pages.push(i);
+    else if (pages[pages.length - 1] !== "...") pages.push("...");
   }
   return (
     <div className="flex items-center justify-between pt-3 border-t mt-2">
@@ -171,27 +192,20 @@ function Pagination({ page, total, pageSize, onChange }: {
         {Math.min((page - 1) * pageSize + 1, total)}–{Math.min(page * pageSize, total)} dari {total}
       </p>
       <div className="flex gap-1">
-        <button
-          onClick={() => onChange(page - 1)}
-          disabled={page === 1}
-          className="px-2 py-1 text-xs border rounded disabled:opacity-30 hover:bg-gray-50"
-        >‹</button>
+        <button onClick={() => onChange(page - 1)} disabled={page === 1}
+          className="px-2 py-1 text-xs border rounded disabled:opacity-30 hover:bg-gray-50">‹</button>
         {pages.map((p, i) =>
           p === "..." ? (
             <span key={i} className="px-2 py-1 text-xs text-gray-400">…</span>
           ) : (
-            <button
-              key={i}
-              onClick={() => onChange(p as number)}
-              className={`px-2.5 py-1 text-xs border rounded ${page === p ? "bg-primary text-white border-primary" : "hover:bg-gray-50"}`}
-            >{p}</button>
+            <button key={i} onClick={() => onChange(p as number)}
+              className={`px-2.5 py-1 text-xs border rounded ${page === p ? "bg-primary text-white border-primary" : "hover:bg-gray-50"}`}>
+              {p}
+            </button>
           )
         )}
-        <button
-          onClick={() => onChange(page + 1)}
-          disabled={page === totalPages}
-          className="px-2 py-1 text-xs border rounded disabled:opacity-30 hover:bg-gray-50"
-        >›</button>
+        <button onClick={() => onChange(page + 1)} disabled={page === totalPages}
+          className="px-2 py-1 text-xs border rounded disabled:opacity-30 hover:bg-gray-50">›</button>
       </div>
     </div>
   );
@@ -200,15 +214,13 @@ function Pagination({ page, total, pageSize, onChange }: {
 // ─── Export Button ────────────────────────────────────────────────────────────
 function ExportButton({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors"
-    >
+    <button onClick={onClick}
+      className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors">
       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
           d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
       </svg>
-      Export CSV
+      Export XLSX
     </button>
   );
 }
@@ -225,8 +237,8 @@ export default function AnalyticsOrderPage() {
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [activeTab, setActiveTab] = useState("store");
+  const [chartView, setChartView] = useState<"all" | "daily">("all");
 
-  // Pagination per tab
   const [pageStore, setPageStore] = useState(1);
   const [pageTraffic, setPageTraffic] = useState(1);
   const [pageDiscount, setPageDiscount] = useState(1);
@@ -235,7 +247,6 @@ export default function AnalyticsOrderPage() {
   const PAGE_SIZE = 10;
   const [hideUnknownTraffic, setHideUnknownTraffic] = useState(false);
 
-  // ─── Filters ─────────────────────────────────────────────────────────────
   const toLocalDateStr = (d: Date) => {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -311,9 +322,7 @@ export default function AnalyticsOrderPage() {
                 showMessage(result.error || "Import failed", "error");
               }
               resolve();
-            } catch (err) {
-              reject(err);
-            }
+            } catch (err) { reject(err); }
           },
           error: reject,
         });
@@ -332,7 +341,6 @@ export default function AnalyticsOrderPage() {
     setShowImportModal(true);
   };
 
-  // ─── Filtered Rows ────────────────────────────────────────────────────────
   const filteredRows = useCallback(() => {
     return rows.filter((r) => {
       const rawDate = r["Created at"] || "";
@@ -349,7 +357,6 @@ export default function AnalyticsOrderPage() {
 
   const fr = filteredRows();
 
-  // ─── Data range info ─────────────────────────────────────────────────────
   const dataDateRange = (() => {
     const dates = rows
       .map((r) => (r["Created at"] || "").split(" ")[0])
@@ -359,7 +366,8 @@ export default function AnalyticsOrderPage() {
     return { min: dates[0], max: dates[dates.length - 1] };
   })();
 
-  // ─── 1. Revenue per Store ─────────────────────────────────────────────────
+  // ─── Aggregated data ──────────────────────────────────────────────────────
+
   const revenueByStore = (() => {
     const orderSeen = new Set<string>();
     const map: Record<string, number> = {};
@@ -368,12 +376,9 @@ export default function AnalyticsOrderPage() {
       if (orderSeen.has(key)) return;
       orderSeen.add(key);
       const store = cleanLocationName(r.Location);
-      const sub = parseSubtotal(r.Subtotal);
-      map[store] = (map[store] || 0) + sub;
+      map[store] = (map[store] || 0) + parseSubtotal(r.Subtotal);
     });
-    return Object.entries(map)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
+    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   })();
 
   const orderCountByStore = (() => {
@@ -386,7 +391,57 @@ export default function AnalyticsOrderPage() {
     return Object.entries(map).map(([name, s]) => ({ name, count: s.size }));
   })();
 
-  // ─── 2. Traffic Source ────────────────────────────────────────────────────
+  // Daily revenue per store (line chart)
+  const dailyRevenueByStore = (() => {
+    const orderSeen = new Set<string>();
+    const map: Record<string, Record<string, number>> = {};
+    const allStoreSet = new Set<string>();
+    fr.forEach((r) => {
+      const key = r.Name || "";
+      if (orderSeen.has(key)) return;
+      orderSeen.add(key);
+      const store = cleanLocationName(r.Location);
+      const date = (r["Created at"] || "").split(" ")[0];
+      if (!date) return;
+      allStoreSet.add(store);
+      if (!map[date]) map[date] = {};
+      map[date][store] = (map[date][store] || 0) + parseSubtotal(r.Subtotal);
+    });
+    const storeNames = [...allStoreSet].sort();
+    const chartData = Object.entries(map)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, storeRevMap]) => ({
+        date: formatShortDate(date),
+        fullDate: date,
+        ...storeNames.reduce((acc, s) => ({ ...acc, [s]: storeRevMap[s] || 0 }), {}),
+      }));
+    return { chartData, storeNames };
+  })();
+
+  // Daily orders
+  const dailyOrdersByStore = (() => {
+    const map: Record<string, Record<string, Set<string>>> = {};
+    const allStoreSet = new Set<string>();
+    fr.forEach((r) => {
+      const store = cleanLocationName(r.Location);
+      const date = (r["Created at"] || "").split(" ")[0];
+      if (!date || !r.Name) return;
+      allStoreSet.add(store);
+      if (!map[date]) map[date] = {};
+      if (!map[date][store]) map[date][store] = new Set();
+      map[date][store].add(r.Name);
+    });
+    const storeNames = [...allStoreSet].sort();
+    const chartData = Object.entries(map)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, storeMap]) => ({
+        date: formatShortDate(date),
+        fullDate: date,
+        ...storeNames.reduce((acc, s) => ({ ...acc, [s]: storeMap[s]?.size || 0 }), {}),
+      }));
+    return { chartData, storeNames };
+  })();
+
   const trafficData = (() => {
     const map: Record<string, number> = {};
     let nullCount = 0;
@@ -399,20 +454,41 @@ export default function AnalyticsOrderPage() {
       if (code) {
         const label = TRAFFIC_MAP[code] || code;
         map[label] = (map[label] || 0) + 1;
-      } else {
-        nullCount++;
-      }
+      } else { nullCount++; }
     });
-    const result = Object.entries(map)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
+    const result = Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
     if (nullCount > 0) result.push({ name: "Tidak Diketahui", value: nullCount });
     return result;
   })();
 
   const trafficDataForPie = trafficData.filter(d => d.name !== "Tidak Diketahui");
 
-  // ─── 3. Discount Code ────────────────────────────────────────────────────
+  // Daily traffic trend
+  const dailyTrafficData = (() => {
+    const map: Record<string, Record<string, number>> = {};
+    const orderSeen = new Set<string>();
+    const topTraffics = trafficData.filter(d => d.name !== "Tidak Diketahui").slice(0, 6).map(d => d.name);
+    fr.forEach((r) => {
+      const key = r.Name || "";
+      if (orderSeen.has(key)) return;
+      orderSeen.add(key);
+      const date = (r["Created at"] || "").split(" ")[0];
+      if (!date) return;
+      const code = extractTrafficCode(r.Notes);
+      const label = code ? (TRAFFIC_MAP[code] || code) : "Tidak Diketahui";
+      if (!map[date]) map[date] = {};
+      map[date][label] = (map[date][label] || 0) + 1;
+    });
+    return {
+      chartData: Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([date, tMap]) => ({
+        date: formatShortDate(date),
+        fullDate: date,
+        ...topTraffics.reduce((acc, t) => ({ ...acc, [t]: tMap[t] || 0 }), {}),
+      })),
+      topTraffics,
+    };
+  })();
+
   const discountData = (() => {
     const map: Record<string, { count: number; total: number }> = {};
     const orderSeen = new Set<string>();
@@ -426,13 +502,46 @@ export default function AnalyticsOrderPage() {
       map[code].count++;
       map[code].total += parseSubtotal(r["Discount Amount"]);
     });
-    return Object.entries(map)
-      .map(([name, d]) => ({ name, count: d.count, total: d.total }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 20);
+    return Object.entries(map).map(([name, d]) => ({ name, count: d.count, total: d.total }))
+      .sort((a, b) => b.count - a.count).slice(0, 20);
   })();
 
-  // ─── 4. Product Sales ─────────────────────────────────────────────────────
+  // Daily discount usage
+  const dailyDiscountData = (() => {
+    const map: Record<string, number> = {};
+    const orderSeen = new Set<string>();
+    fr.forEach((r) => {
+      const key = r.Name || "";
+      if (orderSeen.has(key)) return;
+      orderSeen.add(key);
+      const date = (r["Created at"] || "").split(" ")[0];
+      if (!date) return;
+      const hasDiscount = !!r["Discount Code"]?.trim();
+      if (!map[date]) map[date] = 0;
+      map[date]++;
+      // track separately
+    });
+    // Total orders per day and discount orders per day
+    const totalMap: Record<string, number> = {};
+    const discountMap: Record<string, number> = {};
+    const seen2 = new Set<string>();
+    fr.forEach((r) => {
+      const key = r.Name || "";
+      if (seen2.has(key)) return;
+      seen2.add(key);
+      const date = (r["Created at"] || "").split(" ")[0];
+      if (!date) return;
+      totalMap[date] = (totalMap[date] || 0) + 1;
+      if (r["Discount Code"]?.trim()) discountMap[date] = (discountMap[date] || 0) + 1;
+    });
+    return Object.keys(totalMap).sort().map((date) => ({
+      date: formatShortDate(date),
+      fullDate: date,
+      "Total Order": totalMap[date] || 0,
+      "Pakai Discount": discountMap[date] || 0,
+    }));
+  })();
+
   const productData = (() => {
     const map: Record<string, { qty: number; revenue: number }> = {};
     fr.forEach((r) => {
@@ -444,13 +553,33 @@ export default function AnalyticsOrderPage() {
       map[name].qty += qty;
       map[name].revenue += price * qty;
     });
-    return Object.entries(map)
-      .map(([name, d]) => ({ name, qty: d.qty, revenue: d.revenue }))
-      .sort((a, b) => b.qty - a.qty)
-      .slice(0, 20);
+    return Object.entries(map).map(([name, d]) => ({ name, qty: d.qty, revenue: d.revenue }))
+      .sort((a, b) => b.qty - a.qty).slice(0, 20);
   })();
 
-  // ─── 5. Employee ─────────────────────────────────────────────────────────
+  // Daily product qty (top 5)
+  const dailyProductData = (() => {
+    const top5 = productData.slice(0, 5).map(p => p.name);
+    const map: Record<string, Record<string, number>> = {};
+    fr.forEach((r) => {
+      const name = r["Lineitem name"]?.trim();
+      if (!name || !top5.includes(name)) return;
+      const date = (r["Created at"] || "").split(" ")[0];
+      if (!date) return;
+      const qty = parseInt(r["Lineitem quantity"] || "1") || 1;
+      if (!map[date]) map[date] = {};
+      map[date][name] = (map[date][name] || 0) + qty;
+    });
+    return {
+      chartData: Object.keys(map).sort().map((date) => ({
+        date: formatShortDate(date),
+        fullDate: date,
+        ...top5.reduce((acc, p) => ({ ...acc, [p]: map[date]?.[p] || 0 }), {}),
+      })),
+      top5,
+    };
+  })();
+
   const employeeData = (() => {
     const map: Record<string, { orders: Set<string>; subtotal: number }> = {};
     const orderSeen = new Set<string>();
@@ -465,29 +594,49 @@ export default function AnalyticsOrderPage() {
         map[emp].subtotal += parseSubtotal(r.Subtotal);
       }
     });
-    return Object.entries(map)
-      .map(([name, d]) => ({ name, orders: d.orders.size, subtotal: d.subtotal }))
+    return Object.entries(map).map(([name, d]) => ({ name, orders: d.orders.size, subtotal: d.subtotal }))
       .sort((a, b) => b.subtotal - a.subtotal);
+  })();
+
+  // Daily employee revenue
+  const dailyEmployeeData = (() => {
+    const top5 = employeeData.slice(0, 5).map(e => e.name);
+    const map: Record<string, Record<string, number>> = {};
+    const seen = new Set<string>();
+    fr.forEach((r) => {
+      const emp = r.Employee?.trim();
+      if (!emp || !top5.includes(emp)) return;
+      const date = (r["Created at"] || "").split(" ")[0];
+      if (!date) return;
+      if (!map[date]) map[date] = {};
+      const key = `${date}__${r.Name || ""}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        map[date][emp] = (map[date][emp] || 0) + parseSubtotal(r.Subtotal);
+      }
+    });
+    return {
+      chartData: Object.keys(map).sort().map((date) => ({
+        date: formatShortDate(date),
+        fullDate: date,
+        ...top5.reduce((acc, e) => ({ ...acc, [e]: map[date]?.[e] || 0 }), {}),
+      })),
+      top5,
+    };
   })();
 
   // ─── Summary Stats ────────────────────────────────────────────────────────
   const totalRevenue = (() => {
     const seen = new Set<string>();
     return fr.reduce((s, r) => {
-      if (!seen.has(r.Name || "")) {
-        seen.add(r.Name || "");
-        return s + parseSubtotal(r.Subtotal);
-      }
+      if (!seen.has(r.Name || "")) { seen.add(r.Name || ""); return s + parseSubtotal(r.Subtotal); }
       return s;
     }, 0);
   })();
 
   const totalOrders = new Set(fr.map(r => r.Name).filter(Boolean)).size;
-  const totalDiscountUsed = new Set(
-    fr.filter(r => r["Discount Code"]?.trim()).map(r => r.Name).filter(Boolean)
-  ).size;
+  const totalDiscountUsed = new Set(fr.filter(r => r["Discount Code"]?.trim()).map(r => r.Name).filter(Boolean)).size;
 
-  // ─── Export handlers ──────────────────────────────────────────────────────
   const handleExport = () => {
     if (fr.length === 0) { showMessage("Tidak ada data untuk diexport", "error"); return; }
     switch (activeTab) {
@@ -511,30 +660,15 @@ export default function AnalyticsOrderPage() {
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-primary">Analytics Order</h1>
             <div className="flex gap-2 items-center">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv"
-                onChange={handleImport}
-                className="hidden"
-                id="shopify-import"
-              />
+              <input ref={fileInputRef} type="file" accept=".csv" onChange={handleImport} className="hidden" id="shopify-import" />
               {importing ? (
-                <span className="px-4 py-2 bg-gray-400 text-white rounded text-sm opacity-70 cursor-not-allowed">
-                  Importing...
-                </span>
+                <span className="px-4 py-2 bg-gray-400 text-white rounded text-sm opacity-70 cursor-not-allowed">Importing...</span>
               ) : (
                 <>
-                  <button
-                    onClick={() => triggerImport("append")}
-                    className="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 transition-colors"
-                  >
+                  <button onClick={() => triggerImport("append")} className="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 transition-colors">
                     + Tambah Data
                   </button>
-                  <button
-                    onClick={() => triggerImport("refresh")}
-                    className="px-4 py-2 bg-gray-700 text-white rounded text-sm hover:bg-gray-600 transition-colors"
-                  >
+                  <button onClick={() => triggerImport("refresh")} className="px-4 py-2 bg-gray-700 text-white rounded text-sm hover:bg-gray-600 transition-colors">
                     ↺ Refresh Semua
                   </button>
                 </>
@@ -561,47 +695,29 @@ export default function AnalyticsOrderPage() {
             <div className="grid grid-cols-4 gap-3 items-end">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Date From</label>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                />
+                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Date To</label>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                />
+                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
-                <select
-                  value={storeFilter}
-                  onChange={(e) => setStoreFilter(e.target.value)}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-white"
-                >
+                <select value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-white">
                   <option value="all">All Stores</option>
                   {stores.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
-                <button
-                  onClick={() => {
-                    setDateFrom(getFirstOfMonthStr());
-                    setDateTo(getTodayStr());
-                    setStoreFilter("all");
-                  }}
-                  className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600 w-full"
-                >
+                <button onClick={() => { setDateFrom(getFirstOfMonthStr()); setDateTo(getTodayStr()); setStoreFilter("all"); }}
+                  className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600 w-full">
                   Reset Filter
                 </button>
               </div>
             </div>
-
             {dataDateRange && (
               <div className="mt-3 flex items-center gap-2">
                 <span className="text-[10px] text-gray-400">Data tersedia:</span>
@@ -617,26 +733,25 @@ export default function AnalyticsOrderPage() {
 
           {/* Tabs */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
-            {/* Tab bar + Export button */}
             <div className="flex items-center justify-between border-b pr-4">
               <div className="flex overflow-x-auto">
                 {CHART_TABS.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
+                  <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                     className={`px-5 py-3 text-xs font-medium whitespace-nowrap transition-colors border-b-2 ${
-                      activeTab === tab.id
-                        ? "border-primary text-primary bg-primary/5"
-                        : "border-transparent text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
+                      activeTab === tab.id ? "border-primary text-primary bg-primary/5" : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}>
                     {tab.label}
                   </button>
                 ))}
               </div>
-              {!loading && fr.length > 0 && (
-                <ExportButton onClick={handleExport} />
-              )}
+              <div className="flex items-center gap-3">
+                {!loading && fr.length > 0 && (
+                  <>
+                    <ViewToggle view={chartView} onChange={setChartView} />
+                    <ExportButton onClick={handleExport} />
+                  </>
+                )}
+              </div>
             </div>
 
             <div className="p-6">
@@ -649,42 +764,76 @@ export default function AnalyticsOrderPage() {
                 </div>
               ) : (
                 <>
-                  {/* ── Tab 1: Revenue per Store ─────────────────────────── */}
+                  {/* ── Tab 1: Revenue per Store ────────────────────────── */}
                   {activeTab === "store" && (
                     <div className="space-y-8">
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-700 mb-4">Revenue per Store (IDR)</h3>
-                        <ResponsiveContainer width="100%" height={280}>
-                          <BarChart data={revenueByStore} margin={{ top: 16, right: 8, left: 0, bottom: 40 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                            <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-30} textAnchor="end" interval={0} />
-                            <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}k` : v} width={50} />
-                            <Tooltip content={<DarkTooltip formatter={formatRupiah} />} />
-                            <Bar dataKey="value" name="Revenue" radius={[4, 4, 0, 0]} maxBarSize={48}>
-                              {revenueByStore.map((_, i) => (
-                                <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                              ))}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-700 mb-4">Jumlah Order per Store</h3>
-                        <ResponsiveContainer width="100%" height={240}>
-                          <BarChart data={orderCountByStore.sort((a,b) => b.count - a.count)} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                            <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-30} textAnchor="end" interval={0} />
-                            <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
-                            <Tooltip content={<DarkTooltip />} />
-                            <Bar dataKey="count" name="Orders" radius={[4, 4, 0, 0]} maxBarSize={48}>
-                              {orderCountByStore.map((_, i) => (
-                                <Cell key={i} fill={COLORS[(i + 5) % COLORS.length]} />
-                              ))}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
+                      {chartView === "all" ? (
+                        <>
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Revenue per Store (IDR)</h3>
+                            <ResponsiveContainer width="100%" height={280}>
+                              <BarChart data={revenueByStore} margin={{ top: 16, right: 8, left: 0, bottom: 40 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-30} textAnchor="end" interval={0} />
+                                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}k` : v} width={50} />
+                                <Tooltip content={<DarkTooltip formatter={formatRupiah} />} />
+                                <Bar dataKey="value" name="Revenue" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                                  {revenueByStore.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Jumlah Order per Store</h3>
+                            <ResponsiveContainer width="100%" height={240}>
+                              <BarChart data={orderCountByStore.sort((a,b) => b.count - a.count)} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-30} textAnchor="end" interval={0} />
+                                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
+                                <Tooltip content={<DarkTooltip />} />
+                                <Bar dataKey="count" name="Orders" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                                  {orderCountByStore.map((_, i) => <Cell key={i} fill={COLORS[(i + 5) % COLORS.length]} />)}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-1">Tren Revenue Harian per Store</h3>
+                            <p className="text-xs text-gray-400 mb-4">Revenue per hari berdasarkan tanggal order</p>
+                            <ResponsiveContainer width="100%" height={300}>
+                              <LineChart data={dailyRevenueByStore.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={Math.floor(dailyRevenueByStore.chartData.length / 15)} />
+                                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}k` : v} width={50} />
+                                <Tooltip content={<DarkTooltip formatter={formatRupiah} />} />
+                                <Legend wrapperStyle={{ fontSize: 10, paddingTop: 8 }} />
+                                {dailyRevenueByStore.storeNames.map((s, i) => (
+                                  <Line key={s} type="monotone" dataKey={s} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} />
+                                ))}
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-1">Tren Jumlah Order Harian per Store</h3>
+                            <p className="text-xs text-gray-400 mb-4">Jumlah order per hari</p>
+                            <ResponsiveContainer width="100%" height={260}>
+                              <LineChart data={dailyOrdersByStore.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={Math.floor(dailyOrdersByStore.chartData.length / 15)} />
+                                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
+                                <Tooltip content={<DarkTooltip />} />
+                                <Legend wrapperStyle={{ fontSize: 10, paddingTop: 8 }} />
+                                {dailyOrdersByStore.storeNames.map((s, i) => (
+                                  <Line key={s} type="monotone" dataKey={s} stroke={COLORS[(i + 5) % COLORS.length]} strokeWidth={2} dot={false} />
+                                ))}
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </>
+                      )}
 
                       <div>
                         <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail per Store</h3>
@@ -718,94 +867,91 @@ export default function AnalyticsOrderPage() {
                     </div>
                   )}
 
-                  {/* ── Tab 2: Traffic Source ────────────────────────────── */}
+                  {/* ── Tab 2: Traffic Source ───────────────────────────── */}
                   {activeTab === "traffic" && (
                     <div className="space-y-8">
-                      <div className="flex items-center gap-2">
-                        <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <div
-                            onClick={() => setHideUnknownTraffic(v => !v)}
-                            className={`w-9 h-5 rounded-full transition-colors relative ${hideUnknownTraffic ? "bg-primary" : "bg-gray-300"}`}
-                          >
-                            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${hideUnknownTraffic ? "translate-x-4" : "translate-x-0.5"}`} />
+                      {chartView === "all" ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                              <div onClick={() => setHideUnknownTraffic(v => !v)}
+                                className={`w-9 h-5 rounded-full transition-colors relative ${hideUnknownTraffic ? "bg-primary" : "bg-gray-300"}`}>
+                                <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${hideUnknownTraffic ? "translate-x-4" : "translate-x-0.5"}`} />
+                              </div>
+                              <span className="text-xs text-gray-600">Sembunyikan <strong>"Tidak Diketahui"</strong> di bar chart</span>
+                            </label>
                           </div>
-                          <span className="text-xs text-gray-600">Sembunyikan <strong>"Tidak Diketahui"</strong> di bar chart</span>
-                        </label>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-8">
-                        <div>
-                          <h3 className="text-sm font-semibold text-gray-700 mb-4">Distribusi Traffic Source</h3>
-                          <ResponsiveContainer width="100%" height={300}>
-                            <PieChart>
-                              <Pie
-                                data={trafficDataForPie}
-                                dataKey="value"
-                                nameKey="name"
-                                cx="50%"
-                                cy="50%"
-                                outerRadius={110}
-                                label={(props) => (props.percent ?? 0) > 0.04 ? `${((props.percent ?? 0) * 100).toFixed(0)}%` : ""}
-                                labelLine={false}
-                              >
-                                {trafficDataForPie.map((_, i) => (
-                                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                                ))}
-                              </Pie>
-                              <Tooltip
-                                content={({ active, payload }) => {
-                                  if (!active || !payload || !payload.length) return null;
-                                  const item = payload[0];
-                                  const total = trafficDataForPie.reduce((s, d) => s + d.value, 0);
-                                  const pct = total ? ((Number(item.value) / total) * 100).toFixed(1) : "0";
-                                  return (
-                                    <div style={{ background: "#1e293b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", minWidth: 180 }}>
-                                      <p style={{ fontSize: 12, fontWeight: 700, color: "#f1f5f9", marginBottom: 6 }}>{item.name}</p>
-                                      <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
-                                        <span style={{ fontSize: 11, color: "#94a3b8" }}>Jumlah Order</span>
-                                        <span style={{ fontSize: 11, fontWeight: 700, color: item.payload?.fill || "#60a5fa" }}>{Number(item.value).toLocaleString()}</span>
+                          <div className="grid grid-cols-2 gap-8">
+                            <div>
+                              <h3 className="text-sm font-semibold text-gray-700 mb-4">Distribusi Traffic Source</h3>
+                              <ResponsiveContainer width="100%" height={300}>
+                                <PieChart>
+                                  <Pie data={trafficDataForPie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={110}
+                                    label={(props) => (props.percent ?? 0) > 0.04 ? `${((props.percent ?? 0) * 100).toFixed(0)}%` : ""} labelLine={false}>
+                                    {trafficDataForPie.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                  </Pie>
+                                  <Tooltip content={({ active, payload }) => {
+                                    if (!active || !payload || !payload.length) return null;
+                                    const item = payload[0];
+                                    const total = trafficDataForPie.reduce((s, d) => s + d.value, 0);
+                                    const pct = total ? ((Number(item.value) / total) * 100).toFixed(1) : "0";
+                                    return (
+                                      <div style={{ background: "#1e293b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", minWidth: 180 }}>
+                                        <p style={{ fontSize: 12, fontWeight: 700, color: "#f1f5f9", marginBottom: 6 }}>{item.name}</p>
+                                        <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                                          <span style={{ fontSize: 11, color: "#94a3b8" }}>Jumlah Order</span>
+                                          <span style={{ fontSize: 11, fontWeight: 700, color: item.payload?.fill || "#60a5fa" }}>{Number(item.value).toLocaleString()}</span>
+                                        </div>
+                                        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginTop: 2 }}>
+                                          <span style={{ fontSize: 11, color: "#94a3b8" }}>Persentase</span>
+                                          <span style={{ fontSize: 11, fontWeight: 600, color: "#e2e8f0" }}>{pct}%</span>
+                                        </div>
                                       </div>
-                                      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginTop: 2 }}>
-                                        <span style={{ fontSize: 11, color: "#94a3b8" }}>Persentase</span>
-                                        <span style={{ fontSize: 11, fontWeight: 600, color: "#e2e8f0" }}>{pct}%</span>
-                                      </div>
-                                    </div>
-                                  );
-                                }}
-                              />
-                            </PieChart>
-                          </ResponsiveContainer>
-                          <PieLegend
-                            data={trafficDataForPie.map((d, i) => ({
-                              name: d.name,
-                              value: d.value,
-                              color: COLORS[i % COLORS.length],
-                            }))}
-                          />
-                        </div>
-
+                                    );
+                                  }} />
+                                </PieChart>
+                              </ResponsiveContainer>
+                              <PieLegend data={trafficDataForPie.map((d, i) => ({ name: d.name, value: d.value, color: COLORS[i % COLORS.length] }))} />
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-semibold text-gray-700 mb-4">Jumlah Order per Traffic</h3>
+                              <ResponsiveContainer width="100%" height={300}>
+                                <BarChart
+                                  data={(hideUnknownTraffic ? trafficData.filter(d => d.name !== "Tidak Diketahui") : trafficData).slice(0, 12)}
+                                  layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 4 }}>
+                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
+                                  <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }} />
+                                  <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#6b7280" }} width={130} />
+                                  <Tooltip content={<DarkTooltip />} />
+                                  <Bar dataKey="value" name="Orders" radius={[0, 4, 4, 0]} maxBarSize={20}
+                                    label={{ position: "right", fontSize: 9, fill: "#6b7280" }}>
+                                    {(hideUnknownTraffic ? trafficData.filter(d => d.name !== "Tidak Diketahui") : trafficData).slice(0, 12).map((_, i) => (
+                                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                                    ))}
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
                         <div>
-                          <h3 className="text-sm font-semibold text-gray-700 mb-4">Jumlah Order per Traffic</h3>
-                          <ResponsiveContainer width="100%" height={300}>
-                            <BarChart
-                              data={(hideUnknownTraffic ? trafficData.filter(d => d.name !== "Tidak Diketahui") : trafficData).slice(0, 12)}
-                              layout="vertical"
-                              margin={{ top: 4, right: 48, left: 8, bottom: 4 }}
-                            >
-                              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
-                              <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }} />
-                              <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#6b7280" }} width={130} />
+                          <h3 className="text-sm font-semibold text-gray-700 mb-1">Tren Traffic Source Harian (Top 6)</h3>
+                          <p className="text-xs text-gray-400 mb-4">Jumlah order per sumber traffic per hari</p>
+                          <ResponsiveContainer width="100%" height={320}>
+                            <LineChart data={dailyTrafficData.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                              <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={Math.floor(dailyTrafficData.chartData.length / 15)} />
+                              <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
                               <Tooltip content={<DarkTooltip />} />
-                              <Bar dataKey="value" name="Orders" radius={[0, 4, 4, 0]} maxBarSize={20}
-                                label={{ position: "right", fontSize: 9, fill: "#6b7280" }}>
-                                {(hideUnknownTraffic ? trafficData.filter(d => d.name !== "Tidak Diketahui") : trafficData).slice(0, 12).map((_, i) => (
-                                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                                ))}
-                              </Bar>
-                            </BarChart>
+                              <Legend wrapperStyle={{ fontSize: 10, paddingTop: 8 }} />
+                              {dailyTrafficData.topTraffics.map((t, i) => (
+                                <Line key={t} type="monotone" dataKey={t} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} />
+                              ))}
+                            </LineChart>
                           </ResponsiveContainer>
                         </div>
-                      </div>
+                      )}
 
                       <div>
                         <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Traffic Source</h3>
@@ -848,40 +994,55 @@ export default function AnalyticsOrderPage() {
                   {/* ── Tab 3: Discount Code ─────────────────────────────── */}
                   {activeTab === "discount" && (
                     <div className="space-y-8">
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-700 mb-4">Penggunaan Discount Code (Top 20)</h3>
-                        <ResponsiveContainer width="100%" height={300}>
-                          <BarChart data={discountData} margin={{ top: 16, right: 8, left: 0, bottom: 50 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                            <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={0} />
-                            <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
-                            <Tooltip content={<DarkTooltip />} />
-                            <Bar dataKey="count" name="Pakai" radius={[4, 4, 0, 0]} maxBarSize={40}
-                              label={{ position: "top", fontSize: 9, fill: "#6b7280" }}>
-                              {discountData.map((_, i) => (
-                                <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                              ))}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-700 mb-4">Total Discount Amount per Kode</h3>
-                        <ResponsiveContainer width="100%" height={280}>
-                          <BarChart data={discountData} margin={{ top: 16, right: 8, left: 0, bottom: 50 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                            <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={0} />
-                            <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}k` : v} width={50} />
-                            <Tooltip content={<DarkTooltip formatter={formatRupiah} />} />
-                            <Bar dataKey="total" name="Total Diskon" radius={[4, 4, 0, 0]} maxBarSize={40} fill="#8b5cf6">
-                              {discountData.map((_, i) => (
-                                <Cell key={i} fill={COLORS[(i + 3) % COLORS.length]} />
-                              ))}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
+                      {chartView === "all" ? (
+                        <>
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Penggunaan Discount Code (Top 20)</h3>
+                            <ResponsiveContainer width="100%" height={300}>
+                              <BarChart data={discountData} margin={{ top: 16, right: 8, left: 0, bottom: 50 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={0} />
+                                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
+                                <Tooltip content={<DarkTooltip />} />
+                                <Bar dataKey="count" name="Pakai" radius={[4, 4, 0, 0]} maxBarSize={40}
+                                  label={{ position: "top", fontSize: 9, fill: "#6b7280" }}>
+                                  {discountData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Total Discount Amount per Kode</h3>
+                            <ResponsiveContainer width="100%" height={280}>
+                              <BarChart data={discountData} margin={{ top: 16, right: 8, left: 0, bottom: 50 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={0} />
+                                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}k` : v} width={50} />
+                                <Tooltip content={<DarkTooltip formatter={formatRupiah} />} />
+                                <Bar dataKey="total" name="Total Diskon" radius={[4, 4, 0, 0]} maxBarSize={40}>
+                                  {discountData.map((_, i) => <Cell key={i} fill={COLORS[(i + 3) % COLORS.length]} />)}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </>
+                      ) : (
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-700 mb-1">Tren Penggunaan Discount Harian</h3>
+                          <p className="text-xs text-gray-400 mb-4">Perbandingan total order vs order yang memakai discount per hari</p>
+                          <ResponsiveContainer width="100%" height={300}>
+                            <LineChart data={dailyDiscountData} margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                              <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={Math.floor(dailyDiscountData.length / 15)} />
+                              <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
+                              <Tooltip content={<DarkTooltip />} />
+                              <Legend wrapperStyle={{ fontSize: 10, paddingTop: 8 }} />
+                              <Line type="monotone" dataKey="Total Order" stroke={COLORS[0]} strokeWidth={2} dot={false} />
+                              <Line type="monotone" dataKey="Pakai Discount" stroke={COLORS[2]} strokeWidth={2} dot={false} strokeDasharray="4 2" />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
 
                       <div>
                         <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Discount Code</h3>
@@ -913,60 +1074,59 @@ export default function AnalyticsOrderPage() {
                   {/* ── Tab 4: Product Sales ─────────────────────────────── */}
                   {activeTab === "product" && (
                     <div className="space-y-8">
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-700 mb-4">Top 20 Produk Terjual (by Quantity)</h3>
-                        <ResponsiveContainer width="100%" height={320}>
-                          <BarChart
-                            data={productData}
-                            layout="vertical"
-                            margin={{ top: 4, right: 60, left: 8, bottom: 4 }}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
-                            <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }} />
-                            <YAxis
-                              dataKey="name"
-                              type="category"
-                              tick={{ fontSize: 9, fill: "#6b7280" }}
-                              width={200}
-                              tickFormatter={(v: string) => v.length > 32 ? v.slice(0, 32) + "…" : v}
-                            />
-                            <Tooltip content={<DarkTooltip />} />
-                            <Bar dataKey="qty" name="Qty Terjual" radius={[0, 4, 4, 0]} maxBarSize={18}
-                              label={{ position: "right", fontSize: 9, fill: "#6b7280" }}>
-                              {productData.map((_, i) => (
-                                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                      {chartView === "all" ? (
+                        <>
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Top 20 Produk Terjual (by Quantity)</h3>
+                            <ResponsiveContainer width="100%" height={320}>
+                              <BarChart data={productData} layout="vertical" margin={{ top: 4, right: 60, left: 8, bottom: 4 }}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
+                                <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }} />
+                                <YAxis dataKey="name" type="category" tick={{ fontSize: 9, fill: "#6b7280" }} width={200}
+                                  tickFormatter={(v: string) => v.length > 32 ? v.slice(0, 32) + "…" : v} />
+                                <Tooltip content={<DarkTooltip />} />
+                                <Bar dataKey="qty" name="Qty Terjual" radius={[0, 4, 4, 0]} maxBarSize={18}
+                                  label={{ position: "right", fontSize: 9, fill: "#6b7280" }}>
+                                  {productData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Top 20 Produk berdasarkan Revenue</h3>
+                            <ResponsiveContainer width="100%" height={320}>
+                              <BarChart data={[...productData].sort((a, b) => b.revenue - a.revenue).slice(0, 20)}
+                                layout="vertical" margin={{ top: 4, right: 80, left: 8, bottom: 4 }}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
+                                <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : `${(v/1e3).toFixed(0)}k`} />
+                                <YAxis dataKey="name" type="category" tick={{ fontSize: 9, fill: "#6b7280" }} width={200}
+                                  tickFormatter={(v: string) => v.length > 32 ? v.slice(0, 32) + "…" : v} />
+                                <Tooltip content={<DarkTooltip formatter={formatRupiah} />} />
+                                <Bar dataKey="revenue" name="Revenue" radius={[0, 4, 4, 0]} maxBarSize={18}>
+                                  {productData.map((_, i) => <Cell key={i} fill={COLORS[(i + 7) % COLORS.length]} />)}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </>
+                      ) : (
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-700 mb-1">Tren Penjualan Produk Harian (Top 5)</h3>
+                          <p className="text-xs text-gray-400 mb-4">Qty terjual per hari untuk 5 produk terlaris</p>
+                          <ResponsiveContainer width="100%" height={320}>
+                            <LineChart data={dailyProductData.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                              <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={Math.floor(dailyProductData.chartData.length / 15)} />
+                              <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
+                              <Tooltip content={<DarkTooltip />} />
+                              <Legend wrapperStyle={{ fontSize: 10, paddingTop: 8 }} formatter={(v: string) => v.length > 30 ? v.slice(0, 30) + "…" : v} />
+                              {dailyProductData.top5.map((p, i) => (
+                                <Line key={p} type="monotone" dataKey={p} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} />
                               ))}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-700 mb-4">Top 20 Produk berdasarkan Revenue</h3>
-                        <ResponsiveContainer width="100%" height={320}>
-                          <BarChart
-                            data={[...productData].sort((a, b) => b.revenue - a.revenue).slice(0, 20)}
-                            layout="vertical"
-                            margin={{ top: 4, right: 80, left: 8, bottom: 4 }}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
-                            <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : `${(v/1e3).toFixed(0)}k`} />
-                            <YAxis
-                              dataKey="name"
-                              type="category"
-                              tick={{ fontSize: 9, fill: "#6b7280" }}
-                              width={200}
-                              tickFormatter={(v: string) => v.length > 32 ? v.slice(0, 32) + "…" : v}
-                            />
-                            <Tooltip content={<DarkTooltip formatter={formatRupiah} />} />
-                            <Bar dataKey="revenue" name="Revenue" radius={[0, 4, 4, 0]} maxBarSize={18}>
-                              {productData.map((_, i) => (
-                                <Cell key={i} fill={COLORS[(i + 7) % COLORS.length]} />
-                              ))}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
 
                       <div>
                         <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Produk Terjual</h3>
@@ -998,40 +1158,56 @@ export default function AnalyticsOrderPage() {
                   {/* ── Tab 5: Employee ──────────────────────────────────── */}
                   {activeTab === "employee" && (
                     <div className="space-y-8">
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-700 mb-4">Revenue yang Ditangani per Karyawan</h3>
-                        <ResponsiveContainer width="100%" height={300}>
-                          <BarChart data={employeeData} margin={{ top: 16, right: 8, left: 0, bottom: 60 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                            <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={0} />
-                            <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}k` : v} width={50} />
-                            <Tooltip content={<DarkTooltip formatter={formatRupiah} />} />
-                            <Bar dataKey="subtotal" name="Revenue" radius={[4, 4, 0, 0]} maxBarSize={40}>
-                              {employeeData.map((_, i) => (
-                                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                      {chartView === "all" ? (
+                        <>
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Revenue yang Ditangani per Karyawan</h3>
+                            <ResponsiveContainer width="100%" height={300}>
+                              <BarChart data={employeeData} margin={{ top: 16, right: 8, left: 0, bottom: 60 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={0} />
+                                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}k` : v} width={50} />
+                                <Tooltip content={<DarkTooltip formatter={formatRupiah} />} />
+                                <Bar dataKey="subtotal" name="Revenue" radius={[4, 4, 0, 0]} maxBarSize={40}>
+                                  {employeeData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Jumlah Order per Karyawan</h3>
+                            <ResponsiveContainer width="100%" height={280}>
+                              <BarChart data={employeeData} margin={{ top: 16, right: 8, left: 0, bottom: 60 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={0} />
+                                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
+                                <Tooltip content={<DarkTooltip />} />
+                                <Bar dataKey="orders" name="Orders" radius={[4, 4, 0, 0]} maxBarSize={40}
+                                  label={{ position: "top", fontSize: 9, fill: "#6b7280" }}>
+                                  {employeeData.map((_, i) => <Cell key={i} fill={COLORS[(i + 4) % COLORS.length]} />)}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </>
+                      ) : (
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-700 mb-1">Tren Revenue Karyawan Harian (Top 5)</h3>
+                          <p className="text-xs text-gray-400 mb-4">Revenue yang ditangani per karyawan per hari</p>
+                          <ResponsiveContainer width="100%" height={320}>
+                            <LineChart data={dailyEmployeeData.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                              <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={Math.floor(dailyEmployeeData.chartData.length / 15)} />
+                              <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}k` : v} width={50} />
+                              <Tooltip content={<DarkTooltip formatter={formatRupiah} />} />
+                              <Legend wrapperStyle={{ fontSize: 10, paddingTop: 8 }} />
+                              {dailyEmployeeData.top5.map((e, i) => (
+                                <Line key={e} type="monotone" dataKey={e} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} />
                               ))}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-700 mb-4">Jumlah Order per Karyawan</h3>
-                        <ResponsiveContainer width="100%" height={280}>
-                          <BarChart data={employeeData} margin={{ top: 16, right: 8, left: 0, bottom: 60 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                            <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={0} />
-                            <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
-                            <Tooltip content={<DarkTooltip />} />
-                            <Bar dataKey="orders" name="Orders" radius={[4, 4, 0, 0]} maxBarSize={40}
-                              label={{ position: "top", fontSize: 9, fill: "#6b7280" }}>
-                              {employeeData.map((_, i) => (
-                                <Cell key={i} fill={COLORS[(i + 4) % COLORS.length]} />
-                              ))}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
 
                       <div>
                         <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Karyawan</h3>
@@ -1051,9 +1227,7 @@ export default function AnalyticsOrderPage() {
                                   <td className="px-3 py-2">{e.name}</td>
                                   <td className="px-3 py-2 text-right">{e.orders}</td>
                                   <td className="px-3 py-2 text-right">{formatRupiah(e.subtotal)}</td>
-                                  <td className="px-3 py-2 text-right">
-                                    {e.orders ? formatRupiah(Math.round(e.subtotal / e.orders)) : "-"}
-                                  </td>
+                                  <td className="px-3 py-2 text-right">{e.orders ? formatRupiah(Math.round(e.subtotal / e.orders)) : "-"}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -1082,35 +1256,24 @@ export default function AnalyticsOrderPage() {
                 ? "Data baru akan ditambahkan ke data yang sudah ada. Data lama tidak akan terhapus. Duplikat (berdasarkan Order Name) akan diabaikan."
                 : "Semua data yang ada akan dihapus dan diganti dengan data dari file ini. Gunakan ini jika ingin reset total."}
             </p>
-
             {importMode === "refresh" && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-5 flex gap-2">
                 <span className="text-red-500 text-sm mt-0.5">⚠️</span>
-                <p className="text-xs text-red-600">
-                  <strong>Perhatian:</strong> Seluruh data historis akan terhapus permanen dan diganti data dari file baru.
-                </p>
+                <p className="text-xs text-red-600"><strong>Perhatian:</strong> Seluruh data historis akan terhapus permanen dan diganti data dari file baru.</p>
               </div>
             )}
-
             {importMode === "append" && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-5 flex gap-2">
                 <span className="text-blue-500 text-sm mt-0.5">ℹ️</span>
-                <p className="text-xs text-blue-600">
-                  Data yang sudah ada akan tetap tersimpan. Hanya order baru yang akan ditambahkan.
-                </p>
+                <p className="text-xs text-blue-600">Data yang sudah ada akan tetap tersimpan. Hanya order baru yang akan ditambahkan.</p>
               </div>
             )}
-
-            <label
-              htmlFor="shopify-import"
-              className="block w-full text-center cursor-pointer px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors mb-3"
-            >
+            <label htmlFor="shopify-import"
+              className="block w-full text-center cursor-pointer px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors mb-3">
               Pilih File CSV
             </label>
-            <button
-              onClick={() => { setShowImportModal(false); setImportMode(null); }}
-              className="w-full px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200 transition-colors"
-            >
+            <button onClick={() => { setShowImportModal(false); setImportMode(null); }}
+              className="w-full px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200 transition-colors">
               Batal
             </button>
           </div>
