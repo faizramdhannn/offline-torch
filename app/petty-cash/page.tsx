@@ -89,7 +89,6 @@ function DriveImage({ href, fileId, alt }: { href: string; fileId: string; alt: 
 
   return (
     <div className="flex flex-col items-center gap-2">
-      {/* Zoom controls */}
       <div className="flex items-center gap-2">
         <button
           onClick={handleZoomOut}
@@ -121,8 +120,6 @@ function DriveImage({ href, fileId, alt }: { href: string; fileId: string; alt: 
           Buka ↗
         </a>
       </div>
-
-      {/* Image with zoom */}
       <div className="overflow-auto max-h-72 max-w-full rounded-lg border bg-gray-50 flex items-center justify-center">
         <img
           src={proxyUrl}
@@ -429,7 +426,6 @@ export default function PettyCashPage() {
       form.append("id", entry.id);
       form.append("description", entry.description || "");
       form.append("category", entry.category || "");
-      // FIX: null-safe replace
       form.append("value", (entry.value || "0").replace(/[^0-9]/g, ""));
       form.append("store", entry.store || "");
       form.append("ket", entry.ket || "");
@@ -449,6 +445,7 @@ export default function PettyCashPage() {
     }
   };
 
+  // ─── Parse date local (fix off-by-one UTC issue) ───────────────────────────
   const parseDate = (dateString: string) => {
     if (!dateString) return new Date(0);
     const months: { [key: string]: number } = {
@@ -462,19 +459,24 @@ export default function PettyCashPage() {
     return new Date(dateString);
   };
 
+  const parseDateInput = (dateInput: string, endOfDay = false) => {
+    // Parse "YYYY-MM-DD" as local date to avoid UTC offset issues
+    const [y, m, d] = dateInput.split("-").map(Number);
+    if (endOfDay) return new Date(y, m - 1, d, 23, 59, 59, 999);
+    return new Date(y, m - 1, d, 0, 0, 0, 0);
+  };
+  // ──────────────────────────────────────────────────────────────────────────
+
   const applyFilters = () => {
-  let filtered = [...data];
-  if (dateFrom) {
-    // Parse "YYYY-MM-DD" as local date, bukan UTC
-    const [y, m, d] = dateFrom.split("-").map(Number);
-    const fromDate = new Date(y, m - 1, d, 0, 0, 0, 0);
-    filtered = filtered.filter((item) => parseDate(item.date) >= fromDate);
-  }
-  if (dateTo) {
-    const [y, m, d] = dateTo.split("-").map(Number);
-    const toDate = new Date(y, m - 1, d, 23, 59, 59, 999);
-    filtered = filtered.filter((item) => parseDate(item.date) <= toDate);
-  }
+    let filtered = [...data];
+    if (dateFrom) {
+      const fromDate = parseDateInput(dateFrom);
+      filtered = filtered.filter((item) => parseDate(item.date) >= fromDate);
+    }
+    if (dateTo) {
+      const toDate = parseDateInput(dateTo, true);
+      filtered = filtered.filter((item) => parseDate(item.date) <= toDate);
+    }
     if (selectedCategories.length > 0) {
       filtered = filtered.filter((item) => selectedCategories.includes(item.category));
     }
@@ -628,7 +630,6 @@ export default function PettyCashPage() {
       Date: item.date,
       Description: toTitleCase(item.description),
       Category: item.category,
-      // FIX: null-safe
       Value: parseInt((item.value || "0").replace(/[^0-9]/g, "") || "0"),
       Store: item.store,
       Ket: item.ket,
@@ -718,7 +719,6 @@ export default function PettyCashPage() {
         const desc = (item.description || "").toLowerCase();
         return !desc.includes("listrik") && !desc.includes("token");
       });
-      // FIX: null-safe reduce
       const pettyCashTotal = pettyCashData.reduce((sum, item) => {
         return sum + parseInt((item.value || "0").replace(/[^0-9]/g, "") || "0");
       }, 0);
@@ -726,7 +726,6 @@ export default function PettyCashPage() {
         const desc = (item.description || "").toLowerCase();
         return desc.includes("listrik") || desc.includes("token");
       });
-      // FIX: null-safe reduce
       const listrikTotal = listrikData.reduce((sum, item) => {
         return sum + parseInt((item.value || "0").replace(/[^0-9]/g, "") || "0");
       }, 0);
@@ -744,11 +743,9 @@ export default function PettyCashPage() {
     if (!balanceData) return { credit: 0, debit: 0 };
     const credit = balanceData.entries
       .filter((entry) => (entry.type_balance || "").toLowerCase() === "credit")
-      // FIX: null-safe
       .reduce((sum, entry) => sum + (parseInt((entry.value || "0").replace(/[^0-9]/g, "")) || 0), 0);
     const debit = balanceData.entries
       .filter((entry) => (entry.type_balance || "").toLowerCase() === "debit")
-      // FIX: null-safe
       .reduce((sum, entry) => sum + (parseInt((entry.value || "0").replace(/[^0-9]/g, "")) || 0), 0);
     return { credit, debit };
   };
@@ -758,7 +755,6 @@ export default function PettyCashPage() {
   const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
-  // FIX: null-safe totalValue
   const totalValue = filteredData.reduce((sum, item) => {
     return sum + parseInt((item.value || "0").replace(/[^0-9]/g, "") || "0");
   }, 0);
@@ -951,6 +947,7 @@ export default function PettyCashPage() {
                   </div>
                   {viewMode === "list" ? (
                     <>
+                      {/* Category Dropdown with Select All */}
                       <div className="relative" ref={categoryDropdownRef}>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
                         <button onClick={() => setShowCategoryDropdown(!showCategoryDropdown)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center">
@@ -959,6 +956,22 @@ export default function PettyCashPage() {
                         </button>
                         {showCategoryDropdown && (
                           <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                            {/* Select All */}
+                            <label className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-200 font-medium bg-gray-50">
+                              <input
+                                type="checkbox"
+                                checked={selectedCategories.length === categories.length && categories.length > 0}
+                                onChange={() => {
+                                  if (selectedCategories.length === categories.length) {
+                                    setSelectedCategories([]);
+                                  } else {
+                                    setSelectedCategories([...categories]);
+                                  }
+                                }}
+                                className="mr-2"
+                              />
+                              Select All
+                            </label>
                             {categories.map((category) => (
                               <label key={category} className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50">
                                 <input type="checkbox" checked={selectedCategories.includes(category)} onChange={() => toggleCategory(category)} className="mr-2" />
@@ -968,6 +981,8 @@ export default function PettyCashPage() {
                           </div>
                         )}
                       </div>
+
+                      {/* Store Dropdown with Select All */}
                       <div className="relative" ref={storeDropdownRef}>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
                         <button onClick={() => setShowStoreDropdown(!showStoreDropdown)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center">
@@ -976,6 +991,22 @@ export default function PettyCashPage() {
                         </button>
                         {showStoreDropdown && (
                           <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                            {/* Select All */}
+                            <label className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-200 font-medium bg-gray-50">
+                              <input
+                                type="checkbox"
+                                checked={selectedStores.length === stores.length && stores.length > 0}
+                                onChange={() => {
+                                  if (selectedStores.length === stores.length) {
+                                    setSelectedStores([]);
+                                  } else {
+                                    setSelectedStores([...stores]);
+                                  }
+                                }}
+                                className="mr-2"
+                              />
+                              Select All
+                            </label>
                             {stores.map((store) => (
                               <label key={store} className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50">
                                 <input type="checkbox" checked={selectedStores.includes(store)} onChange={() => toggleStore(store)} className="mr-2" />
@@ -985,6 +1016,7 @@ export default function PettyCashPage() {
                           </div>
                         )}
                       </div>
+
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Transfer Status</label>
                         <select value={transferFilter} onChange={(e) => setTransferFilter(e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
@@ -996,7 +1028,8 @@ export default function PettyCashPage() {
                     </>
                   ) : (
                     <>
-                      <div className="relative">
+                      {/* Store Dropdown with Select All (Report View) */}
+                      <div className="relative" ref={storeDropdownRef}>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
                         <button onClick={() => setShowStoreDropdown(!showStoreDropdown)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center">
                           <span className="text-gray-500">{selectedStores.length === 0 ? "All stores..." : `${selectedStores.length} selected`}</span>
@@ -1004,6 +1037,22 @@ export default function PettyCashPage() {
                         </button>
                         {showStoreDropdown && (
                           <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                            {/* Select All */}
+                            <label className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50 border-b border-gray-200 font-medium bg-gray-50">
+                              <input
+                                type="checkbox"
+                                checked={selectedStores.length === stores.length && stores.length > 0}
+                                onChange={() => {
+                                  if (selectedStores.length === stores.length) {
+                                    setSelectedStores([]);
+                                  } else {
+                                    setSelectedStores([...stores]);
+                                  }
+                                }}
+                                className="mr-2"
+                              />
+                              Select All
+                            </label>
                             {stores.map((store) => (
                               <label key={store} className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50">
                                 <input type="checkbox" checked={selectedStores.includes(store)} onChange={() => toggleStore(store)} className="mr-2" />
@@ -1013,6 +1062,7 @@ export default function PettyCashPage() {
                           </div>
                         )}
                       </div>
+
                       <div className="col-span-2">
                         <label className="block text-xs font-medium text-gray-700 mb-1">Transfer Status</label>
                         <select value={reportTransferFilter} onChange={(e) => setReportTransferFilter(e.target.value as "false" | "true")} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
@@ -1212,7 +1262,6 @@ export default function PettyCashPage() {
             className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Receipt Image */}
             {detailEntry.link_url && extractDriveFileId(detailEntry.link_url) ? (
               <div className="flex justify-center p-4 bg-gray-50 border-b">
                 <DriveImage
@@ -1223,12 +1272,7 @@ export default function PettyCashPage() {
               </div>
             ) : detailEntry.link_url ? (
               <div className="flex justify-center p-4 bg-gray-50 border-b">
-                <a
-                  href={detailEntry.link_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline text-sm"
-                >
+                <a href={detailEntry.link_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm">
                   View Receipt
                 </a>
               </div>
@@ -1238,14 +1282,12 @@ export default function PettyCashPage() {
               </div>
             )}
 
-            {/* Store */}
             <div className="px-5 pt-4 pb-1">
               <p className="text-xs font-bold text-primary uppercase tracking-widest">
                 {toTitleCase(detailEntry.store)}
               </p>
             </div>
 
-            {/* Fields */}
             <div className="px-5 pb-4 pt-2 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
               <div>
                 <p className="text-xs text-gray-400 font-medium mb-0.5">Date</p>
@@ -1281,19 +1323,14 @@ export default function PettyCashPage() {
               </div>
             </div>
 
-            {/* Close */}
             <div className="px-5 pb-4 flex justify-end border-t pt-3">
-              <button
-                onClick={() => setShowDetailPopup(false)}
-                className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"
-              >
+              <button onClick={() => setShowDetailPopup(false)} className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600">
                 Close
               </button>
             </div>
           </div>
         </div>
       )}
-      {/* ─────────────────────────────────────────────────────────────────────── */}
 
       {/* Add Balance Modal */}
       {showAddBalanceModal && (
