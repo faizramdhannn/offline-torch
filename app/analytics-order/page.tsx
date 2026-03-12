@@ -41,7 +41,7 @@ const TRAFFIC_MAP: Record<string, string> = {
   DE: "Dari Eiger",
   KK: "Karyawan",
   DY: "Dealer Yamaha",
-  TB: "T Banner",
+  TB: "Banner Outdoor",
   TS: "Tiktok Store",
 };
 

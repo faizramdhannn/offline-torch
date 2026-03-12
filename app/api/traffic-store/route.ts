@@ -82,7 +82,6 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'data';
-    const username = searchParams.get('username') || '';
 
     if (type === 'master') {
       const master = await getTrafficSheetData('master_traffic');
@@ -105,10 +104,15 @@ export async function GET(request: NextRequest) {
 }
 
 // POST: add new traffic entry
+// Sheet columns: id | store_location | taft_name | customer_convert | traffic_source | wag_addition | eiger_addition | brand_competitor | intention | case | notes | created_at | update_at
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { store_location, taft_name, traffic_source, intention, case: caseVal, notes, created_by } = body;
+    const {
+      store_location, taft_name, customer_convert, traffic_source,
+      wag_addition, eiger_addition, brand_competitor,
+      intention, case: caseVal, notes, created_by,
+    } = body;
 
     if (!store_location || !taft_name || !traffic_source) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -117,11 +121,19 @@ export async function POST(request: NextRequest) {
     const id = Date.now().toString();
     const now = new Date().toISOString();
 
+    // Conditional additions — only fill if relevant traffic_source
+    const wagVal = traffic_source === 'Whatsapp Group' ? (wag_addition || '') : '';
+    const eigerVal = traffic_source === 'Dari Eiger' ? (eiger_addition || '') : '';
+
     const newRow = [
       id,
       store_location,
       taft_name,
+      customer_convert || '',
       traffic_source,
+      wagVal,
+      eigerVal,
+      brand_competitor || '',
       intention || '',
       caseVal || '',
       notes || '',
@@ -142,7 +154,11 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, store_location, taft_name, traffic_source, intention, case: caseVal, notes } = body;
+    const {
+      id, store_location, taft_name, customer_convert, traffic_source,
+      wag_addition, eiger_addition, brand_competitor,
+      intention, case: caseVal, notes,
+    } = body;
 
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
@@ -154,11 +170,19 @@ export async function PUT(request: NextRequest) {
     const rowIndex = idx + 2;
     const now = new Date().toISOString();
 
+    const newTrafficSource = traffic_source ?? existing.traffic_source;
+    const wagVal = newTrafficSource === 'Whatsapp Group' ? (wag_addition ?? existing.wag_addition ?? '') : '';
+    const eigerVal = newTrafficSource === 'Dari Eiger' ? (eiger_addition ?? existing.eiger_addition ?? '') : '';
+
     const updatedRow = [
       id,
       store_location ?? existing.store_location,
       taft_name ?? existing.taft_name,
-      traffic_source ?? existing.traffic_source,
+      customer_convert ?? existing.customer_convert ?? '',
+      newTrafficSource,
+      wagVal,
+      eigerVal,
+      brand_competitor ?? existing.brand_competitor ?? '',
       intention ?? existing.intention,
       caseVal ?? existing.case,
       notes ?? existing.notes,
@@ -186,7 +210,7 @@ export async function DELETE(request: NextRequest) {
     if (idx === -1) return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
 
     const rowIndex = idx + 2;
-    await updateTrafficRow('traffic_source', rowIndex, Array(9).fill(''));
+    await updateTrafficRow('traffic_source', rowIndex, Array(13).fill(''));
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting traffic entry:', error);
