@@ -159,6 +159,7 @@ const EMPTY_FORM = {
   wag_addition: "",
   eiger_addition: "",
   brand_competitor: "",
+  brand_custom: "",
   intention: "",
   case: "",
   notes: "",
@@ -600,13 +601,15 @@ export default function TrafficStorePage() {
 
   const openEdit = (entry: TrafficEntry) => {
     setEditEntry(entry);
+    const isCustomBrand = entry.brand_competitor && !brandCompetitors.includes(entry.brand_competitor) && entry.brand_competitor !== "Lainnya";
     setForm({
       taft_name: entry.taft_name,
       customer_convert: entry.customer_convert || "",
       traffic_source: entry.traffic_source,
       wag_addition: entry.wag_addition || "",
       eiger_addition: entry.eiger_addition || "",
-      brand_competitor: entry.brand_competitor || "",
+      brand_competitor: isCustomBrand ? "Lainnya" : (entry.brand_competitor || ""),
+      brand_custom: isCustomBrand ? entry.brand_competitor : "",
       intention: entry.intention,
       case: entry.case,
       notes: entry.notes,
@@ -624,11 +627,18 @@ export default function TrafficStorePage() {
       if (!storeLocation && !editEntry) {
         showMessage("Store tidak dikenali", "error"); setSaving(false); return;
       }
+      // Resolve final brand value
+      const finalBrand = form.brand_competitor === "Lainnya"
+        ? (form.brand_custom?.trim() || "Lainnya")
+        : form.brand_competitor;
+      const payload = { ...form, brand_competitor: finalBrand };
+      delete (payload as any).brand_custom;
+
       if (editEntry) {
         const res = await fetch("/api/traffic-store", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: editEntry.id, ...form, case: form.case }),
+          body: JSON.stringify({ id: editEntry.id, ...payload, case: form.case }),
         });
         const result = await res.json();
         if (result.success) { showMessage("Data berhasil diupdate", "success"); setShowForm(false); fetchAll(); }
@@ -639,7 +649,7 @@ export default function TrafficStorePage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             store_location: storeLocation,
-            ...form,
+            ...payload,
             case: form.case,
             created_by: user?.user_name,
           }),
@@ -1371,8 +1381,8 @@ export default function TrafficStorePage() {
             {/* WAG Addition (conditional) */}
             {form.traffic_source === "Whatsapp Group" && (
               <div className="mb-3 pl-3 border-l-2 border-blue-200">
-                <label className="block text-xs font-medium text-blue-700 mb-1">
-                  Whatsapp Group mana? <span className="text-red-500">*</span>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Karena apa? <span className="text-red-500">*</span>
                 </label>
                 <select value={form.wag_addition} onChange={e => setForm(f => ({ ...f, wag_addition: e.target.value }))}
                   className="w-full px-2 py-1.5 border border-blue-200 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-400">
@@ -1385,8 +1395,8 @@ export default function TrafficStorePage() {
             {/* Eiger Addition (conditional) */}
             {form.traffic_source === "Dari Eiger" && (
               <div className="mb-3 pl-3 border-l-2 border-purple-200">
-                <label className="block text-xs font-medium text-purple-700 mb-1">
-                  Dari Eiger mana? <span className="text-red-500">*</span>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Karena Apa ?<span className="text-red-500">*</span>
                 </label>
                 <select value={form.eiger_addition} onChange={e => setForm(f => ({ ...f, eiger_addition: e.target.value }))}
                   className="w-full px-2 py-1.5 border border-purple-200 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-purple-400">
@@ -1401,11 +1411,22 @@ export default function TrafficStorePage() {
               <label className="block text-xs font-medium text-gray-700 mb-1">
                 Pernah beli tas di Brand apa?
               </label>
-              <select value={form.brand_competitor} onChange={e => setForm(f => ({ ...f, brand_competitor: e.target.value }))}
+              <select value={form.brand_competitor} onChange={e => setForm(f => ({ ...f, brand_competitor: e.target.value, brand_custom: "" }))}
                 className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary">
                 <option value="">-- Pilih Brand --</option>
                 {brandCompetitors.map(s => <option key={s} value={s}>{s}</option>)}
+                <option value="Lainnya">Lainnya</option>
               </select>
+              {form.brand_competitor === "Lainnya" && (
+                <input
+                  type="text"
+                  value={form.brand_custom}
+                  onChange={e => setForm(f => ({ ...f, brand_custom: e.target.value }))}
+                  placeholder="Tulis nama brand..."
+                  autoFocus
+                  className="w-full mt-1.5 px-2 py-1.5 border border-amber-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-amber-400 bg-amber-50"
+                />
+              )}
             </div>
 
             {/* Intensi */}
