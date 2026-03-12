@@ -4,6 +4,12 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
+import * as XLSX from "xlsx";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Cell, PieChart, Pie,
+  LineChart, Line, Legend,
+} from "recharts";
 
 interface TrafficEntry {
   id: string;
@@ -24,6 +30,13 @@ interface MasterRow {
   intention: string;
   case: string;
 }
+
+const COLORS = [
+  "#3b82f6","#8b5cf6","#ec4899","#f59e0b","#10b981",
+  "#06b6d4","#ef4444","#84cc16","#f97316","#6366f1",
+  "#14b8a6","#e11d48","#a855f7","#22c55e","#fb923c",
+  "#0ea5e9","#d946ef","#facc15","#4ade80","#fb7185",
+];
 
 // ─── Pagination ──────────────────────────────────────────────────────────────
 function Pagination({ page, total, pageSize, onChange }: {
@@ -59,12 +72,65 @@ function Pagination({ page, total, pageSize, onChange }: {
   );
 }
 
+// ─── View Toggle ──────────────────────────────────────────────────────────────
+function ViewToggle({ view, onChange }: { view: "all" | "daily"; onChange: (v: "all" | "daily") => void }) {
+  return (
+    <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+      {(["all", "daily"] as const).map((v) => (
+        <button key={v} onClick={() => onChange(v)}
+          className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+            view === v ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          }`}>
+          {v === "all" ? "All" : "Daily"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── Dark Tooltip ─────────────────────────────────────────────────────────────
+const DarkTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload || !payload.length) return null;
+  return (
+    <div style={{ background: "#1e293b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", minWidth: 160 }}>
+      <p style={{ fontSize: 12, fontWeight: 600, color: "#f1f5f9", marginBottom: 6 }}>{label}</p>
+      {payload.map((p: any, i: number) => (
+        <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 16, marginBottom: 2 }}>
+          <span style={{ fontSize: 11, color: "#94a3b8" }}>{p.name || p.dataKey}</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: p.fill || p.color || p.stroke || "#60a5fa" }}>
+            {p.value?.toLocaleString?.() ?? p.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ─── Pie Legend ───────────────────────────────────────────────────────────────
+const PieLegend = ({ data }: { data: { name: string; value: number; color: string }[] }) => (
+  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
+    {data.map((d, i) => (
+      <div key={i} className="flex items-center gap-1">
+        <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: d.color }} />
+        <span className="text-[10px] text-gray-500">{d.name}</span>
+      </div>
+    ))}
+  </div>
+);
+
 function formatDate(iso: string) {
   if (!iso) return "-";
   const d = new Date(iso);
   const months = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(d.getDate())} ${months[d.getMonth()]} ${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatShortDate(isoOrDate: string): string {
+  if (!isoOrDate) return "";
+  const dateStr = isoOrDate.split("T")[0];
+  const [, m, d] = dateStr.split("-");
+  return `${d}/${m}`;
 }
 
 const STORE_NAME_MAP: Record<string, string> = {
@@ -83,6 +149,87 @@ const EMPTY_FORM = {
   taft_name: "", traffic_source: "", intention: "", case: "", notes: "",
 };
 
+// ─── Export XLSX ──────────────────────────────────────────────────────────────
+function exportReportXLSX(
+  filteredData: TrafficEntry[],
+  trafficData: { name: string; value: number }[],
+  storeBreakdown: { store: string; sources: string[]; map: Record<string, Record<string, number>> }[],
+  dateLabel: string
+) {
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Summary Traffic Source
+  const total = trafficData.reduce((s, d) => s + d.value, 0);
+  const summaryRows = [
+    ["Traffic Source", "Jumlah", "Persentase"],
+    ...trafficData.map(d => [d.name, d.value, total ? `${((d.value / total) * 100).toFixed(1)}%` : "0%"]),
+    [],
+    ["TOTAL", total, "100%"],
+  ];
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+  wsSummary["!cols"] = [{ wch: 30 }, { wch: 12 }, { wch: 14 }];
+  XLSX.utils.book_append_sheet(wb, wsSummary, "Traffic Source");
+
+  // Sheet 2: Store × Traffic Source Matrix
+  const allSources = [...new Set(filteredData.map(r => r.traffic_source).filter(Boolean))].sort();
+  const allStores = [...new Set(filteredData.map(r => r.store_location).filter(Boolean))].sort();
+  const matrixMap: Record<string, Record<string, number>> = {};
+  filteredData.forEach(r => {
+    if (!matrixMap[r.store_location]) matrixMap[r.store_location] = {};
+    matrixMap[r.store_location][r.traffic_source] = (matrixMap[r.store_location][r.traffic_source] || 0) + 1;
+  });
+  const matrixHeader = ["Store", ...allSources, "TOTAL"];
+  const matrixRows = allStores.map(store => [
+    toTitleCase(store),
+    ...allSources.map(src => matrixMap[store]?.[src] || 0),
+    allSources.reduce((s, src) => s + (matrixMap[store]?.[src] || 0), 0),
+  ]);
+  const matrixTotals = [
+    "TOTAL",
+    ...allSources.map(src => allStores.reduce((s, store) => s + (matrixMap[store]?.[src] || 0), 0)),
+    allStores.reduce((s, store) => s + allSources.reduce((ss, src) => ss + (matrixMap[store]?.[src] || 0), 0), 0),
+  ];
+  const wsMatrix = XLSX.utils.aoa_to_sheet([matrixHeader, ...matrixRows, [], matrixTotals]);
+  wsMatrix["!cols"] = [{ wch: 20 }, ...allSources.map(() => ({ wch: 16 })), { wch: 10 }];
+  XLSX.utils.book_append_sheet(wb, wsMatrix, "Store vs Traffic");
+
+  // Sheet 3: Daily Trend
+  const dailyMap: Record<string, Record<string, number>> = {};
+  filteredData.forEach(r => {
+    const date = r.created_at?.split("T")[0];
+    if (!date) return;
+    if (!dailyMap[date]) dailyMap[date] = {};
+    dailyMap[date][r.traffic_source] = (dailyMap[date][r.traffic_source] || 0) + 1;
+  });
+  const dailyHeader = ["Tanggal", ...allSources, "TOTAL"];
+  const dailyRows = Object.keys(dailyMap).sort().map(date => [
+    date,
+    ...allSources.map(src => dailyMap[date]?.[src] || 0),
+    allSources.reduce((s, src) => s + (dailyMap[date]?.[src] || 0), 0),
+  ]);
+  const wsDaily = XLSX.utils.aoa_to_sheet([dailyHeader, ...dailyRows]);
+  wsDaily["!cols"] = [{ wch: 14 }, ...allSources.map(() => ({ wch: 16 })), { wch: 10 }];
+  XLSX.utils.book_append_sheet(wb, wsDaily, "Daily Trend");
+
+  // Sheet 4: Raw Data
+  const rawHeader = ["Tanggal", "Store", "Taft", "Traffic Source", "Intensi", "Case", "Notes"];
+  const rawRows = filteredData.map(r => [
+    formatDate(r.created_at),
+    toTitleCase(r.store_location),
+    r.taft_name,
+    r.traffic_source,
+    r.intention,
+    r.case,
+    r.notes,
+  ]);
+  const wsRaw = XLSX.utils.aoa_to_sheet([rawHeader, ...rawRows]);
+  wsRaw["!cols"] = [{ wch: 20 }, { wch: 16 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 30 }];
+  XLSX.utils.book_append_sheet(wb, wsRaw, "Raw Data");
+
+  const filename = `Traffic_Store_Report_${dateLabel || Date.now()}.xlsx`;
+  XLSX.writeFile(wb, filename);
+}
+
 export default function TrafficStorePage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -99,14 +246,14 @@ export default function TrafficStorePage() {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
 
-  // Filters
+  // Filters (shared between list & report)
   const [filterStore, setFilterStore] = useState("all");
-  const [filterTaft, setFilterTaft] = useState("all");
   const [filterTraffic, setFilterTraffic] = useState("all");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
 
-  // Report view
+  // Report view toggle
+  const [chartView, setChartView] = useState<"all" | "daily">("all");
   const [activeTab, setActiveTab] = useState<"list" | "report">("list");
 
   useEffect(() => {
@@ -140,24 +287,17 @@ export default function TrafficStorePage() {
     }
   };
 
-  // ─── Derive user's store location ────────────────────────────────────────
-  // Pakai useMemo agar re-compute setelah master ter-load
+  // ─── Derive user's store ────────────────────────────────────────────────────
   const userStore = useMemo(() => {
     if (!user || master.length === 0) return null;
     const username = user.user_name?.toLowerCase().trim() || "";
-
-    // 1. Exact match dari master store_location
     const masterStores = [...new Set(master.map(m => m.store_location).filter(Boolean))];
     const exactMatch = masterStores.find(s => s.toLowerCase().trim() === username);
     if (exactMatch) return exactMatch;
-
-    // 2. Partial match (username mengandung nama store atau sebaliknya)
     const partialMatch = masterStores.find(
       s => username.includes(s.toLowerCase().trim()) || s.toLowerCase().trim().includes(username)
     );
     if (partialMatch) return partialMatch;
-
-    // 3. Fallback ke STORE_NAME_MAP
     const storeKeys = Object.keys(STORE_NAME_MAP);
     const mapMatch = storeKeys.find(
       k => username === k || username === k.replace(/\s/g, "") || username.includes(k)
@@ -170,7 +310,6 @@ export default function TrafficStorePage() {
     [userStore, user]
   );
 
-  // Tafts untuk store yang sedang login
   const taftsForStore = useMemo(() => {
     if (!userStore) return [];
     return master
@@ -179,7 +318,6 @@ export default function TrafficStorePage() {
       .filter(Boolean);
   }, [master, userStore]);
 
-  // Unique dropdown values dari master
   const trafficSources = useMemo(
     () => [...new Set(master.map(m => m.traffic_source).filter(Boolean))],
     [master]
@@ -188,8 +326,6 @@ export default function TrafficStorePage() {
     () => [...new Set(master.map(m => m.intention).filter(Boolean))],
     [master]
   );
-
-  // Cases filtered by selected intention
   const casesForIntention = useMemo(() => {
     if (!form.intention) return [];
     return [...new Set(
@@ -197,7 +333,12 @@ export default function TrafficStorePage() {
     )];
   }, [master, form.intention]);
 
-  // Filtered data
+  const allStores = useMemo(
+    () => [...new Set(master.map(m => m.store_location).filter(Boolean))].sort(),
+    [master]
+  );
+
+  // ─── Filtered data (applies to both list & report) ──────────────────────────
   const filteredData = useCallback(() => {
     let rows = data.filter(r => r.id);
     if (isStoreUser && userStore) {
@@ -206,33 +347,110 @@ export default function TrafficStorePage() {
     if (filterStore !== "all" && !isStoreUser) {
       rows = rows.filter(r => r.store_location?.toLowerCase() === filterStore.toLowerCase());
     }
-    if (filterTaft !== "all") rows = rows.filter(r => r.taft_name === filterTaft);
     if (filterTraffic !== "all") rows = rows.filter(r => r.traffic_source === filterTraffic);
     if (filterDateFrom) rows = rows.filter(r => r.created_at >= filterDateFrom);
     if (filterDateTo) rows = rows.filter(r => r.created_at <= filterDateTo + "T23:59:59");
     return rows;
-  }, [data, filterStore, filterTaft, filterTraffic, filterDateFrom, filterDateTo, isStoreUser, userStore]);
+  }, [data, filterStore, filterTraffic, filterDateFrom, filterDateTo, isStoreUser, userStore]);
 
   const fd = filteredData();
   const paginated = fd.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // Report: aggregate by store + traffic source
-  const reportData = useMemo(() => {
-    const rows = isStoreUser && userStore
-      ? data.filter(r => r.id && r.store_location?.toLowerCase().trim() === userStore.toLowerCase().trim())
-      : data.filter(r => r.id);
+  // ─── Chart data computations ─────────────────────────────────────────────────
 
-    const stores = [...new Set(rows.map(r => r.store_location).filter(Boolean))].sort();
-    const sources = [...new Set(rows.map(r => r.traffic_source).filter(Boolean))].sort();
+  // Traffic source aggregation
+  const trafficChartData = useMemo(() => {
+    const map: Record<string, number> = {};
+    fd.forEach(r => {
+      const src = r.traffic_source?.trim();
+      if (!src) return;
+      map[src] = (map[src] || 0) + 1;
+    });
+    return Object.entries(map)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [fd]);
 
+  // Store × Traffic matrix for "all" view
+  const storeTrafficMatrix = useMemo(() => {
+    const stores = [...new Set(fd.map(r => r.store_location).filter(Boolean))].sort();
+    const sources = [...new Set(fd.map(r => r.traffic_source).filter(Boolean))].sort();
     const map: Record<string, Record<string, number>> = {};
-    rows.forEach(r => {
+    fd.forEach(r => {
       if (!map[r.store_location]) map[r.store_location] = {};
       map[r.store_location][r.traffic_source] = (map[r.store_location][r.traffic_source] || 0) + 1;
     });
+    const barData = stores.map(store => ({
+      name: toTitleCase(store),
+      total: sources.reduce((s, src) => s + (map[store]?.[src] || 0), 0),
+      ...sources.reduce((acc, src) => ({ ...acc, [src]: map[store]?.[src] || 0 }), {}),
+    })).sort((a, b) => b.total - a.total);
+    return { stores, sources, map, barData };
+  }, [fd]);
 
-    return { stores, sources, map };
-  }, [data, isStoreUser, userStore]);
+  // Intention aggregation
+  const intentionData = useMemo(() => {
+    const map: Record<string, number> = {};
+    fd.forEach(r => {
+      const intent = r.intention?.trim();
+      if (!intent) return;
+      map[intent] = (map[intent] || 0) + 1;
+    });
+    return Object.entries(map)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [fd]);
+
+  // Daily traffic trend (top 6 sources)
+  const dailyTrafficChartData = useMemo(() => {
+    const top6 = trafficChartData.slice(0, 6).map(d => d.name);
+    const map: Record<string, Record<string, number>> = {};
+    fd.forEach(r => {
+      const date = r.created_at?.split("T")[0];
+      if (!date) return;
+      const src = r.traffic_source?.trim() || "Lainnya";
+      if (!map[date]) map[date] = {};
+      map[date][src] = (map[date][src] || 0) + 1;
+    });
+    const chartData = Object.keys(map).sort().map(date => ({
+      date: formatShortDate(date),
+      fullDate: date,
+      ...top6.reduce((acc, t) => ({ ...acc, [t]: map[date]?.[t] || 0 }), {}),
+    }));
+    return { chartData, top6 };
+  }, [fd, trafficChartData]);
+
+  // Daily per-store trend
+  const dailyStoreChartData = useMemo(() => {
+    const storeNames = [...new Set(fd.map(r => r.store_location).filter(Boolean))].sort();
+    const map: Record<string, Record<string, number>> = {};
+    fd.forEach(r => {
+      const date = r.created_at?.split("T")[0];
+      if (!date) return;
+      if (!map[date]) map[date] = {};
+      map[date][r.store_location] = (map[date][r.store_location] || 0) + 1;
+    });
+    const chartData = Object.keys(map).sort().map(date => ({
+      date: formatShortDate(date),
+      fullDate: date,
+      ...storeNames.reduce((acc, s) => ({ ...acc, [s]: map[date]?.[s] || 0 }), {}),
+    }));
+    return { chartData, storeNames };
+  }, [fd]);
+
+  // Summary stats
+  const totalEntries = fd.length;
+  const totalStores = new Set(fd.map(r => r.store_location).filter(Boolean)).size;
+  const topTraffic = trafficChartData[0]?.name || "-";
+
+  const handleExportXLSX = () => {
+    if (fd.length === 0) { showMessage("Tidak ada data untuk diexport", "error"); return; }
+    const dateLabel = filterDateFrom || filterDateTo
+      ? `${filterDateFrom || "all"}_to_${filterDateTo || "all"}`
+      : new Date().toISOString().split("T")[0];
+    exportReportXLSX(fd, trafficChartData, [], dateLabel);
+    showMessage("Export berhasil!", "success");
+  };
 
   const openAdd = () => {
     setEditEntry(null);
@@ -300,27 +518,6 @@ export default function TrafficStorePage() {
     } catch { showMessage("Terjadi kesalahan", "error"); }
   };
 
-  // Export report as CSV
-  const exportReport = () => {
-    const { stores, sources, map } = reportData;
-    const header = ["Store", ...sources];
-    const rows = stores.map(store => [
-      toTitleCase(store),
-      ...sources.map(src => String(map[store]?.[src] || 0)),
-    ]);
-    const totals = ["TOTAL", ...sources.map(src =>
-      String(stores.reduce((s, store) => s + (map[store]?.[src] || 0), 0))
-    )];
-    const csv = [header, ...rows, totals].map(r => r.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `Traffic_Store_Report_${Date.now()}.csv`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  // Export list as CSV
   const exportList = () => {
     const headers = ["ID", "Store", "Taft", "Traffic Source", "Intensi", "Case", "Notes", "Tanggal"];
     const rows = fd.map(r => [
@@ -336,12 +533,50 @@ export default function TrafficStorePage() {
     URL.revokeObjectURL(url);
   };
 
-  const allStores = useMemo(
-    () => [...new Set(master.map(m => m.store_location).filter(Boolean))].sort(),
-    [master]
-  );
-
   if (!user) return null;
+
+  // ─── Shared Filter Bar ────────────────────────────────────────────────────
+  const FilterBar = () => (
+    <div className="bg-white rounded-lg shadow p-4 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {!isStoreUser && (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
+            <select value={filterStore} onChange={e => { setFilterStore(e.target.value); setPage(1); }}
+              className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary">
+              <option value="all">Semua Store</option>
+              {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
+            </select>
+          </div>
+        )}
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Traffic Source</label>
+          <select value={filterTraffic} onChange={e => { setFilterTraffic(e.target.value); setPage(1); }}
+            className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary">
+            <option value="all">Semua</option>
+            {trafficSources.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Dari</label>
+          <input type="date" value={filterDateFrom} onChange={e => { setFilterDateFrom(e.target.value); setPage(1); }}
+            className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Sampai</label>
+          <input type="date" value={filterDateTo} onChange={e => { setFilterDateTo(e.target.value); setPage(1); }}
+            className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+        </div>
+        <div className="flex items-end">
+          <button onClick={() => { setFilterStore("all"); setFilterTraffic("all"); setFilterDateFrom(""); setFilterDateTo(""); setPage(1); }}
+            className="w-full px-3 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600">
+            Reset Filter
+          </button>
+        </div>
+      </div>
+      <p className="text-xs text-gray-400 mt-2">{fd.length} data ditemukan</p>
+    </div>
+  );
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -360,16 +595,10 @@ export default function TrafficStorePage() {
               )}
             </div>
             <div className="flex gap-2">
-              {user?.report_store && activeTab === "report" && (
-                <button onClick={exportReport}
-                  className="px-4 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors">
-                  ↓ Export CSV
-                </button>
-              )}
               {activeTab === "list" && (
                 <button onClick={exportList}
                   className="px-4 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors">
-                  ↓ Export List
+                  ↓ Export List CSV
                 </button>
               )}
               {user?.traffic_store && (
@@ -381,16 +610,18 @@ export default function TrafficStorePage() {
             </div>
           </div>
 
-          {/* Tabs (only for report_store) */}
+          {/* Tabs */}
           {user?.report_store && (
-            <div className="flex gap-1 mb-4">
+            <div className="flex gap-1 mb-4 border-b">
               {[
                 { id: "list", label: "Data List" },
-                { id: "report", label: "Laporan" },
+                { id: "report", label: "Report" },
               ].map(t => (
                 <button key={t.id} onClick={() => setActiveTab(t.id as any)}
-                  className={`px-4 py-2 text-xs font-medium rounded-t border-b-2 transition-colors ${
-                    activeTab === t.id ? "border-primary text-primary bg-white" : "border-transparent text-gray-500 hover:text-gray-700"
+                  className={`px-5 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px ${
+                    activeTab === t.id
+                      ? "border-primary text-primary"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
                   }`}>
                   {t.label}
                 </button>
@@ -398,51 +629,12 @@ export default function TrafficStorePage() {
             </div>
           )}
 
+          {/* Shared filter bar */}
+          <FilterBar />
+
           {/* ── LIST TAB ── */}
           {activeTab === "list" && (
             <div className="bg-white rounded-lg shadow">
-              {/* Filters */}
-              <div className="p-4 border-b">
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                  {!isStoreUser && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
-                      <select value={filterStore} onChange={e => { setFilterStore(e.target.value); setPage(1); }}
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary">
-                        <option value="all">Semua Store</option>
-                        {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
-                      </select>
-                    </div>
-                  )}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Traffic Source</label>
-                    <select value={filterTraffic} onChange={e => { setFilterTraffic(e.target.value); setPage(1); }}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary">
-                      <option value="all">Semua</option>
-                      {trafficSources.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Dari</label>
-                    <input type="date" value={filterDateFrom} onChange={e => { setFilterDateFrom(e.target.value); setPage(1); }}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Sampai</label>
-                    <input type="date" value={filterDateTo} onChange={e => { setFilterDateTo(e.target.value); setPage(1); }}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
-                  </div>
-                  <div className="flex items-end">
-                    <button onClick={() => { setFilterStore("all"); setFilterTaft("all"); setFilterTraffic("all"); setFilterDateFrom(""); setFilterDateTo(""); setPage(1); }}
-                      className="w-full px-3 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600">
-                      Reset
-                    </button>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-400 mt-2">{fd.length} data ditemukan</p>
-              </div>
-
-              {/* Table */}
               <div className="p-4">
                 {loading ? (
                   <div className="text-center py-12 text-gray-400">Loading...</div>
@@ -506,143 +698,298 @@ export default function TrafficStorePage() {
 
           {/* ── REPORT TAB ── */}
           {activeTab === "report" && user?.report_store && (
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-4">
-                Laporan Traffic per Store × Traffic Source
-              </h3>
-              {loading ? (
-                <div className="text-center py-12 text-gray-400">Loading...</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="text-xs border-collapse">
-                    <thead>
-                      <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 bg-gray-50 border border-gray-200 whitespace-nowrap">
-                          Store
-                        </th>
-                        {reportData.sources.map(src => (
-                          <th key={src} className="px-3 py-2 text-center font-semibold text-gray-700 bg-gray-50 border border-gray-200 whitespace-nowrap min-w-[90px]">
-                            {src}
-                          </th>
-                        ))}
-                        <th className="px-3 py-2 text-center font-semibold text-gray-700 bg-primary/10 border border-gray-200 whitespace-nowrap">
-                          Total
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {reportData.stores.map((store, i) => {
-                        const rowTotal = reportData.sources.reduce((s, src) => s + (reportData.map[store]?.[src] || 0), 0);
-                        return (
-                          <tr key={store} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                            <td className="px-3 py-2 font-medium border border-gray-200 whitespace-nowrap">
-                              {toTitleCase(store)}
-                            </td>
-                            {reportData.sources.map(src => {
-                              const val = reportData.map[store]?.[src] || 0;
-                              return (
-                                <td key={src} className="px-3 py-2 text-center border border-gray-200">
-                                  {val > 0 ? (
-                                    <span className="font-semibold text-blue-700">{val}</span>
-                                  ) : (
-                                    <span className="text-gray-300">-</span>
-                                  )}
-                                </td>
-                              );
-                            })}
-                            <td className="px-3 py-2 text-center border border-gray-200 font-bold text-primary bg-primary/5">
-                              {rowTotal}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {/* Totals row */}
-                      <tr className="bg-primary/10 font-bold">
-                        <td className="px-3 py-2 border border-gray-200">TOTAL</td>
-                        {reportData.sources.map(src => {
-                          const colTotal = reportData.stores.reduce((s, store) => s + (reportData.map[store]?.[src] || 0), 0);
-                          return (
-                            <td key={src} className="px-3 py-2 text-center border border-gray-200 text-primary">
-                              {colTotal}
-                            </td>
-                          );
-                        })}
-                        <td className="px-3 py-2 text-center border border-gray-200 text-primary">
-                          {reportData.stores.reduce((s, store) =>
-                            s + reportData.sources.reduce((ss, src) => ss + (reportData.map[store]?.[src] || 0), 0), 0)}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              )}
+            <>
+              {/* Summary Cards */}
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                {[
+                  { label: "Total Data", value: totalEntries.toLocaleString(), color: "text-blue-600" },
+                  { label: "Jumlah Store", value: totalStores.toLocaleString(), color: "text-purple-600" },
+                  { label: "Traffic Terbanyak", value: topTraffic, color: "text-green-600" },
+                ].map((c) => (
+                  <div key={c.label} className="bg-white rounded-lg shadow p-4">
+                    <p className="text-xs text-gray-500 mb-1">{c.label}</p>
+                    <p className={`text-xl font-bold truncate ${c.color}`}>{c.value}</p>
+                  </div>
+                ))}
+              </div>
 
-              {/* Per-Store Detail Tables */}
-              <div className="mt-8 space-y-6">
-                <h3 className="text-sm font-semibold text-gray-700">Detail per Store</h3>
-                {reportData.stores.map(store => {
-                  const storeRows = data.filter(r => r.id && r.store_location?.toLowerCase() === store.toLowerCase());
-                  const tafts = [...new Set(storeRows.map(r => r.taft_name).filter(Boolean))].sort();
-                  const sources = [...new Set(storeRows.map(r => r.traffic_source).filter(Boolean))].sort();
-                  const taftMap: Record<string, Record<string, number>> = {};
-                  storeRows.forEach(r => {
-                    if (!taftMap[r.taft_name]) taftMap[r.taft_name] = {};
-                    taftMap[r.taft_name][r.traffic_source] = (taftMap[r.taft_name][r.traffic_source] || 0) + 1;
-                  });
-                  if (tafts.length === 0) return null;
-                  return (
-                    <div key={store}>
-                      <h4 className="text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">
-                        {toTitleCase(store)}
-                      </h4>
-                      <div className="overflow-x-auto">
-                        <table className="text-xs border-collapse">
-                          <thead>
-                            <tr>
-                              <th className="px-3 py-1.5 text-left font-semibold bg-gray-50 border border-gray-200 whitespace-nowrap">Taft</th>
-                              {sources.map(src => (
-                                <th key={src} className="px-3 py-1.5 text-center font-semibold bg-gray-50 border border-gray-200 whitespace-nowrap min-w-[80px]">{src}</th>
-                              ))}
-                              <th className="px-3 py-1.5 text-center font-semibold bg-primary/10 border border-gray-200 whitespace-nowrap">Total</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {tafts.map((taft, i) => {
-                              const rowTotal = sources.reduce((s, src) => s + (taftMap[taft]?.[src] || 0), 0);
-                              return (
-                                <tr key={taft} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                                  <td className="px-3 py-1.5 border border-gray-200 whitespace-nowrap">{taft}</td>
-                                  {sources.map(src => {
-                                    const val = taftMap[taft]?.[src] || 0;
+              {/* Chart Card */}
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                {/* Toolbar */}
+                <div className="flex items-center justify-between px-6 py-3 border-b">
+                  <h2 className="text-sm font-semibold text-gray-700">Analitik Traffic Store</h2>
+                  <div className="flex items-center gap-3">
+                    {!loading && fd.length > 0 && (
+                      <>
+                        <ViewToggle view={chartView} onChange={setChartView} />
+                        <button onClick={handleExportXLSX}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                          Export XLSX
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-6">
+                  {loading ? (
+                    <div className="text-center py-16 text-gray-400">Loading data...</div>
+                  ) : fd.length === 0 ? (
+                    <div className="text-center py-16 text-gray-400">
+                      <p className="text-lg font-semibold">Belum ada data</p>
+                      <p className="text-sm mt-1">Tambah data traffic untuk melihat laporan</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-10">
+
+                      {/* ── ALL VIEW ── */}
+                      {chartView === "all" && (
+                        <>
+                          {/* Pie + Bar: Traffic Source */}
+                          <div className="grid grid-cols-2 gap-8">
+                            <div>
+                              <h3 className="text-sm font-semibold text-gray-700 mb-4">Distribusi Traffic Source</h3>
+                              <ResponsiveContainer width="100%" height={300}>
+                                <PieChart>
+                                  <Pie data={trafficChartData} dataKey="value" nameKey="name"
+                                    cx="50%" cy="50%" outerRadius={110}
+                                    label={(props) => (props.percent ?? 0) > 0.04
+                                      ? `${((props.percent ?? 0) * 100).toFixed(0)}%` : ""}
+                                    labelLine={false}>
+                                    {trafficChartData.map((_, i) => (
+                                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                                    ))}
+                                  </Pie>
+                                  <Tooltip content={({ active, payload }) => {
+                                    if (!active || !payload?.length) return null;
+                                    const item = payload[0];
+                                    const total = trafficChartData.reduce((s, d) => s + d.value, 0);
+                                    const pct = total ? ((Number(item.value) / total) * 100).toFixed(1) : "0";
                                     return (
-                                      <td key={src} className="px-3 py-1.5 text-center border border-gray-200">
-                                        {val > 0 ? <span className="font-semibold text-blue-700">{val}</span> : <span className="text-gray-300">-</span>}
-                                      </td>
+                                      <div style={{ background: "#1e293b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", minWidth: 180 }}>
+                                        <p style={{ fontSize: 12, fontWeight: 700, color: "#f1f5f9", marginBottom: 6 }}>{item.name}</p>
+                                        <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                                          <span style={{ fontSize: 11, color: "#94a3b8" }}>Jumlah</span>
+                                          <span style={{ fontSize: 11, fontWeight: 700, color: item.payload?.fill || "#60a5fa" }}>{Number(item.value).toLocaleString()}</span>
+                                        </div>
+                                        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginTop: 2 }}>
+                                          <span style={{ fontSize: 11, color: "#94a3b8" }}>Persentase</span>
+                                          <span style={{ fontSize: 11, fontWeight: 600, color: "#e2e8f0" }}>{pct}%</span>
+                                        </div>
+                                      </div>
+                                    );
+                                  }} />
+                                </PieChart>
+                              </ResponsiveContainer>
+                              <PieLegend data={trafficChartData.map((d, i) => ({ name: d.name, value: d.value, color: COLORS[i % COLORS.length] }))} />
+                            </div>
+
+                            <div>
+                              <h3 className="text-sm font-semibold text-gray-700 mb-4">Jumlah per Traffic Source</h3>
+                              <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={trafficChartData.slice(0, 12)}
+                                  layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 4 }}>
+                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
+                                  <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }} />
+                                  <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#6b7280" }} width={130} />
+                                  <Tooltip content={<DarkTooltip />} />
+                                  <Bar dataKey="value" name="Jumlah" radius={[0, 4, 4, 0]} maxBarSize={20}
+                                    label={{ position: "right", fontSize: 9, fill: "#6b7280" }}>
+                                    {trafficChartData.slice(0, 12).map((_, i) => (
+                                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                                    ))}
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+
+                          {/* Total per Store */}
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Total Traffic per Store</h3>
+                            <ResponsiveContainer width="100%" height={260}>
+                              <BarChart data={storeTrafficMatrix.barData}
+                                margin={{ top: 16, right: 8, left: 0, bottom: 40 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }}
+                                  angle={-30} textAnchor="end" interval={0} />
+                                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
+                                <Tooltip content={<DarkTooltip />} />
+                                <Bar dataKey="total" name="Total" radius={[4, 4, 0, 0]} maxBarSize={48}
+                                  label={{ position: "top", fontSize: 9, fill: "#6b7280" }}>
+                                  {storeTrafficMatrix.barData.map((_, i) => (
+                                    <Cell key={i} fill={COLORS[(i + 5) % COLORS.length]} />
+                                  ))}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+
+                          {/* Intention breakdown */}
+                          {intentionData.length > 0 && (
+                            <div>
+                              <h3 className="text-sm font-semibold text-gray-700 mb-4">Distribusi Intensi Kunjungan</h3>
+                              <ResponsiveContainer width="100%" height={220}>
+                                <BarChart data={intentionData}
+                                  margin={{ top: 16, right: 8, left: 0, bottom: 40 }}>
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }}
+                                    angle={-30} textAnchor="end" interval={0} />
+                                  <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
+                                  <Tooltip content={<DarkTooltip />} />
+                                  <Bar dataKey="value" name="Jumlah" radius={[4, 4, 0, 0]} maxBarSize={48}
+                                    label={{ position: "top", fontSize: 9, fill: "#6b7280" }}>
+                                    {intentionData.map((_, i) => (
+                                      <Cell key={i} fill={COLORS[(i + 10) % COLORS.length]} />
+                                    ))}
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          )}
+
+                          {/* Detail table: Store × Source */}
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Store × Traffic Source</h3>
+                            <div className="overflow-x-auto">
+                              <table className="text-xs border-collapse">
+                                <thead>
+                                  <tr>
+                                    <th className="px-3 py-2 text-left font-semibold bg-gray-50 border border-gray-200 whitespace-nowrap">Store</th>
+                                    {storeTrafficMatrix.sources.map(src => (
+                                      <th key={src} className="px-3 py-2 text-center font-semibold bg-gray-50 border border-gray-200 whitespace-nowrap min-w-[90px]">{src}</th>
+                                    ))}
+                                    <th className="px-3 py-2 text-center font-semibold bg-primary/10 border border-gray-200 whitespace-nowrap">Total</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {storeTrafficMatrix.stores.map((store, i) => {
+                                    const rowTotal = storeTrafficMatrix.sources.reduce((s, src) => s + (storeTrafficMatrix.map[store]?.[src] || 0), 0);
+                                    return (
+                                      <tr key={store} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                                        <td className="px-3 py-2 font-medium border border-gray-200 whitespace-nowrap">{toTitleCase(store)}</td>
+                                        {storeTrafficMatrix.sources.map(src => {
+                                          const val = storeTrafficMatrix.map[store]?.[src] || 0;
+                                          return (
+                                            <td key={src} className="px-3 py-2 text-center border border-gray-200">
+                                              {val > 0 ? <span className="font-semibold text-blue-700">{val}</span> : <span className="text-gray-300">-</span>}
+                                            </td>
+                                          );
+                                        })}
+                                        <td className="px-3 py-2 text-center border border-gray-200 font-bold text-primary bg-primary/5">{rowTotal}</td>
+                                      </tr>
                                     );
                                   })}
-                                  <td className="px-3 py-1.5 text-center border border-gray-200 font-bold text-primary">{rowTotal}</td>
-                                </tr>
-                              );
-                            })}
-                            <tr className="bg-primary/10 font-bold">
-                              <td className="px-3 py-1.5 border border-gray-200">TOTAL</td>
-                              {sources.map(src => (
-                                <td key={src} className="px-3 py-1.5 text-center border border-gray-200 text-primary">
-                                  {tafts.reduce((s, taft) => s + (taftMap[taft]?.[src] || 0), 0)}
-                                </td>
-                              ))}
-                              <td className="px-3 py-1.5 text-center border border-gray-200 text-primary">
-                                {tafts.reduce((s, taft) => s + sources.reduce((ss, src) => ss + (taftMap[taft]?.[src] || 0), 0), 0)}
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
+                                  <tr className="bg-primary/10 font-bold">
+                                    <td className="px-3 py-2 border border-gray-200">TOTAL</td>
+                                    {storeTrafficMatrix.sources.map(src => {
+                                      const colTotal = storeTrafficMatrix.stores.reduce((s, store) => s + (storeTrafficMatrix.map[store]?.[src] || 0), 0);
+                                      return (
+                                        <td key={src} className="px-3 py-2 text-center border border-gray-200 text-primary">{colTotal}</td>
+                                      );
+                                    })}
+                                    <td className="px-3 py-2 text-center border border-gray-200 text-primary">
+                                      {storeTrafficMatrix.stores.reduce((s, store) =>
+                                        s + storeTrafficMatrix.sources.reduce((ss, src) => ss + (storeTrafficMatrix.map[store]?.[src] || 0), 0), 0)}
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      {/* ── DAILY VIEW ── */}
+                      {chartView === "daily" && (
+                        <>
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-1">Tren Traffic Source Harian (Top 6)</h3>
+                            <p className="text-xs text-gray-400 mb-4">Jumlah pengunjung per sumber traffic per hari</p>
+                            <ResponsiveContainer width="100%" height={320}>
+                              <LineChart data={dailyTrafficChartData.chartData}
+                                margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }}
+                                  angle={-40} textAnchor="end"
+                                  interval={Math.max(0, Math.floor(dailyTrafficChartData.chartData.length / 15))} />
+                                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
+                                <Tooltip content={<DarkTooltip />} />
+                                <Legend wrapperStyle={{ fontSize: 10, paddingTop: 8 }} />
+                                {dailyTrafficChartData.top6.map((t, i) => (
+                                  <Line key={t} type="monotone" dataKey={t}
+                                    stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} />
+                                ))}
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-1">Tren Traffic Harian per Store</h3>
+                            <p className="text-xs text-gray-400 mb-4">Jumlah pengunjung per hari berdasarkan store</p>
+                            <ResponsiveContainer width="100%" height={300}>
+                              <LineChart data={dailyStoreChartData.chartData}
+                                margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }}
+                                  angle={-40} textAnchor="end"
+                                  interval={Math.max(0, Math.floor(dailyStoreChartData.chartData.length / 15))} />
+                                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
+                                <Tooltip content={<DarkTooltip />} />
+                                <Legend wrapperStyle={{ fontSize: 10, paddingTop: 8 }} />
+                                {dailyStoreChartData.storeNames.map((s, i) => (
+                                  <Line key={s} type="monotone" dataKey={s}
+                                    stroke={COLORS[(i + 5) % COLORS.length]} strokeWidth={2} dot={false} />
+                                ))}
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+
+                          {/* Summary table traffic source */}
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-3">Ringkasan Traffic Source</h3>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="bg-gray-50 border-b">
+                                    <th className="px-3 py-2 text-left font-semibold text-gray-700">Traffic Source</th>
+                                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Jumlah</th>
+                                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Persentase</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {(() => {
+                                    const total = trafficChartData.reduce((s, d) => s + d.value, 0);
+                                    return trafficChartData.map((t, i) => (
+                                      <tr key={i} className="border-b hover:bg-gray-50">
+                                        <td className="px-3 py-2 flex items-center gap-2">
+                                          <span className="w-2 h-2 rounded-full flex-shrink-0"
+                                            style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                                          {t.name}
+                                        </td>
+                                        <td className="px-3 py-2 text-right font-medium">{t.value}</td>
+                                        <td className="px-3 py-2 text-right text-gray-500">
+                                          {total ? `${((t.value / total) * 100).toFixed(1)}%` : "-"}
+                                        </td>
+                                      </tr>
+                                    ));
+                                  })()}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </>
+                      )}
+
                     </div>
-                  );
-                })}
+                  )}
+                </div>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>
@@ -700,16 +1047,10 @@ export default function TrafficStorePage() {
               <label className="block text-xs font-medium text-gray-700 mb-1">
                 Case <span className="text-red-500">*</span>
               </label>
-              <select
-                value={form.case}
-                onChange={e => setForm(f => ({ ...f, case: e.target.value }))}
+              <select value={form.case} onChange={e => setForm(f => ({ ...f, case: e.target.value }))}
                 disabled={!form.intention}
                 className={`w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary
-                  ${!form.intention
-                    ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
-                    : "bg-white border-gray-300"
-                  }`}
-              >
+                  ${!form.intention ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed" : "bg-white border-gray-300"}`}>
                 <option value="">
                   {!form.intention ? "Pilih Intensi terlebih dahulu" : "-- Pilih Case --"}
                 </option>
