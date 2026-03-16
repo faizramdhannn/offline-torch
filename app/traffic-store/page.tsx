@@ -838,20 +838,20 @@ export default function TrafficStorePage() {
                 ) : (
                   <>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
+                      <table className="w-full text-[11px]">
                         <thead>
                           <tr className="bg-gray-50 border-b">
-                            <th className="px-3 py-2 text-left font-semibold text-gray-700">Tanggal</th>
-                            {!isStoreUser && <th className="px-3 py-2 text-left font-semibold text-gray-700">Store</th>}
-                            <th className="px-3 py-2 text-left font-semibold text-gray-700">Taft</th>
-                            <th className="px-3 py-2 text-left font-semibold text-gray-700">Beli?</th>
-                            <th className="px-3 py-2 text-left font-semibold text-gray-700">Traffic Source</th>
-                            <th className="px-3 py-2 text-left font-semibold text-gray-700">Detail</th>
-                            <th className="px-3 py-2 text-left font-semibold text-gray-700">Brand</th>
-                            <th className="px-3 py-2 text-left font-semibold text-gray-700">Intensi</th>
-                            <th className="px-3 py-2 text-left font-semibold text-gray-700">Case</th>
-                            <th className="px-3 py-2 text-left font-semibold text-gray-700">Notes</th>
-                            {user?.traffic_store && <th className="px-3 py-2 text-center font-semibold text-gray-700">Aksi</th>}
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Tanggal</th>
+                            {!isStoreUser && <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Store</th>}
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Taft</th>
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Beli?</th>
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Traffic Source</th>
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Detail</th>
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Brand</th>
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Intensi</th>
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Case</th>
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Notes</th>
+                            {user?.traffic_store && <th className="px-2 py-1.5 text-center font-semibold text-gray-700">Aksi</th>}
                           </tr>
                         </thead>
                         <tbody>
@@ -866,11 +866,11 @@ export default function TrafficStorePage() {
                               : "";
                             return (
                               <tr key={row.id || i} className="border-b hover:bg-gray-50">
-                                <td className="px-3 py-2 whitespace-nowrap text-gray-500">{formatDate(row.created_at)}</td>
-                                {!isStoreUser && <td className="px-3 py-2 font-medium">{toTitleCase(row.store_location)}</td>}
-                                <td className="px-3 py-2">{row.taft_name}</td>
-                                <td className="px-3 py-2">
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                <td className="px-2 py-1 whitespace-nowrap text-gray-500">{formatDate(row.created_at)}</td>
+                                {!isStoreUser && <td className="px-2 py-1 font-medium">{toTitleCase(row.store_location)}</td>}
+                                <td className="px-2 py-1">{row.taft_name}</td>
+                                <td className="px-2 py-1">
+                                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
                                     row.customer_convert === "Beli"
                                       ? "bg-green-50 text-green-700"
                                       : row.customer_convert === "Tidak Beli"
@@ -880,25 +880,25 @@ export default function TrafficStorePage() {
                                     {row.customer_convert || "-"}
                                   </span>
                                 </td>
-                                <td className="px-3 py-2">
-                                  <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-medium">
+                                <td className="px-2 py-1">
+                                  <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-medium">
                                     {row.traffic_source}
                                   </span>
                                 </td>
-                                <td className="px-3 py-2 text-gray-500">{detail || "-"}</td>
-                                <td className="px-3 py-2 text-gray-500">{row.brand_competitor || "-"}</td>
-                                <td className="px-3 py-2 text-gray-600">{row.intention || "-"}</td>
-                                <td className="px-3 py-2 text-gray-600">{row.case || "-"}</td>
-                                <td className="px-3 py-2 text-gray-500 max-w-[140px] truncate">{row.notes || "-"}</td>
+                                <td className="px-2 py-1 text-gray-500">{detail || "-"}</td>
+                                <td className="px-2 py-1 text-gray-500">{row.brand_competitor || "-"}</td>
+                                <td className="px-2 py-1 text-gray-600">{row.intention || "-"}</td>
+                                <td className="px-2 py-1 text-gray-600">{row.case || "-"}</td>
+                                <td className="px-2 py-1 text-gray-500 max-w-[120px] truncate">{row.notes || "-"}</td>
                                 {user?.traffic_store && (
-                                  <td className="px-3 py-2 text-center">
+                                  <td className="px-2 py-1 text-center">
                                     <div className="flex items-center justify-center gap-1">
                                       <button onClick={() => openEdit(row)}
-                                        className="px-2 py-1 text-[10px] bg-blue-50 text-blue-600 rounded hover:bg-blue-100">
+                                        className="px-1.5 py-0.5 text-[10px] bg-blue-50 text-blue-600 rounded hover:bg-blue-100">
                                         Edit
                                       </button>
                                       <button onClick={() => handleDelete(row.id)}
-                                        className="px-2 py-1 text-[10px] bg-red-50 text-red-600 rounded hover:bg-red-100">
+                                        className="px-1.5 py-0.5 text-[10px] bg-red-50 text-red-600 rounded hover:bg-red-100">
                                         Hapus
                                       </button>
                                     </div>
