@@ -49,7 +49,7 @@ export default function RequestStorePage() {
   const [submitting, setSubmitting] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
 
   // File refs
   const addFileRef = useRef<HTMLInputElement>(null);
@@ -149,13 +149,6 @@ export default function RequestStorePage() {
         body: JSON.stringify(params),
       });
     } catch {}
-  };
-
-  // ─── Extract Google Drive file ID from URL ────────────────────────────────
-  const getDriveFileId = (url: string): string | null => {
-    if (!url) return null;
-    const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-    return match ? match[1] : null;
   };
 
   // ─── Status Change ────────────────────────────────────────────────────────
@@ -261,8 +254,6 @@ export default function RequestStorePage() {
       const res = await fetch("/api/request-store", { method: "PUT", body: fd });
 
       if (res.ok) {
-        const result = await res.json();
-
         if (editForm.status === "Completed" && selectedItem.status !== "Completed") {
           await sendPushNotification({
             requesterUsername: selectedItem.created_by,
@@ -393,20 +384,20 @@ export default function RequestStorePage() {
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-[11px] table-fixed">
                     <thead className="bg-gray-100 border-b">
                       <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">Date</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">Requester</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-28">Assigned To</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-36">Reason</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">SO</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">DN</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-24">SI</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Notes</th>
-                        <th className="px-3 py-2 text-center font-semibold text-gray-700 w-12">Foto</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-32">Status</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 w-20">Action</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[88px]">Date</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[108px]">Requester</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[96px]">Assigned To</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[110px]">Reason</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[120px]">SO</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[110px]">DN</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[110px]">SI</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[140px]">Notes</th>
+                        <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-[36px]">Foto</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[130px]">Status</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[80px]">Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -415,26 +406,26 @@ export default function RequestStorePage() {
                           key={item.id}
                           className={`border-b ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}
                         >
-                          <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{item.date}</td>
-                          <td className="px-3 py-2 text-gray-700">{item.requester}</td>
-                          <td className="px-3 py-2 text-gray-700">{item.assigned_to}</td>
-                          <td className="px-3 py-2 text-gray-700">{item.reason_request}</td>
-                          <td className="px-3 py-2 text-gray-600 font-mono text-[10px]">{item.sales_order || "-"}</td>
-                          <td className="px-3 py-2 text-gray-600 font-mono text-[10px]">{item.delivery_note || "-"}</td>
-                          <td className="px-3 py-2 text-gray-600 font-mono text-[10px]">{item.sales_invoice || "-"}</td>
-                          <td className="px-3 py-2 text-gray-600 max-w-[120px] truncate" title={item.notes}>
+                          <td className="px-2 py-1 text-gray-600 whitespace-nowrap">{item.date}</td>
+                          <td className="px-2 py-1 text-gray-700">{item.requester}</td>
+                          <td className="px-2 py-1 text-gray-700">{item.assigned_to}</td>
+                          <td className="px-2 py-1 text-gray-700">{item.reason_request}</td>
+                          <td className="px-2 py-1 text-gray-600 font-mono text-[10px]">{item.sales_order || "-"}</td>
+                          <td className="px-2 py-1 text-gray-600 font-mono text-[10px]">{item.delivery_note || "-"}</td>
+                          <td className="px-2 py-1 text-gray-600 font-mono text-[10px]">{item.sales_invoice || "-"}</td>
+                          <td className="px-2 py-1 text-gray-600 truncate overflow-hidden max-w-[140px]" title={item.notes}>
                             {item.notes || "-"}
                           </td>
-                          <td className="px-3 py-2 text-center">
+                          <td className="px-2 py-1 text-center">
                             {item.image_url ? (
                               <a
                                 href={item.image_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors"
+                                className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors"
                                 title="Lihat foto"
                               >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                                     d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
@@ -443,13 +434,13 @@ export default function RequestStorePage() {
                               <span className="text-gray-300">—</span>
                             )}
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-2 py-1">
                             {canEdit ? (
                               <div className="flex gap-1">
                                 <button
                                   onClick={() => item.status !== "Pending" && handleStatusChange(item, "Pending")}
                                   disabled={updatingStatus === item.id || item.status === "Pending"}
-                                  className={`px-2 py-0.5 rounded text-xs font-medium transition-all ${
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
                                     item.status === "Pending"
                                       ? "bg-yellow-100 text-yellow-800 ring-1 ring-yellow-400 cursor-default"
                                       : "bg-gray-100 text-gray-400 hover:bg-yellow-50 hover:text-yellow-700 cursor-pointer"
@@ -460,7 +451,7 @@ export default function RequestStorePage() {
                                 <button
                                   onClick={() => item.status !== "Completed" && handleStatusChange(item, "Completed")}
                                   disabled={updatingStatus === item.id || item.status === "Completed"}
-                                  className={`px-2 py-0.5 rounded text-xs font-medium transition-all ${
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
                                     item.status === "Completed"
                                       ? "bg-green-100 text-green-800 ring-1 ring-green-400 cursor-default"
                                       : "bg-gray-100 text-gray-400 hover:bg-green-50 hover:text-green-700 cursor-pointer"
@@ -471,7 +462,7 @@ export default function RequestStorePage() {
                               </div>
                             ) : (
                               <span
-                                className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                                   item.status === "Completed"
                                     ? "bg-green-100 text-green-800"
                                     : "bg-yellow-100 text-yellow-800"
@@ -481,12 +472,12 @@ export default function RequestStorePage() {
                               </span>
                             )}
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-2 py-1">
                             <div className="flex gap-1">
                               {canEdit && (
                                 <button
                                   onClick={() => openEdit(item)}
-                                  className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+                                  className="px-1.5 py-0.5 bg-blue-500 text-white rounded text-[10px] hover:bg-blue-600"
                                 >
                                   Edit
                                 </button>
@@ -494,7 +485,7 @@ export default function RequestStorePage() {
                               {item.created_by === user.user_name && item.status === "Pending" && (
                                 <button
                                   onClick={() => handleDelete(item)}
-                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+                                  className="px-1.5 py-0.5 bg-red-500 text-white rounded text-[10px] hover:bg-red-600"
                                 >
                                   Cancel
                                 </button>
@@ -511,29 +502,44 @@ export default function RequestStorePage() {
                 </div>
 
                 {totalPages > 1 && (
-                  <div className="flex justify-between items-center px-4 py-3 border-t">
-                    <div className="text-xs text-gray-600">
+                  <div className="flex justify-between items-center px-4 py-2.5 border-t">
+                    <div className="text-xs text-gray-500">
                       Showing {indexOfFirst + 1} to {Math.min(indexOfLast, data.length)} of {data.length} entries
                     </div>
                     <div className="flex gap-1">
-                      <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}
-                        className="px-3 py-1 text-xs border rounded disabled:opacity-50 hover:bg-gray-50">Previous</button>
+                      <button
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-2.5 py-1 text-xs border rounded disabled:opacity-40 hover:bg-gray-50"
+                      >
+                        Previous
+                      </button>
                       {[...Array(totalPages)].map((_, i) => {
                         const page = i + 1;
                         if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
                           return (
-                            <button key={page} onClick={() => setCurrentPage(page)}
-                              className={`px-3 py-1 text-xs border rounded ${currentPage === page ? "bg-primary text-white" : "hover:bg-gray-50"}`}>
+                            <button
+                              key={page}
+                              onClick={() => setCurrentPage(page)}
+                              className={`px-2.5 py-1 text-xs border rounded ${
+                                currentPage === page ? "bg-primary text-white border-primary" : "hover:bg-gray-50"
+                              }`}
+                            >
                               {page}
                             </button>
                           );
                         } else if (page === currentPage - 2 || page === currentPage + 2) {
-                          return <span key={page} className="px-2 text-xs">...</span>;
+                          return <span key={page} className="px-1.5 text-xs text-gray-400 self-center">…</span>;
                         }
                         return null;
                       })}
-                      <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-                        className="px-3 py-1 text-xs border rounded disabled:opacity-50 hover:bg-gray-50">Next</button>
+                      <button
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-2.5 py-1 text-xs border rounded disabled:opacity-40 hover:bg-gray-50"
+                      >
+                        Next
+                      </button>
                     </div>
                   </div>
                 )}
@@ -578,7 +584,6 @@ export default function RequestStorePage() {
                   {dropdownData.reasons.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
-              {/* Doc fields */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-2">Dokumen Referensi</label>
                 {renderDocFields(
@@ -586,14 +591,11 @@ export default function RequestStorePage() {
                   (k, v) => setForm((prev) => ({ ...prev, [k]: v }))
                 )}
               </div>
-
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
                 <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
               </div>
-
-              {/* Image upload */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Foto</label>
                 <input
@@ -608,7 +610,6 @@ export default function RequestStorePage() {
                 )}
               </div>
             </div>
-
             <div className="flex gap-2 mt-5">
               <button onClick={() => { setShowAddModal(false); resetAddForm(); }}
                 className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">Cancel</button>
@@ -656,7 +657,6 @@ export default function RequestStorePage() {
                   {dropdownData.reasons.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
-              {/* Doc fields */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-2">Dokumen Referensi</label>
                 {renderDocFields(
@@ -664,13 +664,11 @@ export default function RequestStorePage() {
                   (k, v) => setEditForm((prev) => ({ ...prev, [k]: v }))
                 )}
               </div>
-
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
                 <textarea value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} rows={2}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
               </div>
-
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
                 <select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
@@ -679,8 +677,6 @@ export default function RequestStorePage() {
                   <option value="Completed">Completed</option>
                 </select>
               </div>
-
-              {/* Image upload */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Foto</label>
                 {editForm.image_url && !editImageFile && (
@@ -708,10 +704,13 @@ export default function RequestStorePage() {
                 <p className="text-[10px] text-gray-400 mt-1">Upload foto baru untuk mengganti foto lama.</p>
               </div>
             </div>
-
             <div className="flex gap-2 mt-5">
-              <button onClick={() => { setShowEditModal(false); setSelectedItem(null); setEditImageFile(null); if (editFileRef.current) editFileRef.current.value = ""; }}
-                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">Cancel</button>
+              <button
+                onClick={() => { setShowEditModal(false); setSelectedItem(null); setEditImageFile(null); if (editFileRef.current) editFileRef.current.value = ""; }}
+                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
+              >
+                Cancel
+              </button>
               <button onClick={handleEdit} disabled={submitting}
                 className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">
                 {submitting ? "Saving..." : "Save"}
