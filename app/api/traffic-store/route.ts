@@ -104,13 +104,13 @@ export async function GET(request: NextRequest) {
 }
 
 // POST: add new traffic entry
-// Sheet columns: id | store_location | taft_name | customer_convert | traffic_source | wag_addition | eiger_addition | brand_competitor | intention | case | notes | created_at | update_at
+// Sheet columns: id | store_location | taft_name | customer_convert | traffic_source | wag_addition | eiger_addition | organic_addition | brand_competitor | intention | case | notes | created_at | update_at
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const {
       store_location, taft_name, customer_convert, traffic_source,
-      wag_addition, eiger_addition, brand_competitor,
+      wag_addition, eiger_addition, organic_addition, brand_competitor,
       intention, case: caseVal, notes, created_by,
     } = body;
 
@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
     // Conditional additions — only fill if relevant traffic_source
     const wagVal = traffic_source === 'Whatsapp Group' ? (wag_addition || '') : '';
     const eigerVal = traffic_source === 'Dari Eiger' ? (eiger_addition || '') : '';
+    const organicVal = traffic_source === 'Traffic Organic/Walk In' ? (organic_addition || '') : '';
 
     const newRow = [
       id,
@@ -133,6 +134,7 @@ export async function POST(request: NextRequest) {
       traffic_source,
       wagVal,
       eigerVal,
+      organicVal,
       brand_competitor || '',
       intention || '',
       caseVal || '',
@@ -156,7 +158,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const {
       id, store_location, taft_name, customer_convert, traffic_source,
-      wag_addition, eiger_addition, brand_competitor,
+      wag_addition, eiger_addition, organic_addition, brand_competitor,
       intention, case: caseVal, notes,
     } = body;
 
@@ -173,6 +175,7 @@ export async function PUT(request: NextRequest) {
     const newTrafficSource = traffic_source ?? existing.traffic_source;
     const wagVal = newTrafficSource === 'Whatsapp Group' ? (wag_addition ?? existing.wag_addition ?? '') : '';
     const eigerVal = newTrafficSource === 'Dari Eiger' ? (eiger_addition ?? existing.eiger_addition ?? '') : '';
+    const organicVal = newTrafficSource === 'Traffic Organic/Walk In' ? (organic_addition ?? existing.organic_addition ?? '') : '';
 
     const updatedRow = [
       id,
@@ -182,6 +185,7 @@ export async function PUT(request: NextRequest) {
       newTrafficSource,
       wagVal,
       eigerVal,
+      organicVal,
       brand_competitor ?? existing.brand_competitor ?? '',
       intention ?? existing.intention,
       caseVal ?? existing.case,
@@ -210,7 +214,7 @@ export async function DELETE(request: NextRequest) {
     if (idx === -1) return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
 
     const rowIndex = idx + 2;
-    await updateTrafficRow('traffic_source', rowIndex, Array(13).fill(''));
+    await updateTrafficRow('traffic_source', rowIndex, Array(14).fill(''));
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting traffic entry:', error);

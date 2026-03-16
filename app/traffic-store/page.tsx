@@ -19,6 +19,7 @@ interface TrafficEntry {
   traffic_source: string;
   wag_addition: string;
   eiger_addition: string;
+  organic_addition: string;
   brand_competitor: string;
   intention: string;
   case: string;
@@ -35,6 +36,7 @@ interface MasterRow {
   case: string;
   wag_addition: string;
   eiger_addition: string;
+  organic_addition: string;
   brand_competitor: string;
 }
 
@@ -158,6 +160,7 @@ const EMPTY_FORM = {
   traffic_source: "",
   wag_addition: "",
   eiger_addition: "",
+  organic_addition: "",
   brand_competitor: "",
   brand_custom: "",
   intention: "",
@@ -232,12 +235,14 @@ function exportReportXLSX(
   wsConv["!cols"] = [{ wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }];
   XLSX.utils.book_append_sheet(wb, wsConv, "Konversi per Store");
 
-  // Sheet 4: WAG & Eiger Additions
+  // Sheet 4: WAG, Eiger & Organic Additions
   const wagMap: Record<string, number> = {};
   const eigerMap: Record<string, number> = {};
+  const organicMap: Record<string, number> = {};
   filteredData.forEach(r => {
     if (r.wag_addition) wagMap[r.wag_addition] = (wagMap[r.wag_addition] || 0) + 1;
     if (r.eiger_addition) eigerMap[r.eiger_addition] = (eigerMap[r.eiger_addition] || 0) + 1;
+    if (r.organic_addition) organicMap[r.organic_addition] = (organicMap[r.organic_addition] || 0) + 1;
   });
   const addRows = [
     ["WAG Addition", "Jumlah"],
@@ -245,10 +250,13 @@ function exportReportXLSX(
     [],
     ["Eiger Addition", "Jumlah"],
     ...Object.entries(eigerMap).sort((a, b) => b[1] - a[1]),
+    [],
+    ["Organic Addition", "Jumlah"],
+    ...Object.entries(organicMap).sort((a, b) => b[1] - a[1]),
   ];
   const wsAdd = XLSX.utils.aoa_to_sheet(addRows);
   wsAdd["!cols"] = [{ wch: 30 }, { wch: 10 }];
-  XLSX.utils.book_append_sheet(wb, wsAdd, "WAG & Eiger");
+  XLSX.utils.book_append_sheet(wb, wsAdd, "WAG, Eiger & Organic");
 
   // Sheet 5: Brand Competitor
   const brandMap: Record<string, number> = {};
@@ -284,7 +292,7 @@ function exportReportXLSX(
   XLSX.utils.book_append_sheet(wb, wsDaily, "Daily Trend");
 
   // Sheet 7: Raw Data
-  const rawHeader = ["Tanggal", "Store", "Taft", "Beli?", "Traffic Source", "WAG Addition", "Eiger Addition", "Brand Competitor", "Intensi", "Case", "Notes"];
+  const rawHeader = ["Tanggal", "Store", "Taft", "Beli?", "Traffic Source", "WAG Addition", "Eiger Addition", "Organic Addition", "Brand Competitor", "Intensi", "Case", "Notes"];
   const rawRows = filteredData.map(r => [
     formatDate(r.created_at),
     toTitleCase(r.store_location),
@@ -293,13 +301,14 @@ function exportReportXLSX(
     r.traffic_source,
     r.wag_addition,
     r.eiger_addition,
+    r.organic_addition,
     r.brand_competitor,
     r.intention,
     r.case,
     r.notes,
   ]);
   const wsRaw = XLSX.utils.aoa_to_sheet([rawHeader, ...rawRows]);
-  wsRaw["!cols"] = [{ wch: 20 }, { wch: 16 }, { wch: 20 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 30 }];
+  wsRaw["!cols"] = [{ wch: 20 }, { wch: 16 }, { wch: 20 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 30 }];
   XLSX.utils.book_append_sheet(wb, wsRaw, "Raw Data");
 
   const filename = `Traffic_Store_Report_${dateLabel || Date.now()}.xlsx`;
@@ -411,6 +420,11 @@ export default function TrafficStorePage() {
     () => [...new Set(master.map(m => m.eiger_addition).filter(Boolean))],
     [master]
   );
+  // ── NEW: organic additions from master ──
+  const organicAdditions = useMemo(
+    () => [...new Set(master.map(m => m.organic_addition).filter(Boolean))],
+    [master]
+  );
   const brandCompetitors = useMemo(
     () => [...new Set(master.map(m => m.brand_competitor).filter(Boolean))],
     [master]
@@ -489,6 +503,13 @@ export default function TrafficStorePage() {
   const eigerChartData = useMemo(() => {
     const map: Record<string, number> = {};
     fd.forEach(r => { if (r.eiger_addition) map[r.eiger_addition] = (map[r.eiger_addition] || 0) + 1; });
+    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [fd]);
+
+  // ── NEW: organic chart data ──
+  const organicChartData = useMemo(() => {
+    const map: Record<string, number> = {};
+    fd.forEach(r => { if (r.organic_addition) map[r.organic_addition] = (map[r.organic_addition] || 0) + 1; });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [fd]);
 
@@ -608,6 +629,7 @@ export default function TrafficStorePage() {
       traffic_source: entry.traffic_source,
       wag_addition: entry.wag_addition || "",
       eiger_addition: entry.eiger_addition || "",
+      organic_addition: entry.organic_addition || "",
       brand_competitor: isCustomBrand ? "Lainnya" : (entry.brand_competitor || ""),
       brand_custom: isCustomBrand ? entry.brand_competitor : "",
       intention: entry.intention,
@@ -618,9 +640,18 @@ export default function TrafficStorePage() {
   };
 
   const handleSave = async () => {
+    // Validate mandatory fields including organic_addition when relevant
+    const needsWag = form.traffic_source === "Whatsapp Group" && !form.wag_addition;
+    const needsEiger = form.traffic_source === "Dari Eiger" && !form.eiger_addition;
+    const needsOrganic = form.traffic_source === "Traffic Organic/Walk In" && !form.organic_addition;
+
     if (!form.taft_name || !form.traffic_source || !form.intention || !form.case || !form.customer_convert) {
       showMessage("Taft, Status Beli, Traffic Source, Intensi, dan Case wajib diisi", "error"); return;
     }
+    if (needsWag) { showMessage("Pilih WAG Addition terlebih dahulu", "error"); return; }
+    if (needsEiger) { showMessage("Pilih Eiger Addition terlebih dahulu", "error"); return; }
+    if (needsOrganic) { showMessage("Pilih Organic Addition terlebih dahulu", "error"); return; }
+
     setSaving(true);
     try {
       const storeLocation = userStore || (filterStore !== "all" ? filterStore : "");
@@ -673,11 +704,11 @@ export default function TrafficStorePage() {
   };
 
   const exportList = () => {
-    const headers = ["ID", "Store", "Taft", "Beli?", "Traffic Source", "WAG Addition", "Eiger Addition", "Brand Competitor", "Intensi", "Case", "Notes", "Tanggal"];
+    const headers = ["ID", "Store", "Taft", "Beli?", "Traffic Source", "WAG Addition", "Eiger Addition", "Organic Addition", "Brand Competitor", "Intensi", "Case", "Notes", "Tanggal"];
     const rows = fd.map(r => [
       r.id, r.store_location, r.taft_name, r.customer_convert,
-      r.traffic_source, r.wag_addition, r.eiger_addition, r.brand_competitor,
-      r.intention, r.case, r.notes, formatDate(r.created_at),
+      r.traffic_source, r.wag_addition, r.eiger_addition, r.organic_addition,
+      r.brand_competitor, r.intention, r.case, r.notes, formatDate(r.created_at),
     ]);
     const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -825,10 +856,13 @@ export default function TrafficStorePage() {
                         </thead>
                         <tbody>
                           {paginated.map((row, i) => {
+                            // ── updated detail logic to include organic ──
                             const detail = row.traffic_source === "Whatsapp Group"
                               ? row.wag_addition
                               : row.traffic_source === "Dari Eiger"
                               ? row.eiger_addition
+                              : row.traffic_source === "Traffic Organic/Walk In"
+                              ? row.organic_addition
                               : "";
                             return (
                               <tr key={row.id || i} className="border-b hover:bg-gray-50">
@@ -1060,29 +1094,30 @@ export default function TrafficStorePage() {
                             </ResponsiveContainer>
                           </div>
 
-                          {/* Brand Competitor */}
-                          {brandChartData.length > 0 && (
+                          {/* Brand Competitor + WAG/Eiger/Organic Additions */}
+                          {(brandChartData.length > 0 || wagChartData.length > 0 || eigerChartData.length > 0 || organicChartData.length > 0) && (
                             <div className="grid grid-cols-2 gap-8">
-                              <div>
-                                <h3 className="text-sm font-semibold text-gray-700 mb-4">Brand Competitor (Pernah Beli Di)</h3>
-                                <ResponsiveContainer width="100%" height={260}>
-                                  <BarChart data={brandChartData.slice(0, 10)}
-                                    layout="vertical" margin={{ top: 4, right: 40, left: 8, bottom: 4 }}>
-                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
-                                    <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }} />
-                                    <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#6b7280" }} width={100} />
-                                    <Tooltip content={<DarkTooltip />} />
-                                    <Bar dataKey="value" name="Jumlah" radius={[0, 4, 4, 0]} maxBarSize={20}
-                                      label={{ position: "right", fontSize: 9, fill: "#6b7280" }}>
-                                      {brandChartData.map((_, i) => (
-                                        <Cell key={i} fill={COLORS[(i + 8) % COLORS.length]} />
-                                      ))}
-                                    </Bar>
-                                  </BarChart>
-                                </ResponsiveContainer>
-                              </div>
+                              {brandChartData.length > 0 && (
+                                <div>
+                                  <h3 className="text-sm font-semibold text-gray-700 mb-4">Brand Competitor (Pernah Beli Di)</h3>
+                                  <ResponsiveContainer width="100%" height={260}>
+                                    <BarChart data={brandChartData.slice(0, 10)}
+                                      layout="vertical" margin={{ top: 4, right: 40, left: 8, bottom: 4 }}>
+                                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
+                                      <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }} />
+                                      <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#6b7280" }} width={100} />
+                                      <Tooltip content={<DarkTooltip />} />
+                                      <Bar dataKey="value" name="Jumlah" radius={[0, 4, 4, 0]} maxBarSize={20}
+                                        label={{ position: "right", fontSize: 9, fill: "#6b7280" }}>
+                                        {brandChartData.map((_, i) => (
+                                          <Cell key={i} fill={COLORS[(i + 8) % COLORS.length]} />
+                                        ))}
+                                      </Bar>
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              )}
 
-                              {/* WAG + Eiger additions */}
                               <div className="space-y-6">
                                 {wagChartData.length > 0 && (
                                   <div>
@@ -1116,6 +1151,27 @@ export default function TrafficStorePage() {
                                             <span className="text-xs text-gray-600 w-32 truncate">{d.name}</span>
                                             <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
                                               <div className="h-3 rounded-full" style={{ width: `${pct}%`, backgroundColor: COLORS[(i + 4) % COLORS.length] }} />
+                                            </div>
+                                            <span className="text-xs font-semibold text-gray-700 w-8 text-right">{d.value}</span>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                                {/* ── NEW: organic detail ── */}
+                                {organicChartData.length > 0 && (
+                                  <div>
+                                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Traffic Organic/Walk In</h3>
+                                    <div className="space-y-1.5">
+                                      {organicChartData.map((d, i) => {
+                                        const organicTotal = organicChartData.reduce((s, x) => s + x.value, 0);
+                                        const pct = organicTotal ? ((d.value / organicTotal) * 100).toFixed(0) : 0;
+                                        return (
+                                          <div key={i} className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-600 w-32 truncate">{d.name}</span>
+                                            <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
+                                              <div className="h-3 rounded-full" style={{ width: `${pct}%`, backgroundColor: COLORS[(i + 12) % COLORS.length] }} />
                                             </div>
                                             <span className="text-xs font-semibold text-gray-700 w-8 text-right">{d.value}</span>
                                           </div>
@@ -1371,7 +1427,13 @@ export default function TrafficStorePage() {
                 Traffic Source <span className="text-red-500">*</span>
               </label>
               <select value={form.traffic_source}
-                onChange={e => setForm(f => ({ ...f, traffic_source: e.target.value, wag_addition: "", eiger_addition: "" }))}
+                onChange={e => setForm(f => ({
+                  ...f,
+                  traffic_source: e.target.value,
+                  wag_addition: "",
+                  eiger_addition: "",
+                  organic_addition: "",
+                }))}
                 className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary">
                 <option value="">-- Pilih Traffic Source --</option>
                 {trafficSources.map(s => <option key={s} value={s}>{s}</option>)}
@@ -1396,12 +1458,26 @@ export default function TrafficStorePage() {
             {form.traffic_source === "Dari Eiger" && (
               <div className="mb-3 pl-3 border-l-2 border-purple-200">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Karena Apa ?<span className="text-red-500">*</span>
+                  Karena Apa? <span className="text-red-500">*</span>
                 </label>
                 <select value={form.eiger_addition} onChange={e => setForm(f => ({ ...f, eiger_addition: e.target.value }))}
                   className="w-full px-2 py-1.5 border border-purple-200 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-purple-400">
                   <option value="">-- Pilih Eiger --</option>
                   {eigerAdditions.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            )}
+
+            {/* ── NEW: Organic Addition (conditional) ── */}
+            {form.traffic_source === "Traffic Organic/Walk In" && (
+              <div className="mb-3 pl-3 border-l-2 border-green-200">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Karena Apa? <span className="text-red-500">*</span>
+                </label>
+                <select value={form.organic_addition} onChange={e => setForm(f => ({ ...f, organic_addition: e.target.value }))}
+                  className="w-full px-2 py-1.5 border border-green-200 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-green-400">
+                  <option value="">-- Pilih Organic --</option>
+                  {organicAdditions.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
             )}
