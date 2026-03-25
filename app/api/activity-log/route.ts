@@ -70,7 +70,7 @@ async function cleanOldLogs() {
   try {
     const data = await getSheetData('activity_log');
     const now = new Date();
-    const tenDaysAgo = new Date(now.getTime() - (10 * 24 * 60 * 60 * 1000));
+    const tenDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
 
     const recentLogs = data.filter((log: any) => {
       try {
@@ -109,7 +109,7 @@ async function cleanOldLogs() {
       
       console.log(`✅ Activity log cleaned: ${deletedCount} rows deleted, ${recentLogs.length} rows remaining`);
     } else {
-      console.log(`✓ Activity log clean: all ${data.length} entries are recent (< 10 days)`);
+      console.log(`✓ Activity log clean: all ${data.length} entries are recent (< 30 days)`);
     }
   } catch (error) {
     console.error('❌ Error cleaning old logs:', error);
