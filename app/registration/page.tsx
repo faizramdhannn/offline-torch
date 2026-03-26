@@ -16,25 +16,13 @@ export default function RegistrationPage() {
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
+  const [activeFilter, setActiveFilter] = useState<"pending" | "all">("pending");
   const [permissions, setPermissions] = useState({
     dashboard: false,
     order_report: false,
-    stock: false,
-    registration_request: false,
-    user_setting: false,
-    petty_cash: false,
-    petty_cash_add: false,
-    petty_cash_export: false,
-    petty_cash_balance: false,
     order_report_import: false,
     order_report_export: false,
-    customer: false,
-    voucher: false,
-    bundling: false,
-    canvasing: false,
-    canvasing_export: false,
-    stock_opname: false,
-    // Stock permissions
+    stock: false,
     stock_import: false,
     stock_export: false,
     stock_view_store: false,
@@ -44,19 +32,30 @@ export default function RegistrationPage() {
     stock_view_hpt: false,
     stock_view_hpj: false,
     stock_refresh_javelin: false,
+    stock_opname: false,
+    petty_cash: false,
+    petty_cash_add: false,
+    petty_cash_export: false,
+    petty_cash_balance: false,
+    customer: false,
+    voucher: false,
+    bundling: false,
+    canvasing: false,
+    canvasing_export: false,
+    request: false,
+    edit_request: false,
+    analytics_order: false,
+    traffic_store: false,
+    report_store: false,
+    registration_request: false,
+    user_setting: false,
   });
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
-    if (!userData) {
-      router.push("/login");
-      return;
-    }
+    if (!userData) { router.push("/login"); return; }
     const parsedUser = JSON.parse(userData);
-    if (!parsedUser.registration_request) {
-      router.push("/dashboard");
-      return;
-    }
+    if (!parsedUser.registration_request) { router.push("/dashboard"); return; }
     setUser(parsedUser);
     fetchData();
   }, []);
@@ -83,8 +82,8 @@ export default function RegistrationPage() {
     try {
       const response = await fetch("/api/registration");
       const result = await response.json();
-      const filteredData = result.filter((req: RegistrationRequest) => req.status !== "approved");
-      setData(filteredData);
+      // Show ALL registrations — filter by tab
+      setData(Array.isArray(result) ? result : []);
     } catch (error) {
       showMessage("Failed to fetch data", "error");
     } finally {
@@ -92,26 +91,18 @@ export default function RegistrationPage() {
     }
   };
 
+  const displayedData = activeFilter === "pending"
+    ? data.filter(r => r.status === "pending")
+    : data;
+
   const handleApprove = (request: RegistrationRequest) => {
     setSelectedRequest(request);
     setPermissions({
       dashboard: true,
       order_report: false,
-      stock: false,
-      registration_request: false,
-      user_setting: false,
-      petty_cash: false,
-      petty_cash_add: false,
-      petty_cash_export: false,
-      petty_cash_balance: false,
       order_report_import: false,
       order_report_export: false,
-      customer: false,
-      voucher: false,
-      bundling: false,
-      canvasing: false,
-      canvasing_export: false,
-      stock_opname: false,
+      stock: false,
       stock_import: false,
       stock_export: false,
       stock_view_store: false,
@@ -121,6 +112,23 @@ export default function RegistrationPage() {
       stock_view_hpt: false,
       stock_view_hpj: false,
       stock_refresh_javelin: false,
+      stock_opname: false,
+      petty_cash: false,
+      petty_cash_add: false,
+      petty_cash_export: false,
+      petty_cash_balance: false,
+      customer: false,
+      voucher: false,
+      bundling: false,
+      canvasing: false,
+      canvasing_export: false,
+      request: false,
+      edit_request: false,
+      analytics_order: false,
+      traffic_store: false,
+      report_store: false,
+      registration_request: false,
+      user_setting: false,
     });
     setShowApprovalModal(true);
   };
@@ -167,17 +175,28 @@ export default function RegistrationPage() {
     }
   };
 
-  const CheckboxItem = ({ label, permKey }: { label: string; permKey: keyof typeof permissions }) => (
-    <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
+  type PermKey = keyof typeof permissions;
+
+  const CB = ({ label, k, sub }: { label: string; k: PermKey; sub?: boolean }) => (
+    <label className={`flex items-center cursor-pointer hover:bg-gray-50 rounded ${sub ? "ml-5 text-xs py-0.5 px-1" : "text-sm p-2"}`}>
       <input
         type="checkbox"
-        checked={permissions[permKey]}
-        onChange={(e) => setPermissions({ ...permissions, [permKey]: e.target.checked })}
-        className="mr-2"
+        checked={permissions[k]}
+        onChange={e => setPermissions({ ...permissions, [k]: e.target.checked })}
+        className="mr-2 flex-shrink-0"
       />
       {label}
     </label>
   );
+
+  const statusBadge = (status: string) => {
+    if (status === "pending") return "bg-yellow-100 text-yellow-800";
+    if (status === "approved") return "bg-green-100 text-green-800";
+    if (status === "rejected") return "bg-red-100 text-red-800";
+    return "bg-gray-100 text-gray-800";
+  };
+
+  const pendingCount = data.filter(r => r.status === "pending").length;
 
   if (!user) return null;
 
@@ -187,7 +206,20 @@ export default function RegistrationPage() {
 
       <div className="flex-1 overflow-auto">
         <div className="p-6">
-          <h1 className="text-2xl font-bold text-primary mb-6">Registration Requests</h1>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-primary">Registration Requests</h1>
+            {/* Filter tabs */}
+            <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
+              <button onClick={() => setActiveFilter("pending")}
+                className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${activeFilter === "pending" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                Pending {pendingCount > 0 && <span className="ml-1 bg-yellow-400 text-yellow-900 rounded-full px-1.5 py-0.5 text-[10px] font-bold">{pendingCount}</span>}
+              </button>
+              <button onClick={() => setActiveFilter("all")}
+                className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${activeFilter === "all" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                Semua ({data.length})
+              </button>
+            </div>
+          </div>
 
           <div className="bg-white rounded-lg shadow overflow-hidden">
             {loading ? (
@@ -206,13 +238,13 @@ export default function RegistrationPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.map((item, index) => (
+                    {displayedData.map((item, index) => (
                       <tr key={index} className="border-b hover:bg-gray-50">
-                        <td className="px-3 py-2">{item.id}</td>
-                        <td className="px-3 py-2">{item.name}</td>
+                        <td className="px-3 py-2 text-gray-500">{item.id}</td>
+                        <td className="px-3 py-2 font-medium">{item.name}</td>
                         <td className="px-3 py-2">{item.user_name}</td>
                         <td className="px-3 py-2">
-                          <span className={`px-2 py-1 rounded text-xs ${item.status === "pending" ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800"}`}>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${statusBadge(item.status)}`}>
                             {item.status}
                           </span>
                         </td>
@@ -220,90 +252,116 @@ export default function RegistrationPage() {
                         <td className="px-3 py-2">
                           {item.status === "pending" && (
                             <div className="flex gap-2">
-                              <button onClick={() => handleApprove(item)} className="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700">Approve</button>
-                              <button onClick={() => handleReject(item.id)} className="px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700">Reject</button>
+                              <button onClick={() => handleApprove(item)}
+                                className="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700">
+                                Approve
+                              </button>
+                              <button onClick={() => handleReject(item.id)}
+                                className="px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700">
+                                Reject
+                              </button>
                             </div>
+                          )}
+                          {item.status !== "pending" && (
+                            <span className="text-gray-400 text-xs">—</span>
                           )}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                {data.length === 0 && <div className="p-8 text-center text-gray-500">No pending requests</div>}
+                {displayedData.length === 0 && (
+                  <div className="p-8 text-center text-gray-500">
+                    {activeFilter === "pending" ? "Tidak ada permintaan pending" : "Tidak ada data registrasi"}
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
       </div>
 
+      {/* Approval Modal */}
       {showApprovalModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 my-8">
-            <h2 className="text-lg font-bold text-primary mb-4">Set User Permissions</h2>
-            <div className="mb-4">
-              <p className="text-sm text-gray-600 mb-1"><strong>Name:</strong> {selectedRequest.name}</p>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-6">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-bold text-primary mb-3">Set User Permissions</h2>
+            <div className="mb-4 p-3 bg-gray-50 rounded flex gap-6">
+              <p className="text-sm text-gray-600"><strong>Name:</strong> {selectedRequest.name}</p>
               <p className="text-sm text-gray-600"><strong>Username:</strong> {selectedRequest.user_name}</p>
             </div>
 
-            <div className="space-y-1 mb-6 max-h-[60vh] overflow-y-auto pr-1">
-              <CheckboxItem label="Dashboard" permKey="dashboard" />
+            <div className="grid grid-cols-3 gap-5 mb-5">
+              {/* Column 1: General */}
+              <div className="space-y-1">
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2">General</h3>
+                <CB label="Dashboard" k="dashboard" />
+                <CB label="Analytics Order" k="analytics_order" />
+                <CB label="Customer" k="customer" />
+                <CB label="Voucher" k="voucher" />
+                <CB label="Bundling" k="bundling" />
 
-              <div className="border-t pt-2 mt-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase mb-1 px-2">Order Report</p>
-                <div className="ml-2">
-                  <CheckboxItem label="View Order Report" permKey="order_report" />
-                  <CheckboxItem label="Import Data" permKey="order_report_import" />
-                  <CheckboxItem label="Export Data" permKey="order_report_export" />
-                </div>
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2 mt-4">Order Report</h3>
+                <CB label="View Order Report" k="order_report" />
+                <CB label="Import Data" k="order_report_import" sub />
+                <CB label="Export Data" k="order_report_export" sub />
+
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2 mt-4">Request & Traffic</h3>
+                <CB label="Request Store" k="request" />
+                <CB label="Edit Request" k="edit_request" sub />
+                <CB label="Traffic Store" k="traffic_store" />
+                <CB label="Report Store" k="report_store" />
               </div>
 
-              <div className="border-t pt-2 mt-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase mb-1 px-2">Stock</p>
-                <div className="ml-2">
-                  <CheckboxItem label="View Stock" permKey="stock" />
-                  <CheckboxItem label="Import Stock" permKey="stock_import" />
-                  <CheckboxItem label="Export Stock" permKey="stock_export" />
-                  <CheckboxItem label="View Store" permKey="stock_view_store" />
-                  <CheckboxItem label="View PCA" permKey="stock_view_pca" />
-                  <CheckboxItem label="View Master" permKey="stock_view_master" />
-                  <CheckboxItem label="View HPP" permKey="stock_view_hpp" />
-                  <CheckboxItem label="View HPT" permKey="stock_view_hpt" />
-                  <CheckboxItem label="View HPJ" permKey="stock_view_hpj" />
-                  <CheckboxItem label="Refresh Javelin" permKey="stock_refresh_javelin" />
-                </div>
+              {/* Column 2: Stock */}
+              <div className="space-y-1">
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2">Stock</h3>
+                <CB label="View Stock" k="stock" />
+                <CB label="Stock Opname" k="stock_opname" />
+
+                <p className="text-[10px] font-semibold text-gray-400 uppercase mt-3 mb-1 ml-1">Actions</p>
+                <CB label="Import Stock" k="stock_import" sub />
+                <CB label="Export Stock" k="stock_export" sub />
+                <CB label="Refresh Javelin" k="stock_refresh_javelin" sub />
+
+                <p className="text-[10px] font-semibold text-gray-400 uppercase mt-3 mb-1 ml-1">View Tabs</p>
+                <CB label="View Store Tab" k="stock_view_store" sub />
+                <CB label="View PCA Tab" k="stock_view_pca" sub />
+                <CB label="View Master Tab" k="stock_view_master" sub />
+
+                <p className="text-[10px] font-semibold text-gray-400 uppercase mt-3 mb-1 ml-1">Price Columns</p>
+                <CB label="View HPP" k="stock_view_hpp" sub />
+                <CB label="View HPT" k="stock_view_hpt" sub />
+                <CB label="View HPJ" k="stock_view_hpj" sub />
               </div>
 
-              <div className="border-t pt-2 mt-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase mb-1 px-2">Petty Cash</p>
-                <div className="ml-2">
-                  <CheckboxItem label="View Petty Cash" permKey="petty_cash" />
-                  <CheckboxItem label="Add Entry" permKey="petty_cash_add" />
-                  <CheckboxItem label="Export Data" permKey="petty_cash_export" />
-                  <CheckboxItem label="View Balance" permKey="petty_cash_balance" />
-                </div>
-              </div>
+              {/* Column 3: Petty Cash, Canvasing, Admin */}
+              <div className="space-y-1">
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2">Petty Cash</h3>
+                <CB label="View Petty Cash" k="petty_cash" />
+                <CB label="Add Entry" k="petty_cash_add" sub />
+                <CB label="Export Data" k="petty_cash_export" sub />
+                <CB label="View Balance" k="petty_cash_balance" sub />
 
-              <div className="border-t pt-2 mt-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase mb-1 px-2">Canvasing</p>
-                <div className="ml-2">
-                  <CheckboxItem label="View Canvasing" permKey="canvasing" />
-                  <CheckboxItem label="Export Canvasing" permKey="canvasing_export" />
-                </div>
-              </div>
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2 mt-4">Canvasing</h3>
+                <CB label="View Canvasing" k="canvasing" />
+                <CB label="Export Canvasing" k="canvasing_export" sub />
 
-              <div className="border-t pt-2 mt-2">
-                <CheckboxItem label="Customer" permKey="customer" />
-                <CheckboxItem label="Voucher" permKey="voucher" />
-                <CheckboxItem label="Bundling" permKey="bundling" />
-                <CheckboxItem label="Stock Opname" permKey="stock_opname" />
-                <CheckboxItem label="Registration Request" permKey="registration_request" />
-                <CheckboxItem label="User Settings" permKey="user_setting" />
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2 mt-4">Admin</h3>
+                <CB label="Registration Request" k="registration_request" />
+                <CB label="User Settings" k="user_setting" />
               </div>
             </div>
 
             <div className="flex gap-2">
-              <button onClick={() => { setShowApprovalModal(false); setSelectedRequest(null); }} className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">Cancel</button>
-              <button onClick={submitApproval} className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90">Approve</button>
+              <button onClick={() => { setShowApprovalModal(false); setSelectedRequest(null); }}
+                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">
+                Cancel
+              </button>
+              <button onClick={submitApproval}
+                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90">
+                Approve & Set Permissions
+              </button>
             </div>
           </div>
         </div>

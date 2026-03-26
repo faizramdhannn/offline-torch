@@ -70,12 +70,12 @@ async function cleanOldLogs() {
   try {
     const data = await getSheetData('activity_log');
     const now = new Date();
-    const tenDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+    const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
 
     const recentLogs = data.filter((log: any) => {
       try {
         const dateStr = log.timestamp.split(',')[0];
-        const [day, month, year] = dateStr.split(' ');
+        const [day, month, year] = dateStr.trim().split(' ');
         
         const months: { [key: string]: number } = {
           'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'Mei': 4, 'Jun': 5,
@@ -84,7 +84,7 @@ async function cleanOldLogs() {
         
         const logDate = new Date(parseInt(year), months[month], parseInt(day));
         
-        return logDate >= tenDaysAgo;
+        return logDate >= thirtyDaysAgo;
       } catch {
         return true;
       }
@@ -95,6 +95,8 @@ async function cleanOldLogs() {
       console.log(`🧹 Cleaning activity log: removing ${deletedCount} old entries (keeping ${recentLogs.length})`);
       
       const { updateSheetDataWithHeader } = await import('@/lib/sheets');
+      
+      // ALWAYS include the header row first — this prevents header deletion
       const headers = ['id', 'timestamp', 'user', 'method', 'activity_log'];
       
       const rows = recentLogs.map((log: any) => [
@@ -105,6 +107,7 @@ async function cleanOldLogs() {
         log.activity_log
       ]);
 
+      // Write header + remaining rows so the sheet header is never lost
       await updateSheetDataWithHeader('activity_log', [headers, ...rows]);
       
       console.log(`✅ Activity log cleaned: ${deletedCount} rows deleted, ${recentLogs.length} rows remaining`);

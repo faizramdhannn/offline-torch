@@ -442,22 +442,32 @@ export default function AnalyticsOrderPage() {
     return { chartData, storeNames };
   })();
 
+  // ─── Traffic data: count + subtotal per source ────────────────────────────
   const trafficData = (() => {
-    const map: Record<string, number> = {};
+    const map: Record<string, { count: number; subtotal: number }> = {};
     let nullCount = 0;
+    let nullSubtotal = 0;
     const orderSeen = new Set<string>();
     fr.forEach((r) => {
       const key = r.Name || "";
       if (orderSeen.has(key)) return;
       orderSeen.add(key);
       const code = extractTrafficCode(r.Notes);
+      const sub = parseSubtotal(r.Subtotal);
       if (code) {
         const label = TRAFFIC_MAP[code] || code;
-        map[label] = (map[label] || 0) + 1;
-      } else { nullCount++; }
+        if (!map[label]) map[label] = { count: 0, subtotal: 0 };
+        map[label].count++;
+        map[label].subtotal += sub;
+      } else {
+        nullCount++;
+        nullSubtotal += sub;
+      }
     });
-    const result = Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-    if (nullCount > 0) result.push({ name: "Tidak Diketahui", value: nullCount });
+    const result = Object.entries(map)
+      .map(([name, d]) => ({ name, value: d.count, subtotal: d.subtotal }))
+      .sort((a, b) => b.value - a.value);
+    if (nullCount > 0) result.push({ name: "Tidak Diketahui", value: nullCount, subtotal: nullSubtotal });
     return result;
   })();
 
@@ -489,8 +499,9 @@ export default function AnalyticsOrderPage() {
     };
   })();
 
+  // ─── Discount data: count + total discount amount + subtotal ─────────────
   const discountData = (() => {
-    const map: Record<string, { count: number; total: number }> = {};
+    const map: Record<string, { count: number; total: number; subtotal: number }> = {};
     const orderSeen = new Set<string>();
     fr.forEach((r) => {
       const key = r.Name || "";
@@ -498,30 +509,18 @@ export default function AnalyticsOrderPage() {
       orderSeen.add(key);
       const code = r["Discount Code"]?.trim();
       if (!code) return;
-      if (!map[code]) map[code] = { count: 0, total: 0 };
+      if (!map[code]) map[code] = { count: 0, total: 0, subtotal: 0 };
       map[code].count++;
       map[code].total += parseSubtotal(r["Discount Amount"]);
+      map[code].subtotal += parseSubtotal(r.Subtotal);
     });
-    return Object.entries(map).map(([name, d]) => ({ name, count: d.count, total: d.total }))
+    return Object.entries(map)
+      .map(([name, d]) => ({ name, count: d.count, total: d.total, subtotal: d.subtotal }))
       .sort((a, b) => b.count - a.count).slice(0, 20);
   })();
 
   // Daily discount usage
   const dailyDiscountData = (() => {
-    const map: Record<string, number> = {};
-    const orderSeen = new Set<string>();
-    fr.forEach((r) => {
-      const key = r.Name || "";
-      if (orderSeen.has(key)) return;
-      orderSeen.add(key);
-      const date = (r["Created at"] || "").split(" ")[0];
-      if (!date) return;
-      const hasDiscount = !!r["Discount Code"]?.trim();
-      if (!map[date]) map[date] = 0;
-      map[date]++;
-      // track separately
-    });
-    // Total orders per day and discount orders per day
     const totalMap: Record<string, number> = {};
     const discountMap: Record<string, number> = {};
     const seen2 = new Set<string>();
@@ -895,12 +894,17 @@ export default function AnalyticsOrderPage() {
                                     const item = payload[0];
                                     const total = trafficDataForPie.reduce((s, d) => s + d.value, 0);
                                     const pct = total ? ((Number(item.value) / total) * 100).toFixed(1) : "0";
+                                    const sub = (item.payload as any)?.subtotal ?? 0;
                                     return (
-                                      <div style={{ background: "#1e293b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", minWidth: 180 }}>
+                                      <div style={{ background: "#1e293b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", minWidth: 200 }}>
                                         <p style={{ fontSize: 12, fontWeight: 700, color: "#f1f5f9", marginBottom: 6 }}>{item.name}</p>
                                         <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
                                           <span style={{ fontSize: 11, color: "#94a3b8" }}>Jumlah Order</span>
                                           <span style={{ fontSize: 11, fontWeight: 700, color: item.payload?.fill || "#60a5fa" }}>{Number(item.value).toLocaleString()}</span>
+                                        </div>
+                                        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginTop: 2 }}>
+                                          <span style={{ fontSize: 11, color: "#94a3b8" }}>Total Revenue</span>
+                                          <span style={{ fontSize: 11, fontWeight: 600, color: "#4ade80" }}>{formatRupiah(sub)}</span>
                                         </div>
                                         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginTop: 2 }}>
                                           <span style={{ fontSize: 11, color: "#94a3b8" }}>Persentase</span>
@@ -961,6 +965,8 @@ export default function AnalyticsOrderPage() {
                               <tr className="bg-gray-50 border-b">
                                 <th className="px-3 py-2 text-left font-semibold text-gray-700">Traffic Source</th>
                                 <th className="px-3 py-2 text-right font-semibold text-gray-700">Jumlah Order</th>
+                                <th className="px-3 py-2 text-right font-semibold text-gray-700">Total Revenue</th>
+                                <th className="px-3 py-2 text-right font-semibold text-gray-700">Avg/Order</th>
                                 <th className="px-3 py-2 text-right font-semibold text-gray-700">Persentase</th>
                               </tr>
                             </thead>
@@ -976,6 +982,10 @@ export default function AnalyticsOrderPage() {
                                         {t.name}
                                       </td>
                                       <td className="px-3 py-2 text-right font-medium">{t.value}</td>
+                                      <td className="px-3 py-2 text-right text-green-700 font-medium">{formatRupiah(t.subtotal)}</td>
+                                      <td className="px-3 py-2 text-right text-gray-500">
+                                        {t.value ? formatRupiah(Math.round(t.subtotal / t.value)) : "-"}
+                                      </td>
                                       <td className="px-3 py-2 text-right text-gray-500">
                                         {total ? `${((t.value / total) * 100).toFixed(1)}%` : "-"}
                                       </td>
@@ -1012,14 +1022,14 @@ export default function AnalyticsOrderPage() {
                             </ResponsiveContainer>
                           </div>
                           <div>
-                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Total Discount Amount per Kode</h3>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Total Subtotal per Discount Code</h3>
                             <ResponsiveContainer width="100%" height={280}>
                               <BarChart data={discountData} margin={{ top: 16, right: 8, left: 0, bottom: 50 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                                 <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={0} />
                                 <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}k` : v} width={50} />
                                 <Tooltip content={<DarkTooltip formatter={formatRupiah} />} />
-                                <Bar dataKey="total" name="Total Diskon" radius={[4, 4, 0, 0]} maxBarSize={40}>
+                                <Bar dataKey="subtotal" name="Total Revenue" radius={[4, 4, 0, 0]} maxBarSize={40}>
                                   {discountData.map((_, i) => <Cell key={i} fill={COLORS[(i + 3) % COLORS.length]} />)}
                                 </Bar>
                               </BarChart>
@@ -1052,7 +1062,9 @@ export default function AnalyticsOrderPage() {
                               <tr className="bg-gray-50 border-b">
                                 <th className="px-3 py-2 text-left font-semibold text-gray-700">Discount Code</th>
                                 <th className="px-3 py-2 text-right font-semibold text-gray-700">Dipakai (Order)</th>
+                                <th className="px-3 py-2 text-right font-semibold text-gray-700">Total Revenue</th>
                                 <th className="px-3 py-2 text-right font-semibold text-gray-700">Total Potongan</th>
+                                <th className="px-3 py-2 text-right font-semibold text-gray-700">Avg Revenue/Order</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -1060,7 +1072,11 @@ export default function AnalyticsOrderPage() {
                                 <tr key={i} className="border-b hover:bg-gray-50">
                                   <td className="px-3 py-2 font-mono">{d.name}</td>
                                   <td className="px-3 py-2 text-right">{d.count}</td>
-                                  <td className="px-3 py-2 text-right">{formatRupiah(d.total)}</td>
+                                  <td className="px-3 py-2 text-right text-green-700 font-medium">{formatRupiah(d.subtotal)}</td>
+                                  <td className="px-3 py-2 text-right text-red-600">{formatRupiah(d.total)}</td>
+                                  <td className="px-3 py-2 text-right text-gray-500">
+                                    {d.count ? formatRupiah(Math.round(d.subtotal / d.count)) : "-"}
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>

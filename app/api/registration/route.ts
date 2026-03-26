@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSheetData, appendSheetData } from '@/lib/sheets';
+import { getSheetData, appendSheetData, updateSheetRow } from '@/lib/sheets';
 import bcrypt from 'bcryptjs';
 
 export async function GET(request: NextRequest) {
@@ -31,13 +31,19 @@ export async function PUT(request: NextRequest) {
   try {
     const { id, status, permissions } = await request.json();
 
-    if (status === 'approved') {
-      const requests = await getSheetData('registration_request');
-      const requestData = requests.find((r: any) => r.id === id);
-      if (!requestData) {
-        return NextResponse.json({ error: 'Request not found' }, { status: 404 });
-      }
+    // Find the registration request in the sheet
+    const requests = await getSheetData('registration_request');
+    const requestIndex = requests.findIndex((r: any) => r.id === id);
 
+    if (requestIndex === -1) {
+      return NextResponse.json({ error: 'Request not found' }, { status: 404 });
+    }
+
+    const requestData = requests[requestIndex];
+    const rowIndex = requestIndex + 2; // +2 for header and 0-based index
+
+    if (status === 'approved') {
+      // 1. Create user in users sheet
       const newUser = [
         requestData.id,
         requestData.name,
@@ -51,14 +57,18 @@ export async function PUT(request: NextRequest) {
         permissions.petty_cash ? 'TRUE' : 'FALSE',
         permissions.petty_cash_add ? 'TRUE' : 'FALSE',
         permissions.petty_cash_export ? 'TRUE' : 'FALSE',
+        permissions.petty_cash_balance ? 'TRUE' : 'FALSE',
         permissions.order_report_import ? 'TRUE' : 'FALSE',
         permissions.order_report_export ? 'TRUE' : 'FALSE',
         permissions.customer ? 'TRUE' : 'FALSE',
-        permissions.analytics_order ? 'TRUE' : 'FALSE',
         permissions.voucher ? 'TRUE' : 'FALSE',
         permissions.bundling ? 'TRUE' : 'FALSE',
+        permissions.canvasing ? 'TRUE' : 'FALSE',
+        permissions.canvasing_export ? 'TRUE' : 'FALSE',
         permissions.request ? 'TRUE' : 'FALSE',
         permissions.edit_request ? 'TRUE' : 'FALSE',
+        permissions.analytics_order ? 'TRUE' : 'FALSE',
+        permissions.stock_opname ? 'TRUE' : 'FALSE',
         // Stock permissions
         permissions.stock_import ? 'TRUE' : 'FALSE',
         permissions.stock_export ? 'TRUE' : 'FALSE',
@@ -69,13 +79,36 @@ export async function PUT(request: NextRequest) {
         permissions.stock_view_hpt ? 'TRUE' : 'FALSE',
         permissions.stock_view_hpj ? 'TRUE' : 'FALSE',
         permissions.stock_refresh_javelin ? 'TRUE' : 'FALSE',
-        permissions.canvasing_export ? 'TRUE' : 'FALSE',
-        permissions.canvasing ? 'TRUE' : 'FALSE',
-        permissions.petty_cash_balance ? 'TRUE' : 'FALSE',
+        '', // last_activity (empty on creation)
+        permissions.traffic_store ? 'TRUE' : 'FALSE',
+        permissions.report_store ? 'TRUE' : 'FALSE',
         new Date().toISOString(),
       ];
 
       await appendSheetData('users', [newUser]);
+
+      // 2. Update status in registration_request sheet to 'approved'
+      const updatedRow = [
+        requestData.id,
+        requestData.name,
+        requestData.user_name,
+        requestData.password,
+        'approved',                // <-- status updated
+        requestData.request_at,
+      ];
+      await updateSheetRow('registration_request', rowIndex, updatedRow);
+
+    } else if (status === 'rejected') {
+      // Update status to 'rejected'
+      const updatedRow = [
+        requestData.id,
+        requestData.name,
+        requestData.user_name,
+        requestData.password,
+        'rejected',                // <-- status updated
+        requestData.request_at,
+      ];
+      await updateSheetRow('registration_request', rowIndex, updatedRow);
     }
 
     return NextResponse.json({ success: true });

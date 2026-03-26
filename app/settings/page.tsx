@@ -17,12 +17,17 @@ interface UserData {
   petty_cash: string;
   petty_cash_add: string;
   petty_cash_export: string;
+  petty_cash_balance: string;
   order_report_import: string;
   order_report_export: string;
   customer: string;
   voucher: string;
   bundling: string;
   canvasing: string;
+  canvasing_export: string;
+  request: string;
+  edit_request: string;
+  analytics_order: string;
   stock_opname: string;
   stock_import: string;
   stock_export: string;
@@ -33,6 +38,9 @@ interface UserData {
   stock_view_hpt: string;
   stock_view_hpj: string;
   stock_refresh_javelin: string;
+  traffic_store: string;
+  report_store: string;
+  last_activity: string;
 }
 
 interface JavelinStatus {
@@ -42,6 +50,42 @@ interface JavelinStatus {
   lastCookieUpdate: string;
   lastCredentialsUpdate: string;
 }
+
+const EMPTY_PERMS = {
+  dashboard: false,
+  order_report: false,
+  order_report_import: false,
+  order_report_export: false,
+  stock: false,
+  stock_import: false,
+  stock_export: false,
+  stock_view_store: false,
+  stock_view_pca: false,
+  stock_view_master: false,
+  stock_view_hpp: false,
+  stock_view_hpt: false,
+  stock_view_hpj: false,
+  stock_refresh_javelin: false,
+  stock_opname: false,
+  petty_cash: false,
+  petty_cash_add: false,
+  petty_cash_export: false,
+  petty_cash_balance: false,
+  customer: false,
+  voucher: false,
+  bundling: false,
+  canvasing: false,
+  canvasing_export: false,
+  request: false,
+  edit_request: false,
+  analytics_order: false,
+  traffic_store: false,
+  report_store: false,
+  registration_request: false,
+  user_setting: false,
+};
+
+type Perms = typeof EMPTY_PERMS;
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -54,32 +98,8 @@ export default function SettingsPage() {
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [saving, setSaving] = useState(false);
-  const [permissions, setPermissions] = useState({
-    dashboard: false,
-    order_report: false,
-    stock: false,
-    registration_request: false,
-    user_setting: false,
-    petty_cash: false,
-    petty_cash_add: false,
-    petty_cash_export: false,
-    order_report_import: false,
-    order_report_export: false,
-    customer: false,
-    voucher: false,
-    bundling: false,
-    canvasing: false,
-    stock_opname: false,
-    stock_import: false,
-    stock_export: false,
-    stock_view_store: false,
-    stock_view_pca: false,
-    stock_view_master: false,
-    stock_view_hpp: false,
-    stock_view_hpt: false,
-    stock_view_hpj: false,
-    stock_refresh_javelin: false,
-  });
+  const [permissions, setPermissions] = useState<Perms>({ ...EMPTY_PERMS });
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Javelin Configuration
   const [showJavelinModal, setShowJavelinModal] = useState(false);
@@ -98,15 +118,9 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
-    if (!userData) {
-      router.push("/login");
-      return;
-    }
+    if (!userData) { router.push("/login"); return; }
     const parsedUser = JSON.parse(userData);
-    if (!parsedUser.user_setting) {
-      router.push("/dashboard");
-      return;
-    }
+    if (!parsedUser.user_setting) { router.push("/dashboard"); return; }
     setUser(parsedUser);
     fetchUsers();
     fetchJavelinStatus();
@@ -123,11 +137,7 @@ export default function SettingsPage() {
       await fetch("/api/activity-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user: user.user_name,
-          method,
-          activity_log: activity,
-        }),
+        body: JSON.stringify({ user: user.user_name, method, activity_log: activity }),
       });
     } catch (error) {
       console.error("Failed to log activity:", error);
@@ -169,54 +179,31 @@ export default function SettingsPage() {
       showMessage("Please enter a cookie value", "error");
       return;
     }
-
     setSavingJavelin(true);
     try {
       const cookieResponse = await fetch("/api/javelin-cookie", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cookie: manualCookie.trim(),
-          username: user.user_name,
-        }),
+        body: JSON.stringify({ cookie: manualCookie.trim(), username: user.user_name }),
       });
-
-      if (!cookieResponse.ok) {
-        showMessage("Failed to save cookie", "error");
-        return;
-      }
+      if (!cookieResponse.ok) { showMessage("Failed to save cookie", "error"); return; }
 
       if (javelinUsername.trim() && javelinPassword.trim()) {
         const credResponse = await fetch("/api/javelin-login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: javelinUsername.trim(),
-            password: javelinPassword.trim(),
-            updatedBy: user.user_name,
-          }),
+          body: JSON.stringify({ username: javelinUsername.trim(), password: javelinPassword.trim(), updatedBy: user.user_name }),
         });
-
         if (credResponse.ok) {
-          await logActivity(
-            "PUT",
-            "Updated Javelin configuration (cookie + credentials)",
-          );
-          showMessage(
-            "Cookie and credentials saved! Auto-refresh enabled.",
-            "success",
-          );
+          await logActivity("PUT", "Updated Javelin configuration (cookie + credentials)");
+          showMessage("Cookie and credentials saved! Auto-refresh enabled.", "success");
         } else {
           await logActivity("PUT", "Updated Javelin cookie configuration");
-          showMessage(
-            "Cookie saved! (Credentials not saved - optional)",
-            "success",
-          );
+          showMessage("Cookie saved! (Credentials not saved - optional)", "success");
         }
       } else {
         showMessage("Cookie saved successfully!", "success");
       }
-
       setShowJavelinModal(false);
       setManualCookie("");
       setJavelinPassword("");
@@ -230,22 +217,12 @@ export default function SettingsPage() {
 
   const handleEditUser = (userData: UserData) => {
     setSelectedUser(userData);
-    setPermissions({
+    const p: Perms = {
       dashboard: userData.dashboard === "TRUE",
       order_report: userData.order_report === "TRUE",
-      stock: userData.stock === "TRUE",
-      registration_request: userData.registration_request === "TRUE",
-      user_setting: userData.user_setting === "TRUE",
-      petty_cash: userData.petty_cash === "TRUE",
-      petty_cash_add: userData.petty_cash_add === "TRUE",
-      petty_cash_export: userData.petty_cash_export === "TRUE",
       order_report_import: userData.order_report_import === "TRUE",
       order_report_export: userData.order_report_export === "TRUE",
-      customer: userData.customer === "TRUE",
-      voucher: userData.voucher === "TRUE",
-      bundling: userData.bundling === "TRUE",
-      canvasing: userData.canvasing === "TRUE",
-      stock_opname: userData.stock_opname === "TRUE",
+      stock: userData.stock === "TRUE",
       stock_import: userData.stock_import === "TRUE",
       stock_export: userData.stock_export === "TRUE",
       stock_view_store: userData.stock_view_store === "TRUE",
@@ -255,29 +232,43 @@ export default function SettingsPage() {
       stock_view_hpt: userData.stock_view_hpt === "TRUE",
       stock_view_hpj: userData.stock_view_hpj === "TRUE",
       stock_refresh_javelin: userData.stock_refresh_javelin === "TRUE",
-    });
+      stock_opname: userData.stock_opname === "TRUE",
+      petty_cash: userData.petty_cash === "TRUE",
+      petty_cash_add: userData.petty_cash_add === "TRUE",
+      petty_cash_export: userData.petty_cash_export === "TRUE",
+      petty_cash_balance: userData.petty_cash_balance === "TRUE",
+      customer: userData.customer === "TRUE",
+      voucher: userData.voucher === "TRUE",
+      bundling: userData.bundling === "TRUE",
+      canvasing: userData.canvasing === "TRUE",
+      canvasing_export: userData.canvasing_export === "TRUE",
+      request: userData.request === "TRUE",
+      edit_request: userData.edit_request === "TRUE",
+      analytics_order: userData.analytics_order === "TRUE",
+      traffic_store: userData.traffic_store === "TRUE",
+      report_store: userData.report_store === "TRUE",
+      registration_request: userData.registration_request === "TRUE",
+      user_setting: userData.user_setting === "TRUE",
+    };
+    setPermissions(p);
     setShowEditModal(true);
+  };
+
+  const setPerm = (key: keyof Perms, val: boolean) => {
+    setPermissions(prev => ({ ...prev, [key]: val }));
   };
 
   const handleSavePermissions = async () => {
     if (!selectedUser) return;
-
     setSaving(true);
     try {
       const response = await fetch("/api/users", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: selectedUser.id,
-          permissions,
-        }),
+        body: JSON.stringify({ id: selectedUser.id, permissions }),
       });
-
       if (response.ok) {
-        await logActivity(
-          "PUT",
-          `Updated permissions for user: ${selectedUser.user_name}`,
-        );
+        await logActivity("PUT", `Updated permissions for user: ${selectedUser.user_name}`);
         showMessage("User permissions updated successfully", "success");
         setShowEditModal(false);
         setSelectedUser(null);
@@ -293,20 +284,40 @@ export default function SettingsPage() {
   };
 
   const getActivePermissions = (userData: UserData) => {
-    const perms = [];
+    const perms: string[] = [];
     if (userData.dashboard === "TRUE") perms.push("Dashboard");
     if (userData.order_report === "TRUE") perms.push("Order Report");
+    if (userData.analytics_order === "TRUE") perms.push("Analytics");
     if (userData.stock === "TRUE") perms.push("Stock");
     if (userData.petty_cash === "TRUE") perms.push("Petty Cash");
     if (userData.customer === "TRUE") perms.push("Customer");
     if (userData.voucher === "TRUE") perms.push("Voucher");
     if (userData.bundling === "TRUE") perms.push("Bundling");
     if (userData.canvasing === "TRUE") perms.push("Canvasing");
-    if (userData.stock_opname === "TRUE") perms.push("Stock Opname");
+    if (userData.request === "TRUE") perms.push("Request");
+    if (userData.traffic_store === "TRUE") perms.push("Traffic");
+    if (userData.report_store === "TRUE") perms.push("Report");
     if (userData.registration_request === "TRUE") perms.push("Registration");
     if (userData.user_setting === "TRUE") perms.push("Settings");
     return perms;
   };
+
+  const CB = ({ label, k, sub }: { label: string; k: keyof Perms; sub?: boolean }) => (
+    <label className={`flex items-center text-sm cursor-pointer hover:bg-gray-50 rounded ${sub ? "ml-5 text-xs py-0.5 px-1" : "p-2"}`}>
+      <input
+        type="checkbox"
+        checked={permissions[k]}
+        onChange={e => setPerm(k, e.target.checked)}
+        className="mr-2 flex-shrink-0"
+      />
+      {label}
+    </label>
+  );
+
+  const filteredUsers = users.filter(u =>
+    u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.user_name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (!user) return null;
 
@@ -323,71 +334,41 @@ export default function SettingsPage() {
             <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-800">
-                    Javelin Configuration
-                  </h2>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Configure cookie for Javelin data refresh
-                  </p>
+                  <h2 className="text-lg font-semibold text-gray-800">Javelin Configuration</h2>
+                  <p className="text-sm text-gray-600 mt-1">Configure cookie for Javelin data refresh</p>
                 </div>
-                <button
-                  onClick={() => setShowJavelinModal(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-                >
+                <button onClick={() => setShowJavelinModal(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
                   {javelinStatus.hasCookies ? "Update" : "Configure"}
                 </button>
               </div>
             </div>
-
             <div className="p-6">
               {loadingJavelin ? (
                 <div className="text-sm text-gray-500">Loading...</div>
               ) : (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gray-50 p-4 rounded border border-gray-200">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700">
-                          Cookie Status
-                        </span>
-                        {javelinStatus.hasCookies ? (
-                          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                            Configured
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded">
-                            Not Set
-                          </span>
-                        )}
-                      </div>
-                      {javelinStatus.lastCookieUpdate && (
-                        <div className="text-xs text-gray-500 mt-1">
-                          Updated: {javelinStatus.lastCookieUpdate}
-                        </div>
-                      )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-4 rounded border border-gray-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Cookie Status</span>
+                      {javelinStatus.hasCookies
+                        ? <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">Configured</span>
+                        : <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded">Not Set</span>}
                     </div>
-
-                    <div className="bg-gray-50 p-4 rounded border border-gray-200">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-700">
-                          Auto-Refresh
-                        </span>
-                        {javelinStatus.hasCredentials ? (
-                          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                            ✓ Enabled
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
-                            Optional
-                          </span>
-                        )}
-                      </div>
-                      {javelinStatus.hasCredentials && (
-                        <div className="text-xs text-gray-600 mt-1">
-                          Username: {javelinStatus.username}
-                        </div>
-                      )}
+                    {javelinStatus.lastCookieUpdate && (
+                      <div className="text-xs text-gray-500 mt-1">Updated: {javelinStatus.lastCookieUpdate}</div>
+                    )}
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded border border-gray-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Auto-Refresh</span>
+                      {javelinStatus.hasCredentials
+                        ? <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">✓ Enabled</span>
+                        : <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">Optional</span>}
                     </div>
+                    {javelinStatus.hasCredentials && (
+                      <div className="text-xs text-gray-600 mt-1">Username: {javelinStatus.username}</div>
+                    )}
                   </div>
                 </div>
               )}
@@ -397,12 +378,19 @@ export default function SettingsPage() {
           {/* User Management */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-800">
-                User Management
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Manage user permissions and access control
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-800">User Management</h2>
+                  <p className="text-sm text-gray-600 mt-1">Manage user permissions and access control</p>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Cari nama / username..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary w-52"
+                />
+              </div>
             </div>
 
             {loading ? (
@@ -412,56 +400,36 @@ export default function SettingsPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-100 border-b">
                     <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">
-                        Name
-                      </th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">
-                        Username
-                      </th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">
-                        Active Modules
-                      </th>
-                      <th className="px-4 py-3 text-center font-semibold text-gray-700">
-                        Actions
-                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Name</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Username</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Active Modules</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Last Activity</th>
+                      <th className="px-4 py-3 text-center font-semibold text-gray-700">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((userData, index) => {
+                    {filteredUsers.map((userData, index) => {
                       const activePermissions = getActivePermissions(userData);
-
                       return (
                         <tr key={index} className="border-b hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium">
-                            {userData.name}
-                          </td>
-                          <td className="px-4 py-3 text-gray-600">
-                            {userData.user_name}
-                          </td>
+                          <td className="px-4 py-3 font-medium">{userData.name}</td>
+                          <td className="px-4 py-3 text-gray-600">{userData.user_name}</td>
                           <td className="px-4 py-3">
                             <div className="flex flex-wrap gap-1">
                               {activePermissions.length > 0 ? (
                                 activePermissions.map((perm, i) => (
-                                  <span
-                                    key={i}
-                                    className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs"
-                                  >
-                                    {perm}
-                                  </span>
+                                  <span key={i} className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded text-xs">{perm}</span>
                                 ))
                               ) : (
-                                <span className="text-xs text-gray-400 italic">
-                                  No permissions
-                                </span>
+                                <span className="text-xs text-gray-400 italic">No permissions</span>
                               )}
                             </div>
                           </td>
+                          <td className="px-4 py-3 text-xs text-gray-500">{userData.last_activity || "-"}</td>
                           <td className="px-4 py-3 text-center">
-                            <button
-                              onClick={() => handleEditUser(userData)}
-                              className="px-3 py-1 bg-primary text-white rounded text-xs hover:bg-primary/90"
-                            >
-                              Edit Permissions
+                            <button onClick={() => handleEditUser(userData)}
+                              className="px-3 py-1 bg-primary text-white rounded text-xs hover:bg-primary/90">
+                              Edit
                             </button>
                           </td>
                         </tr>
@@ -469,9 +437,9 @@ export default function SettingsPage() {
                     })}
                   </tbody>
                 </table>
-                {users.length === 0 && (
+                {filteredUsers.length === 0 && (
                   <div className="p-8 text-center text-gray-500">
-                    No users found
+                    {searchQuery ? "Tidak ada user yang cocok" : "No users found"}
                   </div>
                 )}
               </div>
@@ -480,70 +448,45 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Javelin Configuration Modal */}
+      {/* Javelin Modal */}
       {showJavelinModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-bold text-primary mb-4">Javelin Configuration</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cookie Value
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Cookie Value</label>
                 <textarea
                   value={manualCookie}
-                  onChange={(e) => setManualCookie(e.target.value)}
+                  onChange={e => setManualCookie(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
                   rows={6}
+                  placeholder="Paste cookie value here..."
                 />
               </div>
-
-              <div className="border-t pt-4">
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">
-                      Username
-                    </label>
-                    <input
-                      type="text"
-                      value={javelinUsername}
-                      onChange={(e) => setJavelinUsername(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="Leave empty to skip auto-refresh"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1">
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      value={javelinPassword}
-                      onChange={(e) => setJavelinPassword(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="Leave empty to skip auto-refresh"
-                    />
-                  </div>
+              <div className="border-t pt-4 space-y-3">
+                <p className="text-xs text-gray-500 font-medium">Auto-refresh credentials (optional)</p>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Username</label>
+                  <input type="text" value={javelinUsername} onChange={e => setJavelinUsername(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="Leave empty to skip auto-refresh" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Password</label>
+                  <input type="password" value={javelinPassword} onChange={e => setJavelinPassword(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="Leave empty to skip auto-refresh" />
                 </div>
               </div>
-
               <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setShowJavelinModal(false);
-                    setManualCookie("");
-                    setJavelinPassword("");
-                  }}
+                <button onClick={() => { setShowJavelinModal(false); setManualCookie(""); setJavelinPassword(""); }}
                   disabled={savingJavelin}
-                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
-                >
+                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50">
                   Cancel
                 </button>
-                <button
-                  onClick={handleSaveJavelin}
-                  disabled={savingJavelin || !manualCookie.trim()}
-                  className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
-                >
+                <button onClick={handleSaveJavelin} disabled={savingJavelin || !manualCookie.trim()}
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">
                   {savingJavelin ? "Saving..." : "Save Configuration"}
                 </button>
               </div>
@@ -554,444 +497,90 @@ export default function SettingsPage() {
 
       {/* Edit Permissions Modal */}
       {showEditModal && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 my-8 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-bold text-primary mb-4">
-              Edit User Permissions
-            </h2>
-
-            <div className="mb-4 p-4 bg-gray-50 rounded">
-              <p className="text-sm text-gray-600">
-                <strong className="text-gray-800">User:</strong>{" "}
-                {selectedUser.name}
-              </p>
-              <p className="text-sm text-gray-600">
-                <strong className="text-gray-800">Username:</strong>{" "}
-                {selectedUser.user_name}
-              </p>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-6">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-bold text-primary mb-3">Edit User Permissions</h2>
+            <div className="mb-4 p-3 bg-gray-50 rounded flex gap-6">
+              <p className="text-sm text-gray-600"><strong>Name:</strong> {selectedUser.name}</p>
+              <p className="text-sm text-gray-600"><strong>Username:</strong> {selectedUser.user_name}</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-6 mb-6">
-              {/* Left Column - Basic Modules */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-gray-800 border-b pb-2">
-                  Basic Modules
-                </h3>
+            <div className="grid grid-cols-3 gap-5 mb-5">
+              {/* Column 1: General */}
+              <div className="space-y-1">
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2">General</h3>
+                <CB label="Dashboard" k="dashboard" />
+                <CB label="Analytics Order" k="analytics_order" />
+                <CB label="Customer" k="customer" />
+                <CB label="Voucher" k="voucher" />
+                <CB label="Bundling" k="bundling" />
 
-                <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
-                  <input
-                    type="checkbox"
-                    checked={permissions.dashboard}
-                    onChange={(e) =>
-                      setPermissions({
-                        ...permissions,
-                        dashboard: e.target.checked,
-                      })
-                    }
-                    className="mr-2"
-                  />
-                  <span>Dashboard</span>
-                </label>
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2 mt-4">Order Report</h3>
+                <CB label="View Order Report" k="order_report" />
+                <CB label="Import Data" k="order_report_import" sub />
+                <CB label="Export Data" k="order_report_export" sub />
 
-                {/* Order Report */}
-                <div className="border-l-2 border-blue-300 pl-3">
-                  <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded font-medium">
-                    <input
-                      type="checkbox"
-                      checked={permissions.order_report}
-                      onChange={(e) =>
-                        setPermissions({
-                          ...permissions,
-                          order_report: e.target.checked,
-                        })
-                      }
-                      className="mr-2"
-                    />
-                    <span>Order Report</span>
-                  </label>
-
-                  <div className="ml-6 mt-1 space-y-1">
-                    <label className="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={permissions.order_report_import}
-                        onChange={(e) =>
-                          setPermissions({
-                            ...permissions,
-                            order_report_import: e.target.checked,
-                          })
-                        }
-                        className="mr-2"
-                      />
-                      Import Data
-                    </label>
-                    <label className="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={permissions.order_report_export}
-                        onChange={(e) =>
-                          setPermissions({
-                            ...permissions,
-                            order_report_export: e.target.checked,
-                          })
-                        }
-                        className="mr-2"
-                      />
-                      Export Data
-                    </label>
-                  </div>
-                </div>
-
-                {/* Petty Cash */}
-                <div className="border-l-2 border-green-300 pl-3">
-                  <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded font-medium">
-                    <input
-                      type="checkbox"
-                      checked={permissions.petty_cash}
-                      onChange={(e) =>
-                        setPermissions({
-                          ...permissions,
-                          petty_cash: e.target.checked,
-                        })
-                      }
-                      className="mr-2"
-                    />
-                    <span>Petty Cash</span>
-                  </label>
-
-                  <div className="ml-6 mt-1 space-y-1">
-                    <label className="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={permissions.petty_cash_add}
-                        onChange={(e) =>
-                          setPermissions({
-                            ...permissions,
-                            petty_cash_add: e.target.checked,
-                          })
-                        }
-                        className="mr-2"
-                      />
-                      Add Entry
-                    </label>
-                    <label className="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={permissions.petty_cash_export}
-                        onChange={(e) =>
-                          setPermissions({
-                            ...permissions,
-                            petty_cash_export: e.target.checked,
-                          })
-                        }
-                        className="mr-2"
-                      />
-                      Export Data
-                    </label>
-                  </div>
-                </div>
-
-                <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
-                  <input
-                    type="checkbox"
-                    checked={permissions.customer}
-                    onChange={(e) =>
-                      setPermissions({
-                        ...permissions,
-                        customer: e.target.checked,
-                      })
-                    }
-                    className="mr-2"
-                  />
-                  <span>Customer</span>
-                </label>
-
-                <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
-                  <input
-                    type="checkbox"
-                    checked={permissions.voucher}
-                    onChange={(e) =>
-                      setPermissions({
-                        ...permissions,
-                        voucher: e.target.checked,
-                      })
-                    }
-                    className="mr-2"
-                  />
-                  <span>Voucher</span>
-                </label>
-
-                <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
-                  <input
-                    type="checkbox"
-                    checked={permissions.bundling}
-                    onChange={(e) =>
-                      setPermissions({
-                        ...permissions,
-                        bundling: e.target.checked,
-                      })
-                    }
-                    className="mr-2"
-                  />
-                  <span>Bundling</span>
-                </label>
-
-                <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
-                  <input
-                    type="checkbox"
-                    checked={permissions.canvasing}
-                    onChange={(e) =>
-                      setPermissions({
-                        ...permissions,
-                        canvasing: e.target.checked,
-                      })
-                    }
-                    className="mr-2"
-                  />
-                  <span>Canvasing</span>
-                </label>
-
-                <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
-                  <input
-                    type="checkbox"
-                    checked={permissions.stock_opname}
-                    onChange={(e) =>
-                      setPermissions({
-                        ...permissions,
-                        stock_opname: e.target.checked,
-                      })
-                    }
-                    className="mr-2"
-                  />
-                  <span>Stock Opname</span>
-                </label>
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2 mt-4">Request & Traffic</h3>
+                <CB label="Request Store" k="request" />
+                <CB label="Edit Request" k="edit_request" sub />
+                <CB label="Traffic Store" k="traffic_store" />
+                <CB label="Report Store" k="report_store" />
               </div>
 
-              {/* Right Column - Stock & Admin */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-gray-800 border-b pb-2">
-                  Stock Management
-                </h3>
+              {/* Column 2: Stock */}
+              <div className="space-y-1">
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2">Stock</h3>
+                <CB label="View Stock" k="stock" />
+                <CB label="Stock Opname" k="stock_opname" />
 
-                {/* Stock */}
-                <div className="border-l-2 border-purple-300 pl-3">
-                  <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded font-medium">
-                    <input
-                      type="checkbox"
-                      checked={permissions.stock}
-                      onChange={(e) =>
-                        setPermissions({
-                          ...permissions,
-                          stock: e.target.checked,
-                        })
-                      }
-                      className="mr-2"
-                    />
-                    <span>Stock</span>
-                  </label>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase mt-3 mb-1 ml-1">Actions</p>
+                <CB label="Import Stock" k="stock_import" sub />
+                <CB label="Export Stock" k="stock_export" sub />
+                <CB label="Refresh Javelin" k="stock_refresh_javelin" sub />
 
-                  <div className="ml-6 mt-2 space-y-2">
-                    <p className="text-xs font-semibold text-gray-600">
-                      Actions:
-                    </p>
-                    <label className="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={permissions.stock_import}
-                        onChange={(e) =>
-                          setPermissions({
-                            ...permissions,
-                            stock_import: e.target.checked,
-                          })
-                        }
-                        className="mr-2"
-                      />
-                      Import Data
-                    </label>
-                    <label className="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={permissions.stock_export}
-                        onChange={(e) =>
-                          setPermissions({
-                            ...permissions,
-                            stock_export: e.target.checked,
-                          })
-                        }
-                        className="mr-2"
-                      />
-                      Export Data
-                    </label>
-                    <label className="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={permissions.stock_refresh_javelin}
-                        onChange={(e) =>
-                          setPermissions({
-                            ...permissions,
-                            stock_refresh_javelin: e.target.checked,
-                          })
-                        }
-                        className="mr-2"
-                      />
-                      Refresh Javelin
-                    </label>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase mt-3 mb-1 ml-1">View Tabs</p>
+                <CB label="View Store Tab" k="stock_view_store" sub />
+                <CB label="View PCA Tab" k="stock_view_pca" sub />
+                <CB label="View Master Tab" k="stock_view_master" sub />
 
-                    <p className="text-xs font-semibold text-gray-600 mt-3">
-                      View Tabs:
-                    </p>
-                    <label className="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={permissions.stock_view_store}
-                        onChange={(e) =>
-                          setPermissions({
-                            ...permissions,
-                            stock_view_store: e.target.checked,
-                          })
-                        }
-                        className="mr-2"
-                      />
-                      View Store Tab
-                    </label>
-                    <label className="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={permissions.stock_view_pca}
-                        onChange={(e) =>
-                          setPermissions({
-                            ...permissions,
-                            stock_view_pca: e.target.checked,
-                          })
-                        }
-                        className="mr-2"
-                      />
-                      View PCA Tab
-                    </label>
-                    <label className="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={permissions.stock_view_master}
-                        onChange={(e) =>
-                          setPermissions({
-                            ...permissions,
-                            stock_view_master: e.target.checked,
-                          })
-                        }
-                        className="mr-2"
-                      />
-                      View Master Tab
-                    </label>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase mt-3 mb-1 ml-1">Price Columns</p>
+                <CB label="View HPP" k="stock_view_hpp" sub />
+                <CB label="View HPT" k="stock_view_hpt" sub />
+                <CB label="View HPJ" k="stock_view_hpj" sub />
+              </div>
 
-                    <p className="text-xs font-semibold text-gray-600 mt-3">
-                      Price Columns:
-                    </p>
-                    <label className="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={permissions.stock_view_hpp}
-                        onChange={(e) =>
-                          setPermissions({
-                            ...permissions,
-                            stock_view_hpp: e.target.checked,
-                          })
-                        }
-                        className="mr-2"
-                      />
-                      View HPP
-                    </label>
-                    <label className="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={permissions.stock_view_hpt}
-                        onChange={(e) =>
-                          setPermissions({
-                            ...permissions,
-                            stock_view_hpt: e.target.checked,
-                          })
-                        }
-                        className="mr-2"
-                      />
-                      View HPT
-                    </label>
-                    <label className="flex items-center text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={permissions.stock_view_hpj}
-                        onChange={(e) =>
-                          setPermissions({
-                            ...permissions,
-                            stock_view_hpj: e.target.checked,
-                          })
-                        }
-                        className="mr-2"
-                      />
-                      View HPJ
-                    </label>
-                  </div>
-                </div>
+              {/* Column 3: Petty Cash, Canvasing, Admin */}
+              <div className="space-y-1">
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2">Petty Cash</h3>
+                <CB label="View Petty Cash" k="petty_cash" />
+                <CB label="Add Entry" k="petty_cash_add" sub />
+                <CB label="Export Data" k="petty_cash_export" sub />
+                <CB label="View Balance" k="petty_cash_balance" sub />
 
-                <div className="mt-6 pt-4 border-t">
-                  <h3 className="font-semibold text-gray-800 mb-3">
-                    Admin Access
-                  </h3>
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2 mt-4">Canvasing</h3>
+                <CB label="View Canvasing" k="canvasing" />
+                <CB label="Export Canvasing" k="canvasing_export" sub />
 
-                  <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
-                    <input
-                      type="checkbox"
-                      checked={permissions.registration_request}
-                      onChange={(e) =>
-                        setPermissions({
-                          ...permissions,
-                          registration_request: e.target.checked,
-                        })
-                      }
-                      className="mr-2"
-                    />
-                    <span>Registration Requests</span>
-                  </label>
-
-                  <label className="flex items-center text-sm cursor-pointer hover:bg-gray-50 p-2 rounded">
-                    <input
-                      type="checkbox"
-                      checked={permissions.user_setting}
-                      onChange={(e) =>
-                        setPermissions({
-                          ...permissions,
-                          user_setting: e.target.checked,
-                        })
-                      }
-                      className="mr-2"
-                    />
-                    <span>User Settings</span>
-                  </label>
-                </div>
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2 mt-4">Admin</h3>
+                <CB label="Registration Request" k="registration_request" />
+                <CB label="User Settings" k="user_setting" />
               </div>
             </div>
 
             <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4">
               <p className="text-xs text-yellow-800">
-                <strong>Note:</strong> Changes will take effect on user's next
-                login or page refresh.
+                <strong>Note:</strong> Changes will take effect on user's next login or page refresh.
               </p>
             </div>
 
             <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  setShowEditModal(false);
-                  setSelectedUser(null);
-                }}
+              <button onClick={() => { setShowEditModal(false); setSelectedUser(null); }}
                 disabled={saving}
-                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
-              >
+                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50">
                 Cancel
               </button>
-              <button
-                onClick={handleSavePermissions}
-                disabled={saving}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
-              >
+              <button onClick={handleSavePermissions} disabled={saving}
+                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">
                 {saving ? "Saving..." : "Save Changes"}
               </button>
             </div>
@@ -999,12 +588,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <Popup
-        show={showPopup}
-        message={popupMessage}
-        type={popupType}
-        onClose={() => setShowPopup(false)}
-      />
+      <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
     </div>
   );
 }
