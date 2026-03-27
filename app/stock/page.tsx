@@ -69,6 +69,17 @@ const WAREHOUSE_COLORS = [
   "#0284c7", "#b45309", "#4f46e5", "#059669",
 ];
 
+const PCA_CATEGORY_COLORS = [
+  "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#16a34a",
+  "#0891b2", "#ca8a04", "#9333ea", "#e11d48", "#65a30d",
+  "#0284c7", "#b45309", "#4f46e5", "#059669",
+];
+
+const PCA_GRADE_COLORS = [
+  "#16a34a", "#0891b2", "#ca8a04", "#e11d48",
+  "#7c3aed", "#ea580c", "#2563eb", "#db2777",
+];
+
 const CustomXTick = ({ x, y, payload }: any) => {
   const name: string = payload.value || "";
   const maxLen = 11;
@@ -82,35 +93,19 @@ const CustomXTick = ({ x, y, payload }: any) => {
   );
 };
 
-// Dark-styled tooltip for Store mode
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div
-        style={{
-          background: "#1e293b",
-          border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: "10px",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
-          padding: "10px 14px",
-          minWidth: "140px",
-        }}
-      >
-        <p style={{ fontSize: 12, fontWeight: 600, color: "#f1f5f9", marginBottom: 8 }}>
-          {label}
-        </p>
+      <div style={{ background: "#1e293b", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", boxShadow: "0 8px 32px rgba(0,0,0,0.35)", padding: "10px 14px", minWidth: "140px" }}>
+        <p style={{ fontSize: 12, fontWeight: 600, color: "#f1f5f9", marginBottom: 8 }}>{label}</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
             <span style={{ fontSize: 11, color: "#94a3b8" }}>Stock</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#60a5fa" }}>
-              {payload[0].value.toLocaleString()}
-            </span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#60a5fa" }}>{payload[0].value.toLocaleString()}</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
             <span style={{ fontSize: 11, color: "#94a3b8" }}>SKU</span>
-            <span style={{ fontSize: 11, fontWeight: 600, color: "#e2e8f0" }}>
-              {payload[0].payload.sku}
-            </span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#e2e8f0" }}>{payload[0].payload.sku}</span>
           </div>
         </div>
       </div>
@@ -119,63 +114,37 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-// Dark-styled tooltip for Category mode
+const PCATooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div style={{ background: "#1e293b", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", boxShadow: "0 8px 32px rgba(0,0,0,0.35)", padding: "10px 14px", minWidth: "140px" }}>
+        <p style={{ fontSize: 12, fontWeight: 600, color: "#f1f5f9", marginBottom: 8 }}>{label}</p>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+          <span style={{ fontSize: 11, color: "#94a3b8" }}>Stock</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#60a5fa" }}>{payload[0].value.toLocaleString()}</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 const CategoryTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     const half = Math.ceil(payload.length / 2);
     const col1 = payload.slice(0, half);
     const col2 = payload.slice(half);
     return (
-      <div
-        style={{
-          background: "#1e293b",
-          border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: "10px",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
-          padding: "10px 14px",
-        }}
-      >
-        <p style={{ fontSize: 12, fontWeight: 600, color: "#f1f5f9", marginBottom: 8 }}>
-          {label}
-        </p>
+      <div style={{ background: "#1e293b", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px", boxShadow: "0 8px 32px rgba(0,0,0,0.35)", padding: "10px 14px" }}>
+        <p style={{ fontSize: 12, fontWeight: 600, color: "#f1f5f9", marginBottom: 8 }}>{label}</p>
         <div style={{ display: "flex", gap: 20 }}>
           {[col1, col2].filter((col) => col.length > 0).map((col, ci) => (
             <div key={ci} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {col.map((p: any, i: number) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      backgroundColor: p.color,
-                      flexShrink: 0,
-                      opacity: Number(p.value) === 0 ? 0.25 : 1,
-                    }}
-                  />
-                  <span
-                    style={{
-                      fontSize: 11,
-                      width: 72,
-                      color: Number(p.value) === 0 ? "#475569" : "#94a3b8",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {p.dataKey}:
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      minWidth: 28,
-                      textAlign: "right",
-                      color: Number(p.value) === 0 ? "#334155" : "#e2e8f0",
-                    }}
-                  >
-                    {Number(p.value).toLocaleString()}
-                  </span>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: p.color, flexShrink: 0, opacity: Number(p.value) === 0 ? 0.25 : 1 }} />
+                  <span style={{ fontSize: 11, width: 72, color: Number(p.value) === 0 ? "#475569" : "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.dataKey}:</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, minWidth: 28, textAlign: "right", color: Number(p.value) === 0 ? "#334155" : "#e2e8f0" }}>{Number(p.value).toLocaleString()}</span>
                 </div>
               ))}
             </div>
@@ -187,75 +156,20 @@ const CategoryTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-// QR Label Popup (5x2 cm ratio)
-const QRLabelPopup = ({
-  item,
-  onClose,
-}: {
-  item: StockItem;
-  onClose: () => void;
-}) => {
+const QRLabelPopup = ({ item, onClose }: { item: StockItem; onClose: () => void }) => {
   const toProperCase = (str: string) => {
     if (!str) return "";
-    return str
-      .toLowerCase()
-      .split(" ")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
+    return str.toLowerCase().split(" ").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
   };
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: "500px",
-          height: "200px",
-          background: "#fff",
-          border: "1px solid #d1d5db",
-          borderRadius: "8px",
-          display: "flex",
-          alignItems: "stretch",
-          overflow: "hidden",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
-        }}
-      >
-        <div
-          style={{
-            flex: 1,
-            padding: "18px 16px",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            gap: "6px",
-            borderRight: "1px solid #e5e7eb",
-          }}
-        >
-          <div style={{ fontSize: "13px", fontWeight: 700, color: "#111827", letterSpacing: "0.04em" }}>
-            {item.sku}
-          </div>
-          <div style={{ fontSize: "11px", color: "#374151", fontWeight: 500, lineHeight: 1.4, wordBreak: "break-word" }}>
-            {toProperCase(item.item_name)}
-          </div>
-          {item.hpj && (
-            <div style={{ fontSize: "12px", color: "#000000", fontWeight: 700, marginTop: "4px" }}>
-              {item.hpj}
-            </div>
-          )}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "500px", height: "200px", background: "#fff", border: "1px solid #d1d5db", borderRadius: "8px", display: "flex", alignItems: "stretch", overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}>
+        <div style={{ flex: 1, padding: "18px 16px", display: "flex", flexDirection: "column", justifyContent: "center", gap: "6px", borderRight: "1px solid #e5e7eb" }}>
+          <div style={{ fontSize: "13px", fontWeight: 700, color: "#111827", letterSpacing: "0.04em" }}>{item.sku}</div>
+          <div style={{ fontSize: "11px", color: "#374151", fontWeight: 500, lineHeight: 1.4, wordBreak: "break-word" }}>{toProperCase(item.item_name)}</div>
+          {item.hpj && <div style={{ fontSize: "12px", color: "#000000", fontWeight: 700, marginTop: "4px" }}>{item.hpj}</div>}
         </div>
-        <div
-          style={{
-            width: "200px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "#f9fafb",
-            padding: "12px",
-          }}
-        >
+        <div style={{ width: "200px", display: "flex", alignItems: "center", justifyContent: "center", background: "#f9fafb", padding: "12px" }}>
           <QRCodeSVG value={item.sku} size={160} level="H" includeMargin={false} />
         </div>
       </div>
@@ -296,6 +210,12 @@ export default function StockPage() {
   const [popupType, setPopupType] = useState<"success" | "error">("success");
 
   const [chartMode, setChartMode] = useState<"store" | "category">("store");
+  const [pcaChartMode, setPcaChartMode] = useState<"category" | "grade">("category");
+
+  // collapse state — both open by default
+  const [storeChartOpen, setStoreChartOpen] = useState(true);
+  const [pcaChartOpen, setPcaChartOpen] = useState(true);
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
@@ -533,7 +453,7 @@ export default function StockPage() {
     logActivity("GET", `Exported stock data (${selectedView} view): ${filteredData.length} items`);
   };
 
-  // Chart data
+  // ── Store chart data ──────────────────────────────────────────────────────
   const chartData = WAREHOUSES.map((wh) => {
     const whData = filteredData.filter((i) => (i.warehouse || "").toString().trim() === wh.key);
     return {
@@ -555,6 +475,29 @@ export default function StockPage() {
     return row;
   });
 
+  // ── PCA chart data ────────────────────────────────────────────────────────
+  const parseStock = (val: string | number) =>
+    parseInt((val || "0").toString().replace(/[^0-9-]/g, "")) || 0;
+
+  const pcaCategoryChartData = [...new Set(filteredData.map((i) => i.category).filter(Boolean))]
+    .sort()
+    .map((cat) => ({
+      name: cat,
+      stock: filteredData.filter((i) => i.category === cat).reduce((s, i) => s + parseStock(i.stock), 0),
+    }));
+
+  const pcaGradeChartData = [...new Set(filteredData.map((i) => i.grade).filter(Boolean))]
+    .sort()
+    .map((grade) => ({
+      name: grade,
+      stock: filteredData.filter((i) => i.grade === grade).reduce((s, i) => s + parseStock(i.stock), 0),
+    }));
+
+  const pcaActiveData = pcaChartMode === "category" ? pcaCategoryChartData : pcaGradeChartData;
+  const pcaActiveColors = pcaChartMode === "category" ? PCA_CATEGORY_COLORS : PCA_GRADE_COLORS;
+  const pcaTotalStock = pcaActiveData.reduce((s, d) => s + d.stock, 0);
+
+  // ── Pagination ────────────────────────────────────────────────────────────
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
@@ -631,8 +574,11 @@ export default function StockPage() {
 
           {/* Chart + Filters */}
           <div className="bg-white rounded-lg shadow p-4 mb-4">
+
+            {/* ── STORE CHART ── */}
             {selectedView === "store" && (
               <div className="mb-5">
+                {/* Header row — always visible, arrow toggles chart */}
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <h3 className="text-sm font-semibold text-gray-700">Stock Summary</h3>
@@ -643,74 +589,179 @@ export default function StockPage() {
                       </span>
                     </p>
                   </div>
-                  <div className="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
+                  <div className="flex items-center gap-2">
+                    {/* Mode toggle — only show when chart is open */}
+                    {storeChartOpen && (
+                      <div className="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
+                        <button
+                          onClick={() => setChartMode("store")}
+                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${chartMode === "store" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                        >
+                          Store
+                        </button>
+                        <button
+                          onClick={() => setChartMode("category")}
+                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${chartMode === "category" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                        >
+                          Category
+                        </button>
+                      </div>
+                    )}
+                    {/* Collapse arrow */}
                     <button
-                      onClick={() => setChartMode("store")}
-                      className={`px-3 py-1 rounded text-xs font-medium transition-colors ${chartMode === "store" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                      onClick={() => setStoreChartOpen((v) => !v)}
+                      className="flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                      title={storeChartOpen ? "Hide chart" : "Show chart"}
                     >
-                      Store
-                    </button>
-                    <button
-                      onClick={() => setChartMode("category")}
-                      className={`px-3 py-1 rounded text-xs font-medium transition-colors ${chartMode === "category" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-                    >
-                      Category
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="w-4 h-4 transition-transform duration-200"
+                        style={{ transform: storeChartOpen ? "rotate(0deg)" : "rotate(180deg)" }}
+                      >
+                        <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                      </svg>
                     </button>
                   </div>
                 </div>
 
-                {/* Store chart */}
-                {chartMode === "store" && (
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={chartData} margin={{ top: 16, right: 4, left: 0, bottom: 0 }} barCategoryGap="30%">
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                      <XAxis dataKey="name" tick={<CustomXTick />} axisLine={false} tickLine={false} interval={0} height={24} />
-                      <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={32} />
-                      <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-                      <Bar
-                        dataKey="stock"
-                        radius={[3, 3, 0, 0]}
-                        maxBarSize={32}
-                        label={{ position: "top", fontSize: 8, fill: "#6b7280", formatter: (v: any) => Number(v) > 0 ? Number(v).toLocaleString() : "" }}
-                      >
-                        {chartData.map((entry, index) => {
-                          const minStock = Math.min(...chartData.filter((d) => d.stock > 0).map((d) => d.stock));
-                          const color = entry.stock === maxStock ? "#3de400" : entry.stock === minStock && entry.stock > 0 ? "#e20000" : "#cbe2ff";
-                          return <Cell key={index} fill={color} />;
-                        })}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-
-                {/* Category chart */}
-                {chartMode === "category" && (
+                {/* Collapsible chart body */}
+                {storeChartOpen && (
                   <>
-                    <div className="overflow-x-auto">
-                      <div style={{ width: Math.max(900, categoryChartData.length * 60), minWidth: "100%" }}>
-                        <BarChart
-                          width={Math.max(900, categoryChartData.length * 60)}
-                          height={220}
-                          data={categoryChartData}
-                          margin={{ top: 8, right: 4, left: 0, bottom: 0 }}
-                          barCategoryGap="20%"
-                          barGap={1}
-                        >
+                    {/* Store chart */}
+                    {chartMode === "store" && (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={chartData} margin={{ top: 16, right: 4, left: 0, bottom: 0 }} barCategoryGap="30%">
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                           <XAxis dataKey="name" tick={<CustomXTick />} axisLine={false} tickLine={false} interval={0} height={24} />
                           <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={32} />
-                          <Tooltip content={<CategoryTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-                          {WAREHOUSES.map((wh, i) => (
-                            <Bar key={wh.name} dataKey={wh.name} fill={WAREHOUSE_COLORS[i % WAREHOUSE_COLORS.length]} radius={[2, 2, 0, 0]} maxBarSize={8} />
-                          ))}
+                          <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                          <Bar dataKey="stock" radius={[3, 3, 0, 0]} maxBarSize={32} label={{ position: "top", fontSize: 8, fill: "#6b7280", formatter: (v: any) => Number(v) > 0 ? Number(v).toLocaleString() : "" }}>
+                            {chartData.map((entry, index) => {
+                              const minStock = Math.min(...chartData.filter((d) => d.stock > 0).map((d) => d.stock));
+                              const color = entry.stock === maxStock ? "#3de400" : entry.stock === minStock && entry.stock > 0 ? "#e20000" : "#cbe2ff";
+                              return <Cell key={index} fill={color} />;
+                            })}
+                          </Bar>
                         </BarChart>
+                      </ResponsiveContainer>
+                    )}
+
+                    {/* Category chart */}
+                    {chartMode === "category" && (
+                      <>
+                        <div className="overflow-x-auto">
+                          <div style={{ width: Math.max(900, categoryChartData.length * 60), minWidth: "100%" }}>
+                            <BarChart
+                              width={Math.max(900, categoryChartData.length * 60)}
+                              height={220}
+                              data={categoryChartData}
+                              margin={{ top: 8, right: 4, left: 0, bottom: 0 }}
+                              barCategoryGap="20%"
+                              barGap={1}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                              <XAxis dataKey="name" tick={<CustomXTick />} axisLine={false} tickLine={false} interval={0} height={24} />
+                              <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={32} />
+                              <Tooltip content={<CategoryTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                              {WAREHOUSES.map((wh, i) => (
+                                <Bar key={wh.name} dataKey={wh.name} fill={WAREHOUSE_COLORS[i % WAREHOUSE_COLORS.length]} radius={[2, 2, 0, 0]} maxBarSize={8} />
+                              ))}
+                            </BarChart>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                          {WAREHOUSES.map((wh, i) => (
+                            <div key={wh.name} className="flex items-center gap-1">
+                              <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: WAREHOUSE_COLORS[i % WAREHOUSE_COLORS.length] }} />
+                              <span className="text-[10px] text-gray-500">{wh.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+
+                <div className="border-t border-gray-100 mt-3 mb-4" />
+              </div>
+            )}
+
+            {/* ── PCA CHART ── */}
+            {selectedView === "pca" && (
+              <div className="mb-5">
+                {/* Header row — always visible */}
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700">PCA Stock Summary</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Total Stock:{" "}
+                      <span className="font-bold text-gray-800">
+                        {pcaTotalStock.toLocaleString()}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {/* Mode toggle — only show when chart is open */}
+                    {pcaChartOpen && (
+                      <div className="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
+                        <button
+                          onClick={() => setPcaChartMode("category")}
+                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${pcaChartMode === "category" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                        >
+                          Category
+                        </button>
+                        <button
+                          onClick={() => setPcaChartMode("grade")}
+                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${pcaChartMode === "grade" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                        >
+                          Grade
+                        </button>
                       </div>
-                    </div>
+                    )}
+                    {/* Collapse arrow */}
+                    <button
+                      onClick={() => setPcaChartOpen((v) => !v)}
+                      className="flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                      title={pcaChartOpen ? "Hide chart" : "Show chart"}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="w-4 h-4 transition-transform duration-200"
+                        style={{ transform: pcaChartOpen ? "rotate(0deg)" : "rotate(180deg)" }}
+                      >
+                        <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Collapsible chart body */}
+                {pcaChartOpen && (
+                  <>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={pcaActiveData} margin={{ top: 16, right: 4, left: 0, bottom: 0 }} barCategoryGap="30%">
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                        <XAxis dataKey="name" tick={<CustomXTick />} axisLine={false} tickLine={false} interval={0} height={24} />
+                        <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={32} />
+                        <Tooltip content={<PCATooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                        <Bar dataKey="stock" radius={[3, 3, 0, 0]} maxBarSize={36} label={{ position: "top", fontSize: 8, fill: "#6b7280", formatter: (v: any) => Number(v) > 0 ? Number(v).toLocaleString() : "" }}>
+                          {pcaActiveData.map((_, index) => (
+                            <Cell key={index} fill={pcaActiveColors[index % pcaActiveColors.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+
+                    {/* Legend */}
                     <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-                      {WAREHOUSES.map((wh, i) => (
-                        <div key={wh.name} className="flex items-center gap-1">
-                          <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: WAREHOUSE_COLORS[i % WAREHOUSE_COLORS.length] }} />
-                          <span className="text-[10px] text-gray-500">{wh.name}</span>
+                      {pcaActiveData.map((entry, i) => (
+                        <div key={entry.name} className="flex items-center gap-1">
+                          <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: pcaActiveColors[i % pcaActiveColors.length] }} />
+                          <span className="text-[10px] text-gray-500">{entry.name}</span>
                         </div>
                       ))}
                     </div>
