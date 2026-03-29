@@ -939,7 +939,7 @@ export default function TrafficStorePage() {
               <div className="bg-white rounded-lg shadow overflow-hidden">
                 {/* Toolbar */}
                 <div className="flex items-center justify-between px-6 py-3 border-b">
-                  <h2 className="text-sm font-semibold text-gray-700">Analitik Traffic Store</h2>
+                  <h2 className="text-sm font-semibold text-gray-700">Analitik Survey Store</h2>
                   <div className="flex items-center gap-3">
                     {!loading && fd.length > 0 && (
                       <>
@@ -974,7 +974,7 @@ export default function TrafficStorePage() {
                           {/* Pie + Bar: Traffic Source */}
                           <div className="grid grid-cols-2 gap-8">
                             <div>
-                              <h3 className="text-sm font-semibold text-gray-700 mb-4">Distribusi Traffic Source</h3>
+                              <h3 className="text-sm font-semibold text-gray-700 mb-4">Distribusi Survey Source</h3>
                               <ResponsiveContainer width="100%" height={300}>
                                 <PieChart>
                                   <Pie data={trafficChartData} dataKey="value" nameKey="name"
@@ -1011,7 +1011,7 @@ export default function TrafficStorePage() {
                             </div>
 
                             <div>
-                              <h3 className="text-sm font-semibold text-gray-700 mb-4">Jumlah per Traffic Source</h3>
+                              <h3 className="text-sm font-semibold text-gray-700 mb-4">Jumlah per Survey Source</h3>
                               <ResponsiveContainer width="100%" height={300}>
                                 <BarChart data={trafficChartData.slice(0, 12)}
                                   layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 4 }}>
@@ -1060,7 +1060,7 @@ export default function TrafficStorePage() {
                               </div>
                             </div>
                             <div>
-                              <h3 className="text-sm font-semibold text-gray-700 mb-4">Konversi per Traffic Source</h3>
+                              <h3 className="text-sm font-semibold text-gray-700 mb-4">Konversi per Survey Source</h3>
                               <ResponsiveContainer width="100%" height={260}>
                                 <BarChart data={conversionByTraffic.slice(0, 8)}
                                   margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
@@ -1078,7 +1078,7 @@ export default function TrafficStorePage() {
 
                           {/* Total per Store with conversion */}
                           <div>
-                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Total Traffic per Store</h3>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Total Survey per Store</h3>
                             <ResponsiveContainer width="100%" height={260}>
                               <BarChart data={storeTrafficMatrix.barData}
                                 margin={{ top: 16, right: 8, left: 0, bottom: 40 }}>
@@ -1207,7 +1207,7 @@ export default function TrafficStorePage() {
 
                           {/* Detail table: Store × Source */}
                           <div>
-                            <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Store × Traffic Source</h3>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Store × Survey Source</h3>
                             <div className="overflow-x-auto">
                               <table className="text-xs border-collapse">
                                 <thead>
@@ -1284,8 +1284,8 @@ export default function TrafficStorePage() {
                           </div>
 
                           <div>
-                            <h3 className="text-sm font-semibold text-gray-700 mb-1">Tren Traffic Source Harian (Top 6)</h3>
-                            <p className="text-xs text-gray-400 mb-4">Jumlah pengunjung per sumber traffic per hari</p>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-1">Tren Survey Source Harian (Top 6)</h3>
+                            <p className="text-xs text-gray-400 mb-4">Jumlah survey per hari</p>
                             <ResponsiveContainer width="100%" height={320}>
                               <LineChart data={dailyTrafficChartData.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
@@ -1302,8 +1302,8 @@ export default function TrafficStorePage() {
                           </div>
 
                           <div>
-                            <h3 className="text-sm font-semibold text-gray-700 mb-1">Tren Traffic Harian per Store</h3>
-                            <p className="text-xs text-gray-400 mb-4">Jumlah pengunjung per hari berdasarkan store</p>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-1">Tren Survey Harian per Store</h3>
+                            <p className="text-xs text-gray-400 mb-4">Jumlah survey per hari berdasarkan store</p>
                             <ResponsiveContainer width="100%" height={300}>
                               <LineChart data={dailyStoreChartData.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
@@ -1321,12 +1321,12 @@ export default function TrafficStorePage() {
 
                           {/* Summary table */}
                           <div>
-                            <h3 className="text-sm font-semibold text-gray-700 mb-3">Ringkasan Traffic Source</h3>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-3">Ringkasan Survey Source</h3>
                             <div className="overflow-x-auto">
                               <table className="w-full text-xs">
                                 <thead>
                                   <tr className="bg-gray-50 border-b">
-                                    <th className="px-3 py-2 text-left font-semibold text-gray-700">Traffic Source</th>
+                                    <th className="px-3 py-2 text-left font-semibold text-gray-700">Survey Source</th>
                                     <th className="px-3 py-2 text-right font-semibold text-gray-700">Jumlah</th>
                                     <th className="px-3 py-2 text-right font-semibold text-gray-700">Beli</th>
                                     <th className="px-3 py-2 text-right font-semibold text-gray-700">Conv. Rate</th>

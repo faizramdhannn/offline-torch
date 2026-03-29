@@ -199,7 +199,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       ),
     },
     {
-      name: "Traffic Store",
+      name: "Survey Store",
       path: "/traffic-store",
       permission: "traffic_store",
       icon: (
