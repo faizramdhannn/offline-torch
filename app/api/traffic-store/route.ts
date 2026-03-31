@@ -49,6 +49,8 @@ async function appendTrafficRow(sheetName: string, row: any[]) {
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
   const sheets = google.sheets({ version: 'v4', auth });
+  // Only write the first 15 columns (A–O).
+  // Columns P (value_order) and Q (discount_code) contain sheet formulas — do NOT overwrite them.
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_TRAFFIC,
     range: `${sheetName}!A2`,
@@ -65,7 +67,8 @@ async function updateTrafficRow(sheetName: string, rowIndex: number, row: any[])
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
   const sheets = google.sheets({ version: 'v4', auth });
-  const numCols = row.length;
+  // row has 15 columns (A–O); columns P+ (value_order, discount_code) are formula columns — skip.
+  const numCols = row.length; // should be 15
   const endCol = numCols <= 26
     ? String.fromCharCode(64 + numCols)
     : String.fromCharCode(64 + Math.floor((numCols - 1) / 26)) + String.fromCharCode(65 + ((numCols - 1) % 26));
@@ -104,14 +107,18 @@ export async function GET(request: NextRequest) {
 }
 
 // POST: add new traffic entry
-// Sheet columns: id | store_location | taft_name | customer_convert | traffic_source | wag_addition | eiger_addition | organic_addition | brand_competitor | intention | case | notes | created_at | update_at
+// Sheet columns (A–O, 15 cols):
+//   id | store_location | taft_name | customer_convert | traffic_source
+//   | wag_addition | eiger_addition | organic_addition | brand_competitor
+//   | intention | case | notes | sales_order | created_at | update_at
+// Columns P+ (value_order, discount_code) contain sheet formulas — never written here.
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const {
       store_location, taft_name, customer_convert, traffic_source,
       wag_addition, eiger_addition, organic_addition, brand_competitor,
-      intention, case: caseVal, notes, created_by,
+      intention, case: caseVal, notes, sales_order, created_by,
     } = body;
 
     if (!store_location || !taft_name || !traffic_source) {
@@ -126,21 +133,26 @@ export async function POST(request: NextRequest) {
     const eigerVal = traffic_source === 'Dari Eiger' ? (eiger_addition || '') : '';
     const organicVal = traffic_source === 'Traffic Organic/Walk In' ? (organic_addition || '') : '';
 
+    // sales_order only relevant when customer_convert === 'Beli'
+    const salesOrderVal = customer_convert === 'Beli' ? (sales_order || '') : '';
+
+    // 15 columns — A through O
     const newRow = [
-      id,
-      store_location,
-      taft_name,
-      customer_convert || '',
-      traffic_source,
-      wagVal,
-      eigerVal,
-      organicVal,
-      brand_competitor || '',
-      intention || '',
-      caseVal || '',
-      notes || '',
-      now,
-      now,
+      id,               // A: id
+      store_location,   // B: store_location
+      taft_name,        // C: taft_name
+      customer_convert || '', // D: customer_convert
+      traffic_source,   // E: traffic_source
+      wagVal,           // F: wag_addition
+      eigerVal,         // G: eiger_addition
+      organicVal,       // H: organic_addition
+      brand_competitor || '', // I: brand_competitor
+      intention || '',  // J: intention
+      caseVal || '',    // K: case
+      notes || '',      // L: notes
+      salesOrderVal,    // M: sales_order
+      now,              // N: created_at
+      now,              // O: update_at
     ];
 
     await appendTrafficRow('traffic_source', newRow);
@@ -159,7 +171,7 @@ export async function PUT(request: NextRequest) {
     const {
       id, store_location, taft_name, customer_convert, traffic_source,
       wag_addition, eiger_addition, organic_addition, brand_competitor,
-      intention, case: caseVal, notes,
+      intention, case: caseVal, notes, sales_order,
     } = body;
 
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
@@ -173,25 +185,29 @@ export async function PUT(request: NextRequest) {
     const now = new Date().toISOString();
 
     const newTrafficSource = traffic_source ?? existing.traffic_source;
+    const newConvert = customer_convert ?? existing.customer_convert;
     const wagVal = newTrafficSource === 'Whatsapp Group' ? (wag_addition ?? existing.wag_addition ?? '') : '';
     const eigerVal = newTrafficSource === 'Dari Eiger' ? (eiger_addition ?? existing.eiger_addition ?? '') : '';
     const organicVal = newTrafficSource === 'Traffic Organic/Walk In' ? (organic_addition ?? existing.organic_addition ?? '') : '';
+    const salesOrderVal = newConvert === 'Beli' ? (sales_order ?? existing.sales_order ?? '') : '';
 
+    // 15 columns — A through O (P+ formula columns untouched)
     const updatedRow = [
-      id,
-      store_location ?? existing.store_location,
-      taft_name ?? existing.taft_name,
-      customer_convert ?? existing.customer_convert ?? '',
-      newTrafficSource,
-      wagVal,
-      eigerVal,
-      organicVal,
-      brand_competitor ?? existing.brand_competitor ?? '',
-      intention ?? existing.intention,
-      caseVal ?? existing.case,
-      notes ?? existing.notes,
-      existing.created_at,
-      now,
+      id,                                                    // A
+      store_location ?? existing.store_location,             // B
+      taft_name ?? existing.taft_name,                       // C
+      newConvert,                                            // D
+      newTrafficSource,                                      // E
+      wagVal,                                                // F
+      eigerVal,                                              // G
+      organicVal,                                            // H
+      brand_competitor ?? existing.brand_competitor ?? '',   // I
+      intention ?? existing.intention,                       // J
+      caseVal ?? existing.case,                              // K
+      notes ?? existing.notes,                               // L
+      salesOrderVal,                                         // M
+      existing.created_at,                                   // N
+      now,                                                   // O
     ];
 
     await updateTrafficRow('traffic_source', rowIndex, updatedRow);
@@ -202,7 +218,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE: clear a traffic row
+// DELETE: clear a traffic row (15 cols only, formula cols preserved)
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -214,7 +230,8 @@ export async function DELETE(request: NextRequest) {
     if (idx === -1) return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
 
     const rowIndex = idx + 2;
-    await updateTrafficRow('traffic_source', rowIndex, Array(14).fill(''));
+    // Clear only the 15 writable columns (A–O); formula columns P+ are untouched.
+    await updateTrafficRow('traffic_source', rowIndex, Array(15).fill(''));
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting traffic entry:', error);

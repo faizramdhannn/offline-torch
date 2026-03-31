@@ -24,8 +24,12 @@ interface TrafficEntry {
   intention: string;
   case: string;
   notes: string;
+  sales_order: string;
   created_at: string;
   update_at: string;
+  // formula columns from sheet (read-only, never written)
+  value_order?: string;
+  discount_code?: string;
 }
 
 interface MasterRow {
@@ -142,6 +146,17 @@ function formatShortDate(isoOrDate: string): string {
   return `${d}/${m}`;
 }
 
+function formatRupiah(val: number): string {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency", currency: "IDR", minimumFractionDigits: 0,
+  }).format(val);
+}
+
+function parseValue(val: string | undefined): number {
+  if (!val) return 0;
+  return parseFloat(String(val).replace(/[^0-9.]/g, "")) || 0;
+}
+
 const STORE_NAME_MAP: Record<string, string> = {
   cirebon: "Cirebon", jogja: "Jogja", karawaci: "Karawaci", karawang: "Karawang",
   lampung: "Lampung", lembong: "Lembong", makassar: "Makassar", malang: "Malang",
@@ -166,6 +181,7 @@ const EMPTY_FORM = {
   intention: "",
   case: "",
   notes: "",
+  sales_order: "",
 };
 
 // ─── Export XLSX ──────────────────────────────────────────────────────────────
@@ -226,16 +242,36 @@ function exportReportXLSX(
     const b = storeData.filter(r => r.customer_convert === "Beli").length;
     const nb = storeData.filter(r => r.customer_convert === "Tidak Beli").length;
     const t = storeData.length;
-    return [toTitleCase(store), t, b, nb, t ? `${((b / t) * 100).toFixed(1)}%` : "0%"];
+    const rev = storeData.reduce((s, r) => s + parseValue(r.value_order), 0);
+    return [toTitleCase(store), t, b, nb, t ? `${((b / t) * 100).toFixed(1)}%` : "0%", rev];
   });
   const wsConv = XLSX.utils.aoa_to_sheet([
-    ["Store", "Total", "Beli", "Tidak Beli", "Conv. Rate"],
+    ["Store", "Total", "Beli", "Tidak Beli", "Conv. Rate", "Value Order (IDR)"],
     ...convRows,
   ]);
-  wsConv["!cols"] = [{ wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }];
+  wsConv["!cols"] = [{ wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 18 }];
   XLSX.utils.book_append_sheet(wb, wsConv, "Konversi per Store");
 
-  // Sheet 4: WAG, Eiger & Organic Additions
+  // Sheet 4: Discount Code Report
+  const discountMap: Record<string, { count: number; value: number }> = {};
+  filteredData.forEach(r => {
+    if (r.discount_code) {
+      if (!discountMap[r.discount_code]) discountMap[r.discount_code] = { count: 0, value: 0 };
+      discountMap[r.discount_code].count += 1;
+      discountMap[r.discount_code].value += parseValue(r.value_order);
+    }
+  });
+  const discountRows = Object.entries(discountMap)
+    .sort((a, b) => b[1].count - a[1].count)
+    .map(([code, d]) => [code, d.count, d.value, formatRupiah(d.value)]);
+  const wsDiscount = XLSX.utils.aoa_to_sheet([
+    ["Discount Code", "Jumlah Pemakai", "Total Value (IDR)", "Total Value (Rp)"],
+    ...discountRows,
+  ]);
+  wsDiscount["!cols"] = [{ wch: 24 }, { wch: 16 }, { wch: 20 }, { wch: 22 }];
+  XLSX.utils.book_append_sheet(wb, wsDiscount, "Discount Code");
+
+  // Sheet 5: WAG, Eiger & Organic Additions
   const wagMap: Record<string, number> = {};
   const eigerMap: Record<string, number> = {};
   const organicMap: Record<string, number> = {};
@@ -258,7 +294,7 @@ function exportReportXLSX(
   wsAdd["!cols"] = [{ wch: 30 }, { wch: 10 }];
   XLSX.utils.book_append_sheet(wb, wsAdd, "WAG, Eiger & Organic");
 
-  // Sheet 5: Brand Competitor
+  // Sheet 6: Brand Competitor
   const brandMap: Record<string, number> = {};
   filteredData.forEach(r => {
     if (r.brand_competitor) brandMap[r.brand_competitor] = (brandMap[r.brand_competitor] || 0) + 1;
@@ -273,7 +309,7 @@ function exportReportXLSX(
   wsBrand["!cols"] = [{ wch: 30 }, { wch: 10 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(wb, wsBrand, "Brand Competitor");
 
-  // Sheet 6: Daily Trend
+  // Sheet 7: Daily Trend
   const dailyMap: Record<string, Record<string, number>> = {};
   filteredData.forEach(r => {
     const date = r.created_at?.split("T")[0];
@@ -291,13 +327,14 @@ function exportReportXLSX(
   wsDaily["!cols"] = [{ wch: 14 }, ...allSources.map(() => ({ wch: 16 })), { wch: 10 }];
   XLSX.utils.book_append_sheet(wb, wsDaily, "Daily Trend");
 
-  // Sheet 7: Raw Data
-  const rawHeader = ["Tanggal", "Store", "Taft", "Beli?", "Traffic Source", "WAG Addition", "Eiger Addition", "Organic Addition", "Brand Competitor", "Intensi", "Case", "Notes"];
+  // Sheet 8: Raw Data
+  const rawHeader = ["Tanggal", "Store", "Taft", "Beli?", "Sales Order", "Traffic Source", "WAG Addition", "Eiger Addition", "Organic Addition", "Brand Competitor", "Intensi", "Case", "Notes", "Value Order", "Discount Code"];
   const rawRows = filteredData.map(r => [
     formatDate(r.created_at),
     toTitleCase(r.store_location),
     r.taft_name,
     r.customer_convert,
+    r.sales_order || "",
     r.traffic_source,
     r.wag_addition,
     r.eiger_addition,
@@ -306,9 +343,11 @@ function exportReportXLSX(
     r.intention,
     r.case,
     r.notes,
+    r.value_order || "",
+    r.discount_code || "",
   ]);
   const wsRaw = XLSX.utils.aoa_to_sheet([rawHeader, ...rawRows]);
-  wsRaw["!cols"] = [{ wch: 20 }, { wch: 16 }, { wch: 20 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 30 }];
+  wsRaw["!cols"] = [{ wch: 20 }, { wch: 16 }, { wch: 20 }, { wch: 12 }, { wch: 18 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 30 }, { wch: 16 }, { wch: 20 }];
   XLSX.utils.book_append_sheet(wb, wsRaw, "Raw Data");
 
   const filename = `Traffic_Store_Report_${dateLabel || Date.now()}.xlsx`;
@@ -420,7 +459,6 @@ export default function TrafficStorePage() {
     () => [...new Set(master.map(m => m.eiger_addition).filter(Boolean))],
     [master]
   );
-  // ── NEW: organic additions from master ──
   const organicAdditions = useMemo(
     () => [...new Set(master.map(m => m.organic_addition).filter(Boolean))],
     [master]
@@ -506,7 +544,6 @@ export default function TrafficStorePage() {
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [fd]);
 
-  // ── NEW: organic chart data ──
   const organicChartData = useMemo(() => {
     const map: Record<string, number> = {};
     fd.forEach(r => { if (r.organic_addition) map[r.organic_addition] = (map[r.organic_addition] || 0) + 1; });
@@ -545,6 +582,28 @@ export default function TrafficStorePage() {
       map[intent] = (map[intent] || 0) + 1;
     });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [fd]);
+
+  // ─── Discount code chart data ────────────────────────────────────────────────
+  const discountChartData = useMemo(() => {
+    const map: Record<string, { count: number; value: number }> = {};
+    fd.forEach(r => {
+      if (!r.discount_code) return;
+      if (!map[r.discount_code]) map[r.discount_code] = { count: 0, value: 0 };
+      map[r.discount_code].count += 1;
+      map[r.discount_code].value += parseValue(r.value_order);
+    });
+    return Object.entries(map)
+      .map(([name, d]) => ({ name, count: d.count, value: d.value }))
+      .sort((a, b) => b.count - a.count);
+  }, [fd]);
+
+  // ─── Value order stats ───────────────────────────────────────────────────────
+  const valueOrderStats = useMemo(() => {
+    const beliRows = fd.filter(r => r.customer_convert === "Beli");
+    const totalValue = beliRows.reduce((s, r) => s + parseValue(r.value_order), 0);
+    const avgValue = beliRows.length ? totalValue / beliRows.length : 0;
+    return { totalValue, avgValue, beliCount: beliRows.length };
   }, [fd]);
 
   const dailyTrafficChartData = useMemo(() => {
@@ -635,15 +694,17 @@ export default function TrafficStorePage() {
       intention: entry.intention,
       case: entry.case,
       notes: entry.notes,
+      sales_order: entry.sales_order || "",
     });
     setShowForm(true);
   };
 
   const handleSave = async () => {
-    // Validate mandatory fields including organic_addition when relevant
     const needsWag = form.traffic_source === "Whatsapp Group" && !form.wag_addition;
     const needsEiger = form.traffic_source === "Dari Eiger" && !form.eiger_addition;
     const needsOrganic = form.traffic_source === "Traffic Organic/Walk In" && !form.organic_addition;
+    const needsSalesOrder = form.customer_convert === "Beli" && !form.sales_order?.trim();
+    const needsNotes = form.customer_convert === "Tidak Beli" && !form.notes?.trim();
 
     if (!form.taft_name || !form.traffic_source || !form.intention || !form.case || !form.customer_convert) {
       showMessage("Taft, Status Beli, Traffic Source, Intensi, dan Case wajib diisi", "error"); return;
@@ -651,6 +712,8 @@ export default function TrafficStorePage() {
     if (needsWag) { showMessage("Pilih WAG Addition terlebih dahulu", "error"); return; }
     if (needsEiger) { showMessage("Pilih Eiger Addition terlebih dahulu", "error"); return; }
     if (needsOrganic) { showMessage("Pilih Organic Addition terlebih dahulu", "error"); return; }
+    if (needsSalesOrder) { showMessage("Sales Order wajib diisi ketika customer membeli", "error"); return; }
+    if (needsNotes) { showMessage("Notes wajib diisi ketika customer tidak membeli", "error"); return; }
 
     setSaving(true);
     try {
@@ -658,7 +721,6 @@ export default function TrafficStorePage() {
       if (!storeLocation && !editEntry) {
         showMessage("Store tidak dikenali", "error"); setSaving(false); return;
       }
-      // Resolve final brand value
       const finalBrand = form.brand_competitor === "Lainnya"
         ? (form.brand_custom?.trim() || "Lainnya")
         : form.brand_competitor;
@@ -704,11 +766,14 @@ export default function TrafficStorePage() {
   };
 
   const exportList = () => {
-    const headers = ["ID", "Store", "Taft", "Beli?", "Traffic Source", "WAG Addition", "Eiger Addition", "Organic Addition", "Brand Competitor", "Intensi", "Case", "Notes", "Tanggal"];
+    const headers = ["ID", "Store", "Taft", "Beli?", "Sales Order", "Traffic Source", "WAG Addition", "Eiger Addition", "Organic Addition", "Brand Competitor", "Intensi", "Case", "Notes", "Value Order", "Discount Code", "Tanggal"];
     const rows = fd.map(r => [
       r.id, r.store_location, r.taft_name, r.customer_convert,
+      r.sales_order || "",
       r.traffic_source, r.wag_addition, r.eiger_addition, r.organic_addition,
-      r.brand_competitor, r.intention, r.case, r.notes, formatDate(r.created_at),
+      r.brand_competitor, r.intention, r.case, r.notes,
+      r.value_order || "", r.discount_code || "",
+      formatDate(r.created_at),
     ]);
     const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -845,6 +910,7 @@ export default function TrafficStorePage() {
                             {!isStoreUser && <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Store</th>}
                             <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Taft</th>
                             <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Beli?</th>
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Sales Order</th>
                             <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Traffic Source</th>
                             <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Detail</th>
                             <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Brand</th>
@@ -856,7 +922,6 @@ export default function TrafficStorePage() {
                         </thead>
                         <tbody>
                           {paginated.map((row, i) => {
-                            // ── updated detail logic to include organic ──
                             const detail = row.traffic_source === "Whatsapp Group"
                               ? row.wag_addition
                               : row.traffic_source === "Dari Eiger"
@@ -879,6 +944,9 @@ export default function TrafficStorePage() {
                                   }`}>
                                     {row.customer_convert || "-"}
                                   </span>
+                                </td>
+                                <td className="px-2 py-1 text-gray-600 font-mono text-[10px]">
+                                  {row.sales_order || "-"}
                                 </td>
                                 <td className="px-2 py-1">
                                   <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-medium">
@@ -921,12 +989,13 @@ export default function TrafficStorePage() {
           {activeTab === "report" && user?.report_store && (
             <>
               {/* Summary Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
                 {[
                   { label: "Total Data", value: totalEntries.toLocaleString(), color: "text-blue-600" },
                   { label: "Jumlah Store", value: totalStores.toLocaleString(), color: "text-purple-600" },
                   { label: "Total Beli", value: totalBeli.toLocaleString(), color: "text-green-600" },
                   { label: "Conv. Rate", value: convRate, color: "text-orange-600" },
+                  { label: "Total Value Beli", value: formatRupiah(valueOrderStats.totalValue), color: "text-teal-600" },
                 ].map((c) => (
                   <div key={c.label} className="bg-white rounded-lg shadow p-4">
                     <p className="text-xs text-gray-500 mb-1">{c.label}</p>
@@ -1076,7 +1145,7 @@ export default function TrafficStorePage() {
                             </div>
                           </div>
 
-                          {/* Total per Store with conversion */}
+                          {/* Total per Store */}
                           <div>
                             <h3 className="text-sm font-semibold text-gray-700 mb-4">Total Survey per Store</h3>
                             <ResponsiveContainer width="100%" height={260}>
@@ -1094,7 +1163,76 @@ export default function TrafficStorePage() {
                             </ResponsiveContainer>
                           </div>
 
-                          {/* Brand Competitor + WAG/Eiger/Organic Additions */}
+                          {/* ── Discount Code Section ── */}
+                          {discountChartData.length > 0 && (
+                            <div>
+                              <h3 className="text-sm font-semibold text-gray-700 mb-4">Discount Code — Pemakai & Value</h3>
+                              <div className="grid grid-cols-2 gap-8">
+                                {/* Bar: jumlah pemakai */}
+                                <div>
+                                  <p className="text-xs text-gray-500 mb-3">Jumlah Pemakai</p>
+                                  <ResponsiveContainer width="100%" height={Math.max(200, discountChartData.length * 36)}>
+                                    <BarChart data={discountChartData.slice(0, 12)}
+                                      layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 4 }}>
+                                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
+                                      <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }} />
+                                      <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#6b7280" }} width={120} />
+                                      <Tooltip content={<DarkTooltip />} />
+                                      <Bar dataKey="count" name="Pemakai" radius={[0, 4, 4, 0]} maxBarSize={22}
+                                        label={{ position: "right", fontSize: 9, fill: "#6b7280" }}>
+                                        {discountChartData.map((_, i) => (
+                                          <Cell key={i} fill={COLORS[(i + 6) % COLORS.length]} />
+                                        ))}
+                                      </Bar>
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                </div>
+
+                                {/* Table: discount detail */}
+                                <div>
+                                  <p className="text-xs text-gray-500 mb-3">Detail per Kode</p>
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-xs">
+                                      <thead>
+                                        <tr className="bg-gray-50 border-b">
+                                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Kode Discount</th>
+                                          <th className="px-3 py-2 text-right font-semibold text-gray-700">Pemakai</th>
+                                          <th className="px-3 py-2 text-right font-semibold text-gray-700">Total Value</th>
+                                          <th className="px-3 py-2 text-right font-semibold text-gray-700">Avg/Pemakai</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {discountChartData.map((d, i) => (
+                                          <tr key={i} className="border-b hover:bg-gray-50">
+                                            <td className="px-3 py-2 flex items-center gap-2">
+                                              <span className="w-2 h-2 rounded-full flex-shrink-0"
+                                                style={{ backgroundColor: COLORS[(i + 6) % COLORS.length] }} />
+                                              <span className="font-mono font-medium">{d.name}</span>
+                                            </td>
+                                            <td className="px-3 py-2 text-right font-semibold text-blue-700">{d.count}</td>
+                                            <td className="px-3 py-2 text-right text-green-700 font-semibold">{formatRupiah(d.value)}</td>
+                                            <td className="px-3 py-2 text-right text-gray-500">{formatRupiah(d.count ? d.value / d.count : 0)}</td>
+                                          </tr>
+                                        ))}
+                                        <tr className="bg-primary/5 font-bold border-t-2">
+                                          <td className="px-3 py-2 text-primary">TOTAL</td>
+                                          <td className="px-3 py-2 text-right text-primary">
+                                            {discountChartData.reduce((s, d) => s + d.count, 0)}
+                                          </td>
+                                          <td className="px-3 py-2 text-right text-green-700">
+                                            {formatRupiah(discountChartData.reduce((s, d) => s + d.value, 0))}
+                                          </td>
+                                          <td className="px-3 py-2" />
+                                        </tr>
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Brand Competitor + WAG/Eiger/Organic */}
                           {(brandChartData.length > 0 || wagChartData.length > 0 || eigerChartData.length > 0 || organicChartData.length > 0) && (
                             <div className="grid grid-cols-2 gap-8">
                               {brandChartData.length > 0 && (
@@ -1159,7 +1297,6 @@ export default function TrafficStorePage() {
                                     </div>
                                   </div>
                                 )}
-                                {/* ── NEW: organic detail ── */}
                                 {organicChartData.length > 0 && (
                                   <div>
                                     <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Traffic Organic/Walk In</h3>
@@ -1371,7 +1508,7 @@ export default function TrafficStorePage() {
         </div>
       </div>
 
-      {/* Form Modal */}
+      {/* ── Form Modal ── */}
       {showForm && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
@@ -1407,7 +1544,7 @@ export default function TrafficStorePage() {
               <div className="flex gap-2">
                 {["Beli", "Tidak Beli"].map(opt => (
                   <button key={opt} type="button"
-                    onClick={() => setForm(f => ({ ...f, customer_convert: opt }))}
+                    onClick={() => setForm(f => ({ ...f, customer_convert: opt, sales_order: opt === "Tidak Beli" ? "" : f.sales_order }))}
                     className={`flex-1 px-3 py-2 border rounded text-xs font-medium transition-colors ${
                       form.customer_convert === opt
                         ? opt === "Beli"
@@ -1420,6 +1557,24 @@ export default function TrafficStorePage() {
                 ))}
               </div>
             </div>
+
+            {/* Sales Order — hanya muncul ketika Beli */}
+            {form.customer_convert === "Beli" && (
+              <div className="mb-3 pl-3 border-l-2 border-green-300">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Sales Order <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.sales_order}
+                  onChange={e => setForm(f => ({ ...f, sales_order: e.target.value }))}
+                  placeholder="Masukkan nomor Sales Order..."
+                  autoFocus
+                  className="w-full px-2 py-1.5 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-400 bg-green-50 font-mono"
+                />
+                <p className="text-[10px] text-gray-400 mt-0.5">Wajib diisi ketika customer membeli</p>
+              </div>
+            )}
 
             {/* Traffic Source */}
             <div className="mb-3">
@@ -1468,7 +1623,7 @@ export default function TrafficStorePage() {
               </div>
             )}
 
-            {/* ── NEW: Organic Addition (conditional) ── */}
+            {/* Organic Addition (conditional) */}
             {form.traffic_source === "Traffic Organic/Walk In" && (
               <div className="mb-3 pl-3 border-l-2 border-green-200">
                 <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -1533,12 +1688,22 @@ export default function TrafficStorePage() {
               </select>
             </div>
 
-            {/* Notes */}
+            {/* Notes — wajib saat Tidak Beli */}
             <div className="mb-5">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Notes
+                {form.customer_convert === "Tidak Beli" && <span className="text-red-500"> *</span>}
+                {form.customer_convert === "Tidak Beli" && (
+                  <span className="ml-1 text-[10px] text-red-400">(wajib diisi)</span>
+                )}
+              </label>
               <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                rows={2} placeholder="Catatan tambahan..."
-                className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
+                rows={2} placeholder={form.customer_convert === "Tidak Beli" ? "Jelaskan alasan customer tidak membeli..." : "Catatan tambahan..."}
+                className={`w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 resize-none ${
+                  form.customer_convert === "Tidak Beli"
+                    ? "border-red-200 focus:ring-red-400 bg-red-50/30"
+                    : "border-gray-300 focus:ring-primary"
+                }`} />
             </div>
 
             <div className="flex gap-2">
