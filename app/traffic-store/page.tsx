@@ -704,6 +704,11 @@ export default function TrafficStorePage() {
     const needsEiger = form.traffic_source === "Dari Eiger" && !form.eiger_addition;
     const needsOrganic = form.traffic_source === "Traffic Organic/Walk In" && !form.organic_addition;
     const needsSalesOrder = form.customer_convert === "Beli" && !form.sales_order?.trim();
+    // ─── Validasi format Sales Order: harus diawali # diikuti angka, misal #4098769 ───
+    const invalidSalesOrder =
+      form.customer_convert === "Beli" &&
+      !!form.sales_order?.trim() &&
+      !/^#\d+$/.test(form.sales_order.trim());
     const needsNotes = form.customer_convert === "Tidak Beli" && !form.notes?.trim();
 
     if (!form.taft_name || !form.traffic_source || !form.intention || !form.case || !form.customer_convert) {
@@ -713,6 +718,9 @@ export default function TrafficStorePage() {
     if (needsEiger) { showMessage("Pilih Eiger Addition terlebih dahulu", "error"); return; }
     if (needsOrganic) { showMessage("Pilih Organic Addition terlebih dahulu", "error"); return; }
     if (needsSalesOrder) { showMessage("Sales Order wajib diisi ketika customer membeli", "error"); return; }
+    if (invalidSalesOrder) {
+      showMessage("Format Sales Order tidak valid. Gunakan format #angka, contoh: #4098769", "error"); return;
+    }
     if (needsNotes) { showMessage("Notes wajib diisi ketika customer tidak membeli", "error"); return; }
 
     setSaving(true);
@@ -1568,11 +1576,22 @@ export default function TrafficStorePage() {
                   type="text"
                   value={form.sales_order}
                   onChange={e => setForm(f => ({ ...f, sales_order: e.target.value }))}
-                  placeholder="Masukkan nomor Sales Order..."
+                  placeholder="Contoh: #4098769"
                   autoFocus
-                  className="w-full px-2 py-1.5 border border-green-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-green-400 bg-green-50 font-mono"
+                  className={`w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 bg-green-50 font-mono ${
+                    form.sales_order.trim() && !/^#\d+$/.test(form.sales_order.trim())
+                      ? "border-red-400 focus:ring-red-400"
+                      : "border-green-300 focus:ring-green-400"
+                  }`}
                 />
-                <p className="text-[10px] text-gray-400 mt-0.5">Wajib diisi ketika customer membeli</p>
+                {form.sales_order.trim() && !/^#\d+$/.test(form.sales_order.trim()) && (
+                  <p className="text-[10px] text-red-500 mt-0.5">
+                    Format tidak valid. Gunakan format #angka, contoh: #4098769
+                  </p>
+                )}
+                {(!form.sales_order.trim() || /^#\d+$/.test(form.sales_order.trim())) && (
+                  <p className="text-[10px] text-gray-400 mt-0.5">Wajib diisi dengan format #angka, contoh: #4098769</p>
+                )}
               </div>
             )}
 
