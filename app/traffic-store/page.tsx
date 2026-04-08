@@ -606,6 +606,63 @@ export default function TrafficStorePage() {
     return { totalValue, avgValue, beliCount: beliRows.length };
   }, [fd]);
 
+  // ─── Sales per Traffic Source ────────────────────────────────────────────────
+  const salesByTrafficData = useMemo(() => {
+    const map: Record<string, { count: number; value: number }> = {};
+    fd.forEach(r => {
+      const src = r.traffic_source?.trim();
+      if (!src || r.customer_convert !== "Beli") return;
+      if (!map[src]) map[src] = { count: 0, value: 0 };
+      map[src].count += 1;
+      map[src].value += parseValue(r.value_order);
+    });
+    return Object.entries(map)
+      .map(([name, d]) => ({ name, count: d.count, value: d.value }))
+      .sort((a, b) => b.value - a.value);
+  }, [fd]);
+
+  // ─── Sales per WAG Addition ──────────────────────────────────────────────────
+  const salesByWagData = useMemo(() => {
+    const map: Record<string, { count: number; value: number }> = {};
+    fd.forEach(r => {
+      if (!r.wag_addition || r.customer_convert !== "Beli") return;
+      if (!map[r.wag_addition]) map[r.wag_addition] = { count: 0, value: 0 };
+      map[r.wag_addition].count += 1;
+      map[r.wag_addition].value += parseValue(r.value_order);
+    });
+    return Object.entries(map)
+      .map(([name, d]) => ({ name, count: d.count, value: d.value }))
+      .sort((a, b) => b.value - a.value);
+  }, [fd]);
+
+  // ─── Sales per Eiger Addition ────────────────────────────────────────────────
+  const salesByEigerData = useMemo(() => {
+    const map: Record<string, { count: number; value: number }> = {};
+    fd.forEach(r => {
+      if (!r.eiger_addition || r.customer_convert !== "Beli") return;
+      if (!map[r.eiger_addition]) map[r.eiger_addition] = { count: 0, value: 0 };
+      map[r.eiger_addition].count += 1;
+      map[r.eiger_addition].value += parseValue(r.value_order);
+    });
+    return Object.entries(map)
+      .map(([name, d]) => ({ name, count: d.count, value: d.value }))
+      .sort((a, b) => b.value - a.value);
+  }, [fd]);
+
+  // ─── Sales per Organic Addition ──────────────────────────────────────────────
+  const salesByOrganicData = useMemo(() => {
+    const map: Record<string, { count: number; value: number }> = {};
+    fd.forEach(r => {
+      if (!r.organic_addition || r.customer_convert !== "Beli") return;
+      if (!map[r.organic_addition]) map[r.organic_addition] = { count: 0, value: 0 };
+      map[r.organic_addition].count += 1;
+      map[r.organic_addition].value += parseValue(r.value_order);
+    });
+    return Object.entries(map)
+      .map(([name, d]) => ({ name, count: d.count, value: d.value }))
+      .sort((a, b) => b.value - a.value);
+  }, [fd]);
+
   const dailyTrafficChartData = useMemo(() => {
     const top6 = trafficChartData.slice(0, 6).map(d => d.name);
     const map: Record<string, Record<string, number>> = {};
@@ -704,7 +761,6 @@ export default function TrafficStorePage() {
     const needsEiger = form.traffic_source === "Dari Eiger" && !form.eiger_addition;
     const needsOrganic = form.traffic_source === "Traffic Organic/Walk In" && !form.organic_addition;
     const needsSalesOrder = form.customer_convert === "Beli" && !form.sales_order?.trim();
-    // ─── Validasi format Sales Order: harus diawali # diikuti angka, misal #4098769 ───
     const invalidSalesOrder =
       form.customer_convert === "Beli" &&
       !!form.sales_order?.trim() &&
@@ -845,6 +901,62 @@ export default function TrafficStorePage() {
       <p className="text-xs text-gray-400 mt-2">{fd.length} data ditemukan</p>
     </div>
   );
+
+  // ─── Reusable Sales Table ─────────────────────────────────────────────────
+  const SalesTable = ({
+    title,
+    data: tableData,
+    colorOffset = 0,
+  }: {
+    title: string;
+    data: { name: string; count: number; value: number }[];
+    colorOffset?: number;
+  }) => {
+    if (tableData.length === 0) return null;
+    const totalCount = tableData.reduce((s, d) => s + d.count, 0);
+    const totalValue = tableData.reduce((s, d) => s + d.value, 0);
+    return (
+      <div>
+        <h4 className="text-xs font-semibold text-gray-600 mb-2">{title}</h4>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-gray-50 border-b">
+                <th className="px-3 py-2 text-left font-semibold text-gray-700">Nama</th>
+                <th className="px-3 py-2 text-right font-semibold text-gray-700">Transaksi</th>
+                <th className="px-3 py-2 text-right font-semibold text-gray-700">Total Sales</th>
+                <th className="px-3 py-2 text-right font-semibold text-gray-700">Avg/Transaksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tableData.map((d, i) => (
+                <tr key={i} className="border-b hover:bg-gray-50">
+                  <td className="px-3 py-2 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: COLORS[(i + colorOffset) % COLORS.length] }} />
+                    <span className="font-medium">{d.name}</span>
+                  </td>
+                  <td className="px-3 py-2 text-right font-semibold text-blue-700">{d.count}</td>
+                  <td className="px-3 py-2 text-right text-green-700 font-semibold">{formatRupiah(d.value)}</td>
+                  <td className="px-3 py-2 text-right text-gray-500">
+                    {d.count > 0 ? formatRupiah(d.value / d.count) : "-"}
+                  </td>
+                </tr>
+              ))}
+              <tr className="bg-primary/5 font-bold border-t-2">
+                <td className="px-3 py-2 text-primary">TOTAL</td>
+                <td className="px-3 py-2 text-right text-primary">{totalCount}</td>
+                <td className="px-3 py-2 text-right text-green-700">{formatRupiah(totalValue)}</td>
+                <td className="px-3 py-2 text-right text-gray-500">
+                  {totalCount > 0 ? formatRupiah(totalValue / totalCount) : "-"}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -1106,6 +1218,111 @@ export default function TrafficStorePage() {
                               </ResponsiveContainer>
                             </div>
                           </div>
+
+                          {/* ── SALES SECTION ── */}
+                          {salesByTrafficData.length > 0 && (
+                            <div className="border border-green-100 rounded-xl p-5 bg-green-50/30">
+                              <div className="flex items-center gap-2 mb-5">
+                                <div className="w-1 h-5 bg-green-500 rounded-full" />
+                                <h3 className="text-sm font-bold text-gray-700">Sales (Value Order) — Hanya Transaksi Beli</h3>
+                              </div>
+
+                              <div className="space-y-6">
+                                {/* Sales per Traffic Source */}
+                                <div className="bg-white rounded-lg p-4 shadow-sm">
+                                  <div className="grid grid-cols-2 gap-8">
+                                    {/* Bar chart */}
+                                    <div>
+                                      <h4 className="text-xs font-semibold text-gray-600 mb-3">Sales per Traffic Source</h4>
+                                      <ResponsiveContainer width="100%" height={Math.max(200, salesByTrafficData.length * 36)}>
+                                        <BarChart data={salesByTrafficData.slice(0, 10)}
+                                          layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
+                                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
+                                          <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }}
+                                            tickFormatter={(v) => `${(v / 1_000_000).toFixed(0)}jt`} />
+                                          <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#6b7280" }} width={130} />
+                                          <Tooltip content={({ active, payload }) => {
+                                            if (!active || !payload?.length) return null;
+                                            const p = payload[0];
+                                            return (
+                                              <div style={{ background: "#1e293b", borderRadius: 10, padding: "10px 14px", minWidth: 200 }}>
+                                                <p style={{ fontSize: 11, fontWeight: 700, color: "#f1f5f9", marginBottom: 6 }}>{p.payload.name}</p>
+                                                <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginBottom: 2 }}>
+                                                  <span style={{ fontSize: 10, color: "#94a3b8" }}>Transaksi</span>
+                                                  <span style={{ fontSize: 10, fontWeight: 700, color: "#60a5fa" }}>{p.payload.count}</span>
+                                                </div>
+                                                <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                                                  <span style={{ fontSize: 10, color: "#94a3b8" }}>Total Sales</span>
+                                                  <span style={{ fontSize: 10, fontWeight: 700, color: "#34d399" }}>{formatRupiah(Number(p.value))}</span>
+                                                </div>
+                                              </div>
+                                            );
+                                          }} />
+                                          <Bar dataKey="value" name="Total Sales" radius={[0, 4, 4, 0]} maxBarSize={22}>
+                                            {salesByTrafficData.map((_, i) => (
+                                              <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                                            ))}
+                                          </Bar>
+                                        </BarChart>
+                                      </ResponsiveContainer>
+                                    </div>
+
+                                    {/* Table */}
+                                    <SalesTable
+                                      title="Detail Sales per Traffic Source"
+                                      data={salesByTrafficData}
+                                      colorOffset={0}
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* WAG, Eiger, Organic sales — side by side if multiple exist */}
+                                {(salesByWagData.length > 0 || salesByEigerData.length > 0 || salesByOrganicData.length > 0) && (
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    {salesByWagData.length > 0 && (
+                                      <div className="bg-white rounded-lg p-4 shadow-sm">
+                                        <div className="flex items-center gap-1.5 mb-3">
+                                          <span className="w-2 h-2 rounded-full bg-blue-400" />
+                                          <span className="text-xs font-semibold text-gray-600">Sales — Whatsapp Group</span>
+                                        </div>
+                                        <SalesTable
+                                          title=""
+                                          data={salesByWagData}
+                                          colorOffset={3}
+                                        />
+                                      </div>
+                                    )}
+                                    {salesByEigerData.length > 0 && (
+                                      <div className="bg-white rounded-lg p-4 shadow-sm">
+                                        <div className="flex items-center gap-1.5 mb-3">
+                                          <span className="w-2 h-2 rounded-full bg-purple-400" />
+                                          <span className="text-xs font-semibold text-gray-600">Sales — Dari Eiger</span>
+                                        </div>
+                                        <SalesTable
+                                          title=""
+                                          data={salesByEigerData}
+                                          colorOffset={7}
+                                        />
+                                      </div>
+                                    )}
+                                    {salesByOrganicData.length > 0 && (
+                                      <div className="bg-white rounded-lg p-4 shadow-sm">
+                                        <div className="flex items-center gap-1.5 mb-3">
+                                          <span className="w-2 h-2 rounded-full bg-green-400" />
+                                          <span className="text-xs font-semibold text-gray-600">Sales — Traffic Organic/Walk In</span>
+                                        </div>
+                                        <SalesTable
+                                          title=""
+                                          data={salesByOrganicData}
+                                          colorOffset={11}
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
 
                           {/* Conversion Pie + Bar by Traffic */}
                           <div className="grid grid-cols-2 gap-8">
@@ -1475,6 +1692,7 @@ export default function TrafficStorePage() {
                                     <th className="px-3 py-2 text-right font-semibold text-gray-700">Jumlah</th>
                                     <th className="px-3 py-2 text-right font-semibold text-gray-700">Beli</th>
                                     <th className="px-3 py-2 text-right font-semibold text-gray-700">Conv. Rate</th>
+                                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Total Sales</th>
                                     <th className="px-3 py-2 text-right font-semibold text-gray-700">% Total</th>
                                   </tr>
                                 </thead>
@@ -1483,6 +1701,9 @@ export default function TrafficStorePage() {
                                     const total = trafficChartData.reduce((s, d) => s + d.value, 0);
                                     return trafficChartData.map((t, i) => {
                                       const trafficBeli = fd.filter(r => r.traffic_source === t.name && r.customer_convert === "Beli").length;
+                                      const trafficSales = fd
+                                        .filter(r => r.traffic_source === t.name && r.customer_convert === "Beli")
+                                        .reduce((s, r) => s + parseValue(r.value_order), 0);
                                       const convPct = t.value ? `${((trafficBeli / t.value) * 100).toFixed(1)}%` : "-";
                                       return (
                                         <tr key={i} className="border-b hover:bg-gray-50">
@@ -1493,6 +1714,9 @@ export default function TrafficStorePage() {
                                           <td className="px-3 py-2 text-right font-medium">{t.value}</td>
                                           <td className="px-3 py-2 text-right text-green-700 font-medium">{trafficBeli}</td>
                                           <td className="px-3 py-2 text-right text-orange-600">{convPct}</td>
+                                          <td className="px-3 py-2 text-right text-teal-700 font-medium">
+                                            {trafficSales > 0 ? formatRupiah(trafficSales) : "-"}
+                                          </td>
                                           <td className="px-3 py-2 text-right text-gray-500">
                                             {total ? `${((t.value / total) * 100).toFixed(1)}%` : "-"}
                                           </td>
@@ -1586,11 +1810,11 @@ export default function TrafficStorePage() {
                 />
                 {form.sales_order.trim() && !/^#\d+$/.test(form.sales_order.trim()) && (
                   <p className="text-[10px] text-red-500 mt-0.5">
-                    Format tidak valid. Gunakan format #angka, contoh: #4098769
+                    Format tidak valid. Gunakan format #angka, contoh: #409876
                   </p>
                 )}
                 {(!form.sales_order.trim() || /^#\d+$/.test(form.sales_order.trim())) && (
-                  <p className="text-[10px] text-gray-400 mt-0.5">Wajib diisi dengan format #angka, contoh: #4098769</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">Wajib diisi dengan format #angka, contoh: #409876</p>
                 )}
               </div>
             )}
