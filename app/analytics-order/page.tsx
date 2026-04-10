@@ -43,6 +43,12 @@ const TRAFFIC_MAP: Record<string, string> = {
   DY: "Dealer Yamaha",
   TB: "Banner Outdoor",
   TS: "Tiktok Store",
+  LG: "Lelang",
+  FS: "Flash Sale",
+  SW: "Story WA",
+  SI: "Story Instagram",
+  BW: "Bundling WA",
+  ST: "Story TikTok",
 };
 
 const COLORS = [
