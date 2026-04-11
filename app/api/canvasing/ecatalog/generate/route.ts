@@ -39,8 +39,7 @@ async function downloadImage(url: string, retries = 2): Promise<string | null> {
       
       const arrayBuffer = await response.arrayBuffer();
       let imageData = new Uint8Array(arrayBuffer);
-      const originalSize = imageData.length;
-      const originalSizeKB = originalSize / 1024;
+      const originalSizeKB = imageData.length / 1024;
       
       // Jika di bawah 500KB, langsung gunakan tanpa kompres
       if (originalSizeKB < 500) {
@@ -71,9 +70,7 @@ async function downloadImage(url: string, retries = 2): Promise<string | null> {
       }
       
       const base64 = Buffer.from(imageData).toString('base64');
-      const mimeType = 'image/jpeg';
-      
-      return `data:${mimeType};base64,${base64}`;
+      return `data:image/jpeg;base64,${base64}`;
       
     } catch (error) {
       if (attempt < retries) {
@@ -96,6 +93,25 @@ function hexToRgb(hex: string) {
   } : { r: 0, g: 0, b: 0 };
 }
 
+/**
+ * Format angka ke format Rupiah
+ * Input  : "150000" | 150000 | "150.000" | "Rp 150000"
+ * Output : "Rp. 150.000"
+ */
+function formatRupiah(value: string | number): string {
+  if (!value && value !== 0) return '';
+  
+  // Bersihkan semua karakter non-digit
+  const raw = typeof value === 'string' ? value.replace(/\D/g, '') : String(value);
+  const num = parseInt(raw, 10);
+  
+  if (isNaN(num) || num === 0) return '';
+  
+  // Format dengan pemisah ribuan gaya Indonesia
+  const formatted = num.toLocaleString('id-ID');
+  return `Rp. ${formatted}`;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const data = await getSheetData('catalog_product');
@@ -111,6 +127,8 @@ export async function POST(request: NextRequest) {
       grouped[p.category].push({
         artikel: p.artikel,
         color: p.color || '',
+        // Coba beberapa kemungkinan nama kolom harga di sheet
+        price: p.price || p.harga || p.Price || p.Harga || p.retail_price || p.selling_price || '',
         onmodel_url: p.onmodel_url || '',
         image_url: p.image_url || '',
       });
@@ -261,6 +279,7 @@ async function createProductPage(
     
     const y = marginTop + (i * rowHeight);
     
+    // Garis pemisah antar produk
     if (i > 0) {
       doc.setDrawColor(240, 240, 240);
       doc.setLineWidth(0.3);
@@ -269,17 +288,19 @@ async function createProductPage(
     
     const onmodelW = (w - 2 * marginLR) * 0.25;
     const productW = (w - 2 * marginLR) * 0.35;
-    const textW = (w - 2 * marginLR) * 0.40;
+    const textW    = (w - 2 * marginLR) * 0.40;
     
     const imgH = rowHeight * 0.85;
     const imgY = y + (rowHeight - imgH) / 2;
     
+    // Gambar on-model
     if (img.onmodel) {
       try {
         doc.addImage(img.onmodel, 'JPEG', marginLR + 2, imgY, imgH, imgH);
       } catch {}
     }
     
+    // Gambar produk
     if (img.product) {
       try {
         const centerX = marginLR + onmodelW;
@@ -287,21 +308,38 @@ async function createProductPage(
       } catch {}
     }
     
+    // ── Area teks ──────────────────────────────────────────────────
     const textX = marginLR + onmodelW + productW + 4;
-    const textY = y + 8;
-    
+    let   textY = y + 8;
+
+    // 1. Nama artikel (maks 2 baris)
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     
     const lines = doc.splitTextToSize(p.artikel || 'N/A', textW - 6);
-    for (let j = 0; j < Math.min(lines.length, 2); j++) {
+    const maxLines = Math.min(lines.length, 2);
+    for (let j = 0; j < maxLines; j++) {
       doc.text(lines[j], textX, textY + (j * 5));
     }
-    
+    textY += maxLines * 5;
+
+    // 2. Harga (jika tersedia)
+    const rupiahText = formatRupiah(p.price);
+    if (rupiahText) {
+      textY += 4;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(blue.r, blue.g, blue.b); // warna Torch Blue
+      doc.text(rupiahText, textX, textY);
+      doc.setTextColor(0, 0, 0); // reset
+      textY += 2;
+    }
+
+    // 3. Warna
     if (p.color) {
       const colors = p.color.split(';').map((c: string) => c.trim()).filter(Boolean);
-      const colorY = textY + (Math.min(lines.length, 2) * 5) + 7;
+      const colorY = textY + 7;
       
       doc.setFontSize(7);
       doc.setTextColor(100, 100, 100);
