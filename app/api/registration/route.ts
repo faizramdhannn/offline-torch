@@ -31,7 +31,6 @@ export async function PUT(request: NextRequest) {
   try {
     const { id, status, permissions } = await request.json();
 
-    // Find the registration request in the sheet
     const requests = await getSheetData('registration_request');
     const requestIndex = requests.findIndex((r: any) => r.id === id);
 
@@ -40,10 +39,10 @@ export async function PUT(request: NextRequest) {
     }
 
     const requestData = requests[requestIndex];
-    const rowIndex = requestIndex + 2; // +2 for header and 0-based index
+    const rowIndex = requestIndex + 2;
 
     if (status === 'approved') {
-      // 1. Create user in users sheet
+      // Create user in users sheet
       const newUser = [
         requestData.id,
         requestData.name,
@@ -82,30 +81,31 @@ export async function PUT(request: NextRequest) {
         '', // last_activity (empty on creation)
         permissions.traffic_store ? 'TRUE' : 'FALSE',
         permissions.report_store ? 'TRUE' : 'FALSE',
+        // Shipment permissions
+        permissions.request_tracking ? 'TRUE' : 'FALSE',
+        permissions.tracking_edit ? 'TRUE' : 'FALSE',
         new Date().toISOString(),
       ];
 
       await appendSheetData('users', [newUser]);
 
-      // 2. Update status in registration_request sheet to 'approved'
       const updatedRow = [
         requestData.id,
         requestData.name,
         requestData.user_name,
         requestData.password,
-        'approved',                // <-- status updated
+        'approved',
         requestData.request_at,
       ];
       await updateSheetRow('registration_request', rowIndex, updatedRow);
 
     } else if (status === 'rejected') {
-      // Update status to 'rejected'
       const updatedRow = [
         requestData.id,
         requestData.name,
         requestData.user_name,
         requestData.password,
-        'rejected',                // <-- status updated
+        'rejected',
         requestData.request_at,
       ];
       await updateSheetRow('registration_request', rowIndex, updatedRow);

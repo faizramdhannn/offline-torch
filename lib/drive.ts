@@ -3,6 +3,7 @@ import { google } from 'googleapis';
 const PARENT_FOLDER_ID = process.env.DRIVE_PARENT_FOLDER_ID || '';
 const CUSTOMER_FOLDER_ID = process.env.DRIVE_CUSTOMER_FOLDER_ID || '';
 const CANVASING_FOLDER_ID = process.env.DRIVE_CANVASING_FOLDER_ID || '';
+const TRACKING_FOLDER_ID = process.env.DRIVE_TRACKING_FOLDER_ID || '';
 // Folder ID untuk request store: https://drive.google.com/drive/folders/0AMy7t8kP47--Uk9PVA
 const REQUEST_STORE_FOLDER_ID = process.env.DRIVE_REQUEST_STORE_FOLDER_ID || '';
 
@@ -109,6 +110,9 @@ export async function uploadToGoogleDrive(
       // (no sub-folder needed)
       parentFolderId = REQUEST_STORE_FOLDER_ID;
       folderUsername = 'photos';
+    } else if (username === 'request_tracking') {
+      parentFolderId = TRACKING_FOLDER_ID;
+      folderUsername = 'tracking';
     }
 
     const userFolderId = await getUserFolder(folderUsername, drive, parentFolderId);

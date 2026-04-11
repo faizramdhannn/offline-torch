@@ -160,3 +160,18 @@ export interface BalanceEntry {
   created_at: string;
   update_at: string;
 }
+
+export interface TrackingRequest {
+id: string;
+date: string;
+expedition: string;
+sender: string;
+receiver: string;
+weight: string;
+reason: string;
+link_tracking: string;
+request_by: string;
+update_by: string;
+created_at: string;
+update_at: string;
+}

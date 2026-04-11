@@ -47,6 +47,8 @@ export default function RegistrationPage() {
     analytics_order: false,
     traffic_store: false,
     report_store: false,
+    request_tracking: false,
+    tracking_edit: false,
     registration_request: false,
     user_setting: false,
   });
@@ -82,7 +84,6 @@ export default function RegistrationPage() {
     try {
       const response = await fetch("/api/registration");
       const result = await response.json();
-      // Show ALL registrations — filter by tab
       setData(Array.isArray(result) ? result : []);
     } catch (error) {
       showMessage("Failed to fetch data", "error");
@@ -127,6 +128,8 @@ export default function RegistrationPage() {
       analytics_order: false,
       traffic_store: false,
       report_store: false,
+      request_tracking: false,
+      tracking_edit: false,
       registration_request: false,
       user_setting: false,
     });
@@ -208,7 +211,6 @@ export default function RegistrationPage() {
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-primary">Registration Requests</h1>
-            {/* Filter tabs */}
             <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
               <button onClick={() => setActiveFilter("pending")}
                 className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${activeFilter === "pending" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
@@ -311,6 +313,10 @@ export default function RegistrationPage() {
                 <CB label="Edit Request" k="edit_request" sub />
                 <CB label="Traffic Store" k="traffic_store" />
                 <CB label="Report Store" k="report_store" />
+
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2 mt-4">Shipment</h3>
+                <CB label="Request Shipment" k="request_tracking" />
+                <CB label="Upload Resi" k="tracking_edit" sub />
               </div>
 
               {/* Column 2: Stock */}
