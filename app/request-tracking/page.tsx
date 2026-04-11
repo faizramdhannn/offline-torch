@@ -36,9 +36,74 @@ interface DropdownData {
 
 const EXPEDITIONS = ["SiCepat", "Lion"];
 
-// Build formatted address string from StoreAddress
 function formatStoreAddress(s: StoreAddress): string {
   return [s.store_location, s.phone_number, s.address].filter(Boolean).join("\n");
+}
+
+/**
+ * Validasi nomor telepon Indonesia:
+ * Prefix yang valid: +628, 628, 08, 8 (tanpa prefix)
+ * Setelah prefix selalu diikuti angka 8 (untuk HP) atau bisa 2/3 (untuk beberapa provider)
+ * Total digit keseluruhan: 10-14 digit
+ *
+ * Pattern yang diterima:
+ *   +628xxxxxxxx   → +62 + 8 + 8-11 digit
+ *    628xxxxxxxx   → 62 + 8 + 8-11 digit
+ *     08xxxxxxxx   → 0 + 8 + 8-11 digit
+ *      8xxxxxxxx   → 8 + 8-11 digit (tanpa prefix, harus diawali 8)
+ *
+ * Nomor yang TIDAK diterima:
+ *   +6212345678  → setelah 62 bukan 8 (bukan HP)
+ *   0212345678   → setelah 0 bukan 8 (nomor rumah)
+ *   62blok8no12  → false positive dari teks biasa
+ */
+function isValidIndonesianPhone(phone: string): boolean {
+  // Hapus semua spasi, strip, dan tanda kurung untuk normalisasi
+  const cleaned = phone.replace(/[\s\-().]/g, "");
+
+  // Pattern: +628 / 628 / 08 diikuti angka selanjutnya (8-11 digit)
+  const withPrefixPattern = /^(\+?628|08)[0-9]{7,11}$/;
+
+  // Pattern: 8 tanpa prefix (word boundary kiri/kanan agar tidak false positive)
+  // Tidak dipakai di sini karena kita cek kata per kata
+  const barePattern = /^8[0-9]{7,11}$/;
+
+  return withPrefixPattern.test(cleaned) || barePattern.test(cleaned);
+}
+
+/**
+ * Cari nomor telepon valid pertama dalam teks multiline receiver.
+ * Ekstrak setiap "kata" yang terlihat seperti nomor dan validasi satu per satu.
+ */
+function extractValidPhone(text: string): string | null {
+  // Pecah per token (spasi, newline, koma)
+  const tokens = text.split(/[\s,;]+/);
+  for (const token of tokens) {
+    const cleaned = token.replace(/[\-().]/g, "");
+    if (isValidIndonesianPhone(cleaned)) return cleaned;
+  }
+  return null;
+}
+
+function validateReceiver(val: string): string {
+  if (!val.trim()) return "Receiver wajib diisi";
+
+  const validPhone = extractValidPhone(val);
+  if (!validPhone) {
+    return "Sertakan nomor telepon yang valid (08xx, +628xx, atau 628xx)";
+  }
+
+  // Kode pos: 5 digit angka yang berdiri sendiri (tidak bagian dari nomor panjang)
+  const postalPattern = /(?<![0-9])\d{5}(?![0-9])/;
+  if (!postalPattern.test(val)) {
+    return "Sertakan kode pos 5 digit (contoh: 40123)";
+  }
+
+  if (val.trim().length < 20) {
+    return "Terlalu pendek — sertakan nama, nomor telepon, alamat, dan kode pos";
+  }
+
+  return "";
 }
 
 export default function RequestTrackingPage() {
@@ -63,11 +128,9 @@ export default function RequestTrackingPage() {
   const uploadFileRef = useRef<HTMLInputElement>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
 
-  // Sender details shown after selection
   const [selectedSenderDetails, setSelectedSenderDetails] = useState<StoreAddress | null>(null);
   const [editSenderDetails, setEditSenderDetails] = useState<StoreAddress | null>(null);
 
-  // Receiver mode: "dropdown" | "custom"
   const [addReceiverMode, setAddReceiverMode] = useState<"dropdown" | "custom">("dropdown");
   const [editReceiverMode, setEditReceiverMode] = useState<"dropdown" | "custom">("dropdown");
   const [addReceiverStore, setAddReceiverStore] = useState<string>("");
@@ -153,14 +216,12 @@ export default function RequestTrackingPage() {
     } catch {}
   };
 
-  // Copy receiver text to clipboard
   const handleCopyReceiver = async (text: string, id: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
-      // fallback
       const el = document.createElement("textarea");
       el.value = text;
       document.body.appendChild(el);
@@ -170,16 +231,6 @@ export default function RequestTrackingPage() {
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
     }
-  };
-
-  const validateReceiver = (val: string): string => {
-    if (!val.trim()) return "Receiver wajib diisi";
-    const phonePattern = /(\+?62|0)[0-9]{8,13}/;
-    const postalPattern = /\b\d{5}\b/;
-    if (!phonePattern.test(val)) return "Sertakan nomor telepon (08xx atau +62xx)";
-    if (!postalPattern.test(val)) return "Sertakan kode pos (5 digit)";
-    if (val.trim().length < 20) return "Terlalu pendek — sertakan nama, nomor telepon, alamat, dan kode pos";
-    return "";
   };
 
   const handleSenderChange = (storeName: string, isEdit = false) => {
@@ -193,7 +244,6 @@ export default function RequestTrackingPage() {
     }
   };
 
-  // When receiver dropdown store is selected, auto-fill receiver textarea
   const handleReceiverStoreChange = (storeName: string, isEdit = false) => {
     const found = storeAddresses.find((s) => s.store_location === storeName) || null;
     const formatted = found ? formatStoreAddress(found) : "";
@@ -261,7 +311,6 @@ export default function RequestTrackingPage() {
     });
     setEditSenderDetails(storeAddresses.find((s) => s.store_location === item.sender) || null);
 
-    // Detect if receiver matches a store address → set dropdown mode
     const matchedStore = storeAddresses.find((s) => formatStoreAddress(s) === item.receiver);
     if (matchedStore) {
       setEditReceiverMode("dropdown");
@@ -416,7 +465,6 @@ export default function RequestTrackingPage() {
     </div>
   );
 
-  // Receiver field: dropdown OR custom, with mode toggle
   const ReceiverField = ({
     mode, onModeChange,
     storeValue, onStoreChange,
@@ -437,7 +485,6 @@ export default function RequestTrackingPage() {
         <label className="text-xs font-medium text-gray-700">
           Penerima <span className="text-red-500">*</span>
         </label>
-        {/* Mode toggle */}
         <div className="flex gap-1 bg-gray-100 rounded p-0.5">
           <button type="button" onClick={() => { onModeChange("dropdown"); onCustomChange(""); }}
             className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
@@ -461,7 +508,6 @@ export default function RequestTrackingPage() {
             <option value="">Pilih store penerima</option>
             {storeAddresses.map((s) => <option key={s.id} value={s.store_location}>{s.store_location}</option>)}
           </select>
-          {/* Preview filled address */}
           {customValue && (
             <div className="mt-1.5 p-2 bg-gray-50 border border-gray-200 rounded text-[10px] text-gray-700 font-mono whitespace-pre-line">
               {customValue}
@@ -479,14 +525,17 @@ export default function RequestTrackingPage() {
           />
           {error
             ? <p className="text-[10px] text-red-500 mt-1">⚠ {error}</p>
-            : <p className="text-[10px] text-gray-400 mt-1">Wajib: nama, no. telepon, alamat, kode pos (5 digit)</p>
+            : (
+              <p className="text-[10px] text-gray-400 mt-1">
+                Wajib: nama · nomor HP (08xx/+628xx) · alamat · kode pos 5 digit
+              </p>
+            )
           }
         </>
       )}
     </div>
   );
 
-  // Copy icon button
   const CopyButton = ({ text, id }: { text: string; id: string }) => (
     <button
       type="button"
@@ -495,12 +544,10 @@ export default function RequestTrackingPage() {
       className="inline-flex items-center justify-center w-5 h-5 rounded hover:bg-gray-200 transition-colors shrink-0"
     >
       {copiedId === id ? (
-        // Checkmark
         <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
         </svg>
       ) : (
-        // Copy
         <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
             d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -575,10 +622,8 @@ export default function RequestTrackingPage() {
                             <td className="px-2 py-1 text-gray-600">
                               <div className="flex items-start gap-1">
                                 <div className="truncate flex-1" title={item.receiver}>
-                                  {/* Show first line only in table */}
                                   {item.receiver.split("\n")[0]}
                                 </div>
-                                {/* Copy button — only for tracking_edit */}
                                 {canUpload && item.receiver && (
                                   <CopyButton text={item.receiver} id={item.id} />
                                 )}
