@@ -123,7 +123,7 @@ export default function RequestTrackingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const itemsPerPage = 20;
+  const itemsPerPage = 25;
 
   const uploadFileRef = useRef<HTMLInputElement>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);

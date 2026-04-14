@@ -49,7 +49,7 @@ export default function RequestStorePage() {
   const [submitting, setSubmitting] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
-  const itemsPerPage = 20;
+  const itemsPerPage = 25;
 
   // File refs
   const addFileRef = useRef<HTMLInputElement>(null);
