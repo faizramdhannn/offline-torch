@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
 
@@ -36,47 +37,23 @@ interface DropdownData {
 
 const EXPEDITIONS = ["SiCepat", "Lion"];
 
+const EXPEDITION_LOGO: Record<string, string> = {
+  SiCepat: "/Logo Sicepat.png",
+  Lion: "/Logo Lion.png",
+};
+
 function formatStoreAddress(s: StoreAddress): string {
   return [s.store_location, s.phone_number, s.address].filter(Boolean).join("\n");
 }
 
-/**
- * Validasi nomor telepon Indonesia:
- * Prefix yang valid: +628, 628, 08, 8 (tanpa prefix)
- * Setelah prefix selalu diikuti angka 8 (untuk HP) atau bisa 2/3 (untuk beberapa provider)
- * Total digit keseluruhan: 10-14 digit
- *
- * Pattern yang diterima:
- *   +628xxxxxxxx   → +62 + 8 + 8-11 digit
- *    628xxxxxxxx   → 62 + 8 + 8-11 digit
- *     08xxxxxxxx   → 0 + 8 + 8-11 digit
- *      8xxxxxxxx   → 8 + 8-11 digit (tanpa prefix, harus diawali 8)
- *
- * Nomor yang TIDAK diterima:
- *   +6212345678  → setelah 62 bukan 8 (bukan HP)
- *   0212345678   → setelah 0 bukan 8 (nomor rumah)
- *   62blok8no12  → false positive dari teks biasa
- */
 function isValidIndonesianPhone(phone: string): boolean {
-  // Hapus semua spasi, strip, dan tanda kurung untuk normalisasi
   const cleaned = phone.replace(/[\s\-().]/g, "");
-
-  // Pattern: +628 / 628 / 08 diikuti angka selanjutnya (8-11 digit)
   const withPrefixPattern = /^(\+?628|08)[0-9]{7,11}$/;
-
-  // Pattern: 8 tanpa prefix (word boundary kiri/kanan agar tidak false positive)
-  // Tidak dipakai di sini karena kita cek kata per kata
   const barePattern = /^8[0-9]{7,11}$/;
-
   return withPrefixPattern.test(cleaned) || barePattern.test(cleaned);
 }
 
-/**
- * Cari nomor telepon valid pertama dalam teks multiline receiver.
- * Ekstrak setiap "kata" yang terlihat seperti nomor dan validasi satu per satu.
- */
 function extractValidPhone(text: string): string | null {
-  // Pecah per token (spasi, newline, koma)
   const tokens = text.split(/[\s,;]+/);
   for (const token of tokens) {
     const cleaned = token.replace(/[\-().]/g, "");
@@ -93,7 +70,6 @@ function validateReceiver(val: string): string {
     return "Sertakan nomor telepon yang valid (08xx, +628xx, atau 628xx)";
   }
 
-  // Kode pos: 5 digit angka yang berdiri sendiri (tidak bagian dari nomor panjang)
   const postalPattern = /(?<![0-9])\d{5}(?![0-9])/;
   if (!postalPattern.test(val)) {
     return "Sertakan kode pos 5 digit (contoh: 40123)";
@@ -430,23 +406,58 @@ export default function RequestTrackingPage() {
 
   // ── Sub-components ────────────────────────────────────────────────────────
 
+  /** Tombol pilih ekspedisi — menampilkan logo */
   const ExpeditionToggle = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
     <div>
-      <label className="block text-xs font-medium text-gray-700 mb-1">Ekspedisi <span className="text-red-500">*</span></label>
+      <label className="block text-xs font-medium text-gray-700 mb-1">
+        Ekspedisi <span className="text-red-500">*</span>
+      </label>
       <div className="flex gap-2">
-        {EXPEDITIONS.map((exp) => (
-          <button key={exp} type="button" onClick={() => onChange(exp)}
-            className={`flex-1 py-2 rounded text-xs font-medium border transition-all ${
-              value === exp
-                ? exp === "SiCepat" ? "bg-red-500 border-red-500 text-white" : "bg-red-900 border-red-900 text-white"
-                : "border-gray-300 text-gray-600 hover:border-gray-400"
-            }`}>
-            {exp === "SiCepat" ? "SiCepat" : "Lion Parcel"}
-          </button>
-        ))}
+        {EXPEDITIONS.map((exp) => {
+          const isSelected = value === exp;
+          return (
+            <button
+              key={exp}
+              type="button"
+              onClick={() => onChange(exp)}
+              className={`flex-1 flex items-center justify-center py-2 px-3 rounded border-2 transition-all ${
+                isSelected
+                  ? "border-primary bg-primary/5 shadow-sm"
+                  : "border-gray-200 hover:border-gray-400 bg-white"
+              }`}
+            >
+              <img
+                src={EXPEDITION_LOGO[exp]}
+                alt={exp}
+                className="h-7 w-auto object-contain"
+              />
+            </button>
+          );
+        })}
       </div>
     </div>
   );
+
+  /** Badge ekspedisi di tabel — menampilkan logo kecil */
+  const ExpeditionBadge = ({ expedition }: { expedition: string }) => {
+    const logo = EXPEDITION_LOGO[expedition];
+    if (logo) {
+      return (
+        <img
+          src={logo}
+          alt={expedition}
+          className="h-5 w-auto object-contain"
+          title={expedition}
+        />
+      );
+    }
+    // fallback teks jika ekspedisi tidak dikenal
+    return (
+      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700">
+        {expedition}
+      </span>
+    );
+  };
 
   const SenderSelect = ({ value, onChange, details }: { value: string; onChange: (v: string) => void; details: StoreAddress | null }) => (
     <div>
@@ -612,11 +623,7 @@ export default function RequestTrackingPage() {
                             <td className="px-2 py-1 text-gray-600">{item.date}</td>
                             <td className="px-2 py-1 text-gray-700 truncate">{item.assigned_to}</td>
                             <td className="px-2 py-1">
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                item.expedition === "SiCepat" ? "bg-red-100 text-red-800" : "bg-red-950/10 text-red-900"
-                              }`}>
-                                {item.expedition}
-                              </span>
+                              <ExpeditionBadge expedition={item.expedition} />
                             </td>
                             <td className="px-2 py-1 text-gray-700 truncate">{item.sender}</td>
                             <td className="px-2 py-1 text-gray-600">
@@ -842,7 +849,18 @@ export default function RequestTrackingPage() {
             <div className="mb-4 p-3 bg-gray-50 rounded border text-xs space-y-1">
               <div><span className="text-gray-500">ID:</span> <span className="font-mono font-medium">{selectedItem.id}</span></div>
               <div><span className="text-gray-500">Assigned To:</span> {selectedItem.assigned_to}</div>
-              <div><span className="text-gray-500">Ekspedisi:</span> {selectedItem.expedition}</div>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500">Ekspedisi:</span>
+                {EXPEDITION_LOGO[selectedItem.expedition] ? (
+                  <img
+                    src={EXPEDITION_LOGO[selectedItem.expedition]}
+                    alt={selectedItem.expedition}
+                    className="h-4 w-auto object-contain"
+                  />
+                ) : (
+                  <span>{selectedItem.expedition}</span>
+                )}
+              </div>
               <div><span className="text-gray-500">Dari:</span> {selectedItem.sender}</div>
               <div className="flex items-start gap-1">
                 <span className="text-gray-500 shrink-0">Penerima:</span>
