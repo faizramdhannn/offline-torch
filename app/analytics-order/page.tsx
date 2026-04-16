@@ -49,6 +49,9 @@ const TRAFFIC_MAP: Record<string, string> = {
   SI: "Story Instagram",
   BW: "Bundling WA",
   ST: "Story TikTok",
+  GM: "Games",
+  LP: "Last Piece",
+
 };
 
 const COLORS = [
