@@ -51,7 +51,6 @@ const TRAFFIC_MAP: Record<string, string> = {
   ST: "Story TikTok",
   GM: "Games",
   LP: "Last Piece",
-
 };
 
 const COLORS = [
@@ -256,6 +255,11 @@ export default function AnalyticsOrderPage() {
   const PAGE_SIZE = 10;
   const [hideUnknownTraffic, setHideUnknownTraffic] = useState(false);
 
+  // ─── Traffic filter state ─────────────────────────────────────────────────
+  const [trafficFilter, setTrafficFilter] = useState<string>("all");
+  const [showTrafficDropdown, setShowTrafficDropdown] = useState(false);
+  const trafficDropdownRef = useRef<HTMLDivElement>(null);
+
   const toLocalDateStr = (d: Date) => {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -274,6 +278,17 @@ export default function AnalyticsOrderPage() {
   const [stores, setStores] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Close traffic dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (trafficDropdownRef.current && !trafficDropdownRef.current.contains(e.target as Node)) {
+        setShowTrafficDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -350,19 +365,41 @@ export default function AnalyticsOrderPage() {
     setShowImportModal(true);
   };
 
+  // ─── Traffic label for filter display ────────────────────────────────────
+  const trafficFilterLabel =
+    trafficFilter === "all"
+      ? "Semua Traffic"
+      : trafficFilter === "unknown"
+      ? "Tidak Diketahui"
+      : `${trafficFilter} – ${TRAFFIC_MAP[trafficFilter] || trafficFilter}`;
+
   const filteredRows = useCallback(() => {
     return rows.filter((r) => {
+      // Date filter
       const rawDate = r["Created at"] || "";
       const dateStr = rawDate.split(" ")[0];
       if (dateFrom && dateStr < dateFrom) return false;
       if (dateTo && dateStr > dateTo) return false;
+
+      // Store filter
       if (storeFilter !== "all") {
         const loc = cleanLocationName(r.Location);
         if (loc !== storeFilter) return false;
       }
+
+      // Traffic filter — applied per order (unique by Name)
+      if (trafficFilter !== "all") {
+        const code = extractTrafficCode(r.Notes);
+        if (trafficFilter === "unknown") {
+          if (code !== null) return false;
+        } else {
+          if (code !== trafficFilter) return false;
+        }
+      }
+
       return true;
     });
-  }, [rows, dateFrom, dateTo, storeFilter]);
+  }, [rows, dateFrom, dateTo, storeFilter, trafficFilter]);
 
   const fr = filteredRows();
 
@@ -656,6 +693,19 @@ export default function AnalyticsOrderPage() {
     }
   };
 
+  // Reset pagination when filters change
+  const handleResetFilter = () => {
+    setDateFrom(getFirstOfMonthStr());
+    setDateTo(getTodayStr());
+    setStoreFilter("all");
+    setTrafficFilter("all");
+    setPageStore(1);
+    setPageTraffic(1);
+    setPageDiscount(1);
+    setPageProduct(1);
+    setPageEmployee(1);
+  };
+
   if (!user) return null;
 
   return (
@@ -700,43 +750,99 @@ export default function AnalyticsOrderPage() {
 
           {/* Filters */}
           <div className="bg-white rounded-lg shadow p-4 mb-4">
-            <div className="grid grid-cols-4 gap-3 items-end">
+            <div className="grid grid-cols-5 gap-3 items-end">
+              {/* Date From */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Date From</label>
-                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+                <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPageStore(1); setPageTraffic(1); setPageDiscount(1); setPageProduct(1); setPageEmployee(1); }}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
               </div>
+              {/* Date To */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Date To</label>
-                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+                <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPageStore(1); setPageTraffic(1); setPageDiscount(1); setPageProduct(1); setPageEmployee(1); }}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
               </div>
+              {/* Store */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
-                <select value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)}
+                <select value={storeFilter} onChange={(e) => { setStoreFilter(e.target.value); setPageStore(1); setPageTraffic(1); setPageDiscount(1); setPageProduct(1); setPageEmployee(1); }}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-white">
                   <option value="all">All Stores</option>
                   {stores.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
+              {/* Traffic Source Filter */}
               <div>
-                <button onClick={() => { setDateFrom(getFirstOfMonthStr()); setDateTo(getTodayStr()); setStoreFilter("all"); }}
+                <label className="block text-xs font-medium text-gray-700 mb-1">Traffic Source</label>
+                <div className="relative" ref={trafficDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowTrafficDropdown(v => !v)}
+                    className={`w-full px-2 py-1.5 border rounded text-xs text-left flex items-center justify-between gap-1 focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${
+                      trafficFilter !== "all"
+                        ? "border-primary bg-primary/5 text-primary font-medium"
+                        : "border-gray-300 bg-white text-gray-700"
+                    }`}
+                  >
+                    <span className="truncate">{trafficFilterLabel}</span>
+                    <svg className={`w-3 h-3 flex-shrink-0 transition-transform ${showTrafficDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {showTrafficDropdown && (
+                    <div className="absolute z-50 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden">
+                      {/* Search inside dropdown */}
+                      <div className="p-2 border-b">
+                        <TrafficDropdownSearch
+                          trafficFilter={trafficFilter}
+                          onSelect={(val) => {
+                            setTrafficFilter(val);
+                            setShowTrafficDropdown(false);
+                            setPageStore(1); setPageTraffic(1); setPageDiscount(1); setPageProduct(1); setPageEmployee(1);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {/* Reset */}
+              <div>
+                <button onClick={handleResetFilter}
                   className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600 w-full">
                   Reset Filter
                 </button>
               </div>
             </div>
-            {dataDateRange && (
-              <div className="mt-3 flex items-center gap-2">
-                <span className="text-[10px] text-gray-400">Data tersedia:</span>
-                <span className="text-[10px] font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
-                  {formatDisplayDate(dataDateRange.min)} - {formatDisplayDate(dataDateRange.max)}
+
+            {/* Active filter badges */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {dataDateRange && (
+                <>
+                  <span className="text-[10px] text-gray-400">Data tersedia:</span>
+                  <span className="text-[10px] font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
+                    {formatDisplayDate(dataDateRange.min)} - {formatDisplayDate(dataDateRange.max)}
+                  </span>
+                  <span className="text-[10px] text-gray-400 ml-1">
+                    (filter aktif: {formatDisplayDate(dateFrom) || "-"} s/d {formatDisplayDate(dateTo) || "-"})
+                  </span>
+                </>
+              )}
+              {trafficFilter !== "all" && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
+                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
+                  </svg>
+                  Traffic: {trafficFilterLabel}
+                  <button
+                    onClick={() => { setTrafficFilter("all"); setPageStore(1); setPageTraffic(1); setPageDiscount(1); setPageProduct(1); setPageEmployee(1); }}
+                    className="ml-0.5 hover:text-red-500"
+                  >×</button>
                 </span>
-                <span className="text-[10px] text-gray-400 ml-1">
-                  (filter aktif: {formatDisplayDate(dateFrom) || "-"} s/d {formatDisplayDate(dateTo) || "-"})
-                </span>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Tabs */}
@@ -768,7 +874,16 @@ export default function AnalyticsOrderPage() {
               ) : fr.length === 0 ? (
                 <div className="text-center py-16 text-gray-400">
                   <p className="text-lg font-semibold">Belum ada data</p>
-                  <p className="text-sm mt-1">Import CSV Shopify untuk mulai analitik</p>
+                  <p className="text-sm mt-1">
+                    {trafficFilter !== "all" || storeFilter !== "all"
+                      ? "Tidak ada data untuk filter yang dipilih"
+                      : "Import CSV Shopify untuk mulai analitik"}
+                  </p>
+                  {(trafficFilter !== "all" || storeFilter !== "all") && (
+                    <button onClick={handleResetFilter} className="mt-3 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90">
+                      Reset Filter
+                    </button>
+                  )}
                 </div>
               ) : (
                 <>
@@ -1307,5 +1422,69 @@ export default function AnalyticsOrderPage() {
 
       <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
     </div>
+  );
+}
+
+// ─── Traffic Dropdown Search Component ───────────────────────────────────────
+function TrafficDropdownSearch({
+  trafficFilter,
+  onSelect,
+}: {
+  trafficFilter: string;
+  onSelect: (val: string) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const allOptions = [
+    { code: "all", label: "Semua Traffic" },
+    ...Object.entries(TRAFFIC_MAP).map(([code, label]) => ({ code, label: `${code} – ${label}` })),
+    { code: "unknown", label: "Tidak Diketahui" },
+  ];
+
+  const filtered = search.trim()
+    ? allOptions.filter(o =>
+        o.label.toLowerCase().includes(search.toLowerCase()) ||
+        o.code.toLowerCase().includes(search.toLowerCase())
+      )
+    : allOptions;
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="text"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Cari traffic..."
+        className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+      />
+      <div className="max-h-52 overflow-y-auto mt-1">
+        {filtered.length === 0 ? (
+          <p className="text-xs text-gray-400 text-center py-3">Tidak ditemukan</p>
+        ) : (
+          filtered.map((o) => (
+            <button
+              key={o.code}
+              onClick={() => onSelect(o.code)}
+              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-primary/5 transition-colors flex items-center gap-2 ${
+                trafficFilter === o.code ? "bg-primary/10 text-primary font-medium" : "text-gray-700"
+              }`}
+            >
+              {trafficFilter === o.code && (
+                <svg className="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              )}
+              <span className={trafficFilter === o.code ? "" : "ml-5"}>{o.label}</span>
+            </button>
+          ))
+        )}
+      </div>
+    </>
   );
 }
