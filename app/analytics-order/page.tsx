@@ -314,7 +314,6 @@ function MasterTrafficModal({
         <div className="flex items-center justify-between px-5 py-4 border-b flex-shrink-0">
           <div>
             <h2 className="text-sm font-bold text-gray-800">Master Traffic</h2>
-            <p className="text-[10px] text-gray-400 mt-0.5">Kelola kode sumber traffic order</p>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
             <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { getSheetData } from '@/lib/sheets';
 
 async function getMasterDropdownFromStore() {
   const auth = new google.auth.GoogleAuth({
@@ -25,23 +26,45 @@ async function getMasterDropdownFromStore() {
 
 export async function GET(request: NextRequest) {
   try {
-    const dropdownData = await getMasterDropdownFromStore();
+    const [dropdownData, usersData] = await Promise.all([
+      getMasterDropdownFromStore(),
+      getSheetData('users'),
+    ]);
+
+    // Map id → { username, name }
+    const userMap: Record<string, { user_name: string; name: string }> = {};
+    usersData.forEach((u: any) => {
+      if (u.id) userMap[u.id.trim()] = { user_name: u.user_name?.trim(), name: u.name?.trim() };
+    });
 
     const requesters = dropdownData
       .map((row: any) => row.requester)
-      .filter((v: any) => v && v.trim() !== '');
+      .filter((v: any) => v?.trim());
 
+    // assignees: resolve id → { label: name, value: user_name }
+    const assigneesSeen = new Set<string>();
     const assignees = dropdownData
-      .map((row: any) => row.assigned_to)
-      .filter((v: any) => v && v.trim() !== '');
+      .map((row: any) => {
+        const raw = row.assigned_to?.trim();
+        if (!raw) return null;
+        const resolved = userMap[raw];
+        if (!resolved) return null; // id tidak ditemukan di users
+        return { label: resolved.name, value: resolved.user_name };
+      })
+      .filter((v: any) => {
+        if (!v) return false;
+        if (assigneesSeen.has(v.value)) return false;
+        assigneesSeen.add(v.value);
+        return true;
+      });
 
     const reasons = dropdownData
       .map((row: any) => row.reason_request)
-      .filter((v: any) => v && v.trim() !== '');
+      .filter((v: any) => v?.trim());
 
     return NextResponse.json({
       requesters: [...new Set(requesters)],
-      assignees: [...new Set(assignees)],
+      assignees, // array of { label, value }
       reasons: [...new Set(reasons)],
     });
   } catch (error) {

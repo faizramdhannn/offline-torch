@@ -20,6 +20,7 @@ const SPREADSHEET_MAP: Record<string, string> = {
   system_config: process.env.SPREADSHEET_STOCK || "",
   activity_log: process.env.SPREADSHEET_STORE || "",
   shopify_import: process.env.SPREADSHEET_ORDER || "",
+  master_traffic: process.env.SPREADSHEET_ORDER || "",
   request_tracking: process.env.SPREADSHEET_STORE || '',
   "Torch Cirebon": process.env.SPREADSHEET_CUSTOMER || "",
   "Torch Jogja": process.env.SPREADSHEET_CUSTOMER || "",

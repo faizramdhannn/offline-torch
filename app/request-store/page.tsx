@@ -25,7 +25,7 @@ interface RequestItem {
 
 interface DropdownData {
   requesters: string[];
-  assignees: string[];
+  assignees: { label: string; value: string }[];
   reasons: string[];
 }
 
@@ -573,7 +573,7 @@ export default function RequestStorePage() {
                 <select value={form.assigned_to} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
                   <option value="">Select Assignee</option>
-                  {dropdownData.assignees.map((a) => <option key={a} value={a}>{a}</option>)}
+                  {dropdownData.assignees.map((a) => (<option key={a.value} value={a.value}>{a.label}</option>))}
                 </select>
               </div>
               <div>
@@ -646,7 +646,7 @@ export default function RequestStorePage() {
                 <select value={editForm.assigned_to} onChange={(e) => setEditForm({ ...editForm, assigned_to: e.target.value })}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
                   <option value="">Select Assignee</option>
-                  {dropdownData.assignees.map((a) => <option key={a} value={a}>{a}</option>)}
+                  {dropdownData.assignees.map((a) => (<option key={a.value} value={a.value}>{a.label}</option>))}
                 </select>
               </div>
               <div>

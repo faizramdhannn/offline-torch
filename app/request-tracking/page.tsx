@@ -31,7 +31,7 @@ interface StoreAddress {
 
 interface DropdownData {
   requesters: string[];
-  assignees: string[];
+  assignees: { label: string; value: string }[];
   reasons: string[];
 }
 
@@ -741,7 +741,7 @@ export default function RequestTrackingPage() {
                 <select value={form.assigned_to} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
                   <option value="">Pilih</option>
-                  {dropdownData.assignees.map((a) => <option key={a} value={a}>{a}</option>)}
+                  {dropdownData.assignees.map((a) => (<option key={a.value} value={a.value}>{a.label}</option>))}
                 </select>
               </div>
               <ExpeditionToggle value={form.expedition} onChange={(v) => setForm({ ...form, expedition: v })} />
@@ -798,7 +798,7 @@ export default function RequestTrackingPage() {
                 <select value={editForm.assigned_to} onChange={(e) => setEditForm({ ...editForm, assigned_to: e.target.value })}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
                   <option value="">Pilih</option>
-                  {dropdownData.assignees.map((a) => <option key={a} value={a}>{a}</option>)}
+                  {dropdownData.assignees.map((a) => (<option key={a.value} value={a.value}>{a.label}</option>))}
                 </select>
               </div>
               <ExpeditionToggle value={editForm.expedition} onChange={(v) => setEditForm({ ...editForm, expedition: v })} />
