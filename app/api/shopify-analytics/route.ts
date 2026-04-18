@@ -1,90 +1,114 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, updateSheetDataWithHeader, appendSheetData } from '@/lib/sheets';
 
-export async function GET(request: NextRequest) {
+const SHEET = 'master_traffic';
+
+// GET – return as Record<code, notes>
+export async function GET() {
   try {
-    const data = await getSheetData('shopify_import');
-    return NextResponse.json(data);
+    const data = await getSheetData(SHEET);
+    const map: Record<string, string> = {};
+    data.forEach((row: any) => {
+      const code = row['code_traffic']?.trim();
+      const label = row['notes']?.trim();
+      if (code && label) map[code] = label;
+    });
+    return NextResponse.json(map);
   } catch (error) {
-    console.error('Error fetching shopify analytics:', error);
-    return NextResponse.json({ error: 'Failed to fetch shopify analytics data' }, { status: 500 });
+    console.error('Error fetching master traffic:', error);
+    return NextResponse.json({ error: 'Failed to fetch master traffic' }, { status: 500 });
   }
 }
 
+// POST – add new entry
 export async function POST(request: NextRequest) {
   try {
-    // mode: "refresh" = replace all, "append" = add new only (default)
-    const { data, mode = 'append' } = await request.json();
-
-    if (!data || !Array.isArray(data) || data.length === 0) {
-      return NextResponse.json({ error: 'No valid data to import' }, { status: 400 });
+    const { code_traffic, notes } = await request.json();
+    if (!code_traffic?.trim() || !notes?.trim()) {
+      return NextResponse.json({ error: 'code_traffic and notes are required' }, { status: 400 });
     }
 
-    const cleanedData = data.filter((row: any[]) => {
-      return Array.isArray(row) && row.some(cell => cell !== null && cell !== undefined && cell !== '');
-    });
-
-    if (cleanedData.length === 0) {
-      return NextResponse.json({ error: 'No valid data after cleaning' }, { status: 400 });
-    }
-
-    const headers = cleanedData[0] as string[];
-    const newRows = cleanedData.slice(1);
-    const nameIdx = headers.indexOf('Name');
-    const lineitemIdx = headers.indexOf('Lineitem name');
-
-    // ── REFRESH MODE: replace all data ──────────────────────────────────────
-    if (mode === 'refresh') {
-      await updateSheetDataWithHeader('shopify_import', [headers, ...newRows]);
-      return NextResponse.json({
-        success: true,
-        rowsImported: newRows.length,
-        message: `Data direset. ${newRows.length} baris diimport.`,
-      });
-    }
-
-    // ── APPEND MODE: deduplicate by Name + Lineitem name, add only new ───────
-    let existingData: any[] = [];
-    try {
-      existingData = await getSheetData('shopify_import');
-    } catch {
-      existingData = [];
-    }
-
-    // Dedup key: Name + Lineitem name
-    const existingKeys = new Set(
-      existingData.map((row: any) => `${row['Name']}__${row['Lineitem name']}`)
+    // Check duplicate
+    const existing = await getSheetData(SHEET);
+    const isDuplicate = existing.some(
+      (row: any) => row['code_traffic']?.trim().toUpperCase() === code_traffic.trim().toUpperCase()
     );
-
-    const dedupedNewRows = newRows.filter((row: any[]) => {
-      const key = `${row[nameIdx]}__${row[lineitemIdx]}`;
-      return !existingKeys.has(key);
-    });
-
-    if (dedupedNewRows.length === 0) {
-      return NextResponse.json({
-        success: true,
-        rowsImported: 0,
-        message: 'Semua data sudah ada, tidak ada yang ditambahkan.',
-      });
+    if (isDuplicate) {
+      return NextResponse.json({ error: `Kode "${code_traffic.trim().toUpperCase()}" sudah ada` }, { status: 409 });
     }
 
-    if (existingData.length === 0) {
-      await updateSheetDataWithHeader('shopify_import', [headers, ...dedupedNewRows]);
+    if (existing.length === 0) {
+      await updateSheetDataWithHeader(SHEET, [
+        ['code_traffic', 'notes'],
+        [code_traffic.trim().toUpperCase(), notes.trim()],
+      ]);
     } else {
-      await appendSheetData('shopify_import', dedupedNewRows);
+      await appendSheetData(SHEET, [[code_traffic.trim().toUpperCase(), notes.trim()]]);
     }
 
-    return NextResponse.json({
-      success: true,
-      rowsImported: dedupedNewRows.length,
-      message: `${dedupedNewRows.length} baris baru ditambahkan.`,
-    });
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Import error:', error);
-    return NextResponse.json(
-      { error: 'Failed to import data', details: error instanceof Error ? error.message : String(error) },
-      { status: 500 }
+    console.error('Error adding master traffic:', error);
+    return NextResponse.json({ error: 'Failed to add entry' }, { status: 500 });
+  }
+}
+
+// PUT – update existing entry by code
+export async function PUT(request: NextRequest) {
+  try {
+    const { original_code, code_traffic, notes } = await request.json();
+    if (!original_code?.trim() || !code_traffic?.trim() || !notes?.trim()) {
+      return NextResponse.json({ error: 'original_code, code_traffic, and notes are required' }, { status: 400 });
+    }
+
+    const existing = await getSheetData(SHEET);
+
+    // Check duplicate code (excluding self)
+    const isDuplicate = existing.some(
+      (row: any) =>
+        row['code_traffic']?.trim().toUpperCase() === code_traffic.trim().toUpperCase() &&
+        row['code_traffic']?.trim().toUpperCase() !== original_code.trim().toUpperCase()
     );
+    if (isDuplicate) {
+      return NextResponse.json({ error: `Kode "${code_traffic.trim().toUpperCase()}" sudah ada` }, { status: 409 });
+    }
+
+    const updated = existing.map((row: any) => {
+      if (row['code_traffic']?.trim().toUpperCase() === original_code.trim().toUpperCase()) {
+        return { ...row, code_traffic: code_traffic.trim().toUpperCase(), notes: notes.trim() };
+      }
+      return row;
+    });
+
+    const rows = updated.map((row: any) => [row['code_traffic'], row['notes']]);
+    await updateSheetDataWithHeader(SHEET, [['code_traffic', 'notes'], ...rows]);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error updating master traffic:', error);
+    return NextResponse.json({ error: 'Failed to update entry' }, { status: 500 });
+  }
+}
+
+// DELETE – remove entry by code
+export async function DELETE(request: NextRequest) {
+  try {
+    const { code_traffic } = await request.json();
+    if (!code_traffic?.trim()) {
+      return NextResponse.json({ error: 'code_traffic is required' }, { status: 400 });
+    }
+
+    const existing = await getSheetData(SHEET);
+    const filtered = existing.filter(
+      (row: any) => row['code_traffic']?.trim().toUpperCase() !== code_traffic.trim().toUpperCase()
+    );
+
+    const rows = filtered.map((row: any) => [row['code_traffic'], row['notes']]);
+    await updateSheetDataWithHeader(SHEET, [['code_traffic', 'notes'], ...rows]);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting master traffic:', error);
+    return NextResponse.json({ error: 'Failed to delete entry' }, { status: 500 });
   }
 }

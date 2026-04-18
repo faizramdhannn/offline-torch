@@ -18,41 +18,6 @@ import {
   exportEmployeeTab,
 } from "@/lib/analyticsExport";
 
-const TRAFFIC_MAP: Record<string, string> = {
-  WG: "Whatsapp Group",
-  TO: "Traffic Organic / Walk In",
-  TT: "Teman",
-  IO: "Instagram Official",
-  IT: "Instagram Toko",
-  KM: "Komunitas",
-  TK: "Tiktok Official",
-  MO: "Marketplace Official",
-  MT: "Marketplace Toko",
-  SG: "Searching Google",
-  ET: "Event Torch",
-  VT: "Voucher Torch",
-  LB: "Liat Banyak yang Pakai",
-  WS: "Webstore",
-  AD: "Ads Promote",
-  EM: "Email",
-  WB: "Whatsapp Blast",
-  PB: "Pernah Beli / Cust Lama",
-  PH: "Perusahaan",
-  DE: "Dari Eiger",
-  KK: "Karyawan",
-  DY: "Dealer Yamaha",
-  TB: "Banner Outdoor",
-  TS: "Tiktok Store",
-  LG: "Lelang",
-  FS: "Flash Sale",
-  SW: "Story WA",
-  SI: "Story Instagram",
-  BW: "Bundling WA",
-  ST: "Story TikTok",
-  GM: "Games",
-  LP: "Last Piece",
-};
-
 const COLORS = [
   "#3b82f6","#8b5cf6","#ec4899","#f59e0b","#10b981",
   "#06b6d4","#ef4444","#84cc16","#f97316","#6366f1",
@@ -69,7 +34,7 @@ function parseSubtotal(val: string | null | undefined): number {
   return parseFloat(String(val).replace(/[^0-9.]/g, "")) || 0;
 }
 
-function extractTrafficCode(notes: string | null | undefined): string | null {
+function extractTrafficCode(notes: string | null | undefined, trafficMap: Record<string, string>): string | null {
   if (!notes) return null;
   const upper = notes.trim().toUpperCase();
   const tokens = upper
@@ -79,10 +44,10 @@ function extractTrafficCode(notes: string | null | undefined): string | null {
   if (tokens.length === 0) return null;
   for (let i = tokens.length - 1; i >= 0; i--) {
     const token = tokens[i];
-    if (TRAFFIC_MAP[token]) return token;
+    if (trafficMap[token]) return token;
     if (token.length > 2) {
       const tail = token.slice(-2);
-      if (TRAFFIC_MAP[tail]) return tail;
+      if (trafficMap[tail]) return tail;
     }
   }
   return null;
@@ -233,11 +198,276 @@ function ExportButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+// ─── Master Traffic Modal ─────────────────────────────────────────────────────
+function MasterTrafficModal({
+  open,
+  onClose,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [entries, setEntries] = useState<{ code_traffic: string; notes: string }[]>([]);
+  const [loadingEntries, setLoadingEntries] = useState(false);
+  const [search, setSearch] = useState("");
+
+  // form state
+  const [formMode, setFormMode] = useState<"add" | "edit" | null>(null);
+  const [editTarget, setEditTarget] = useState<{ code_traffic: string; notes: string } | null>(null);
+  const [formCode, setFormCode] = useState("");
+  const [formNotes, setFormNotes] = useState("");
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // delete confirm
+  const [deleteTarget, setDeleteTarget] = useState<{ code_traffic: string; notes: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const codeRef = useRef<HTMLInputElement>(null);
+
+  const fetchEntries = async () => {
+    setLoadingEntries(true);
+    try {
+      const res = await fetch("/api/master-traffic");
+      const map: Record<string, string> = await res.json();
+      const list = Object.entries(map)
+        .map(([code_traffic, notes]) => ({ code_traffic, notes }))
+        .sort((a, b) => a.code_traffic.localeCompare(b.code_traffic));
+      setEntries(list);
+    } catch {}
+    setLoadingEntries(false);
+  };
+
+  useEffect(() => {
+    if (open) { fetchEntries(); setSearch(""); setFormMode(null); setDeleteTarget(null); }
+  }, [open]);
+
+  const openAdd = () => {
+    setFormMode("add");
+    setEditTarget(null);
+    setFormCode("");
+    setFormNotes("");
+    setFormError("");
+    setTimeout(() => codeRef.current?.focus(), 60);
+  };
+
+  const openEdit = (entry: { code_traffic: string; notes: string }) => {
+    setFormMode("edit");
+    setEditTarget(entry);
+    setFormCode(entry.code_traffic);
+    setFormNotes(entry.notes);
+    setFormError("");
+    setTimeout(() => codeRef.current?.focus(), 60);
+  };
+
+  const closeForm = () => { setFormMode(null); setEditTarget(null); setFormError(""); };
+
+  const handleSave = async () => {
+    setFormError("");
+    if (!formCode.trim() || !formNotes.trim()) { setFormError("Kode dan keterangan wajib diisi."); return; }
+    setSaving(true);
+    try {
+      const body = formMode === "add"
+        ? { code_traffic: formCode, notes: formNotes }
+        : { original_code: editTarget!.code_traffic, code_traffic: formCode, notes: formNotes };
+      const res = await fetch("/api/master-traffic", {
+        method: formMode === "add" ? "POST" : "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) { setFormError(data.error || "Gagal menyimpan"); return; }
+      closeForm();
+      await fetchEntries();
+      onSaved();
+    } catch { setFormError("Terjadi kesalahan."); }
+    setSaving(false);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await fetch("/api/master-traffic", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code_traffic: deleteTarget.code_traffic }),
+      });
+      setDeleteTarget(null);
+      await fetchEntries();
+      onSaved();
+    } catch {}
+    setDeleting(false);
+  };
+
+  const filtered = entries.filter(
+    (e) => e.code_traffic.toLowerCase().includes(search.toLowerCase()) || e.notes.toLowerCase().includes(search.toLowerCase())
+  );
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl mx-4 flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b flex-shrink-0">
+          <div>
+            <h2 className="text-sm font-bold text-gray-800">Master Traffic</h2>
+            <p className="text-[10px] text-gray-400 mt-0.5">Kelola kode sumber traffic order</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Inline form */}
+        {formMode && (
+          <div className="px-5 py-3 bg-blue-50 border-b flex-shrink-0">
+            <p className="text-xs font-semibold text-blue-700 mb-2">
+              {formMode === "add" ? "Tambah Kode Baru" : `Edit: ${editTarget?.code_traffic}`}
+            </p>
+            <div className="flex gap-2 items-end">
+              <div>
+                <label className="block text-[10px] font-medium text-gray-600 mb-1">Kode</label>
+                <input
+                  ref={codeRef}
+                  type="text"
+                  value={formCode}
+                  onChange={(e) => setFormCode(e.target.value.toUpperCase())}
+                  maxLength={10}
+                  placeholder="WG"
+                  className="w-20 px-2 py-1.5 border border-gray-300 rounded text-xs font-mono uppercase focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-[10px] font-medium text-gray-600 mb-1">Keterangan</label>
+                <input
+                  type="text"
+                  value={formNotes}
+                  onChange={(e) => setFormNotes(e.target.value)}
+                  placeholder="Whatsapp Group"
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                  onKeyDown={(e) => e.key === "Enter" && handleSave()}
+                />
+              </div>
+              <button onClick={handleSave} disabled={saving}
+                className="px-3 py-1.5 bg-primary text-white rounded text-xs font-medium hover:bg-primary/90 disabled:opacity-60 transition-colors whitespace-nowrap">
+                {saving ? "..." : formMode === "add" ? "Tambah" : "Simpan"}
+              </button>
+              <button onClick={closeForm} className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded text-xs hover:bg-gray-200 transition-colors">
+                Batal
+              </button>
+            </div>
+            {formError && <p className="text-[10px] text-red-600 mt-1.5">{formError}</p>}
+          </div>
+        )}
+
+        {/* Delete confirm */}
+        {deleteTarget && (
+          <div className="px-5 py-3 bg-red-50 border-b flex-shrink-0 flex items-center justify-between gap-4">
+            <p className="text-xs text-red-700">
+              Hapus <strong>{deleteTarget.code_traffic}</strong> – {deleteTarget.notes}?
+            </p>
+            <div className="flex gap-2 flex-shrink-0">
+              <button onClick={() => setDeleteTarget(null)} className="px-3 py-1 bg-gray-100 text-gray-600 rounded text-xs hover:bg-gray-200">Batal</button>
+              <button onClick={handleDelete} disabled={deleting}
+                className="px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 disabled:opacity-60 font-medium">
+                {deleting ? "..." : "Ya, Hapus"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Search + Add */}
+        <div className="px-5 py-3 flex items-center gap-2 border-b flex-shrink-0">
+          <div className="relative flex-1">
+            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari kode atau keterangan..."
+              className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+          </div>
+          <button onClick={openAdd}
+            className="flex items-center gap-1 px-3 py-1.5 bg-primary text-white rounded text-xs font-medium hover:bg-primary/90 transition-colors whitespace-nowrap">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Tambah
+          </button>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-y-auto flex-1">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 bg-gray-50 z-10">
+              <tr className="border-b">
+                <th className="px-4 py-2 text-left font-semibold text-gray-600 w-24">Kode</th>
+                <th className="px-4 py-2 text-left font-semibold text-gray-600">Keterangan</th>
+                <th className="px-4 py-2 text-right font-semibold text-gray-600 w-20">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loadingEntries ? (
+                <tr><td colSpan={3} className="text-center py-10 text-gray-400">Memuat...</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={3} className="text-center py-10 text-gray-400">
+                  {search ? `Tidak ada hasil untuk "${search}"` : "Belum ada kode traffic."}
+                </td></tr>
+              ) : (
+                filtered.map((entry) => (
+                  <tr key={entry.code_traffic} className="border-b hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-2">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono font-semibold border border-blue-100">
+                        {entry.code_traffic}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-gray-700">{entry.notes}</td>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => openEdit(entry)}
+                          className="p-1 text-gray-400 hover:text-primary hover:bg-primary/10 rounded transition-colors" title="Edit">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button onClick={() => { setDeleteTarget(entry); setFormMode(null); }}
+                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Hapus">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer */}
+        {!loadingEntries && entries.length > 0 && (
+          <div className="px-5 py-2.5 border-t bg-gray-50 flex-shrink-0">
+            <p className="text-[10px] text-gray-400">{filtered.length} dari {entries.length} kode traffic</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AnalyticsOrderPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [trafficMap, setTrafficMap] = useState<Record<string, string>>({});
+  const [trafficMapLoading, setTrafficMapLoading] = useState(true);
+  const [masterTrafficOpen, setMasterTrafficOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importMode, setImportMode] = useState<"append" | "refresh" | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -297,12 +527,26 @@ export default function AnalyticsOrderPage() {
     if (!parsedUser.analytics_order) { router.push("/dashboard"); return; }
     setUser(parsedUser);
     fetchData();
+    fetchTrafficMap();
   }, []);
 
   const showMessage = (msg: string, type: "success" | "error") => {
     setPopupMessage(msg);
     setPopupType(type);
     setShowPopup(true);
+  };
+
+  const fetchTrafficMap = async () => {
+    try {
+      setTrafficMapLoading(true);
+      const res = await fetch("/api/master-traffic");
+      const data: Record<string, string> = await res.json();
+      setTrafficMap(data);
+    } catch {
+      console.error("Failed to fetch traffic map");
+    } finally {
+      setTrafficMapLoading(false);
+    }
   };
 
   const fetchData = async () => {
@@ -371,25 +615,22 @@ export default function AnalyticsOrderPage() {
       ? "Semua Traffic"
       : trafficFilter === "unknown"
       ? "Tidak Diketahui"
-      : `${trafficFilter} – ${TRAFFIC_MAP[trafficFilter] || trafficFilter}`;
+      : `${trafficFilter} – ${trafficMap[trafficFilter] || trafficFilter}`;
 
   const filteredRows = useCallback(() => {
     return rows.filter((r) => {
-      // Date filter
       const rawDate = r["Created at"] || "";
       const dateStr = rawDate.split(" ")[0];
       if (dateFrom && dateStr < dateFrom) return false;
       if (dateTo && dateStr > dateTo) return false;
 
-      // Store filter
       if (storeFilter !== "all") {
         const loc = cleanLocationName(r.Location);
         if (loc !== storeFilter) return false;
       }
 
-      // Traffic filter — applied per order (unique by Name)
       if (trafficFilter !== "all") {
-        const code = extractTrafficCode(r.Notes);
+        const code = extractTrafficCode(r.Notes, trafficMap);
         if (trafficFilter === "unknown") {
           if (code !== null) return false;
         } else {
@@ -399,7 +640,7 @@ export default function AnalyticsOrderPage() {
 
       return true;
     });
-  }, [rows, dateFrom, dateTo, storeFilter, trafficFilter]);
+  }, [rows, dateFrom, dateTo, storeFilter, trafficFilter, trafficMap]);
 
   const fr = filteredRows();
 
@@ -437,7 +678,6 @@ export default function AnalyticsOrderPage() {
     return Object.entries(map).map(([name, s]) => ({ name, count: s.size }));
   })();
 
-  // Daily revenue per store (line chart)
   const dailyRevenueByStore = (() => {
     const orderSeen = new Set<string>();
     const map: Record<string, Record<string, number>> = {};
@@ -464,7 +704,6 @@ export default function AnalyticsOrderPage() {
     return { chartData, storeNames };
   })();
 
-  // Daily orders
   const dailyOrdersByStore = (() => {
     const map: Record<string, Record<string, Set<string>>> = {};
     const allStoreSet = new Set<string>();
@@ -488,7 +727,7 @@ export default function AnalyticsOrderPage() {
     return { chartData, storeNames };
   })();
 
-  // ─── Traffic data: count + subtotal per source ────────────────────────────
+  // ─── Traffic data ─────────────────────────────────────────────────────────
   const trafficData = (() => {
     const map: Record<string, { count: number; subtotal: number }> = {};
     let nullCount = 0;
@@ -498,10 +737,10 @@ export default function AnalyticsOrderPage() {
       const key = r.Name || "";
       if (orderSeen.has(key)) return;
       orderSeen.add(key);
-      const code = extractTrafficCode(r.Notes);
+      const code = extractTrafficCode(r.Notes, trafficMap);
       const sub = parseSubtotal(r.Subtotal);
       if (code) {
-        const label = TRAFFIC_MAP[code] || code;
+        const label = trafficMap[code] || code;
         if (!map[label]) map[label] = { count: 0, subtotal: 0 };
         map[label].count++;
         map[label].subtotal += sub;
@@ -519,7 +758,6 @@ export default function AnalyticsOrderPage() {
 
   const trafficDataForPie = trafficData.filter(d => d.name !== "Tidak Diketahui");
 
-  // Daily traffic trend
   const dailyTrafficData = (() => {
     const map: Record<string, Record<string, number>> = {};
     const orderSeen = new Set<string>();
@@ -530,8 +768,8 @@ export default function AnalyticsOrderPage() {
       orderSeen.add(key);
       const date = (r["Created at"] || "").split(" ")[0];
       if (!date) return;
-      const code = extractTrafficCode(r.Notes);
-      const label = code ? (TRAFFIC_MAP[code] || code) : "Tidak Diketahui";
+      const code = extractTrafficCode(r.Notes, trafficMap);
+      const label = code ? (trafficMap[code] || code) : "Tidak Diketahui";
       if (!map[date]) map[date] = {};
       map[date][label] = (map[date][label] || 0) + 1;
     });
@@ -545,7 +783,7 @@ export default function AnalyticsOrderPage() {
     };
   })();
 
-  // ─── Discount data: count + total discount amount + subtotal ─────────────
+  // ─── Discount data ────────────────────────────────────────────────────────
   const discountData = (() => {
     const map: Record<string, { count: number; total: number; subtotal: number }> = {};
     const orderSeen = new Set<string>();
@@ -565,7 +803,6 @@ export default function AnalyticsOrderPage() {
       .sort((a, b) => b.count - a.count).slice(0, 20);
   })();
 
-  // Daily discount usage
   const dailyDiscountData = (() => {
     const totalMap: Record<string, number> = {};
     const discountMap: Record<string, number> = {};
@@ -602,7 +839,6 @@ export default function AnalyticsOrderPage() {
       .sort((a, b) => b.qty - a.qty).slice(0, 20);
   })();
 
-  // Daily product qty (top 5)
   const dailyProductData = (() => {
     const top5 = productData.slice(0, 5).map(p => p.name);
     const map: Record<string, Record<string, number>> = {};
@@ -643,7 +879,6 @@ export default function AnalyticsOrderPage() {
       .sort((a, b) => b.subtotal - a.subtotal);
   })();
 
-  // Daily employee revenue
   const dailyEmployeeData = (() => {
     const top5 = employeeData.slice(0, 5).map(e => e.name);
     const map: Record<string, Record<string, number>> = {};
@@ -693,7 +928,6 @@ export default function AnalyticsOrderPage() {
     }
   };
 
-  // Reset pagination when filters change
   const handleResetFilter = () => {
     setDateFrom(getFirstOfMonthStr());
     setDateTo(getTodayStr());
@@ -704,6 +938,10 @@ export default function AnalyticsOrderPage() {
     setPageDiscount(1);
     setPageProduct(1);
     setPageEmployee(1);
+  };
+
+  const resetPages = () => {
+    setPageStore(1); setPageTraffic(1); setPageDiscount(1); setPageProduct(1); setPageEmployee(1);
   };
 
   if (!user) return null;
@@ -717,17 +955,24 @@ export default function AnalyticsOrderPage() {
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-primary">Analytics Order</h1>
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-1.5 items-center">
               <input ref={fileInputRef} type="file" accept=".csv" onChange={handleImport} className="hidden" id="shopify-import" />
               {importing ? (
-                <span className="px-4 py-2 bg-gray-400 text-white rounded text-sm opacity-70 cursor-not-allowed">Importing...</span>
+                <span className="px-3 py-1.5 bg-gray-400 text-white rounded text-xs opacity-70 cursor-not-allowed">Importing...</span>
               ) : (
                 <>
-                  <button onClick={() => triggerImport("append")} className="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 transition-colors">
+                  <button onClick={() => triggerImport("append")} className="px-3 py-1.5 bg-primary text-white rounded text-xs hover:bg-primary/90 transition-colors font-medium">
                     + Tambah Data
                   </button>
-                  <button onClick={() => triggerImport("refresh")} className="px-4 py-2 bg-gray-700 text-white rounded text-sm hover:bg-gray-600 transition-colors">
+                  <button onClick={() => triggerImport("refresh")} className="px-3 py-1.5 bg-gray-700 text-white rounded text-xs hover:bg-gray-600 transition-colors font-medium">
                     ↺ Refresh Semua
+                  </button>
+                  <button onClick={() => setMasterTrafficOpen(true)}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-300 text-gray-600 rounded text-xs hover:bg-gray-50 hover:border-gray-400 transition-colors font-medium">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                    Master Traffic
                   </button>
                 </>
               )}
@@ -754,19 +999,19 @@ export default function AnalyticsOrderPage() {
               {/* Date From */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Date From</label>
-                <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPageStore(1); setPageTraffic(1); setPageDiscount(1); setPageProduct(1); setPageEmployee(1); }}
+                <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); resetPages(); }}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
               </div>
               {/* Date To */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Date To</label>
-                <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPageStore(1); setPageTraffic(1); setPageDiscount(1); setPageProduct(1); setPageEmployee(1); }}
+                <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); resetPages(); }}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
               </div>
               {/* Store */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
-                <select value={storeFilter} onChange={(e) => { setStoreFilter(e.target.value); setPageStore(1); setPageTraffic(1); setPageDiscount(1); setPageProduct(1); setPageEmployee(1); }}
+                <select value={storeFilter} onChange={(e) => { setStoreFilter(e.target.value); resetPages(); }}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-white">
                   <option value="all">All Stores</option>
                   {stores.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -779,13 +1024,16 @@ export default function AnalyticsOrderPage() {
                   <button
                     type="button"
                     onClick={() => setShowTrafficDropdown(v => !v)}
+                    disabled={trafficMapLoading}
                     className={`w-full px-2 py-1.5 border rounded text-xs text-left flex items-center justify-between gap-1 focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${
                       trafficFilter !== "all"
                         ? "border-primary bg-primary/5 text-primary font-medium"
                         : "border-gray-300 bg-white text-gray-700"
-                    }`}
+                    } disabled:opacity-50`}
                   >
-                    <span className="truncate">{trafficFilterLabel}</span>
+                    <span className="truncate">
+                      {trafficMapLoading ? "Memuat..." : trafficFilterLabel}
+                    </span>
                     <svg className={`w-3 h-3 flex-shrink-0 transition-transform ${showTrafficDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
@@ -793,14 +1041,14 @@ export default function AnalyticsOrderPage() {
 
                   {showTrafficDropdown && (
                     <div className="absolute z-50 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden">
-                      {/* Search inside dropdown */}
                       <div className="p-2 border-b">
                         <TrafficDropdownSearch
                           trafficFilter={trafficFilter}
+                          trafficMap={trafficMap}
                           onSelect={(val) => {
                             setTrafficFilter(val);
                             setShowTrafficDropdown(false);
-                            setPageStore(1); setPageTraffic(1); setPageDiscount(1); setPageProduct(1); setPageEmployee(1);
+                            resetPages();
                           }}
                         />
                       </div>
@@ -837,7 +1085,7 @@ export default function AnalyticsOrderPage() {
                   </svg>
                   Traffic: {trafficFilterLabel}
                   <button
-                    onClick={() => { setTrafficFilter("all"); setPageStore(1); setPageTraffic(1); setPageDiscount(1); setPageProduct(1); setPageEmployee(1); }}
+                    onClick={() => { setTrafficFilter("all"); resetPages(); }}
                     className="ml-0.5 hover:text-red-500"
                   >×</button>
                 </span>
@@ -1384,6 +1632,12 @@ export default function AnalyticsOrderPage() {
         </div>
       </div>
 
+      <MasterTrafficModal
+        open={masterTrafficOpen}
+        onClose={() => setMasterTrafficOpen(false)}
+        onSaved={() => fetchTrafficMap()}
+      />
+
       {/* Import Mode Modal */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
@@ -1428,9 +1682,11 @@ export default function AnalyticsOrderPage() {
 // ─── Traffic Dropdown Search Component ───────────────────────────────────────
 function TrafficDropdownSearch({
   trafficFilter,
+  trafficMap,
   onSelect,
 }: {
   trafficFilter: string;
+  trafficMap: Record<string, string>;
   onSelect: (val: string) => void;
 }) {
   const [search, setSearch] = useState("");
@@ -1442,7 +1698,7 @@ function TrafficDropdownSearch({
 
   const allOptions = [
     { code: "all", label: "Semua Traffic" },
-    ...Object.entries(TRAFFIC_MAP).map(([code, label]) => ({ code, label: `${code} – ${label}` })),
+    ...Object.entries(trafficMap).map(([code, label]) => ({ code, label: `${code} – ${label}` })),
     { code: "unknown", label: "Tidak Diketahui" },
   ];
 
