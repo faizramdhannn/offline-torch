@@ -322,14 +322,18 @@ export default function RequestStorePage() {
     setShowEditModal(true);
   };
 
-  // ─── Pagination ───────────────────────────────────────────────────────────
+  // ─── Filtered data & Pagination ───────────────────────────────────────────
+  const canEdit = user?.edit_request;
+  const filteredData = canEdit
+    ? data
+    : data.filter((d) => d.created_by === user?.user_name);
+
   const indexOfLast = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
-  const currentItems = data.slice(indexOfFirst, indexOfLast);
-  const totalPages = Math.ceil(data.length / itemsPerPage);
+  const currentItems = filteredData.slice(indexOfFirst, indexOfLast);
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
   if (!user) return null;
-  const canEdit = user.edit_request;
 
   // ─── Shared form fields ───────────────────────────────────────────────────
   const renderDocFields = (
@@ -496,7 +500,7 @@ export default function RequestStorePage() {
                       ))}
                     </tbody>
                   </table>
-                  {data.length === 0 && (
+                  {filteredData.length === 0 && (
                     <div className="p-8 text-center text-gray-500">No requests found</div>
                   )}
                 </div>
@@ -504,7 +508,7 @@ export default function RequestStorePage() {
                 {totalPages > 1 && (
                   <div className="flex justify-between items-center px-4 py-2.5 border-t">
                     <div className="text-xs text-gray-500">
-                      Showing {indexOfFirst + 1} to {Math.min(indexOfLast, data.length)} of {data.length} entries
+                      Showing {indexOfFirst + 1} to {Math.min(indexOfLast, filteredData.length)} of {filteredData.length} entries
                     </div>
                     <div className="flex gap-1">
                       <button
