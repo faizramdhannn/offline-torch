@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
       stock_opname: user.stock_opname === 'TRUE',
       request_tracking: user.request_tracking === 'TRUE',
       tracking_edit: user.tracking_edit === 'TRUE',
+      stock_opname_report: user.stock_opname_report === 'TRUE',
       // Stock permissions
       stock_import: user.stock_import === 'TRUE',
       stock_export: user.stock_export === 'TRUE',

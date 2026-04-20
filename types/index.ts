@@ -22,6 +22,7 @@ export interface User {
   request: boolean;
   edit_request: boolean;
   stock_opname: boolean;
+  stock_opname_report: boolean;
   analytics_order: boolean;
   // Stock permissions
   stock_import: boolean;

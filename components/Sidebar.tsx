@@ -22,6 +22,7 @@ interface SidebarProps {
     bundling?: boolean;
     canvasing?: boolean;
     stock_opname?: boolean;
+    stock_opname_report?: boolean;
     request?: boolean;
     traffic_store?: boolean;
     report_store?: boolean;

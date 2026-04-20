@@ -118,7 +118,8 @@ export async function PUT(request: NextRequest) {
       permissions.report_store ? "TRUE" : "FALSE", // AI
       permissions.request_tracking ? "TRUE" : "FALSE", // AJ ← baru
       permissions.tracking_edit ? "TRUE" : "FALSE", // AK ← baru
-      timestamp, // AL
+      permissions.stock_opname_report ? "TRUE" : "FALSE", // AL ← baru
+      timestamp, // AM
     ];
 
     console.log(`Updating row ${rowIndex} with ${updatedRow.length} columns`);

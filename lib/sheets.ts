@@ -22,6 +22,8 @@ const SPREADSHEET_MAP: Record<string, string> = {
   shopify_import: process.env.SPREADSHEET_ORDER || "",
   master_traffic: process.env.SPREADSHEET_ORDER || "",
   request_tracking: process.env.SPREADSHEET_STORE || '',
+  sto_store: process.env.SPREADSHEET_STORE || '',
+  sto_store_report: process.env.SPREADSHEET_STORE || '',
   "Torch Cirebon": process.env.SPREADSHEET_CUSTOMER || "",
   "Torch Jogja": process.env.SPREADSHEET_CUSTOMER || "",
   "Torch Karawaci": process.env.SPREADSHEET_CUSTOMER || "",

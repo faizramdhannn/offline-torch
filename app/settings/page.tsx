@@ -29,6 +29,7 @@ interface UserData {
   edit_request: string;
   analytics_order: string;
   stock_opname: string;
+  stock_opname_report: string;
   stock_import: string;
   stock_export: string;
   stock_view_store: string;
@@ -40,6 +41,8 @@ interface UserData {
   stock_refresh_javelin: string;
   traffic_store: string;
   report_store: string;
+  request_tracking: string;
+  tracking_edit: string;
   last_activity: string;
 }
 
@@ -67,6 +70,7 @@ const EMPTY_PERMS = {
   stock_view_hpj: false,
   stock_refresh_javelin: false,
   stock_opname: false,
+  stock_opname_report: false,
   petty_cash: false,
   petty_cash_add: false,
   petty_cash_export: false,
@@ -81,6 +85,8 @@ const EMPTY_PERMS = {
   analytics_order: false,
   traffic_store: false,
   report_store: false,
+  request_tracking: false,
+  tracking_edit: false,
   registration_request: false,
   user_setting: false,
 };
@@ -233,6 +239,7 @@ export default function SettingsPage() {
       stock_view_hpj: userData.stock_view_hpj === "TRUE",
       stock_refresh_javelin: userData.stock_refresh_javelin === "TRUE",
       stock_opname: userData.stock_opname === "TRUE",
+      stock_opname_report: userData.stock_opname_report === "TRUE",
       petty_cash: userData.petty_cash === "TRUE",
       petty_cash_add: userData.petty_cash_add === "TRUE",
       petty_cash_export: userData.petty_cash_export === "TRUE",
@@ -247,6 +254,8 @@ export default function SettingsPage() {
       analytics_order: userData.analytics_order === "TRUE",
       traffic_store: userData.traffic_store === "TRUE",
       report_store: userData.report_store === "TRUE",
+      request_tracking: userData.request_tracking === "TRUE",
+      tracking_edit: userData.tracking_edit === "TRUE",
       registration_request: userData.registration_request === "TRUE",
       user_setting: userData.user_setting === "TRUE",
     };
@@ -289,12 +298,14 @@ export default function SettingsPage() {
     if (userData.order_report === "TRUE") perms.push("Order Report");
     if (userData.analytics_order === "TRUE") perms.push("Analytics");
     if (userData.stock === "TRUE") perms.push("Stock");
+    if (userData.stock_opname === "TRUE") perms.push("STO");
     if (userData.petty_cash === "TRUE") perms.push("Petty Cash");
     if (userData.customer === "TRUE") perms.push("Customer");
     if (userData.voucher === "TRUE") perms.push("Voucher");
     if (userData.bundling === "TRUE") perms.push("Bundling");
     if (userData.canvasing === "TRUE") perms.push("Canvasing");
     if (userData.request === "TRUE") perms.push("Request");
+    if (userData.request_tracking === "TRUE") perms.push("Shipment");
     if (userData.traffic_store === "TRUE") perms.push("Traffic");
     if (userData.report_store === "TRUE") perms.push("Report");
     if (userData.registration_request === "TRUE") perms.push("Registration");
@@ -523,6 +534,8 @@ export default function SettingsPage() {
                 <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2 mt-4">Request & Traffic</h3>
                 <CB label="Request Store" k="request" />
                 <CB label="Edit Request" k="edit_request" sub />
+                <CB label="Request Shipment" k="request_tracking" />
+                <CB label="Upload Resi" k="tracking_edit" sub />
                 <CB label="Traffic Store" k="traffic_store" />
                 <CB label="Report Store" k="report_store" />
               </div>
@@ -531,7 +544,6 @@ export default function SettingsPage() {
               <div className="space-y-1">
                 <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2">Stock</h3>
                 <CB label="View Stock" k="stock" />
-                <CB label="Stock Opname" k="stock_opname" />
 
                 <p className="text-[10px] font-semibold text-gray-400 uppercase mt-3 mb-1 ml-1">Actions</p>
                 <CB label="Import Stock" k="stock_import" sub />
@@ -547,6 +559,10 @@ export default function SettingsPage() {
                 <CB label="View HPP" k="stock_view_hpp" sub />
                 <CB label="View HPT" k="stock_view_hpt" sub />
                 <CB label="View HPJ" k="stock_view_hpj" sub />
+
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2 mt-4">Stock Opname</h3>
+                <CB label="Stock Opname" k="stock_opname" />
+                <CB label="Lihat Semua Report STO" k="stock_opname_report" sub />
               </div>
 
               {/* Column 3: Petty Cash, Canvasing, Admin */}
