@@ -68,6 +68,7 @@ export async function PUT(request: NextRequest) {
         permissions.edit_request ? 'TRUE' : 'FALSE',
         permissions.analytics_order ? 'TRUE' : 'FALSE',
         permissions.stock_opname ? 'TRUE' : 'FALSE',
+        permissions.attendance ? 'TRUE' : 'FALSE',
         // Stock permissions
         permissions.stock_import ? 'TRUE' : 'FALSE',
         permissions.stock_export ? 'TRUE' : 'FALSE',

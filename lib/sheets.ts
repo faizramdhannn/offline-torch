@@ -21,9 +21,15 @@ const SPREADSHEET_MAP: Record<string, string> = {
   activity_log: process.env.SPREADSHEET_STORE || "",
   shopify_import: process.env.SPREADSHEET_ORDER || "",
   master_traffic: process.env.SPREADSHEET_ORDER || "",
-  request_tracking: process.env.SPREADSHEET_STORE || '',
-  sto_store: process.env.SPREADSHEET_STORE || '',
-  sto_store_report: process.env.SPREADSHEET_STORE || '',
+  request_tracking: process.env.SPREADSHEET_STORE || "",
+  sto_store: process.env.SPREADSHEET_STORE || "",
+  sto_store_report: process.env.SPREADSHEET_STORE || "",
+  schedule_taft: process.env.SPREADSHEET_ATTENDANCE || "",
+  date_list: process.env.SPREADSHEET_ATTENDANCE || "",
+  taft_list: process.env.SPREADSHEET_ATTENDANCE || "",
+  store_list: process.env.SPREADSHEET_ATTENDANCE || "",
+  time_schedule: process.env.SPREADSHEET_ATTENDANCE || "",
+  schedule_report: process.env.SPREADSHEET_ATTENDANCE || "",
   "Torch Cirebon": process.env.SPREADSHEET_CUSTOMER || "",
   "Torch Jogja": process.env.SPREADSHEET_CUSTOMER || "",
   "Torch Karawaci": process.env.SPREADSHEET_CUSTOMER || "",
@@ -86,7 +92,10 @@ export async function getSheetData(sheetName: string) {
   }
 }
 
-export async function updateSheetDataWithHeader(sheetName: string, data: any[][]) {
+export async function updateSheetDataWithHeader(
+  sheetName: string,
+  data: any[][],
+) {
   try {
     const auth = new google.auth.GoogleAuth({
       credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || "{}"),
@@ -133,7 +142,11 @@ export async function appendSheetData(sheetName: string, data: any[][]) {
   }
 }
 
-export async function updateSheetRow(sheetName: string, rowIndex: number, data: any[]) {
+export async function updateSheetRow(
+  sheetName: string,
+  rowIndex: number,
+  data: any[],
+) {
   try {
     const auth = new google.auth.GoogleAuth({
       credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || "{}"),
@@ -172,7 +185,7 @@ export async function updateSheetRowSkipColumns(
   rowIndex: number,
   beforeData: any[],
   afterData: any[],
-  skipCount: number
+  skipCount: number,
 ) {
   try {
     const auth = new google.auth.GoogleAuth({

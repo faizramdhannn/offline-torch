@@ -119,6 +119,7 @@ export async function PUT(request: NextRequest) {
       permissions.request_tracking ? "TRUE" : "FALSE", // AJ ← baru
       permissions.tracking_edit ? "TRUE" : "FALSE", // AK ← baru
       permissions.stock_opname_report ? "TRUE" : "FALSE", // AL ← baru
+      permissions.attendance ? "TRUE" : "FALSE", // AN ← baru
       timestamp, // AM
     ];
 
