@@ -71,6 +71,14 @@ interface StoReport {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function capitalize(val: string | null | undefined): string {
+  if (!val) return "-";
+  return val
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
 function formatNumber(val: string | null | undefined): string {
   if (!val || val === "0") return "0";
   const cleaned = String(val).replace(/\./g, "").replace(",", ".");
@@ -205,9 +213,9 @@ function VarianceRow({
 function ReportCard({ report }: { report: StoReport }) {
   const [expanded, setExpanded] = useState(false);
 
-  const accQtyPct  = parsePercent(report.inventory_accuracy_qty_percent);
-  const accValPct  = parsePercent(report.inventory_accuracy_value_percent);
-  const accSkuPct  = parsePercent(report.inventory_accuracy_sku_percent);
+  const accQtyPct = parsePercent(report.inventory_accuracy_qty_percent);
+  const accValPct = parsePercent(report.inventory_accuracy_value_percent);
+  const accSkuPct = parsePercent(report.inventory_accuracy_sku_percent);
 
   const varianceQty = parseFloat(String(report.variance_qty).replace(/\./g, "").replace(",", ".")) || 0;
   const varianceVal = parseFloat(String(report.variance_value).replace(/\./g, "").replace(",", ".")) || 0;
@@ -223,7 +231,7 @@ function ReportCard({ report }: { report: StoReport }) {
     { label: "No Reason",       skus: report.no_reason_skus,          qty: report.no_reason_variance_qty,         value: report.no_reason_variance_value },
   ];
 
-  const hasVarianceDetails = varianceCategories.some(c => parseInt(c.skus) > 0);
+  const hasVarianceDetails = varianceCategories.some((c) => parseInt(c.skus) > 0);
 
   return (
     <div className={`rounded-lg border ${getAccuracyBg(accQtyPct)} shadow-sm overflow-hidden`}>
@@ -240,9 +248,9 @@ function ReportCard({ report }: { report: StoReport }) {
 
       {/* Accuracy rings */}
       <div className="px-4 py-3 flex justify-around border-b border-gray-100 bg-white/60">
-        <AccuracyRing pct={accSkuPct}  label="Akurasi SKU" />
-        <AccuracyRing pct={accQtyPct}  label="Akurasi Qty" />
-        <AccuracyRing pct={accValPct}  label="Akurasi Value" />
+        <AccuracyRing pct={accSkuPct} label="Akurasi SKU" />
+        <AccuracyRing pct={accQtyPct} label="Akurasi Qty" />
+        <AccuracyRing pct={accValPct} label="Akurasi Value" />
       </div>
 
       {/* Key metrics grid */}
@@ -368,13 +376,11 @@ export default function StockOpnamePage() {
     setUser(parsedUser);
   }, []);
 
-  // Fetch stores once user is ready
   useEffect(() => {
     if (!user) return;
     fetchStores();
   }, [user]);
 
-  // Fetch reports when switching to report tab (only once)
   useEffect(() => {
     if (!user || tab !== "report" || reportFetched) return;
     fetchReports();
@@ -385,10 +391,9 @@ export default function StockOpnamePage() {
     try {
       const params = new URLSearchParams({
         username: user.user_name || "",
-        // stock_opname_report may not exist in old localStorage — treat undefined as false
         hasReportAccess: String(user.stock_opname_report === true || user.stock_opname_report === "true"),
       });
-      const res = await fetch(`/api/stock-opname/stores?${params}`);
+      const res = await fetch(`/api/stock-opname/store?${params}`);
       if (res.ok) {
         const json = await res.json();
         setStores(json);
@@ -409,7 +414,7 @@ export default function StockOpnamePage() {
         username: user.user_name || "",
         hasReportAccess: String(user.stock_opname_report === true || user.stock_opname_report === "true"),
       });
-      const res = await fetch(`/api/stock-opname/reports?${params}`);
+      const res = await fetch(`/api/stock-opname/report?${params}`);
       if (res.ok) {
         const json = await res.json();
         setReports(json);
@@ -444,13 +449,14 @@ export default function StockOpnamePage() {
       (r.date_sto || "").toLowerCase().includes(searchReport.toLowerCase())
   );
 
-  // Group reports by store name
-  const reportsByStore = filteredReports.reduce<Record<string, StoReport[]>>((acc, r) => {
-    const key = r.store || "Unknown";
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(r);
-    return acc;
-  }, {});
+const reportsByMonth = filteredReports.reduce<Record<string, StoReport[]>>((acc, r) => {
+  // date_sto format: "01 Mei 2026" → ambil "Mei 2026"
+  const parts = (r.date_sto || "").trim().split(" ");
+  const key = parts.length >= 3 ? `${parts[1]} ${parts[2]}` : r.date_sto || "Unknown";
+  if (!acc[key]) acc[key] = [];
+  acc[key].push(r);
+  return acc;
+}, {});
 
   if (!user) return null;
 
@@ -462,42 +468,42 @@ export default function StockOpnamePage() {
 
       <div className="flex-1 overflow-auto">
         <div className="p-6">
-          {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-primary">Stock Opname</h1>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {hasReport ? "Semua store" : `Store: ${user.user_name}`}
-            </p>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex gap-1 mb-4 bg-white rounded-lg shadow p-1 w-fit">
-            <button
-              onClick={() => setTab("list")}
-              className={`px-4 py-1.5 rounded text-xs font-medium transition-all ${
-                tab === "list"
-                  ? "bg-primary text-white shadow-sm"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-              }`}
-            >
-              List Store STO
-            </button>
-            <button
-              onClick={() => setTab("report")}
-              className={`px-4 py-1.5 rounded text-xs font-medium transition-all ${
-                tab === "report"
-                  ? "bg-primary text-white shadow-sm"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-              }`}
-            >
-              Report STO
-            </button>
+          {/* Header + Tabs */}
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-2xl font-bold text-primary">Stock Opname</h1>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {hasReport ? "Semua store" : `Store: ${user.user_name}`}
+              </p>
+            </div>
+            <div className="flex gap-1 bg-white rounded-lg shadow p-1">
+              <button
+                onClick={() => setTab("list")}
+                className={`px-4 py-1.5 rounded text-xs font-medium transition-all ${
+                  tab === "list"
+                    ? "bg-primary text-white shadow-sm"
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                List
+              </button>
+              <button
+                onClick={() => setTab("report")}
+                className={`px-4 py-1.5 rounded text-xs font-medium transition-all ${
+                  tab === "report"
+                    ? "bg-primary text-white shadow-sm"
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                Report
+              </button>
+            </div>
           </div>
 
           {/* ── LIST TAB ─────────────────────────────────────────────────── */}
           {tab === "list" && (
             <>
-              <div className="mb-3">
+              <div className="mb-4">
                 <input
                   type="text"
                   value={searchStore}
@@ -516,50 +522,81 @@ export default function StockOpnamePage() {
                   Tidak ada data store STO
                 </div>
               ) : (
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead className="bg-gray-100 border-b">
-                        <tr>
-                          <th className="px-3 py-2 text-left font-semibold text-gray-700">No</th>
-                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Bulan STO</th>
-                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Store (Username)</th>
-                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Spreadsheet</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredStores.map((s, idx) => (
-                          <tr key={s.id} className="border-b hover:bg-gray-50">
-                            <td className="px-3 py-2 text-gray-400">{idx + 1}</td>
-                            <td className="px-3 py-2 font-medium text-gray-800">{s.month || "-"}</td>
-                            <td className="px-3 py-2 text-gray-700">{s.store || "-"}</td>
-                            <td className="px-3 py-2">
-                              {s.spreadsheet_link_url ? (
-                                <a
-                                  href={s.spreadsheet_link_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 underline"
-                                >
-                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                  </svg>
-                                  Buka Spreadsheet
-                                </a>
-                              ) : (
-                                <span className="text-gray-400">-</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {filteredStores.map((s) => (
+                      <div
+                        key={s.id}
+                        className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 flex flex-col gap-3 hover:shadow-md transition-shadow"
+                      >
+                        {/* Store name & month badge */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <svg
+                                className="w-4 h-4 text-primary"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                                />
+                              </svg>
+                            </div>
+                            <div>
+                              <div className="text-sm font-semibold text-gray-800 leading-tight">
+                                {capitalize(s.store)}
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0">
+                            {capitalize(s.month)}
+                          </span>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="border-t border-gray-100" />
+
+                        {/* Spreadsheet link */}
+                        <div>
+                          {s.spreadsheet_link_url ? (
+                            <a
+                              href={s.spreadsheet_link_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium group"
+                            >
+                              <svg
+                                className="w-3.5 h-3.5 flex-shrink-0"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                />
+                              </svg>
+                              <span className="underline underline-offset-2 group-hover:no-underline">
+                                Buka Spreadsheet
+                              </span>
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-400 italic">
+                              Spreadsheet belum tersedia
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="px-4 py-2 border-t bg-gray-50">
-                    <span className="text-[10px] text-gray-500">{filteredStores.length} store ditemukan</span>
-                  </div>
-                </div>
+                </>
               )}
             </>
           )}
@@ -591,22 +628,22 @@ export default function StockOpnamePage() {
               ) : hasReport ? (
                 /* Report access: grouped by store name */
                 <div className="space-y-6">
-                  {Object.entries(reportsByStore).map(([storeName, storeReports]) => (
-                    <div key={storeName}>
-                      <h2 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-primary inline-block" />
-                        {storeName}
-                        <span className="text-[10px] text-gray-400 font-normal">
-                          ({storeReports.length} laporan)
-                        </span>
-                      </h2>
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                        {storeReports.map((r) => (
-                          <ReportCard key={r.id} report={r} />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+{Object.entries(reportsByMonth).map(([monthName, monthReports]) => (
+  <div key={monthName}>
+    <h2 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+      <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+      {monthName}
+      <span className="text-[10px] text-gray-400 font-normal">
+        ({monthReports.length} laporan)
+      </span>
+    </h2>
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+      {monthReports.map((r) => (
+        <ReportCard key={r.id} report={r} />
+      ))}
+    </div>
+  </div>
+))}
                 </div>
               ) : (
                 /* No report access: show own store cards */
@@ -621,7 +658,12 @@ export default function StockOpnamePage() {
         </div>
       </div>
 
-      <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
+      <Popup
+        show={showPopup}
+        message={popupMessage}
+        type={popupType}
+        onClose={() => setShowPopup(false)}
+      />
     </div>
   );
 }

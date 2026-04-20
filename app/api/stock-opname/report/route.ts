@@ -33,15 +33,11 @@ export async function GET(request: NextRequest) {
       (s.store || '').trim().toLowerCase()
     );
 
-    const userReports = filtered.filter((row: any) => {
-      // Match by id reference
-      if (row.store && userStoreIds.includes(String(row.store))) return true;
-      // Match by store name containing username keyword
-      const reportStoreLower = (row.store || '').toLowerCase();
-      return userStoreNames.some(
-        (name) => name && reportStoreLower.includes(name)
-      );
-    });
+const userReports = filtered.filter((row: any) => {
+  const reportStoreLower = (row.store || '').toLowerCase();
+  // Cek apakah nama toko di report mengandung username (misal "lembong")
+  return reportStoreLower.includes(username.trim().toLowerCase());
+});
 
     return NextResponse.json(userReports);
   } catch (error) {
