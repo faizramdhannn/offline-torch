@@ -25,6 +25,7 @@ export interface User {
   stock_opname_report: boolean;
   analytics_order: boolean;
   attendance?: boolean;
+  attendance_report: boolean;
   request_tracking: boolean;
   tracking_edit: boolean;
   report_store: boolean;
