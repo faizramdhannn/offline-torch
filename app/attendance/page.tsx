@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
@@ -70,7 +70,6 @@ export default function AttendancePage() {
     if (!parsed.attendance) { router.push("/dashboard"); return; }
     setUser(parsed);
 
-    // Cek apakah user_name cocok dengan store_name di store_list
     fetch('/api/attendance/meta?type=store_list')
       .then(r => r.json())
       .then((stores: StoreEntry[]) => {
@@ -81,7 +80,6 @@ export default function AttendancePage() {
           setIsStoreUser(true);
           setMyStoreName(match.store_name);
         }
-        // jika tidak ada → isStoreUser tetap false → tampilkan semua
       });
   }, []);
 
@@ -99,7 +97,6 @@ export default function AttendancePage() {
       <Sidebar userName={user.name} permissions={user} />
       <div className="flex-1 overflow-auto">
         <div className="p-6">
-          {/* Header: judul kiri, tab kanan */}
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-primary">Attendance</h1>
             <div className="flex gap-0.5 bg-white rounded-lg p-0.5 shadow border border-gray-100">
@@ -154,12 +151,11 @@ function WeeklySchedule({
       const stores = [...new Set((d.taftList || []).map((t: TaftEntry) => t.store_name))] as string[];
       setAllStores(stores);
 
-      // Set store default sesuai akses
+      // store user tetap dilock ke toko miliknya, admin default ke "Semua Store"
       if (isStoreUser && myStoreName) {
         setSelectedStore(myStoreName);
-      } else if (!isStoreUser && stores.length > 0) {
-        setSelectedStore(stores[0]);
       }
+      // isStoreUser false → biarkan selectedStore kosong = "Semua Store"
 
       const seen  = new Set<string>();
       const codes = (d.timeSchedule || []).filter((t: TimeCode) => {
@@ -171,28 +167,35 @@ function WeeklySchedule({
     });
   }, [isStoreUser, myStoreName]);
 
+  // Fetch jadwal saat periode dipilih (store opsional)
   useEffect(() => {
-    if (selectedStore && selectedDateRange) fetchSchedules();
+    if (selectedDateRange) fetchSchedules();
   }, [selectedStore, selectedDateRange]);
 
   const fetchSchedules = async () => {
+    const storeParam = selectedStore ? `&store_name=${encodeURIComponent(selectedStore)}` : '';
     const res = await fetch(
-      `/api/attendance/schedule?store_name=${encodeURIComponent(selectedStore)}&date_range=${encodeURIComponent(selectedDateRange)}`
+      `/api/attendance/schedule?date_range=${encodeURIComponent(selectedDateRange)}${storeParam}`
     );
     setSchedules(await res.json());
   };
 
-  // Taft sesuai store yang dipilih
-  const taftList = allTaftList.filter(
-    t => t.store_name?.toLowerCase() === selectedStore.toLowerCase()
-  );
+  // Taft sesuai store yang dipilih; kalau kosong = semua
+  const taftList = selectedStore
+    ? allTaftList.filter(t => t.store_name?.toLowerCase() === selectedStore.toLowerCase())
+    : allTaftList;
 
-  const getSchedule = (taftName: string) =>
-    schedules.find(s => s.taft_name === taftName && s.date_range === selectedDateRange);
+  // Match schedule by taft_name + store_name (hindari duplikat antar store)
+  const getSchedule = (taft: TaftEntry) =>
+    schedules.find(
+      s => s.taft_name === taft.taft_name &&
+           s.store_name === taft.store_name &&
+           s.date_range === selectedDateRange
+    );
 
   const openModal = (taft: TaftEntry) => {
     setEditingTaft(taft);
-    const existing = getSchedule(taft.taft_name);
+    const existing = getSchedule(taft);
     const init: Record<string,string> = {};
     DAYS.forEach(d => { init[d] = existing?.[d as keyof ScheduleRow] as string || ''; });
     setFormData(init);
@@ -209,7 +212,7 @@ function WeeklySchedule({
         body: JSON.stringify({
           date_range: selectedDateRange,
           taft_name:  editingTaft.taft_name,
-          store_name: selectedStore,
+          store_name: editingTaft.store_name, // pakai store dari taft, bukan selectedStore
           ...formData,
           created_by: user.user_name,
         }),
@@ -229,16 +232,31 @@ function WeeklySchedule({
   const todayDay    = new Date().getDay();
   const todayDayKey = DAYS[todayDay === 0 ? 6 : todayDay - 1];
 
+  // Helper: capitalize each word
+  const toTitleCase = (str: string) =>
+    str.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+
+  // Group taft per store untuk card view
+  const storeGroups: { storeName: string; tafts: TaftEntry[] }[] = [];
+  const seenStores = new Set<string>();
+  taftList.forEach(t => {
+    if (!seenStores.has(t.store_name)) {
+      seenStores.add(t.store_name);
+      storeGroups.push({ storeName: t.store_name, tafts: [] });
+    }
+    storeGroups.find(g => g.storeName === t.store_name)!.tafts.push(t);
+  });
+
   return (
     <div>
       {/* Filter */}
       <div className="bg-white rounded-lg shadow p-4 mb-4">
         <div className="flex items-center gap-4 flex-wrap">
-          {/* Store: dropdown jika admin, label jika store user */}
+          {/* Store: label jika store user, dropdown jika admin */}
           {isStoreUser ? (
             <div className="flex items-center gap-2">
               <span className="text-xs text-gray-500">Store:</span>
-              <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-1 rounded">{myStoreName}</span>
+              <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-1 rounded">{toTitleCase(myStoreName)}</span>
             </div>
           ) : (
             <div>
@@ -248,8 +266,8 @@ function WeeklySchedule({
                 onChange={e => { setSelectedStore(e.target.value); setSelectedDateRange(''); setSchedules([]); }}
                 className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               >
-                <option value="">-- Pilih Store --</option>
-                {allStores.map(s => <option key={s} value={s}>{s}</option>)}
+                <option value="">Semua Store</option>
+                {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
               </select>
             </div>
           )}
@@ -259,102 +277,138 @@ function WeeklySchedule({
             <select
               value={selectedDateRange}
               onChange={e => setSelectedDateRange(e.target.value)}
-              disabled={!selectedStore}
-              className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+              className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             >
-              <option value="">-- Pilih Periode --</option>
+              <option value="">Pilih Periode</option>
               {dateList.map(d => (
                 <option key={d.id} value={d.date_range}>{d.date_range}</option>
               ))}
             </select>
           </div>
 
-          {selectedStore && selectedDateRange && (
+          {selectedDateRange && (
             <p className="text-xs text-gray-400 mt-4">{taftList.length} taft</p>
           )}
         </div>
       </div>
 
       {/* Highlight hari ini */}
-      {selectedStore && selectedDateRange && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-          <p className="text-xs font-semibold text-blue-800 mb-2">
+      {selectedDateRange && (
+        <div className="bg-grey-50 border border-grey-200 rounded-lg p-3 mb-4">
+          <p className="text-xs font-semibold text-grey-800 mb-3">
             Jadwal Hari Ini ({DAY_LABELS[todayDay === 0 ? 6 : todayDay - 1]})
           </p>
-          <div className="flex flex-wrap gap-2">
-            {taftList.length === 0 && <span className="text-xs text-gray-400">Belum ada taft</span>}
-            {taftList.map(t => {
-              const sched = getSchedule(t.taft_name);
-              const code  = sched?.[todayDayKey as keyof ScheduleRow] as string || '';
-              return (
-                <span key={t.taft_name} className={`px-2 py-1 rounded text-xs font-medium ${code ? (CODE_COLORS[code] || 'bg-gray-100 text-gray-700') : 'bg-gray-100 text-gray-400'}`}>
-                  {t.taft_name}: {code || '-'}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Tabel jadwal */}
-      {selectedStore && selectedDateRange && (
-        <div className="bg-white rounded-lg shadow overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-gray-100 border-b">
-              <tr>
-                <th className="px-3 py-2 text-left font-semibold text-gray-700 min-w-[160px]">Nama TAFT</th>
-                {DAY_LABELS.map((label, i) => (
-                  <th key={label} className={`px-2 py-2 text-center font-semibold text-gray-700 min-w-[64px] ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}>
-                    {label}
-                  </th>
-                ))}
-                <th className="px-3 py-2 text-center font-semibold text-gray-700">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {taftList.map(taft => {
-                const sched    = getSchedule(taft.taft_name);
-                const hasEntry = sched && DAYS.some(d => sched[d as keyof ScheduleRow]);
-                return (
-                  <tr key={taft.id} className="border-b hover:bg-gray-50">
-                    <td className="px-3 py-2 font-medium text-gray-800">{taft.taft_name}</td>
-                    {DAYS.map((d, i) => {
-                      const code = sched?.[d as keyof ScheduleRow] as string || '';
+          {taftList.length === 0 ? (
+            <span className="text-xs text-gray-400">Belum ada taft</span>
+          ) : (
+            <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
+              {storeGroups.map(({ storeName, tafts }) => (
+                <div key={storeName} className="bg-white rounded border border-blue-100 overflow-hidden">
+                  {/* Store label */}
+                  <div className="px-2 py-1 bg-blue-100 border-b border-blue-200">
+                    <span className="text-[10px] font-bold text-blue-700 truncate block">{toTitleCase(storeName)}</span>
+                  </div>
+                  {/* Taft rows */}
+                  <div className="divide-y divide-gray-100">
+                    {tafts.map(t => {
+                      const sched = getSchedule(t);
+                      const code  = sched?.[todayDayKey as keyof ScheduleRow] as string || '';
                       return (
-                        <td key={d} className={`px-2 py-2 text-center ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}>
+                        <div key={t.taft_name} className="flex items-center justify-between px-2 py-1 gap-1">
+                          <span className="text-[10px] text-gray-700 truncate flex-1">{t.taft_name}</span>
                           {code
-                            ? <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>{code}</span>
-                            : <span className="text-gray-300">-</span>
+                            ? <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>{code}</span>
+                            : <span className="text-[10px] text-gray-300 shrink-0">-</span>
                           }
-                        </td>
+                        </div>
                       );
                     })}
-                    <td className="px-3 py-2 text-center">
-                      <button onClick={() => openModal(taft)} className="px-2 py-1 bg-primary text-white rounded text-xs hover:bg-primary/90">
-                        {hasEntry ? 'Edit' : 'Input'}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {taftList.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="px-3 py-8 text-center text-gray-400">
-                    {selectedStore ? 'Tidak ada taft untuk store ini' : 'Pilih store terlebih dahulu'}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Modal */}
+      {/* Tabel jadwal — satu tabel, group header per store */}
+      {selectedDateRange && (
+        storeGroups.length === 0 ? (
+          <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">
+            Pilih periode untuk melihat jadwal
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-gray-100 border-b">
+                <tr>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-700 min-w-[200px]">Nama TAFT</th>
+                  {DAY_LABELS.map((label, i) => (
+                    <th key={label} className={`px-2 py-2 text-center font-semibold text-gray-700 min-w-[64px] ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}>
+                      {label}
+                    </th>
+                  ))}
+                  <th className="px-3 py-2 text-center font-semibold text-gray-700">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {storeGroups.map(({ storeName, tafts }) => (
+                  <React.Fragment key={storeName}>
+                    {/* Group header row — nama store */}
+                    <tr className="bg-primary/5 border-y border-primary/10">
+                      <td colSpan={10} className="px-3 py-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-primary">{toTitleCase(storeName)}</span>
+                          <span className="text-[10px] text-gray-400">{tafts.length} taft</span>
+                        </div>
+                      </td>
+                    </tr>
+                    {/* Baris taft */}
+                    {tafts.map(taft => {
+                      const sched    = getSchedule(taft);
+                      const hasEntry = sched && DAYS.some(d => sched[d as keyof ScheduleRow]);
+                      return (
+                        <tr key={`${taft.store_name}__${taft.id}`} className="border-b hover:bg-gray-50">
+                          <td className="px-3 py-2 font-medium text-gray-800">{taft.taft_name}</td>
+                          {DAYS.map((d, i) => {
+                            const code = sched?.[d as keyof ScheduleRow] as string || '';
+                            return (
+                              <td key={d} className={`px-2 py-2 text-center ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}>
+                                {code
+                                  ? <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>{code}</span>
+                                  : <span className="text-gray-300">-</span>
+                                }
+                              </td>
+                            );
+                          })}
+                          <td className="px-3 py-2 text-center">
+                            <button onClick={() => openModal(taft)} className="px-2 py-1 bg-primary text-white rounded text-xs hover:bg-primary/90">
+                              {hasEntry ? 'Edit' : 'Input'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+
+      {/* Modal input jadwal */}
       {showModal && editingTaft && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             <h2 className="text-base font-bold text-primary mb-1">Input Jadwal Mingguan</h2>
-            <p className="text-xs text-gray-500 mb-4"><strong>{editingTaft.taft_name}</strong> &mdash; {selectedDateRange}</p>
+            <p className="text-xs text-gray-500 mb-4">
+              <strong>{editingTaft.taft_name}</strong>
+              {!selectedStore && !isStoreUser && (
+                <span className="ml-1 text-gray-400">({toTitleCase(editingTaft.store_name)})</span>
+              )}
+              {' '}&mdash; {selectedDateRange}
+            </p>
             <div className="grid grid-cols-2 gap-3">
               {DAYS.map((day, i) => (
                 <div key={day}>
@@ -364,7 +418,7 @@ function WeeklySchedule({
                     onChange={e => setFormData(prev => ({ ...prev, [day]: e.target.value }))}
                     className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   >
-                    <option value="">-- Pilih --</option>
+                    <option value="">Pilih</option>
                     {timeCodes.map(t => (
                       <option key={`${t.id}-${t.code_time}`} value={t.code_time}>{t.code_time} &mdash; {t.definition_code}</option>
                     ))}
@@ -525,7 +579,7 @@ function MonthlyReport({
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">TAFT</label>
                 <select value={selectedTaft} onChange={e => setSelectedTaft(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary">
-                  <option value="">-- Pilih TAFT --</option>
+                  <option value="">Pilih TAFT</option>
                   {filteredTafts.map(t => <option key={t.id} value={t.taft_name}>{t.taft_name}</option>)}
                 </select>
               </div>
@@ -677,95 +731,157 @@ function FullReport({ user }: { user: any }) {
       setDateList(data.dateList || []);
       const stores = [...new Set((data.taftList || []).map((t: TaftEntry) => t.store_name))] as string[];
       setAllStores(stores);
-      if (stores.length > 0) setSelectedStore(stores[0]);
+      // Tidak auto-set selectedStore → default kosong = "Semua Store"
     });
   }, []);
 
-  useEffect(() => { if (selectedStore && selectedMonth && viewMode === 'monthly') fetchReports(); }, [selectedStore, selectedTaft, selectedMonth, viewMode]);
-  useEffect(() => { if (selectedStore && selectedDateRange && viewMode === 'weekly') fetchSchedules(); }, [selectedStore, selectedDateRange, viewMode]);
+  // Monthly: fetch saat store/taft/bulan berubah
+  useEffect(() => {
+    if (selectedMonth && viewMode === 'monthly') fetchReports();
+  }, [selectedStore, selectedTaft, selectedMonth, viewMode]);
+
+  // Weekly: fetch hanya saat periode dipilih
+  useEffect(() => {
+    if (selectedDateRange && viewMode === 'weekly') fetchSchedules();
+  }, [selectedDateRange, viewMode]);
 
   const fetchReports = async () => {
     setLoading(true);
-    const taftParam = selectedTaft ? `&taft_name=${encodeURIComponent(selectedTaft)}` : '';
-    const res = await fetch(`/api/attendance/report?store_name=${encodeURIComponent(selectedStore)}&month=${selectedMonth}${taftParam}`);
+    const storeParam = selectedStore ? `&store_name=${encodeURIComponent(selectedStore)}` : '';
+    const taftParam  = selectedTaft  ? `&taft_name=${encodeURIComponent(selectedTaft)}`   : '';
+    const res = await fetch(`/api/attendance/report?month=${selectedMonth}${storeParam}${taftParam}`);
     setReports(await res.json());
     setLoading(false);
   };
 
   const fetchSchedules = async () => {
     setLoading(true);
-    const res = await fetch(`/api/attendance/schedule?store_name=${encodeURIComponent(selectedStore)}&date_range=${encodeURIComponent(selectedDateRange)}`);
+    const storeParam = selectedStore ? `&store_name=${encodeURIComponent(selectedStore)}` : '';
+    const res = await fetch(`/api/attendance/schedule?date_range=${encodeURIComponent(selectedDateRange)}${storeParam}`);
     setSchedules(await res.json());
     setLoading(false);
   };
 
-  const filteredTafts = taftList.filter(t => t.store_name?.toLowerCase() === selectedStore.toLowerCase());
+  // Taft list sesuai store yang dipilih (kalau kosong = semua)
+  const filteredTafts = selectedStore
+    ? taftList.filter(t => t.store_name?.toLowerCase() === selectedStore.toLowerCase())
+    : taftList;
+
+  // Untuk monthly: group by taft, filter taft yg sesuai selectedTaft
   const groupedByTaft = filteredTafts.reduce((acc, taft) => {
     if (selectedTaft && taft.taft_name !== selectedTaft) return acc;
-    acc[taft.taft_name] = reports.filter(r => r.taft_name === taft.taft_name);
+    acc[`${taft.store_name}__${taft.taft_name}`] = {
+      taft_name: taft.taft_name,
+      store_name: taft.store_name,
+      rows: reports.filter(r => r.taft_name === taft.taft_name && r.store_name === taft.store_name),
+    };
     return acc;
-  }, {} as Record<string, ReportRow[]>);
+  }, {} as Record<string, { taft_name: string; store_name: string; rows: ReportRow[] }>);
 
   const todayDay    = new Date().getDay();
   const todayDayKey = DAYS[todayDay === 0 ? 6 : todayDay - 1];
+
+  // Taft untuk tabel weekly (semua taft sesuai filter store)
+  const weeklyTafts = filteredTafts;
 
   return (
     <div>
       <div className="bg-white rounded-lg shadow p-4 mb-4">
         <div className="flex items-end gap-3 flex-wrap">
+          {/* Toggle Monthly/Weekly */}
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Tampilan</label>
             <div className="flex gap-0.5 bg-gray-100 rounded p-0.5">
               {(['monthly','weekly'] as const).map(m => (
-                <button key={m} onClick={() => setViewMode(m)} className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${viewMode === m ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                <button
+                  key={m}
+                  onClick={() => { setViewMode(m); setReports([]); setSchedules([]); }}
+                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${viewMode === m ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
                   {m === 'monthly' ? 'Monthly' : 'Weekly'}
                 </button>
               ))}
             </div>
           </div>
+
+          {/* Store: selalu dropdown dengan opsi "Semua Store" */}
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
-            <select value={selectedStore} onChange={e => { setSelectedStore(e.target.value); setSelectedTaft(''); }} className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary">
+            <select
+              value={selectedStore}
+              onChange={e => { setSelectedStore(e.target.value); setSelectedTaft(''); }}
+              className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="">Semua Store</option>
               {allStores.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
+
+          {/* Filter khusus Monthly */}
           {viewMode === 'monthly' && (
             <>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">TAFT</label>
-                <select value={selectedTaft} onChange={e => setSelectedTaft(e.target.value)} className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary">
-                  <option value="">-- Semua TAFT --</option>
+                <select
+                  value={selectedTaft}
+                  onChange={e => setSelectedTaft(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">Semua TAFT</option>
                   {filteredTafts.map(t => <option key={t.id} value={t.taft_name}>{t.taft_name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Bulan</label>
-                <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={e => setSelectedMonth(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
               </div>
             </>
           )}
+
+          {/* Filter khusus Weekly */}
           {viewMode === 'weekly' && (
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Periode Minggu</label>
-              <select value={selectedDateRange} onChange={e => setSelectedDateRange(e.target.value)} className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary">
-                <option value="">-- Pilih Periode --</option>
+              <select
+                value={selectedDateRange}
+                onChange={e => setSelectedDateRange(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="">Pilih Periode</option>
                 {dateList.map(d => <option key={d.id} value={d.date_range}>{d.date_range}</option>)}
               </select>
             </div>
           )}
-          <button onClick={viewMode === 'monthly' ? fetchReports : fetchSchedules} className="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90">Tampilkan</button>
+
+          <button
+            onClick={viewMode === 'monthly' ? fetchReports : fetchSchedules}
+            className="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90"
+          >
+            Tampilkan
+          </button>
         </div>
       </div>
 
       {loading && <div className="text-center py-10 text-gray-400 text-sm">Memuat data...</div>}
 
-      {/* Monthly */}
+      {/* ── Monthly View ── */}
       {!loading && viewMode === 'monthly' && (
         <div className="space-y-4">
-          {Object.entries(groupedByTaft).map(([taftName, rows]) => (
-            <div key={taftName} className="bg-white rounded-lg shadow overflow-hidden">
+          {Object.entries(groupedByTaft).map(([key, { taft_name, store_name, rows }]) => (
+            <div key={key} className="bg-white rounded-lg shadow overflow-hidden">
               <div className="px-4 py-2.5 bg-gray-50 border-b flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-primary">{taftName}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-primary">{taft_name}</h3>
+                  {/* Tampilkan nama store kalau semua store ditampilkan */}
+                  {!selectedStore && (
+                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">{store_name}</span>
+                  )}
+                </div>
                 <span className="text-xs text-gray-400">{rows.length} hari</span>
               </div>
               {rows.length === 0 ? (
@@ -790,7 +906,10 @@ function FullReport({ user }: { user: any }) {
                           <td className="px-3 py-1.5 text-center text-gray-600">{r.clock_in || '-'}</td>
                           <td className="px-3 py-1.5 text-center text-gray-600">{r.clock_out || '-'}</td>
                           <td className="px-3 py-1.5 text-center">
-                            {r.code_time ? <span className={`px-1.5 py-0.5 rounded font-bold text-[10px] ${CODE_COLORS[r.code_time] || 'bg-gray-100 text-gray-700'}`}>{r.code_time}</span> : <span className="text-gray-300">-</span>}
+                            {r.code_time
+                              ? <span className={`px-1.5 py-0.5 rounded font-bold text-[10px] ${CODE_COLORS[r.code_time] || 'bg-gray-100 text-gray-700'}`}>{r.code_time}</span>
+                              : <span className="text-gray-300">-</span>
+                            }
                           </td>
                           <td className="px-3 py-1.5 text-center text-orange-600">
                             {r.overtime_hours && parseFloat(r.overtime_hours) > 0 ? `${r.overtime_hours}j` : '-'}
@@ -805,44 +924,78 @@ function FullReport({ user }: { user: any }) {
             </div>
           ))}
           {Object.keys(groupedByTaft).length === 0 && (
-            <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">Pilih store dan bulan untuk melihat data</div>
+            <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">
+              Pilih bulan untuk melihat data
+            </div>
           )}
         </div>
       )}
 
-      {/* Weekly */}
-      {!loading && viewMode === 'weekly' && selectedDateRange && (
-        <div className="bg-white rounded-lg shadow overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-gray-100 border-b">
-              <tr>
-                <th className="px-3 py-2 text-left font-semibold text-gray-700 min-w-[180px]">Nama TAFT</th>
-                {DAY_LABELS.map((label, i) => (
-                  <th key={label} className={`px-2 py-2 text-center font-semibold text-gray-700 min-w-[64px] ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}>{label}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTafts.map(taft => {
-                const sched = schedules.find(s => s.taft_name === taft.taft_name && s.date_range === selectedDateRange);
-                return (
-                  <tr key={taft.id} className="border-b hover:bg-gray-50">
-                    <td className="px-3 py-2 font-medium text-gray-800">{taft.taft_name}</td>
-                    {DAYS.map((d, i) => {
-                      const code = sched?.[d as keyof ScheduleRow] as string || '';
-                      return (
-                        <td key={d} className={`px-2 py-2 text-center ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}>
-                          {code ? <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>{code}</span> : <span className="text-gray-300">-</span>}
-                        </td>
-                      );
-                    })}
+      {/* ── Weekly View ── */}
+      {!loading && viewMode === 'weekly' && (
+        selectedDateRange ? (
+          <div className="bg-white rounded-lg shadow overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-gray-100 border-b">
+                <tr>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-700 min-w-[180px]">Nama TAFT</th>
+                  {/* Kolom Store muncul kalau pilihan "Semua Store" */}
+                  {!selectedStore && (
+                    <th className="px-3 py-2 text-left font-semibold text-gray-700 min-w-[120px]">Store</th>
+                  )}
+                  {DAY_LABELS.map((label, i) => (
+                    <th
+                      key={label}
+                      className={`px-2 py-2 text-center font-semibold text-gray-700 min-w-[64px] ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}
+                    >
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {weeklyTafts.map(taft => {
+                  // Match schedule by taft_name + store_name + date_range untuk hindari duplikat
+                  const sched = schedules.find(
+                    s => s.taft_name === taft.taft_name &&
+                         s.store_name === taft.store_name &&
+                         s.date_range === selectedDateRange
+                  );
+                  return (
+                    <tr key={taft.id} className="border-b hover:bg-gray-50">
+                      <td className="px-3 py-2 font-medium text-gray-800">{taft.taft_name}</td>
+                      {!selectedStore && (
+                        <td className="px-3 py-2 text-gray-500">{taft.store_name}</td>
+                      )}
+                      {DAYS.map((d, i) => {
+                        const code = sched?.[d as keyof ScheduleRow] as string || '';
+                        return (
+                          <td key={d} className={`px-2 py-2 text-center ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}>
+                            {code
+                              ? <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>{code}</span>
+                              : <span className="text-gray-300">-</span>
+                            }
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+                {weeklyTafts.length === 0 && (
+                  <tr>
+                    <td colSpan={!selectedStore ? 9 : 8} className="px-3 py-8 text-center text-gray-400">
+                      Tidak ada data taft
+                    </td>
                   </tr>
-                );
-              })}
-              {filteredTafts.length === 0 && <tr><td colSpan={9} className="px-3 py-8 text-center text-gray-400">Pilih store untuk melihat jadwal</td></tr>}
-            </tbody>
-          </table>
-        </div>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">
+            Pilih periode minggu untuk melihat jadwal
+          </div>
+        )
       )}
     </div>
   );
