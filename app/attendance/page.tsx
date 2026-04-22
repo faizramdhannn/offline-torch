@@ -61,7 +61,6 @@ const RECAP_KEYS = [
   { key:'S',   label:'SIANG (S)'       },
   { key:'O',   label:'OFF (O)'         },
   { key:'F',   label:'FULL (F)'        },
-  { key:'M',   label:'MIDLE (M)'       },
   { key:'MF',  label:'MIDLE FULL (MF)' },
   { key:'C',   label:'CUTI (C)'        },
   { key:'+',   label:'SAKIT (+)'       },
@@ -568,7 +567,7 @@ function MonthlyReport({
     const ws = XLSX.utils.aoa_to_sheet([headers, ...dates.map(d => [fmtISO(d), selectedStore, selectedTaft, '', '', '', '', ''])]);
     ws['!cols'] = [{ wch:14 },{ wch:16 },{ wch:28 },{ wch:10 },{ wch:10 },{ wch:12 },{ wch:14 },{ wch:20 }];
     XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
-    const refWs = XLSX.utils.aoa_to_sheet([['Kode','Keterangan'],['P','Pagi'],['S','Siang'],['F','Full'],['MF','Midle Full'],['M','Midle'],['O','OFF'],['C','Cuti'],['+','Sakit'],['I','Izin'],['A','Alpa']]);
+    const refWs = XLSX.utils.aoa_to_sheet([['Kode','Keterangan'],['P','Pagi'],['S','Siang'],['F','Full'],['MF','Midle Full'],['O','OFF'],['C','Cuti'],['+','Sakit'],['I','Izin'],['A','Alpa']]);
     refWs['!cols'] = [{ wch:8 },{ wch:16 }];
     XLSX.utils.book_append_sheet(wb, refWs, 'Kode Referensi');
     XLSX.writeFile(wb, `attendance_${selectedStore}_${selectedTaft.replace(/ /g,'_')}_${selectedMonth}.xlsx`);
