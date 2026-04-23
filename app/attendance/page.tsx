@@ -68,16 +68,30 @@ const RECAP_KEYS = [
   { key:'A',   label:'ALPA (A)'        },
 ];
 
+// ── Parse DD/MM/YYYY or YYYY-MM-DD safely ─────────────────────────────────────
+function parseDateSafe(str: string): Date | null {
+  if (!str) return null;
+  // DD/MM/YYYY
+  const dmY = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmY) return new Date(Number(dmY[3]), Number(dmY[2]) - 1, Number(dmY[1]));
+  // YYYY-MM-DD
+  const ymd = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (ymd) return new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
+  // fallback
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 // Helper: find current date_range from dateList
 function findCurrentDateRange(dateList: DateEntry[]): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Try matching by week_start / week_end
   for (const d of dateList) {
     if (d.week_start && d.week_end) {
-      const start = new Date(d.week_start);
-      const end   = new Date(d.week_end);
+      const start = parseDateSafe(d.week_start);
+      const end   = parseDateSafe(d.week_end);
+      if (!start || !end) continue;
       start.setHours(0, 0, 0, 0);
       end.setHours(23, 59, 59, 999);
       if (today >= start && today <= end) return d.date_range;
@@ -95,7 +109,7 @@ export default function AttendancePage() {
   const [user,        setUser]        = useState<any>(null);
   const [isStoreUser, setIsStoreUser] = useState(false);
   const [myStoreName, setMyStoreName] = useState('');
-  const [activeTab,   setActiveTab]   = useState<'weekly'|'monthly'|'recap'|'report'>('weekly');
+  const [activeTab,   setActiveTab]   = useState<'weekly'|'monthly'|'report'>('weekly');
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -122,9 +136,8 @@ export default function AttendancePage() {
   const tabs = [
     { key: 'weekly',  label: 'Weekly'  },
     { key: 'monthly', label: 'Monthly' },
-    ...(user.attendance_report ? [{ key: 'recap',  label: 'Recap'  }] : []),
     ...(user.attendance_report ? [{ key: 'report', label: 'Report' }] : []),
-  ] as { key: 'weekly'|'monthly'|'recap'|'report'; label: string }[];
+  ] as { key: 'weekly'|'monthly'|'report'; label: string }[];
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -152,8 +165,7 @@ export default function AttendancePage() {
 
           {activeTab === 'weekly'  && <WeeklySchedule  user={user} isStoreUser={isStoreUser} myStoreName={myStoreName} />}
           {activeTab === 'monthly' && <MonthlyReport   user={user} isStoreUser={isStoreUser} myStoreName={myStoreName} />}
-          {activeTab === 'recap'   && user.attendance_report && <RecapMonthly user={user} />}
-          {activeTab === 'report'  && user.attendance_report && <FullReport   user={user} />}
+          {activeTab === 'report'  && user.attendance_report && <FullReport user={user} />}
         </div>
       </div>
     </div>
@@ -195,7 +207,7 @@ function WeeklySchedule({
       });
       setTimeCodes(codes);
 
-      // Auto-select current period
+      // Auto-select current period — uses safe date parser
       const currentRange = findCurrentDateRange(d.dateList || []);
       if (currentRange) setSelectedDateRange(currentRange);
     });
@@ -285,7 +297,7 @@ function WeeklySchedule({
 
   return (
     <div>
-      {/* Filter Bar — compact */}
+      {/* Filter Bar */}
       <div className="bg-white rounded-lg shadow p-2.5 mb-3">
         <div className="flex items-center gap-2 flex-wrap">
           {isStoreUser ? (
@@ -322,7 +334,7 @@ function WeeklySchedule({
           </div>
 
           {selectedDateRange && (
-            <span className="text-[10px] text-gray-400 ml-0.5 bg-primary/5 text-primary px-2 py-0.5 rounded font-medium">
+            <span className="text-[10px] bg-primary/5 text-primary px-2 py-0.5 rounded font-medium">
               {selectedDateRange}
             </span>
           )}
@@ -462,7 +474,7 @@ function WeeklySchedule({
   );
 }
 
-// ─── Monthly Report ────────────────────────────────────────────────────────────
+// ─── Monthly Report (+ Recap for attendance_report users) ─────────────────────
 function MonthlyReport({
   user, isStoreUser, myStoreName,
 }: { user: any; isStoreUser: boolean; myStoreName: string }) {
@@ -479,6 +491,12 @@ function MonthlyReport({
   const [popup, setPopup] = useState({ show: false, message: '', type: 'success' as 'success'|'error' });
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Recap sub-tab — only for attendance_report users
+  const [subTab, setSubTab] = useState<'import'|'recap'>('import');
+  const [recapStore,   setRecapStore]   = useState('');
+  const [recapReports, setRecapReports] = useState<ReportRow[]>([]);
+  const [recapLoading, setRecapLoading] = useState(false);
+
   useEffect(() => {
     fetch('/api/attendance/meta?type=taft_list').then(r => r.json()).then((data: TaftEntry[]) => {
       setTaftList(data);
@@ -486,11 +504,6 @@ function MonthlyReport({
       setAllStores(stores);
       if (isStoreUser && myStoreName) {
         setSelectedStore(myStoreName);
-      } else if (user.attendance_report) {
-        // Report users: default to all (empty = all)
-        setSelectedStore('');
-      } else if (stores.length > 0) {
-        setSelectedStore(stores[0]);
       }
     });
   }, [isStoreUser, myStoreName]);
@@ -550,65 +563,220 @@ function MonthlyReport({
     }
   };
 
+  // ── Recap logic ──────────────────────────────────────────────────────────────
+  const fetchRecap = async () => {
+    setRecapLoading(true);
+    const storeParam = recapStore ? `&store_name=${encodeURIComponent(recapStore)}` : '';
+    const res = await fetch(`/api/attendance/report?month=${selectedMonth}${storeParam}`);
+    setRecapReports(await res.json());
+    setRecapLoading(false);
+  };
+
+  useEffect(() => {
+    if (subTab === 'recap' && selectedMonth) fetchRecap();
+  }, [subTab, recapStore, selectedMonth]);
+
+  const recapTafts = recapStore
+    ? taftList.filter(t => t.store_name?.toLowerCase() === recapStore.toLowerCase())
+    : taftList;
+
+  const calcRecap = (taftName: string, storeName: string) => {
+    const rows = recapReports.filter(r => r.taft_name === taftName && r.store_name === storeName);
+    const counts: Record<string,number> = {};
+    let totalMasuk = 0, totalOff = 0, totalLembur = 0;
+    rows.forEach(r => {
+      const code = r.code_time?.trim();
+      if (code) counts[code] = (counts[code] || 0) + 1;
+      if (['P','S','F','MF','M'].includes(code)) totalMasuk++;
+      if (code === 'O') totalOff++;
+      if (r.overtime_hours && parseFloat(r.overtime_hours) > 0) totalLembur += parseFloat(r.overtime_hours);
+    });
+    return { counts, totalMasuk, totalOff, totalLembur };
+  };
+
+  const recapStoreGroups: { storeName: string; tafts: TaftEntry[] }[] = [];
+  const seenS = new Set<string>();
+  recapTafts.forEach(t => {
+    if (!seenS.has(t.store_name)) {
+      seenS.add(t.store_name);
+      recapStoreGroups.push({ storeName: t.store_name, tafts: [] });
+    }
+    recapStoreGroups.find(g => g.storeName === t.store_name)!.tafts.push(t);
+  });
+
   return (
     <div>
-      {/* Filter Bar — compact */}
-      <div className="bg-white rounded-lg shadow p-2.5 mb-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          {isStoreUser ? (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-gray-500">Store:</span>
-              <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">{myStoreName}</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Store</label>
-              <select
-                value={selectedStore}
-                onChange={e => { setSelectedStore(e.target.value); setSelectedTaft(''); }}
-                className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="">Semua Store</option>
-                {allStores.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-          )}
-
-          <div className="flex items-center gap-1.5">
-            <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Bulan</label>
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(e.target.value)}
-              className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-
-          <button
-            onClick={() => setShowDownloadModal(true)}
-            className="px-3 py-1 bg-primary text-white rounded text-[11px] hover:bg-primary/90"
-          >
-            ↓ Template
-          </button>
-          <label className="px-3 py-1 bg-green-600 text-white rounded text-[11px] hover:bg-green-700 cursor-pointer">
-            {importing ? 'Importing...' : '↑ Import'}
-            <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
-          </label>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-3">
-        <p className="text-[11px] font-semibold text-gray-700 mb-1.5">Panduan</p>
-        <p className="text-[11px] text-gray-500 mb-2">Download template XLSX → isi kolom <strong>clock_in</strong>, <strong>clock_out</strong>, <strong>code_time</strong>, <strong>overtime_hours</strong>, <strong>reason</strong> → Import kembali.</p>
-        <div className="flex flex-wrap gap-1.5">
-          {RECAP_KEYS.map(({ key, label }) => (
-            <span key={key} className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${CODE_COLORS[key] || 'bg-gray-100'}`}>
-              {key} = {label.replace(/\s*\(.*\)/, '')}
-            </span>
+      {/* Sub-tab for attendance_report users */}
+      {user.attendance_report && (
+        <div className="flex gap-0.5 bg-white rounded-lg p-0.5 shadow border border-gray-100 mb-3 w-fit">
+          {(['import','recap'] as const).map(t => (
+            <button key={t} onClick={() => setSubTab(t)}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${subTab === t ? 'bg-primary text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
+              {t === 'import' ? 'Import' : 'Recap'}
+            </button>
           ))}
         </div>
-      </div>
+      )}
 
+      {/* ── Import Panel ── */}
+      {subTab === 'import' && (
+        <>
+          <div className="bg-white rounded-lg shadow p-2.5 mb-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              {isStoreUser ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-gray-500">Store:</span>
+                  <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">{myStoreName}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Store</label>
+                  <select value={selectedStore} onChange={e => { setSelectedStore(e.target.value); setSelectedTaft(''); }}
+                    className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary">
+                    <option value="">Semua Store</option>
+                    {allStores.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              )}
+              <div className="flex items-center gap-1.5">
+                <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Bulan</label>
+                <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary" />
+              </div>
+              <button onClick={() => setShowDownloadModal(true)} className="px-3 py-1 bg-primary text-white rounded text-[11px] hover:bg-primary/90">
+                ↓ Template
+              </button>
+              <label className="px-3 py-1 bg-green-600 text-white rounded text-[11px] hover:bg-green-700 cursor-pointer">
+                {importing ? 'Importing...' : '↑ Import'}
+                <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
+              </label>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-3">
+            <p className="text-[11px] font-semibold text-gray-700 mb-1.5">Panduan</p>
+            <p className="text-[11px] text-gray-500 mb-2">Download template XLSX → isi kolom <strong>clock_in</strong>, <strong>clock_out</strong>, <strong>code_time</strong>, <strong>overtime_hours</strong>, <strong>reason</strong> → Import kembali.</p>
+            <div className="flex flex-wrap gap-1.5">
+              {RECAP_KEYS.map(({ key, label }) => (
+                <span key={key} className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${CODE_COLORS[key] || 'bg-gray-100'}`}>
+                  {key} = {label.replace(/\s*\(.*\)/, '')}
+                </span>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Recap Panel ── */}
+      {subTab === 'recap' && user.attendance_report && (
+        <div>
+          <div className="bg-white rounded-lg shadow p-2.5 mb-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Store</label>
+                <select value={recapStore} onChange={e => setRecapStore(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary">
+                  <option value="">Semua Store</option>
+                  {allStores.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Bulan</label>
+                <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary" />
+              </div>
+              <button onClick={fetchRecap} className="px-3 py-1 bg-primary text-white rounded text-[11px] hover:bg-primary/90">
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          {recapLoading ? (
+            <div className="text-center py-10 text-gray-400 text-sm">Memuat data...</div>
+          ) : recapTafts.length === 0 ? (
+            <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">Tidak ada data taft</div>
+          ) : (
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      {!recapStore && (
+                        <th className="px-2 py-2 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50 z-10 min-w-[100px] w-24 border-r border-gray-200 text-[10px]">Store</th>
+                      )}
+                      <th className="px-2 py-2 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50 z-10 min-w-[130px] max-w-[150px] w-36 border-r border-gray-200 text-[10px]">Nama TAFT</th>
+                      {RECAP_KEYS.map(({ key }) => (
+                        <th key={key} className="px-1 py-2 text-center font-semibold text-gray-600 w-10 text-[10px]">
+                          <span className={`inline-block px-1 py-0.5 rounded text-[9px] font-bold ${CODE_COLORS[key] || 'bg-gray-100 text-gray-600'}`}>{key}</span>
+                        </th>
+                      ))}
+                      <th className="px-1 py-2 text-center font-semibold text-gray-600 w-10 text-[10px]">Msk</th>
+                      <th className="px-1 py-2 text-center font-semibold text-gray-600 w-10 text-[10px]">OFF</th>
+                      <th className="px-1 py-2 text-center font-semibold text-gray-600 w-12 text-[10px]">Lembur</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recapStoreGroups.map(({ storeName, tafts }) => (
+                      <React.Fragment key={storeName}>
+                        {!recapStore && (
+                          <tr className="bg-primary/5 border-y border-primary/10">
+                            <td colSpan={13} className="px-2 py-1 sticky left-0 bg-primary/5 z-10">
+                              <span className="text-[10px] font-bold text-primary">{storeName}</span>
+                            </td>
+                          </tr>
+                        )}
+                        {tafts.map(taft => {
+                          const recap = calcRecap(taft.taft_name, taft.store_name);
+                          return (
+                            <tr key={taft.id} className="border-b border-gray-100 hover:bg-gray-50/80">
+                              {!recapStore && (
+                                <td className="px-2 py-1 sticky left-0 bg-white z-10 border-r border-gray-100 text-[10px] text-gray-500 min-w-[100px] w-24 truncate" title={storeName}>{storeName}</td>
+                              )}
+                              <td className="px-2 py-1 sticky left-0 bg-white z-10 border-r border-gray-100 min-w-[130px] max-w-[150px] w-36">
+                                <span className="font-medium text-gray-800 text-[10px] truncate block" title={taft.taft_name}>{taft.taft_name}</span>
+                              </td>
+                              {RECAP_KEYS.map(({ key }) => (
+                                <td key={key} className="px-1 py-1 text-center w-10">
+                                  {(recap.counts[key] || 0) > 0
+                                    ? <span className={`inline-block px-1 py-0.5 rounded text-[9px] font-bold ${CODE_COLORS[key] || 'bg-gray-100 text-gray-700'}`}>{recap.counts[key]}</span>
+                                    : <span className="text-gray-200 text-[9px]">—</span>
+                                  }
+                                </td>
+                              ))}
+                              <td className="px-1 py-1 text-center w-10">
+                                <span className="text-[10px] font-bold text-green-700">{recap.totalMasuk}</span>
+                              </td>
+                              <td className="px-1 py-1 text-center w-10">
+                                <span className="text-[10px] font-bold text-gray-500">{recap.totalOff}</span>
+                              </td>
+                              <td className="px-1 py-1 text-center w-12">
+                                {recap.totalLembur > 0
+                                  ? <span className="text-[10px] font-bold text-orange-600">{recap.totalLembur.toFixed(1)}j</span>
+                                  : <span className="text-gray-200 text-[9px]">—</span>
+                                }
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 flex flex-wrap gap-2">
+                {RECAP_KEYS.map(({ key, label }) => (
+                  <span key={key} className="text-[9px] text-gray-500">
+                    <span className={`inline-block px-1 py-0.5 rounded font-bold mr-0.5 ${CODE_COLORS[key] || 'bg-gray-100 text-gray-600'}`}>{key}</span>
+                    {label.replace(/\s*\(.*\)/, '')}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Download Template Modal */}
       {showDownloadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
@@ -645,198 +813,6 @@ function MonthlyReport({
       )}
 
       <Popup show={popup.show} message={popup.message} type={popup.type} onClose={() => setPopup(p => ({ ...p, show: false }))} />
-    </div>
-  );
-}
-
-// ─── Recap Monthly ─────────────────────────────────────────────────────────────
-function RecapMonthly({ user }: { user: any }) {
-  const [taftList,      setTaftList]      = useState<TaftEntry[]>([]);
-  const [allStores,     setAllStores]     = useState<string[]>([]);
-  const [selectedStore, setSelectedStore] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  });
-  const [reports, setReports] = useState<ReportRow[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/attendance/meta?type=taft_list').then(r => r.json()).then((data: TaftEntry[]) => {
-      setTaftList(data);
-      const stores = [...new Set(data.map(t => t.store_name))] as string[];
-      setAllStores(stores);
-      // attendance_report = show all (empty selectedStore = all)
-      setSelectedStore('');
-    });
-  }, []);
-
-  useEffect(() => { if (selectedMonth) fetchReports(); }, [selectedStore, selectedMonth]);
-
-  const fetchReports = async () => {
-    setLoading(true);
-    const storeParam = selectedStore ? `&store_name=${encodeURIComponent(selectedStore)}` : '';
-    const res = await fetch(`/api/attendance/report?month=${selectedMonth}${storeParam}`);
-    setReports(await res.json());
-    setLoading(false);
-  };
-
-  const storeTafts = selectedStore
-    ? taftList.filter(t => t.store_name?.toLowerCase() === selectedStore.toLowerCase())
-    : taftList;
-
-  const calcRecap = (taftName: string, storeName?: string) => {
-    const rows = reports.filter(r =>
-      r.taft_name === taftName && (storeName ? r.store_name === storeName : true)
-    );
-    const counts: Record<string,number> = {};
-    let totalMasuk = 0, totalOff = 0, totalLembur = 0;
-    rows.forEach(r => {
-      const code = r.code_time?.trim();
-      if (code) counts[code] = (counts[code] || 0) + 1;
-      if (['P','S','F','MF','M'].includes(code)) totalMasuk++;
-      if (code === 'O') totalOff++;
-      if (r.overtime_hours && parseFloat(r.overtime_hours) > 0) totalLembur += parseFloat(r.overtime_hours);
-    });
-    return { counts, totalMasuk, totalOff, totalLembur };
-  };
-
-  // Group by store for display
-  const storeGroups: { storeName: string; tafts: TaftEntry[] }[] = [];
-  const seenS = new Set<string>();
-  storeTafts.forEach(t => {
-    if (!seenS.has(t.store_name)) {
-      seenS.add(t.store_name);
-      storeGroups.push({ storeName: t.store_name, tafts: [] });
-    }
-    storeGroups.find(g => g.storeName === t.store_name)!.tafts.push(t);
-  });
-
-  return (
-    <div>
-      {/* Filter Bar — compact */}
-      <div className="bg-white rounded-lg shadow p-2.5 mb-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5">
-            <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Store</label>
-            <select
-              value={selectedStore}
-              onChange={e => setSelectedStore(e.target.value)}
-              className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="">Semua Store</option>
-              {allStores.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Bulan</label>
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(e.target.value)}
-              className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-          <button
-            onClick={fetchReports}
-            className="px-3 py-1 bg-primary text-white rounded text-[11px] hover:bg-primary/90"
-          >
-            Refresh
-          </button>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="text-center py-10 text-gray-400 text-sm">Memuat data...</div>
-      ) : storeTafts.length === 0 ? (
-        <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">Tidak ada data taft</div>
-      ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  {!selectedStore && (
-                    <th className="px-2 py-2 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50 z-10 min-w-[100px] w-24 border-r border-gray-200 text-[10px]">
-                      Store
-                    </th>
-                  )}
-                  <th className="px-2 py-2 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50 z-10 min-w-[130px] max-w-[150px] w-36 border-r border-gray-200 text-[10px]">
-                    Nama TAFT
-                  </th>
-                  {RECAP_KEYS.map(({ key }) => (
-                    <th key={key} className="px-1 py-2 text-center font-semibold text-gray-600 w-10 text-[10px]">
-                      <span className={`inline-block px-1 py-0.5 rounded text-[9px] font-bold ${CODE_COLORS[key] || 'bg-gray-100 text-gray-600'}`}>{key}</span>
-                    </th>
-                  ))}
-                  <th className="px-1 py-2 text-center font-semibold text-gray-600 w-10 text-[10px]">Msk</th>
-                  <th className="px-1 py-2 text-center font-semibold text-gray-600 w-10 text-[10px]">OFF</th>
-                  <th className="px-1 py-2 text-center font-semibold text-gray-600 w-12 text-[10px]">Lembur</th>
-                </tr>
-              </thead>
-              <tbody>
-                {storeGroups.map(({ storeName, tafts }) => (
-                  <React.Fragment key={storeName}>
-                    {!selectedStore && (
-                      <tr className="bg-primary/5 border-y border-primary/10">
-                        <td colSpan={13} className="px-2 py-1 sticky left-0 bg-primary/5 z-10">
-                          <span className="text-[10px] font-bold text-primary">{storeName}</span>
-                        </td>
-                      </tr>
-                    )}
-                    {tafts.map(taft => {
-                      const recap = calcRecap(taft.taft_name, taft.store_name);
-                      return (
-                        <tr key={taft.id} className="border-b border-gray-100 hover:bg-gray-50/80">
-                          {!selectedStore && (
-                            <td className="px-2 py-1 sticky left-0 bg-white z-10 border-r border-gray-100 text-[10px] text-gray-500 min-w-[100px] w-24 truncate" title={storeName}>
-                              {storeName}
-                            </td>
-                          )}
-                          <td className="px-2 py-1 sticky left-0 bg-white z-10 border-r border-gray-100 min-w-[130px] max-w-[150px] w-36">
-                            <span className="font-medium text-gray-800 text-[10px] truncate block" title={taft.taft_name}>{taft.taft_name}</span>
-                          </td>
-                          {RECAP_KEYS.map(({ key }) => (
-                            <td key={key} className="px-1 py-1 text-center w-10">
-                              {(recap.counts[key] || 0) > 0 ? (
-                                <span className={`inline-block px-1 py-0.5 rounded text-[9px] font-bold ${CODE_COLORS[key] || 'bg-gray-100 text-gray-700'}`}>
-                                  {recap.counts[key]}
-                                </span>
-                              ) : (
-                                <span className="text-gray-200 text-[9px]">—</span>
-                              )}
-                            </td>
-                          ))}
-                          <td className="px-1 py-1 text-center w-10">
-                            <span className="text-[10px] font-bold text-green-700">{recap.totalMasuk}</span>
-                          </td>
-                          <td className="px-1 py-1 text-center w-10">
-                            <span className="text-[10px] font-bold text-gray-500">{recap.totalOff}</span>
-                          </td>
-                          <td className="px-1 py-1 text-center w-12">
-                            {recap.totalLembur > 0
-                              ? <span className="text-[10px] font-bold text-orange-600">{recap.totalLembur.toFixed(1)}j</span>
-                              : <span className="text-gray-200 text-[9px]">—</span>
-                            }
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 flex flex-wrap gap-2">
-            {RECAP_KEYS.map(({ key, label }) => (
-              <span key={key} className="text-[9px] text-gray-500">
-                <span className={`inline-block px-1 py-0.5 rounded font-bold mr-0.5 ${CODE_COLORS[key] || 'bg-gray-100 text-gray-600'}`}>{key}</span>
-                {label.replace(/\s*\(.*\)/, '')}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -899,7 +875,6 @@ function FullReport({ user }: { user: any }) {
     ? taftList.filter(t => t.store_name?.toLowerCase() === selectedStore.toLowerCase())
     : taftList;
 
-  // Group tafts with their report rows
   const groupedByTaft = filteredTafts.reduce((acc, taft) => {
     if (selectedTaft && taft.taft_name !== selectedTaft) return acc;
     const key = `${taft.store_name}__${taft.taft_name}`;
@@ -920,13 +895,8 @@ function FullReport({ user }: { user: any }) {
     });
   };
 
-  const expandAll = () => {
-    setExpandedTafts(new Set(Object.keys(groupedByTaft)));
-  };
-
-  const collapseAll = () => {
-    setExpandedTafts(new Set());
-  };
+  const expandAll   = () => setExpandedTafts(new Set(Object.keys(groupedByTaft)));
+  const collapseAll = () => setExpandedTafts(new Set());
 
   const todayDay    = new Date().getDay();
   const todayDayKey = DAYS[todayDay === 0 ? 6 : todayDay - 1];
@@ -934,7 +904,7 @@ function FullReport({ user }: { user: any }) {
 
   return (
     <div>
-      {/* Filter Bar — compact */}
+      {/* Filter Bar */}
       <div className="bg-white rounded-lg shadow p-2.5 mb-3">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1">
@@ -951,11 +921,8 @@ function FullReport({ user }: { user: any }) {
 
           <div className="flex items-center gap-1.5">
             <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Store</label>
-            <select
-              value={selectedStore}
-              onChange={e => { setSelectedStore(e.target.value); setSelectedTaft(''); setExpandedTafts(new Set()); }}
-              className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
-            >
+            <select value={selectedStore} onChange={e => { setSelectedStore(e.target.value); setSelectedTaft(''); setExpandedTafts(new Set()); }}
+              className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary">
               <option value="">Semua Store</option>
               {allStores.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -999,10 +966,9 @@ function FullReport({ user }: { user: any }) {
 
       {loading && <div className="text-center py-10 text-gray-400 text-sm">Memuat data...</div>}
 
-      {/* Monthly View: Taft list with collapsible rows */}
+      {/* Monthly View */}
       {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (
         <div className="bg-white rounded-lg shadow overflow-hidden">
-          {/* Header with expand/collapse all */}
           <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between bg-gray-50">
             <span className="text-[11px] font-semibold text-gray-700">
               {Object.keys(groupedByTaft).length} TAFT
@@ -1021,23 +987,19 @@ function FullReport({ user }: { user: any }) {
             const isExpanded = expandedTafts.has(key);
             return (
               <div key={key} className="border-b border-gray-100 last:border-0">
-                {/* Taft header row — always visible, clickable */}
+                {/* Taft header — arrow on RIGHT, no sendPrompt */}
                 <button
                   onClick={() => toggleTaft(key)}
                   className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors text-left"
                 >
                   <div className="flex items-center gap-2">
-                    <span className={`text-[10px] transition-transform ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
                     <span className="text-[11px] font-semibold text-gray-800">{taft_name}</span>
                     {!selectedStore && (
                       <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{store_name}</span>
                     )}
-                  </div>
-                  <div className="flex items-center gap-2">
                     <span className="text-[10px] text-gray-400">{rows.length} hari</span>
                     {rows.length > 0 && (
                       <div className="flex gap-1">
-                        {/* Mini recap badges */}
                         {RECAP_KEYS.slice(0,5).map(({ key: k }) => {
                           const count = rows.filter(r => r.code_time?.trim() === k).length;
                           if (!count) return null;
@@ -1050,9 +1012,11 @@ function FullReport({ user }: { user: any }) {
                       </div>
                     )}
                   </div>
+                  {/* Arrow on the right */}
+                  <span className={`text-gray-400 text-[10px] transition-transform duration-200 ml-2 shrink-0 ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
                 </button>
 
-                {/* Detail rows — hidden by default */}
+                {/* Detail rows */}
                 {isExpanded && (
                   <div className="border-t border-gray-50">
                     {rows.length === 0 ? (
