@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
@@ -64,22 +64,132 @@ function extractValidPhone(text: string): string | null {
 
 function validateReceiver(val: string): string {
   if (!val.trim()) return "Receiver wajib diisi";
-
   const validPhone = extractValidPhone(val);
-  if (!validPhone) {
-    return "Sertakan nomor telepon yang valid (08xx, +628xx, atau 628xx)";
-  }
-
+  if (!validPhone) return "Sertakan nomor telepon yang valid (08xx, +628xx, atau 628xx)";
   const postalPattern = /(?<![0-9])\d{5}(?![0-9])/;
-  if (!postalPattern.test(val)) {
-    return "Sertakan kode pos 5 digit (contoh: 40123)";
-  }
-
-  if (val.trim().length < 20) {
-    return "Terlalu pendek — sertakan nama, nomor telepon, alamat, dan kode pos";
-  }
-
+  if (!postalPattern.test(val)) return "Sertakan kode pos 5 digit (contoh: 40123)";
+  if (val.trim().length < 20) return "Terlalu pendek — sertakan nama, nomor telepon, alamat, dan kode pos";
   return "";
+}
+
+// ── Drag & Drop Upload Zone ───────────────────────────────────────────────
+function DropZone({
+  file,
+  onFile,
+  inputRef,
+}: {
+  file: File | null;
+  onFile: (f: File | null) => void;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+}) {
+  const [dragging, setDragging] = useState(false);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragging(false);
+      const dropped = e.dataTransfer.files[0];
+      if (dropped) onFile(dropped);
+    },
+    [onFile]
+  );
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(true);
+  };
+
+  const handleDragLeave = () => setDragging(false);
+
+  const handleClick = () => inputRef.current?.click();
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onFile(e.target.files?.[0] || null);
+  };
+
+  const handleRemove = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onFile(null);
+    if (inputRef.current) inputRef.current.value = "";
+  };
+
+  const isImage = file && file.type.startsWith("image/");
+  const [preview, setPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file || !isImage) { setPreview(null); return; }
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  return (
+    <div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*,.pdf"
+        onChange={handleInputChange}
+        className="hidden"
+      />
+
+      {file ? (
+        // ── File selected state ──
+        <div className="flex items-center gap-2 p-2 rounded border border-green-300 bg-green-50">
+          {preview ? (
+            <img src={preview} alt="preview" className="w-10 h-10 object-cover rounded border border-green-200 shrink-0" />
+          ) : (
+            <div className="w-10 h-10 rounded border border-green-200 bg-green-100 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-medium text-green-800 truncate">{file.name}</p>
+            <p className="text-[10px] text-green-600">{(file.size / 1024).toFixed(1)} KB</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleRemove}
+            className="p-1 rounded hover:bg-green-200 text-green-700 shrink-0"
+            title="Hapus file"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      ) : (
+        // ── Drop zone ──
+        <div
+          onClick={handleClick}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          className={`cursor-pointer rounded border-2 border-dashed transition-all select-none
+            flex flex-col items-center justify-center gap-1 py-4 px-3
+            ${dragging
+              ? "border-blue-400 bg-blue-50"
+              : "border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100"
+            }`}
+        >
+          <svg
+            className={`w-6 h-6 transition-colors ${dragging ? "text-blue-500" : "text-gray-400"}`}
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+          <p className={`text-[11px] font-medium transition-colors ${dragging ? "text-blue-600" : "text-gray-600"}`}>
+            {dragging ? "Lepaskan file di sini" : "Drag & drop atau klik untuk pilih"}
+          </p>
+          <p className="text-[10px] text-gray-400">Gambar atau PDF</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function RequestTrackingPage() {
@@ -233,7 +343,6 @@ export default function RequestTrackingPage() {
     setReceiverError("");
   };
 
-  // ── Add ──────────────────────────────────────────────────────────────────
   const handleAdd = async () => {
     if (!form.date || !form.assigned_to || !form.expedition || !form.sender || !form.receiver || !form.weight || !form.reason) {
       showMessage("Semua field wajib diisi", "error");
@@ -273,7 +382,6 @@ export default function RequestTrackingPage() {
     setReceiverError("");
   };
 
-  // ── Edit ─────────────────────────────────────────────────────────────────
   const openEdit = (item: TrackingItem) => {
     setSelectedItem(item);
     setEditForm({
@@ -327,7 +435,6 @@ export default function RequestTrackingPage() {
     }
   };
 
-  // ── Delete ────────────────────────────────────────────────────────────────
   const handleDelete = async (item: TrackingItem) => {
     if (!confirm("Hapus request ini?")) return;
     try {
@@ -344,7 +451,6 @@ export default function RequestTrackingPage() {
     }
   };
 
-  // ── Upload ────────────────────────────────────────────────────────────────
   const openUpload = (item: TrackingItem) => {
     setSelectedItem(item);
     setUploadFile(null);
@@ -382,7 +488,6 @@ export default function RequestTrackingPage() {
     }
   };
 
-  // ── WhatsApp link ─────────────────────────────────────────────────────────
   const buildWhatsappLink = (item: TrackingItem) => {
     const store = storeAddresses.find((s) => s.store_location === item.sender);
     if (!store || !store.phone_number) return null;
@@ -393,7 +498,6 @@ export default function RequestTrackingPage() {
 
   const getStatus = (item: TrackingItem) => item.link_tracking ? "completed" : "pending";
 
-  // ── Pagination ────────────────────────────────────────────────────────────
   const indexOfLast = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
   const currentItems = data.slice(indexOfFirst, indexOfLast);
@@ -404,9 +508,6 @@ export default function RequestTrackingPage() {
   const canEdit = user.request_tracking;
   const canUpload = user.tracking_edit;
 
-  // ── Sub-components ────────────────────────────────────────────────────────
-
-  /** Tombol pilih ekspedisi — menampilkan logo */
   const ExpeditionToggle = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
     <div>
       <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -426,11 +527,7 @@ export default function RequestTrackingPage() {
                   : "border-gray-200 hover:border-gray-400 bg-white"
               }`}
             >
-              <img
-                src={EXPEDITION_LOGO[exp]}
-                alt={exp}
-                className="h-7 w-auto object-contain"
-              />
+              <img src={EXPEDITION_LOGO[exp]} alt={exp} className="h-7 w-auto object-contain" />
             </button>
           );
         })}
@@ -438,24 +535,13 @@ export default function RequestTrackingPage() {
     </div>
   );
 
-  /** Badge ekspedisi di tabel — menampilkan logo kecil */
   const ExpeditionBadge = ({ expedition }: { expedition: string }) => {
     const logo = EXPEDITION_LOGO[expedition];
     if (logo) {
-      return (
-        <img
-          src={logo}
-          alt={expedition}
-          className="h-5 w-auto object-contain"
-          title={expedition}
-        />
-      );
+      return <img src={logo} alt={expedition} className="h-5 w-auto object-contain" title={expedition} />;
     }
-    // fallback teks jika ekspedisi tidak dikenal
     return (
-      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700">
-        {expedition}
-      </span>
+      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700">{expedition}</span>
     );
   };
 
@@ -477,41 +563,27 @@ export default function RequestTrackingPage() {
   );
 
   const ReceiverField = ({
-    mode, onModeChange,
-    storeValue, onStoreChange,
-    customValue, onCustomChange,
-    error, onBlur,
+    mode, onModeChange, storeValue, onStoreChange, customValue, onCustomChange, error, onBlur,
   }: {
-    mode: "dropdown" | "custom";
-    onModeChange: (m: "dropdown" | "custom") => void;
-    storeValue: string;
-    onStoreChange: (v: string) => void;
-    customValue: string;
-    onCustomChange: (v: string) => void;
-    error: string;
-    onBlur: () => void;
+    mode: "dropdown" | "custom"; onModeChange: (m: "dropdown" | "custom") => void;
+    storeValue: string; onStoreChange: (v: string) => void;
+    customValue: string; onCustomChange: (v: string) => void;
+    error: string; onBlur: () => void;
   }) => (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <label className="text-xs font-medium text-gray-700">
-          Penerima <span className="text-red-500">*</span>
-        </label>
+        <label className="text-xs font-medium text-gray-700">Penerima <span className="text-red-500">*</span></label>
         <div className="flex gap-1 bg-gray-100 rounded p-0.5">
           <button type="button" onClick={() => { onModeChange("dropdown"); onCustomChange(""); }}
             className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
               mode === "dropdown" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
-            }`}>
-            Store
-          </button>
+            }`}>Store</button>
           <button type="button" onClick={() => { onModeChange("custom"); onStoreChange(""); onCustomChange(""); }}
             className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
               mode === "custom" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
-            }`}>
-            Custom
-          </button>
+            }`}>Custom</button>
         </div>
       </div>
-
       {mode === "dropdown" ? (
         <>
           <select value={storeValue} onChange={(e) => onStoreChange(e.target.value)}
@@ -528,19 +600,13 @@ export default function RequestTrackingPage() {
       ) : (
         <>
           <textarea value={customValue} onChange={(e) => onCustomChange(e.target.value)} onBlur={onBlur}
-            rows={4}
-            placeholder={"Nama Penerima\n08xxxxxxxxxx\nJl. Contoh No. 1, Kota, Provinsi\n12345"}
+            rows={4} placeholder={"Nama Penerima\n08xxxxxxxxxx\nJl. Contoh No. 1, Kota, Provinsi\n12345"}
             className={`w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 resize-none font-mono ${
               error ? "border-red-400 focus:ring-red-400" : "border-gray-300 focus:ring-primary"
-            }`}
-          />
+            }`} />
           {error
             ? <p className="text-[10px] text-red-500 mt-1">⚠ {error}</p>
-            : (
-              <p className="text-[10px] text-gray-400 mt-1">
-                Wajib: nama · nomor HP (08xx/+628xx) · alamat · kode pos 5 digit
-              </p>
-            )
+            : <p className="text-[10px] text-gray-400 mt-1">Wajib: nama · nomor HP (08xx/+628xx) · alamat · kode pos 5 digit</p>
           }
         </>
       )}
@@ -574,9 +640,7 @@ export default function RequestTrackingPage() {
       <div className="flex-1 overflow-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-primary">Request Shipment</h1>
-            </div>
+            <h1 className="text-2xl font-bold text-primary">Request Shipment</h1>
             {canEdit && (
               <button onClick={() => setShowAddModal(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90">
@@ -619,25 +683,17 @@ export default function RequestTrackingPage() {
                           <tr key={item.id} className={`border-b ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}>
                             <td className="px-2 py-1 text-gray-600">{item.date}</td>
                             <td className="px-2 py-1 text-gray-700 truncate">{item.assigned_to}</td>
-                            <td className="px-2 py-1">
-                              <ExpeditionBadge expedition={item.expedition} />
-                            </td>
+                            <td className="px-2 py-1"><ExpeditionBadge expedition={item.expedition} /></td>
                             <td className="px-2 py-1 text-gray-700 truncate">{item.sender}</td>
                             <td className="px-2 py-1 text-gray-600">
                               <div className="flex items-start gap-1">
-                                <div className="truncate flex-1" title={item.receiver}>
-                                  {item.receiver.split("\n")[0]}
-                                </div>
-                                {canUpload && item.receiver && (
-                                  <CopyButton text={item.receiver} id={item.id} />
-                                )}
+                                <div className="truncate flex-1" title={item.receiver}>{item.receiver.split("\n")[0]}</div>
+                                {canUpload && item.receiver && <CopyButton text={item.receiver} id={item.id} />}
                               </div>
                             </td>
                             <td className="px-2 py-1 text-gray-600">{item.weight} kg</td>
                             <td className="px-2 py-1 text-gray-600 truncate" title={item.reason}>{item.reason}</td>
-                            {canUpload && (
-                              <td className="px-2 py-1 text-gray-500">{item.request_by}</td>
-                            )}
+                            {canUpload && <td className="px-2 py-1 text-gray-500">{item.request_by}</td>}
                             <td className="px-2 py-1 text-center">
                               <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                                 status === "completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
@@ -671,13 +727,9 @@ export default function RequestTrackingPage() {
                                 {canEdit && !canUpload && item.request_by === user.user_name && status === "pending" && (
                                   <>
                                     <button onClick={() => openEdit(item)}
-                                      className="px-1.5 py-0.5 bg-yellow-500 text-white rounded text-[10px] hover:bg-yellow-600">
-                                      Edit
-                                    </button>
+                                      className="px-1.5 py-0.5 bg-yellow-500 text-white rounded text-[10px] hover:bg-yellow-600">Edit</button>
                                     <button onClick={() => handleDelete(item)}
-                                      className="px-1.5 py-0.5 bg-red-500 text-white rounded text-[10px] hover:bg-red-600">
-                                      Hapus
-                                    </button>
+                                      className="px-1.5 py-0.5 bg-red-500 text-white rounded text-[10px] hover:bg-red-600">Hapus</button>
                                   </>
                                 )}
                               </div>
@@ -747,20 +799,16 @@ export default function RequestTrackingPage() {
               <ExpeditionToggle value={form.expedition} onChange={(v) => setForm({ ...form, expedition: v })} />
               <SenderSelect value={form.sender} onChange={(v) => handleSenderChange(v)} details={selectedSenderDetails} />
               <ReceiverField
-                mode={addReceiverMode}
-                onModeChange={(m) => setAddReceiverMode(m)}
-                storeValue={addReceiverStore}
-                onStoreChange={(v) => handleReceiverStoreChange(v, false)}
-                customValue={form.receiver}
-                onCustomChange={(v) => { setForm({ ...form, receiver: v }); setReceiverError(""); }}
+                mode={addReceiverMode} onModeChange={(m) => setAddReceiverMode(m)}
+                storeValue={addReceiverStore} onStoreChange={(v) => handleReceiverStoreChange(v, false)}
+                customValue={form.receiver} onCustomChange={(v) => { setForm({ ...form, receiver: v }); setReceiverError(""); }}
                 error={receiverError}
                 onBlur={() => { if (addReceiverMode === "custom") setReceiverError(validateReceiver(form.receiver)); }}
               />
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Berat (kg) <span className="text-red-500">*</span></label>
                 <input type="number" min="0.1" step="0.1" value={form.weight}
-                  onChange={(e) => setForm({ ...form, weight: e.target.value })}
-                  placeholder="contoh: 1.5"
+                  onChange={(e) => setForm({ ...form, weight: e.target.value })} placeholder="contoh: 1.5"
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
               </div>
               <div>
@@ -804,12 +852,9 @@ export default function RequestTrackingPage() {
               <ExpeditionToggle value={editForm.expedition} onChange={(v) => setEditForm({ ...editForm, expedition: v })} />
               <SenderSelect value={editForm.sender} onChange={(v) => handleSenderChange(v, true)} details={editSenderDetails} />
               <ReceiverField
-                mode={editReceiverMode}
-                onModeChange={(m) => setEditReceiverMode(m)}
-                storeValue={editReceiverStore}
-                onStoreChange={(v) => handleReceiverStoreChange(v, true)}
-                customValue={editForm.receiver}
-                onCustomChange={(v) => { setEditForm({ ...editForm, receiver: v }); setReceiverError(""); }}
+                mode={editReceiverMode} onModeChange={(m) => setEditReceiverMode(m)}
+                storeValue={editReceiverStore} onStoreChange={(v) => handleReceiverStoreChange(v, true)}
+                customValue={editForm.receiver} onCustomChange={(v) => { setEditForm({ ...editForm, receiver: v }); setReceiverError(""); }}
                 error={receiverError}
                 onBlur={() => { if (editReceiverMode === "custom") setReceiverError(validateReceiver(editForm.receiver)); }}
               />
@@ -841,45 +886,57 @@ export default function RequestTrackingPage() {
       {/* ── Upload Modal ──────────────────────────────────────────────────── */}
       {showUploadModal && selectedItem && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-            <h2 className="text-lg font-bold text-primary mb-3">Upload Resi / Bukti Pengiriman</h2>
-            <div className="mb-4 p-3 bg-gray-50 rounded border text-xs space-y-1">
-              <div><span className="text-gray-500">ID:</span> <span className="font-mono font-medium">{selectedItem.id}</span></div>
-              <div><span className="text-gray-500">Assigned To:</span> {selectedItem.assigned_to}</div>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-500">Ekspedisi:</span>
-                {EXPEDITION_LOGO[selectedItem.expedition] ? (
-                  <img
-                    src={EXPEDITION_LOGO[selectedItem.expedition]}
-                    alt={selectedItem.expedition}
-                    className="h-4 w-auto object-contain"
-                  />
-                ) : (
-                  <span>{selectedItem.expedition}</span>
-                )}
+          <div className="bg-white rounded-lg p-5 max-w-sm w-full mx-4 shadow-xl">
+            <h2 className="text-sm font-bold text-primary mb-3">Upload Resi</h2>
+
+            {/* Compact info strip */}
+            <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200 mb-3 text-[11px]">
+              <div className="flex-1 min-w-0 space-y-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono font-semibold text-gray-800 truncate">{selectedItem.id}</span>
+                  <span className="text-gray-400">·</span>
+                  <span className="text-gray-600 truncate">{selectedItem.assigned_to}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-gray-500">
+                  {EXPEDITION_LOGO[selectedItem.expedition] ? (
+                    <img src={EXPEDITION_LOGO[selectedItem.expedition]} alt={selectedItem.expedition} className="h-3.5 w-auto object-contain" />
+                  ) : (
+                    <span>{selectedItem.expedition}</span>
+                  )}
+                  <span className="text-gray-400">·</span>
+                  <span className="truncate">{selectedItem.sender}</span>
+                  <span className="text-gray-400">·</span>
+                  <span>{selectedItem.weight} kg</span>
+                </div>
               </div>
-              <div><span className="text-gray-500">Dari:</span> {selectedItem.sender}</div>
-              <div className="flex items-start gap-1">
-                <span className="text-gray-500 shrink-0">Penerima:</span>
-                <span className="font-mono whitespace-pre-line flex-1">{selectedItem.receiver}</span>
-                <CopyButton text={selectedItem.receiver} id={`upload-${selectedItem.id}`} />
-              </div>
-              <div><span className="text-gray-500">Berat:</span> {selectedItem.weight} kg</div>
+              <CopyButton text={selectedItem.receiver} id={`upload-${selectedItem.id}`} />
             </div>
+
+            {/* Receiver preview (compact) */}
+            <div className="mb-3 px-2 py-1.5 bg-blue-50 border border-blue-100 rounded text-[10px] font-mono text-blue-800 whitespace-pre-line leading-relaxed">
+              {selectedItem.receiver}
+            </div>
+
+            {/* Drop zone */}
             <div className="mb-4">
-              <label className="block text-xs font-medium text-gray-700 mb-2">File Resi / Bukti</label>
-              <input ref={uploadFileRef} type="file" accept="image/*,.pdf"
-                onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                className="w-full text-xs text-gray-600 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-primary file:text-white hover:file:bg-primary/90" />
-              {uploadFile && (
-                <p className="text-[10px] text-green-600 mt-1.5">✓ {uploadFile.name} ({(uploadFile.size / 1024).toFixed(1)} KB)</p>
-              )}
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">File Resi / Bukti</label>
+              <DropZone
+                file={uploadFile}
+                onFile={setUploadFile}
+                inputRef={uploadFileRef}
+              />
             </div>
+
             <div className="flex gap-2">
-              <button onClick={() => { setShowUploadModal(false); setSelectedItem(null); setUploadFile(null); }}
-                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">Batal</button>
-              <button onClick={handleUpload} disabled={submitting || !uploadFile}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:opacity-50">
+              <button
+                onClick={() => { setShowUploadModal(false); setSelectedItem(null); setUploadFile(null); }}
+                className="flex-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200 border border-gray-200">
+                Batal
+              </button>
+              <button
+                onClick={handleUpload}
+                disabled={submitting || !uploadFile}
+                className="flex-1 px-3 py-1.5 bg-green-600 text-white rounded text-xs hover:bg-green-700 disabled:opacity-40 font-medium">
                 {submitting ? "Mengupload..." : "Upload & Selesaikan"}
               </button>
             </div>

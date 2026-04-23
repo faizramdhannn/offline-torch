@@ -217,7 +217,7 @@ export default function StockPage() {
   const [pcaChartOpen, setPcaChartOpen] = useState(true);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 50;
+  const itemsPerPage = 25;
 
   const [qrItem, setQrItem] = useState<StockItem | null>(null);
 
@@ -851,45 +851,45 @@ export default function StockPage() {
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-[11px]">
                     <thead className="bg-gray-100 border-b">
                       <tr>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">Image</th>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">SKU</th>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">Product Name</th>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">Category</th>
-                        <th className="px-2 py-2 text-left font-semibold text-gray-700">Grade</th>
-                        {selectedView !== "master" && <th className="px-2 py-2 text-left font-semibold text-gray-700">Stock</th>}
-                        {selectedView === "store" && <th className="px-2 py-2 text-left font-semibold text-gray-700">Warehouse</th>}
-                        {user.stock_view_hpp && <th className="px-2 py-2 text-left font-semibold text-gray-700">HPP</th>}
-                        {user.stock_view_hpt && <th className="px-2 py-2 text-left font-semibold text-gray-700">HPT</th>}
-                        {user.stock_view_hpj && <th className="px-2 py-2 text-left font-semibold text-gray-700">HPJ</th>}
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Image</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700">SKU</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Product Name</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Category</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Grade</th>
+                        {selectedView !== "master" && <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Stock</th>}
+                        {selectedView === "store" && <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Warehouse</th>}
+                        {user.stock_view_hpp && <th className="px-2 py-1.5 text-left font-semibold text-gray-700">HPP</th>}
+                        {user.stock_view_hpt && <th className="px-2 py-1.5 text-left font-semibold text-gray-700">HPT</th>}
+                        {user.stock_view_hpj && <th className="px-2 py-1.5 text-left font-semibold text-gray-700">HPJ</th>}
                       </tr>
                     </thead>
                     <tbody>
                       {currentItems.map((item, index) => (
                         <tr key={index} className="border-b hover:bg-gray-50 cursor-pointer" onClick={() => setQrItem(item)}>
-                          <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
                             {item.link_url || item.image_url ? (
                               <img
                                 src={item.link_url || item.image_url}
                                 alt={item.sku}
-                                className="w-10 h-10 object-cover rounded"
-                                onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40"%3E%3Crect fill="%23ddd" width="40" height="40"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="12"%3ENo Img%3C/text%3E%3C/svg%3E'; }}
+                                className="w-7 h-7 object-cover rounded"
+                                onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="28" height="28"%3E%3Crect fill="%23ddd" width="28" height="28"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="9"%3ENo Img%3C/text%3E%3C/svg%3E'; }}
                               />
                             ) : (
-                              <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-[8px]">No Img</div>
+                              <div className="w-7 h-7 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-[7px]">No Img</div>
                             )}
                           </td>
-                          <td className="px-2 py-2">{item.sku}</td>
-                          <td className="px-2 py-2">{toProperCase(item.item_name)}</td>
-                          <td className="px-2 py-2">{toProperCase(item.category)}</td>
-                          <td className="px-2 py-2">{toProperCase(item.grade)}</td>
-                          {selectedView !== "master" && <td className="px-2 py-2">{item.stock}</td>}
-                          {selectedView === "store" && <td className="px-2 py-2">{item.warehouse}</td>}
-                          {user.stock_view_hpp && <td className="px-2 py-2">{item.hpp}</td>}
-                          {user.stock_view_hpt && <td className="px-2 py-2">{item.hpt}</td>}
-                          {user.stock_view_hpj && <td className="px-2 py-2">{item.hpj}</td>}
+                          <td className="px-2 py-1">{item.sku}</td>
+                          <td className="px-2 py-1">{toProperCase(item.item_name)}</td>
+                          <td className="px-2 py-1">{toProperCase(item.category)}</td>
+                          <td className="px-2 py-1">{toProperCase(item.grade)}</td>
+                          {selectedView !== "master" && <td className="px-2 py-1">{item.stock}</td>}
+                          {selectedView === "store" && <td className="px-2 py-1">{item.warehouse}</td>}
+                          {user.stock_view_hpp && <td className="px-2 py-1">{item.hpp}</td>}
+                          {user.stock_view_hpt && <td className="px-2 py-1">{item.hpt}</td>}
+                          {user.stock_view_hpj && <td className="px-2 py-1">{item.hpj}</td>}
                         </tr>
                       ))}
                     </tbody>
