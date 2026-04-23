@@ -68,6 +68,27 @@ const RECAP_KEYS = [
   { key:'A',   label:'ALPA (A)'        },
 ];
 
+// Helper: find current date_range from dateList
+function findCurrentDateRange(dateList: DateEntry[]): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Try matching by week_start / week_end
+  for (const d of dateList) {
+    if (d.week_start && d.week_end) {
+      const start = new Date(d.week_start);
+      const end   = new Date(d.week_end);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      if (today >= start && today <= end) return d.date_range;
+    }
+  }
+
+  // Fallback: use last entry
+  if (dateList.length > 0) return dateList[dateList.length - 1].date_range;
+  return '';
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function AttendancePage() {
   const router = useRouter();
@@ -139,7 +160,7 @@ export default function AttendancePage() {
   );
 }
 
-// ─── Weekly Schedule (Horizontal Inline Edit) ─────────────────────────────────
+// ─── Weekly Schedule ───────────────────────────────────────────────────────────
 function WeeklySchedule({
   user, isStoreUser, myStoreName,
 }: { user: any; isStoreUser: boolean; myStoreName: string }) {
@@ -151,7 +172,6 @@ function WeeklySchedule({
   const [selectedStore,     setSelectedStore]     = useState('');
   const [selectedDateRange, setSelectedDateRange] = useState('');
 
-  // Inline editing state: key = `store__taft`, value = Record<day, code>
   const [editingRow,   setEditingRow]   = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<Record<string, string>>({});
   const [savingRow,    setSavingRow]    = useState<string | null>(null);
@@ -174,6 +194,10 @@ function WeeklySchedule({
         return true;
       });
       setTimeCodes(codes);
+
+      // Auto-select current period
+      const currentRange = findCurrentDateRange(d.dateList || []);
+      if (currentRange) setSelectedDateRange(currentRange);
     });
   }, [isStoreUser, myStoreName]);
 
@@ -249,7 +273,6 @@ function WeeklySchedule({
   const toTitleCase = (str: string) =>
     str.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 
-  // Group taft per store
   const storeGroups: { storeName: string; tafts: TaftEntry[] }[] = [];
   const seenStores = new Set<string>();
   taftList.forEach(t => {
@@ -262,21 +285,21 @@ function WeeklySchedule({
 
   return (
     <div>
-      {/* Filter Bar */}
-      <div className="bg-white rounded-lg shadow p-3 mb-4">
-        <div className="flex items-center gap-3 flex-wrap">
+      {/* Filter Bar — compact */}
+      <div className="bg-white rounded-lg shadow p-2.5 mb-3">
+        <div className="flex items-center gap-2 flex-wrap">
           {isStoreUser ? (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500">Store:</span>
-              <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-1 rounded">{toTitleCase(myStoreName)}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-gray-500">Store:</span>
+              <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">{toTitleCase(myStoreName)}</span>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-gray-600 whitespace-nowrap">Store</label>
+            <div className="flex items-center gap-1.5">
+              <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Store</label>
               <select
                 value={selectedStore}
-                onChange={e => { setSelectedStore(e.target.value); setSelectedDateRange(''); setSchedules([]); setEditingRow(null); }}
-                className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                onChange={e => { setSelectedStore(e.target.value); setSchedules([]); setEditingRow(null); }}
+                className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="">Semua Store</option>
                 {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
@@ -284,12 +307,12 @@ function WeeklySchedule({
             </div>
           )}
 
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-gray-600 whitespace-nowrap">Periode</label>
+          <div className="flex items-center gap-1.5">
+            <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Periode</label>
             <select
               value={selectedDateRange}
               onChange={e => { setSelectedDateRange(e.target.value); setEditingRow(null); }}
-              className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+              className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="">Pilih Periode</option>
               {dateList.map(d => (
@@ -298,48 +321,13 @@ function WeeklySchedule({
             </select>
           </div>
 
-          {selectedDateRange && taftList.length > 0 && (
-            <span className="text-[10px] text-gray-400 ml-1">{taftList.length} taft</span>
+          {selectedDateRange && (
+            <span className="text-[10px] text-gray-400 ml-0.5 bg-primary/5 text-primary px-2 py-0.5 rounded font-medium">
+              {selectedDateRange}
+            </span>
           )}
         </div>
       </div>
-
-      {/* Card Jadwal Hari Ini */}
-      {selectedDateRange && (
-        <div className="bg-white border border-gray-200 rounded-lg p-3 mb-4 shadow-sm">
-          <p className="text-xs font-semibold text-gray-700 mb-2">
-            Jadwal Hari Ini ({DAY_LABELS_FULL[todayDay === 0 ? 6 : todayDay - 1]})
-          </p>
-          {storeGroups.length === 0 ? (
-            <span className="text-xs text-gray-400">Belum ada taft</span>
-          ) : (
-            <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
-              {storeGroups.map(({ storeName, tafts }) => (
-                <div key={storeName} className="rounded border border-blue-100 overflow-hidden">
-                  <div className="px-2 py-1 bg-blue-50 border-b border-blue-100">
-                    <span className="text-[10px] font-bold text-blue-700 truncate block">{toTitleCase(storeName)}</span>
-                  </div>
-                  <div className="divide-y divide-gray-100">
-                    {tafts.map(t => {
-                      const sched = getSchedule(t);
-                      const code  = sched?.[todayDayKey as keyof ScheduleRow] as string || '';
-                      return (
-                        <div key={t.taft_name} className="flex items-center justify-between px-2 py-1 gap-1">
-                          <span className="text-[10px] text-gray-700 truncate flex-1" title={t.taft_name}>{t.taft_name}</span>
-                          {code
-                            ? <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>{code}</span>
-                            : <span className="text-[10px] text-gray-300 shrink-0">-</span>
-                          }
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Main Table */}
       {!selectedDateRange ? (
@@ -356,11 +344,9 @@ function WeeklySchedule({
             <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  {/* Nama */}
                   <th className="px-3 py-2 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50 z-10 min-w-[140px] max-w-[160px] w-40 border-r border-gray-200">
                     Nama TAFT
                   </th>
-                  {/* Hari-hari */}
                   {DAYS.map((day, i) => (
                     <th
                       key={day}
@@ -374,7 +360,6 @@ function WeeklySchedule({
                       )}
                     </th>
                   ))}
-                  {/* Aksi */}
                   <th className="px-3 py-2 text-center font-semibold text-gray-600 w-24 sticky right-0 bg-gray-50 z-10 border-l border-gray-200">
                     Aksi
                   </th>
@@ -383,12 +368,8 @@ function WeeklySchedule({
               <tbody>
                 {storeGroups.map(({ storeName, tafts }) => (
                   <React.Fragment key={storeName}>
-                    {/* Store group header */}
                     <tr className="bg-primary/5 border-y border-primary/10">
-                      <td
-                        colSpan={9}
-                        className="px-3 py-1.5 sticky left-0 bg-primary/5 z-10"
-                      >
+                      <td colSpan={9} className="px-3 py-1.5 sticky left-0 bg-primary/5 z-10">
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] font-bold text-primary">{toTitleCase(storeName)}</span>
                           <span className="text-[10px] text-gray-400">{tafts.length} taft</span>
@@ -396,7 +377,6 @@ function WeeklySchedule({
                       </td>
                     </tr>
 
-                    {/* Taft rows */}
                     {tafts.map(taft => {
                       const key      = rowKey(taft);
                       const sched    = getSchedule(taft);
@@ -405,56 +385,35 @@ function WeeklySchedule({
                       const hasEntry = sched && DAYS.some(d => sched[d as keyof ScheduleRow]);
 
                       return (
-                        <tr
-                          key={key}
-                          className={`border-b border-gray-100 transition-colors ${
-                            isEdit ? 'bg-amber-50/60' : 'hover:bg-gray-50/80'
-                          }`}
-                        >
-                          {/* Nama — sticky kiri */}
+                        <tr key={key} className={`border-b border-gray-100 transition-colors ${isEdit ? 'bg-amber-50/60' : 'hover:bg-gray-50/80'}`}>
                           <td className={`px-2 py-1.5 sticky left-0 z-10 border-r border-gray-100 min-w-[140px] max-w-[160px] w-40 ${isEdit ? 'bg-amber-50/60' : 'bg-white'}`}>
                             <div className="flex items-center gap-1">
-                              {isEdit && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                              )}
+                              {isEdit && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />}
                               <span className="font-medium text-gray-800 text-[11px] leading-tight truncate" title={taft.taft_name}>{taft.taft_name}</span>
                             </div>
                           </td>
 
-                          {/* Sel hari */}
-                          {DAYS.map((day, i) => {
+                          {DAYS.map((day) => {
                             const code = isEdit
                               ? editFormData[day] || ''
                               : (sched?.[day as keyof ScheduleRow] as string || '');
 
                             return (
-                              <td
-                                key={day}
-                                className={`px-1 py-1 text-center w-16 ${
-                                  day === todayDayKey && !isEdit ? 'bg-blue-50/50' : ''
-                                } ${isEdit && code ? CODE_BG_CELL[code] || '' : ''}`}
-                              >
+                              <td key={day} className={`px-1 py-1 text-center w-16 ${day === todayDayKey && !isEdit ? 'bg-blue-50/50' : ''} ${isEdit && code ? CODE_BG_CELL[code] || '' : ''}`}>
                                 {isEdit ? (
-                                  /* Dropdown inline */
                                   <select
                                     value={editFormData[day] || ''}
-                                    onChange={e =>
-                                      setEditFormData(prev => ({ ...prev, [day]: e.target.value }))
-                                    }
+                                    onChange={e => setEditFormData(prev => ({ ...prev, [day]: e.target.value }))}
                                     className="w-14 px-0.5 py-0.5 border border-gray-300 rounded text-[10px] text-center focus:outline-none focus:ring-1 focus:ring-amber-400 bg-white"
                                   >
                                     <option value="">-</option>
                                     {timeCodes.map(t => (
-                                      <option key={`${t.id}-${t.code_time}`} value={t.code_time}>
-                                        {t.code_time}
-                                      </option>
+                                      <option key={`${t.id}-${t.code_time}`} value={t.code_time}>{t.code_time}</option>
                                     ))}
                                   </select>
                                 ) : (
                                   code ? (
-                                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>
-                                      {code}
-                                    </span>
+                                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>{code}</span>
                                   ) : (
                                     <span className="text-gray-200 text-[10px]">—</span>
                                   )
@@ -463,33 +422,18 @@ function WeeklySchedule({
                             );
                           })}
 
-                          {/* Aksi — sticky kanan */}
                           <td className={`px-2 py-1 text-center sticky right-0 z-10 border-l border-gray-100 ${isEdit ? 'bg-amber-50/60' : 'bg-white'}`}>
                             {isEdit ? (
                               <div className="flex items-center justify-center gap-1">
-                                <button
-                                  onClick={() => saveRow(taft)}
-                                  disabled={isSaving}
-                                  className="px-2 py-1 bg-primary text-white rounded text-[10px] font-medium hover:bg-primary/90 disabled:opacity-50 whitespace-nowrap"
-                                >
+                                <button onClick={() => saveRow(taft)} disabled={isSaving} className="px-2 py-1 bg-primary text-white rounded text-[10px] font-medium hover:bg-primary/90 disabled:opacity-50 whitespace-nowrap">
                                   {isSaving ? '...' : 'Simpan'}
                                 </button>
-                                <button
-                                  onClick={cancelEdit}
-                                  disabled={isSaving}
-                                  className="px-2 py-1 bg-gray-300 text-gray-700 rounded text-[10px] font-medium hover:bg-gray-400 disabled:opacity-50"
-                                >
-                                  ✕
-                                </button>
+                                <button onClick={cancelEdit} disabled={isSaving} className="px-2 py-1 bg-gray-300 text-gray-700 rounded text-[10px] font-medium hover:bg-gray-400 disabled:opacity-50">✕</button>
                               </div>
                             ) : (
                               <button
                                 onClick={() => startEdit(taft)}
-                                className={`px-2.5 py-1 rounded text-[10px] font-medium transition-colors whitespace-nowrap ${
-                                  hasEntry
-                                    ? 'bg-gray-100 text-gray-600 hover:bg-primary/10 hover:text-primary'
-                                    : 'bg-primary/10 text-primary hover:bg-primary hover:text-white'
-                                }`}
+                                className={`px-2.5 py-1 rounded text-[10px] font-medium transition-colors whitespace-nowrap ${hasEntry ? 'bg-gray-100 text-gray-600 hover:bg-primary/10 hover:text-primary' : 'bg-primary/10 text-primary hover:bg-primary hover:text-white'}`}
                               >
                                 {hasEntry ? 'Edit' : '+ Input'}
                               </button>
@@ -542,17 +486,23 @@ function MonthlyReport({
       setAllStores(stores);
       if (isStoreUser && myStoreName) {
         setSelectedStore(myStoreName);
+      } else if (user.attendance_report) {
+        // Report users: default to all (empty = all)
+        setSelectedStore('');
       } else if (stores.length > 0) {
         setSelectedStore(stores[0]);
       }
     });
   }, [isStoreUser, myStoreName]);
 
-  const filteredTafts = taftList.filter(t => t.store_name?.toLowerCase() === selectedStore.toLowerCase());
+  const filteredTafts = selectedStore
+    ? taftList.filter(t => t.store_name?.toLowerCase() === selectedStore.toLowerCase())
+    : taftList;
 
   const handleDownloadTemplate = () => {
-    if (!selectedStore || !selectedTaft || !selectedMonth) return;
-    const taftInfo = taftList.find(t => t.store_name?.toLowerCase() === selectedStore.toLowerCase() && t.taft_name === selectedTaft);
+    if (!selectedTaft || !selectedMonth) return;
+    const storeForTemplate = selectedStore || (filteredTafts.find(t => t.taft_name === selectedTaft)?.store_name || '');
+    const taftInfo = taftList.find(t => t.taft_name === selectedTaft && (selectedStore ? t.store_name?.toLowerCase() === selectedStore.toLowerCase() : true));
     const startDay = parseInt(taftInfo?.start_date || '26');
     const endDay   = parseInt(taftInfo?.end_date   || '25');
     const [year, mon] = selectedMonth.split('-').map(Number);
@@ -564,13 +514,13 @@ function MonthlyReport({
     const fmtISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const wb      = XLSX.utils.book_new();
     const headers = ['date','store_name','taft_name','clock_in','clock_out','code_time','overtime_hours','reason'];
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...dates.map(d => [fmtISO(d), selectedStore, selectedTaft, '', '', '', '', ''])]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...dates.map(d => [fmtISO(d), storeForTemplate, selectedTaft, '', '', '', '', ''])]);
     ws['!cols'] = [{ wch:14 },{ wch:16 },{ wch:28 },{ wch:10 },{ wch:10 },{ wch:12 },{ wch:14 },{ wch:20 }];
     XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
     const refWs = XLSX.utils.aoa_to_sheet([['Kode','Keterangan'],['P','Pagi'],['S','Siang'],['F','Full'],['MF','Midle Full'],['O','OFF'],['C','Cuti'],['+','Sakit'],['I','Izin'],['A','Alpa']]);
     refWs['!cols'] = [{ wch:8 },{ wch:16 }];
     XLSX.utils.book_append_sheet(wb, refWs, 'Kode Referensi');
-    XLSX.writeFile(wb, `attendance_${selectedStore}_${selectedTaft.replace(/ /g,'_')}_${selectedMonth}.xlsx`);
+    XLSX.writeFile(wb, `attendance_${storeForTemplate}_${selectedTaft.replace(/ /g,'_')}_${selectedMonth}.xlsx`);
     setShowDownloadModal(false);
   };
 
@@ -602,41 +552,59 @@ function MonthlyReport({
 
   return (
     <div>
-      <div className="bg-white rounded-lg shadow p-4 mb-4">
-        <div className="flex items-end gap-4 flex-wrap">
+      {/* Filter Bar — compact */}
+      <div className="bg-white rounded-lg shadow p-2.5 mb-3">
+        <div className="flex items-center gap-2 flex-wrap">
           {isStoreUser ? (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500">Store:</span>
-              <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-1 rounded">{myStoreName}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-gray-500">Store:</span>
+              <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">{myStoreName}</span>
             </div>
           ) : (
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
-              <select value={selectedStore} onChange={e => { setSelectedStore(e.target.value); setSelectedTaft(''); }} className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary">
+            <div className="flex items-center gap-1.5">
+              <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Store</label>
+              <select
+                value={selectedStore}
+                onChange={e => { setSelectedStore(e.target.value); setSelectedTaft(''); }}
+                className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="">Semua Store</option>
                 {allStores.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           )}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Bulan</label>
-            <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+
+          <div className="flex items-center gap-1.5">
+            <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Bulan</label>
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(e.target.value)}
+              className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+            />
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => setShowDownloadModal(true)} className="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90">↓ Download Template</button>
-            <label className="px-4 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 cursor-pointer">
-              {importing ? 'Importing...' : '↑ Import XLSX'}
-              <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
-            </label>
-          </div>
+
+          <button
+            onClick={() => setShowDownloadModal(true)}
+            className="px-3 py-1 bg-primary text-white rounded text-[11px] hover:bg-primary/90"
+          >
+            ↓ Template
+          </button>
+          <label className="px-3 py-1 bg-green-600 text-white rounded text-[11px] hover:bg-green-700 cursor-pointer">
+            {importing ? 'Importing...' : '↑ Import'}
+            <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
+          </label>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
-        <p className="text-xs font-semibold text-gray-700 mb-2">Panduan Penggunaan</p>
-        <p className="text-xs text-gray-500 mb-3">Download template XLSX &rarr; isi kolom <strong>clock_in</strong>, <strong>clock_out</strong>, <strong>code_time</strong>, <strong>overtime_hours</strong>, <strong>reason</strong> &rarr; Import kembali.</p>
-        <div className="flex flex-wrap gap-2">
+      <div className="bg-white rounded-lg shadow p-3">
+        <p className="text-[11px] font-semibold text-gray-700 mb-1.5">Panduan</p>
+        <p className="text-[11px] text-gray-500 mb-2">Download template XLSX → isi kolom <strong>clock_in</strong>, <strong>clock_out</strong>, <strong>code_time</strong>, <strong>overtime_hours</strong>, <strong>reason</strong> → Import kembali.</p>
+        <div className="flex flex-wrap gap-1.5">
           {RECAP_KEYS.map(({ key, label }) => (
-            <span key={key} className={`px-2 py-1 rounded text-xs font-medium ${CODE_COLORS[key] || 'bg-gray-100'}`}>{key} = {label.replace(/\s*\(.*\)/, '')}</span>
+            <span key={key} className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${CODE_COLORS[key] || 'bg-gray-100'}`}>
+              {key} = {label.replace(/\s*\(.*\)/, '')}
+            </span>
           ))}
         </div>
       </div>
@@ -650,7 +618,10 @@ function MonthlyReport({
                 <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
                 {isStoreUser
                   ? <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-600">{myStoreName}</div>
-                  : <select value={selectedStore} onChange={e => { setSelectedStore(e.target.value); setSelectedTaft(''); }} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary">{allStores.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                  : <select value={selectedStore} onChange={e => { setSelectedStore(e.target.value); setSelectedTaft(''); }} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary">
+                      <option value="">Semua Store</option>
+                      {allStores.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
                 }
               </div>
               <div>
@@ -695,23 +666,29 @@ function RecapMonthly({ user }: { user: any }) {
       setTaftList(data);
       const stores = [...new Set(data.map(t => t.store_name))] as string[];
       setAllStores(stores);
-      if (stores.length > 0) setSelectedStore(stores[0]);
+      // attendance_report = show all (empty selectedStore = all)
+      setSelectedStore('');
     });
   }, []);
 
-  useEffect(() => { if (selectedStore && selectedMonth) fetchReports(); }, [selectedStore, selectedMonth]);
+  useEffect(() => { if (selectedMonth) fetchReports(); }, [selectedStore, selectedMonth]);
 
   const fetchReports = async () => {
     setLoading(true);
-    const res = await fetch(`/api/attendance/report?store_name=${encodeURIComponent(selectedStore)}&month=${selectedMonth}`);
+    const storeParam = selectedStore ? `&store_name=${encodeURIComponent(selectedStore)}` : '';
+    const res = await fetch(`/api/attendance/report?month=${selectedMonth}${storeParam}`);
     setReports(await res.json());
     setLoading(false);
   };
 
-  const storeTafts = taftList.filter(t => t.store_name?.toLowerCase() === selectedStore.toLowerCase());
+  const storeTafts = selectedStore
+    ? taftList.filter(t => t.store_name?.toLowerCase() === selectedStore.toLowerCase())
+    : taftList;
 
-  const calcRecap = (taftName: string) => {
-    const rows  = reports.filter(r => r.taft_name === taftName);
+  const calcRecap = (taftName: string, storeName?: string) => {
+    const rows = reports.filter(r =>
+      r.taft_name === taftName && (storeName ? r.store_name === storeName : true)
+    );
     const counts: Record<string,number> = {};
     let totalMasuk = 0, totalOff = 0, totalLembur = 0;
     rows.forEach(r => {
@@ -721,93 +698,135 @@ function RecapMonthly({ user }: { user: any }) {
       if (code === 'O') totalOff++;
       if (r.overtime_hours && parseFloat(r.overtime_hours) > 0) totalLembur += parseFloat(r.overtime_hours);
     });
-    return { counts, totalMasuk, totalOff, totalLembur, totalCuti: counts['C']||0, totalSakit: counts['+']||0, totalIzin: counts['I']||0, totalAlpa: counts['A']||0 };
+    return { counts, totalMasuk, totalOff, totalLembur };
   };
+
+  // Group by store for display
+  const storeGroups: { storeName: string; tafts: TaftEntry[] }[] = [];
+  const seenS = new Set<string>();
+  storeTafts.forEach(t => {
+    if (!seenS.has(t.store_name)) {
+      seenS.add(t.store_name);
+      storeGroups.push({ storeName: t.store_name, tafts: [] });
+    }
+    storeGroups.find(g => g.storeName === t.store_name)!.tafts.push(t);
+  });
 
   return (
     <div>
-      <div className="bg-white rounded-lg shadow p-4 mb-4">
-        <div className="flex items-center gap-4 flex-wrap">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
-            <select value={selectedStore} onChange={e => setSelectedStore(e.target.value)} className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary">
+      {/* Filter Bar — compact */}
+      <div className="bg-white rounded-lg shadow p-2.5 mb-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Store</label>
+            <select
+              value={selectedStore}
+              onChange={e => setSelectedStore(e.target.value)}
+              className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="">Semua Store</option>
               {allStores.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Bulan</label>
-            <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
+          <div className="flex items-center gap-1.5">
+            <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Bulan</label>
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(e.target.value)}
+              className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+            />
           </div>
-          <button onClick={fetchReports} className="mt-5 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90">Refresh</button>
+          <button
+            onClick={fetchReports}
+            className="px-3 py-1 bg-primary text-white rounded text-[11px] hover:bg-primary/90"
+          >
+            Refresh
+          </button>
         </div>
       </div>
 
       {loading ? (
         <div className="text-center py-10 text-gray-400 text-sm">Memuat data...</div>
       ) : storeTafts.length === 0 ? (
-        <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">Tidak ada data taft untuk store ini</div>
+        <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">Tidak ada data taft</div>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50 z-10 min-w-[140px] max-w-[160px] w-40 border-r border-gray-200">
+                  {!selectedStore && (
+                    <th className="px-2 py-2 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50 z-10 min-w-[100px] w-24 border-r border-gray-200 text-[10px]">
+                      Store
+                    </th>
+                  )}
+                  <th className="px-2 py-2 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50 z-10 min-w-[130px] max-w-[150px] w-36 border-r border-gray-200 text-[10px]">
                     Nama TAFT
                   </th>
-                  {RECAP_KEYS.map(({ key, label }) => (
-                    <th key={key} className="px-1.5 py-2 text-center font-semibold text-gray-600 w-14">
-                      <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold ${CODE_COLORS[key] || 'bg-gray-100 text-gray-600'}`}>
-                        {key}
-                      </span>
+                  {RECAP_KEYS.map(({ key }) => (
+                    <th key={key} className="px-1 py-2 text-center font-semibold text-gray-600 w-10 text-[10px]">
+                      <span className={`inline-block px-1 py-0.5 rounded text-[9px] font-bold ${CODE_COLORS[key] || 'bg-gray-100 text-gray-600'}`}>{key}</span>
                     </th>
                   ))}
-                  <th className="px-2 py-2 text-center font-semibold text-gray-600 w-14 whitespace-nowrap text-[10px]">Masuk</th>
-                  <th className="px-2 py-2 text-center font-semibold text-gray-600 w-12 whitespace-nowrap text-[10px]">OFF</th>
-                  <th className="px-2 py-2 text-center font-semibold text-gray-600 w-16 whitespace-nowrap text-[10px]">Lembur</th>
+                  <th className="px-1 py-2 text-center font-semibold text-gray-600 w-10 text-[10px]">Msk</th>
+                  <th className="px-1 py-2 text-center font-semibold text-gray-600 w-10 text-[10px]">OFF</th>
+                  <th className="px-1 py-2 text-center font-semibold text-gray-600 w-12 text-[10px]">Lembur</th>
                 </tr>
               </thead>
               <tbody>
-                {storeTafts.map(taft => {
-                  const recap = calcRecap(taft.taft_name);
-                  return (
-                    <tr key={taft.id} className="border-b border-gray-100 hover:bg-gray-50/80">
-                      {/* Nama sticky */}
-                      <td className="px-2 py-1.5 sticky left-0 bg-white z-10 border-r border-gray-100 min-w-[140px] max-w-[160px] w-40">
-                        <span className="font-medium text-gray-800 text-[11px] truncate block" title={taft.taft_name}>{taft.taft_name}</span>
-                      </td>
-                      {/* Kode counts */}
-                      {RECAP_KEYS.map(({ key }) => (
-                        <td key={key} className="px-1.5 py-1.5 text-center w-14">
-                          {(recap.counts[key] || 0) > 0 ? (
-                            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${CODE_COLORS[key] || 'bg-gray-100 text-gray-700'}`}>
-                              {recap.counts[key]}
-                            </span>
-                          ) : (
-                            <span className="text-gray-200 text-[10px]">—</span>
-                          )}
+                {storeGroups.map(({ storeName, tafts }) => (
+                  <React.Fragment key={storeName}>
+                    {!selectedStore && (
+                      <tr className="bg-primary/5 border-y border-primary/10">
+                        <td colSpan={13} className="px-2 py-1 sticky left-0 bg-primary/5 z-10">
+                          <span className="text-[10px] font-bold text-primary">{storeName}</span>
                         </td>
-                      ))}
-                      {/* Summary */}
-                      <td className="px-2 py-1.5 text-center w-14">
-                        <span className="text-[11px] font-bold text-green-700">{recap.totalMasuk}</span>
-                      </td>
-                      <td className="px-2 py-1.5 text-center w-12">
-                        <span className="text-[11px] font-bold text-gray-500">{recap.totalOff}</span>
-                      </td>
-                      <td className="px-2 py-1.5 text-center w-16">
-                        {recap.totalLembur > 0
-                          ? <span className="text-[11px] font-bold text-orange-600">{recap.totalLembur.toFixed(1)}j</span>
-                          : <span className="text-gray-200 text-[10px]">—</span>
-                        }
-                      </td>
-                    </tr>
-                  );
-                })}
+                      </tr>
+                    )}
+                    {tafts.map(taft => {
+                      const recap = calcRecap(taft.taft_name, taft.store_name);
+                      return (
+                        <tr key={taft.id} className="border-b border-gray-100 hover:bg-gray-50/80">
+                          {!selectedStore && (
+                            <td className="px-2 py-1 sticky left-0 bg-white z-10 border-r border-gray-100 text-[10px] text-gray-500 min-w-[100px] w-24 truncate" title={storeName}>
+                              {storeName}
+                            </td>
+                          )}
+                          <td className="px-2 py-1 sticky left-0 bg-white z-10 border-r border-gray-100 min-w-[130px] max-w-[150px] w-36">
+                            <span className="font-medium text-gray-800 text-[10px] truncate block" title={taft.taft_name}>{taft.taft_name}</span>
+                          </td>
+                          {RECAP_KEYS.map(({ key }) => (
+                            <td key={key} className="px-1 py-1 text-center w-10">
+                              {(recap.counts[key] || 0) > 0 ? (
+                                <span className={`inline-block px-1 py-0.5 rounded text-[9px] font-bold ${CODE_COLORS[key] || 'bg-gray-100 text-gray-700'}`}>
+                                  {recap.counts[key]}
+                                </span>
+                              ) : (
+                                <span className="text-gray-200 text-[9px]">—</span>
+                              )}
+                            </td>
+                          ))}
+                          <td className="px-1 py-1 text-center w-10">
+                            <span className="text-[10px] font-bold text-green-700">{recap.totalMasuk}</span>
+                          </td>
+                          <td className="px-1 py-1 text-center w-10">
+                            <span className="text-[10px] font-bold text-gray-500">{recap.totalOff}</span>
+                          </td>
+                          <td className="px-1 py-1 text-center w-12">
+                            {recap.totalLembur > 0
+                              ? <span className="text-[10px] font-bold text-orange-600">{recap.totalLembur.toFixed(1)}j</span>
+                              : <span className="text-gray-200 text-[9px]">—</span>
+                            }
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
               </tbody>
             </table>
           </div>
-          {/* Legend */}
           <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 flex flex-wrap gap-2">
             {RECAP_KEYS.map(({ key, label }) => (
               <span key={key} className="text-[9px] text-gray-500">
@@ -822,7 +841,7 @@ function RecapMonthly({ user }: { user: any }) {
   );
 }
 
-// ─── Full Report (attendance_report only) ─────────────────────────────────────
+// ─── Full Report ──────────────────────────────────────────────────────────────
 function FullReport({ user }: { user: any }) {
   const [taftList,      setTaftList]      = useState<TaftEntry[]>([]);
   const [allStores,     setAllStores]     = useState<string[]>([]);
@@ -838,6 +857,9 @@ function FullReport({ user }: { user: any }) {
   const [schedules, setSchedules] = useState<ScheduleRow[]>([]);
   const [loading,   setLoading]   = useState(false);
   const [viewMode,  setViewMode]  = useState<'monthly'|'weekly'>('monthly');
+
+  // Track which tafts are expanded (showing detail)
+  const [expandedTafts, setExpandedTafts] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch('/api/attendance/meta?type=all').then(r => r.json()).then(data => {
@@ -877,9 +899,11 @@ function FullReport({ user }: { user: any }) {
     ? taftList.filter(t => t.store_name?.toLowerCase() === selectedStore.toLowerCase())
     : taftList;
 
+  // Group tafts with their report rows
   const groupedByTaft = filteredTafts.reduce((acc, taft) => {
     if (selectedTaft && taft.taft_name !== selectedTaft) return acc;
-    acc[`${taft.store_name}__${taft.taft_name}`] = {
+    const key = `${taft.store_name}__${taft.taft_name}`;
+    acc[key] = {
       taft_name: taft.taft_name,
       store_name: taft.store_name,
       rows: reports.filter(r => r.taft_name === taft.taft_name && r.store_name === taft.store_name),
@@ -887,35 +911,50 @@ function FullReport({ user }: { user: any }) {
     return acc;
   }, {} as Record<string, { taft_name: string; store_name: string; rows: ReportRow[] }>);
 
+  const toggleTaft = (key: string) => {
+    setExpandedTafts(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    setExpandedTafts(new Set(Object.keys(groupedByTaft)));
+  };
+
+  const collapseAll = () => {
+    setExpandedTafts(new Set());
+  };
+
   const todayDay    = new Date().getDay();
   const todayDayKey = DAYS[todayDay === 0 ? 6 : todayDay - 1];
   const weeklyTafts = filteredTafts;
 
   return (
     <div>
-      <div className="bg-white rounded-lg shadow p-4 mb-4">
-        <div className="flex items-end gap-3 flex-wrap">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Tampilan</label>
-            <div className="flex gap-0.5 bg-gray-100 rounded p-0.5">
+      {/* Filter Bar — compact */}
+      <div className="bg-white rounded-lg shadow p-2.5 mb-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1">
+            <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Tampilan</label>
+            <div className="flex gap-0.5 bg-gray-100 rounded p-0.5 ml-1">
               {(['monthly','weekly'] as const).map(m => (
-                <button
-                  key={m}
-                  onClick={() => { setViewMode(m); setReports([]); setSchedules([]); }}
-                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${viewMode === m ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                >
+                <button key={m} onClick={() => { setViewMode(m); setReports([]); setSchedules([]); setExpandedTafts(new Set()); }}
+                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${viewMode === m ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
                   {m === 'monthly' ? 'Monthly' : 'Weekly'}
                 </button>
               ))}
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
+          <div className="flex items-center gap-1.5">
+            <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Store</label>
             <select
               value={selectedStore}
-              onChange={e => { setSelectedStore(e.target.value); setSelectedTaft(''); }}
-              className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              onChange={e => { setSelectedStore(e.target.value); setSelectedTaft(''); setExpandedTafts(new Set()); }}
+              className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="">Semua Store</option>
               {allStores.map(s => <option key={s} value={s}>{s}</option>)}
@@ -924,47 +963,35 @@ function FullReport({ user }: { user: any }) {
 
           {viewMode === 'monthly' && (
             <>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">TAFT</label>
-                <select
-                  value={selectedTaft}
-                  onChange={e => setSelectedTaft(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                >
+              <div className="flex items-center gap-1.5">
+                <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">TAFT</label>
+                <select value={selectedTaft} onChange={e => { setSelectedTaft(e.target.value); setExpandedTafts(new Set()); }}
+                  className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary">
                   <option value="">Semua TAFT</option>
                   {filteredTafts.map(t => <option key={t.id} value={t.taft_name}>{t.taft_name}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Bulan</label>
-                <input
-                  type="month"
-                  value={selectedMonth}
-                  onChange={e => setSelectedMonth(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                />
+              <div className="flex items-center gap-1.5">
+                <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Bulan</label>
+                <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary" />
               </div>
             </>
           )}
 
           {viewMode === 'weekly' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Periode Minggu</label>
-              <select
-                value={selectedDateRange}
-                onChange={e => setSelectedDateRange(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-              >
+            <div className="flex items-center gap-1.5">
+              <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Periode</label>
+              <select value={selectedDateRange} onChange={e => setSelectedDateRange(e.target.value)}
+                className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary">
                 <option value="">Pilih Periode</option>
                 {dateList.map(d => <option key={d.id} value={d.date_range}>{d.date_range}</option>)}
               </select>
             </div>
           )}
 
-          <button
-            onClick={viewMode === 'monthly' ? fetchReports : fetchSchedules}
-            className="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90"
-          >
+          <button onClick={viewMode === 'monthly' ? fetchReports : fetchSchedules}
+            className="px-3 py-1 bg-primary text-white rounded text-[11px] hover:bg-primary/90">
             Tampilkan
           </button>
         </div>
@@ -972,81 +999,126 @@ function FullReport({ user }: { user: any }) {
 
       {loading && <div className="text-center py-10 text-gray-400 text-sm">Memuat data...</div>}
 
-      {!loading && viewMode === 'monthly' && (
-        <div className="space-y-4">
-          {Object.entries(groupedByTaft).map(([key, { taft_name, store_name, rows }]) => (
-            <div key={key} className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="px-4 py-2.5 bg-gray-50 border-b flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold text-primary">{taft_name}</h3>
-                  {!selectedStore && (
-                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">{store_name}</span>
-                  )}
-                </div>
-                <span className="text-xs text-gray-400">{rows.length} hari</span>
+      {/* Monthly View: Taft list with collapsible rows */}
+      {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          {/* Header with expand/collapse all */}
+          <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+            <span className="text-[11px] font-semibold text-gray-700">
+              {Object.keys(groupedByTaft).length} TAFT
+            </span>
+            <div className="flex gap-1.5">
+              <button onClick={expandAll} className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors">
+                Buka Semua
+              </button>
+              <button onClick={collapseAll} className="text-[10px] px-2 py-0.5 rounded bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors">
+                Tutup Semua
+              </button>
+            </div>
+          </div>
+
+          {Object.entries(groupedByTaft).map(([key, { taft_name, store_name, rows }]) => {
+            const isExpanded = expandedTafts.has(key);
+            return (
+              <div key={key} className="border-b border-gray-100 last:border-0">
+                {/* Taft header row — always visible, clickable */}
+                <button
+                  onClick={() => toggleTaft(key)}
+                  className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] transition-transform ${isExpanded ? 'rotate-90' : ''}`}>▶</span>
+                    <span className="text-[11px] font-semibold text-gray-800">{taft_name}</span>
+                    {!selectedStore && (
+                      <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{store_name}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-gray-400">{rows.length} hari</span>
+                    {rows.length > 0 && (
+                      <div className="flex gap-1">
+                        {/* Mini recap badges */}
+                        {RECAP_KEYS.slice(0,5).map(({ key: k }) => {
+                          const count = rows.filter(r => r.code_time?.trim() === k).length;
+                          if (!count) return null;
+                          return (
+                            <span key={k} className={`text-[9px] px-1 py-0.5 rounded font-bold ${CODE_COLORS[k] || 'bg-gray-100'}`}>
+                              {k}:{count}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </button>
+
+                {/* Detail rows — hidden by default */}
+                {isExpanded && (
+                  <div className="border-t border-gray-50">
+                    {rows.length === 0 ? (
+                      <div className="px-8 py-3 text-[11px] text-gray-400">Belum ada data untuk bulan ini</div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead className="bg-gray-50/80">
+                            <tr>
+                              <th className="px-3 py-1.5 text-left font-medium text-gray-500 text-[10px]">Tanggal</th>
+                              <th className="px-3 py-1.5 text-center font-medium text-gray-500 text-[10px]">Clock In</th>
+                              <th className="px-3 py-1.5 text-center font-medium text-gray-500 text-[10px]">Clock Out</th>
+                              <th className="px-3 py-1.5 text-center font-medium text-gray-500 text-[10px]">Kode</th>
+                              <th className="px-3 py-1.5 text-center font-medium text-gray-500 text-[10px]">Lembur</th>
+                              <th className="px-3 py-1.5 text-left font-medium text-gray-500 text-[10px]">Keterangan</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map((r, i) => (
+                              <tr key={i} className="border-t border-gray-50 hover:bg-gray-50/60">
+                                <td className="px-3 py-1 text-gray-600 text-[10px] whitespace-nowrap">{r.date}</td>
+                                <td className="px-3 py-1 text-center text-gray-500 text-[10px]">{r.clock_in || '-'}</td>
+                                <td className="px-3 py-1 text-center text-gray-500 text-[10px]">{r.clock_out || '-'}</td>
+                                <td className="px-3 py-1 text-center">
+                                  {r.code_time
+                                    ? <span className={`px-1 py-0.5 rounded font-bold text-[9px] ${CODE_COLORS[r.code_time] || 'bg-gray-100 text-gray-700'}`}>{r.code_time}</span>
+                                    : <span className="text-gray-300 text-[10px]">-</span>
+                                  }
+                                </td>
+                                <td className="px-3 py-1 text-center text-orange-600 text-[10px]">
+                                  {r.overtime_hours && parseFloat(r.overtime_hours) > 0 ? `${r.overtime_hours}j` : '-'}
+                                </td>
+                                <td className="px-3 py-1 text-gray-500 text-[10px] max-w-[200px] truncate">{r.reason || '-'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              {rows.length === 0 ? (
-                <div className="px-4 py-6 text-center text-xs text-gray-400">Belum ada data</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-gray-50 border-b">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">Tanggal</th>
-                        <th className="px-3 py-2 text-center font-medium text-gray-600">Clock In</th>
-                        <th className="px-3 py-2 text-center font-medium text-gray-600">Clock Out</th>
-                        <th className="px-3 py-2 text-center font-medium text-gray-600">Kode</th>
-                        <th className="px-3 py-2 text-center font-medium text-gray-600">Lembur</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">Keterangan</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((r, i) => (
-                        <tr key={i} className="border-b hover:bg-gray-50">
-                          <td className="px-3 py-1.5 text-gray-700 whitespace-nowrap">{r.date}</td>
-                          <td className="px-3 py-1.5 text-center text-gray-600">{r.clock_in || '-'}</td>
-                          <td className="px-3 py-1.5 text-center text-gray-600">{r.clock_out || '-'}</td>
-                          <td className="px-3 py-1.5 text-center">
-                            {r.code_time
-                              ? <span className={`px-1.5 py-0.5 rounded font-bold text-[10px] ${CODE_COLORS[r.code_time] || 'bg-gray-100 text-gray-700'}`}>{r.code_time}</span>
-                              : <span className="text-gray-300">-</span>
-                            }
-                          </td>
-                          <td className="px-3 py-1.5 text-center text-orange-600">
-                            {r.overtime_hours && parseFloat(r.overtime_hours) > 0 ? `${r.overtime_hours}j` : '-'}
-                          </td>
-                          <td className="px-3 py-1.5 text-gray-600 max-w-[200px] truncate">{r.reason || '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          ))}
-          {Object.keys(groupedByTaft).length === 0 && (
-            <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">
-              Pilih bulan untuk melihat data
-            </div>
-          )}
+            );
+          })}
         </div>
       )}
 
+      {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length === 0 && (
+        <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">
+          Pilih bulan untuk melihat data
+        </div>
+      )}
+
+      {/* Weekly View */}
       {!loading && viewMode === 'weekly' && (
         selectedDateRange ? (
           <div className="bg-white rounded-lg shadow overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="bg-gray-100 border-b">
                 <tr>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-700 min-w-[180px]">Nama TAFT</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-700 text-[11px] min-w-[150px]">Nama TAFT</th>
                   {!selectedStore && (
-                    <th className="px-3 py-2 text-left font-semibold text-gray-700 min-w-[120px]">Store</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-700 text-[11px] min-w-[110px]">Store</th>
                   )}
                   {DAY_LABELS_FULL.map((label, i) => (
-                    <th
-                      key={label}
-                      className={`px-2 py-2 text-center font-semibold text-gray-700 min-w-[64px] ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}
-                    >
+                    <th key={label} className={`px-2 py-2 text-center font-semibold text-gray-700 text-[11px] min-w-[56px] ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}>
                       {label}
                     </th>
                   ))}
@@ -1061,17 +1133,17 @@ function FullReport({ user }: { user: any }) {
                   );
                   return (
                     <tr key={taft.id} className="border-b hover:bg-gray-50">
-                      <td className="px-3 py-2 font-medium text-gray-800">{taft.taft_name}</td>
+                      <td className="px-3 py-1.5 font-medium text-gray-800 text-[11px]">{taft.taft_name}</td>
                       {!selectedStore && (
-                        <td className="px-3 py-2 text-gray-500">{taft.store_name}</td>
+                        <td className="px-3 py-1.5 text-gray-500 text-[10px]">{taft.store_name}</td>
                       )}
                       {DAYS.map((d, i) => {
                         const code = sched?.[d as keyof ScheduleRow] as string || '';
                         return (
-                          <td key={d} className={`px-2 py-2 text-center ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}>
+                          <td key={d} className={`px-2 py-1.5 text-center ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}>
                             {code
-                              ? <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>{code}</span>
-                              : <span className="text-gray-300">-</span>
+                              ? <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>{code}</span>
+                              : <span className="text-gray-300 text-[10px]">-</span>
                             }
                           </td>
                         );
@@ -1081,7 +1153,7 @@ function FullReport({ user }: { user: any }) {
                 })}
                 {weeklyTafts.length === 0 && (
                   <tr>
-                    <td colSpan={!selectedStore ? 9 : 8} className="px-3 py-8 text-center text-gray-400">
+                    <td colSpan={!selectedStore ? 9 : 8} className="px-3 py-8 text-center text-gray-400 text-sm">
                       Tidak ada data taft
                     </td>
                   </tr>
