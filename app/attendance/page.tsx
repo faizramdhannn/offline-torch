@@ -68,6 +68,23 @@ const RECAP_KEYS = [
   { key:'A',   label:'ALPA (A)'        },
 ];
 
+// ── Normalize clock time: replace dots with colons, e.g. "08.30" → "08:30" ──
+function normalizeTime(raw: string | undefined | null): string {
+  if (!raw) return '';
+  // Replace any dot used as time separator with colon
+  // Matches patterns like 08.30, 8.30, 08.30.00
+  return raw.toString().trim().replace(/^(\d{1,2})\.(\d{2})(\.(\d{2}))?$/, (_, h, m, _s, s) => {
+    return s ? `${h.padStart(2,'0')}:${m}:${s}` : `${h.padStart(2,'0')}:${m}`;
+  });
+}
+
+/** Display a clock value — normalizes both dot and colon formats */
+function displayTime(val: string | undefined): string {
+  if (!val) return '-';
+  const n = normalizeTime(val);
+  return n || val; // fallback to original if regex didn't match
+}
+
 // ── Parse DD/MM/YYYY or YYYY-MM-DD safely ─────────────────────────────────────
 function parseDateSafe(str: string): Date | null {
   if (!str) return null;
@@ -102,6 +119,52 @@ function findCurrentDateRange(dateList: DateEntry[]): string {
   if (dateList.length > 0) return dateList[dateList.length - 1].date_range;
   return '';
 }
+
+/**
+ * Build the correct date range for a taft given a YYYY-MM month string.
+ *
+ * Rules:
+ *   startDay >= endDay → cross-month: startDay of PREV month → endDay of CURRENT month
+ *     e.g. 26-25, April → 26 Mar – 25 Apr
+ *     e.g. 25-25, April → 25 Mar – 25 Apr
+ *   startDay < endDay  → same-month: startDay → endDay of CURRENT month
+ *     e.g. 1-31,  April → 1 Apr – 30 Apr (capped to month end automatically)
+ */
+function buildTaftDateRange(month: string, startDay: number, endDay: number): { from: Date; to: Date } {
+  const [year, mon] = month.split('-').map(Number);
+
+  let from: Date;
+  let to: Date;
+
+  if (startDay >= endDay) {
+    // Cross-month
+    from = new Date(year, mon - 2, startDay);
+    to   = new Date(year, mon - 1, endDay);
+  } else {
+    // Same-month
+    from = new Date(year, mon - 1, startDay);
+    to   = new Date(year, mon - 1, endDay);
+  }
+
+  from.setHours(0, 0, 0, 0);
+  to.setHours(23, 59, 59, 999);
+  return { from, to };
+}
+
+/** Build YYYY-MM-DD date list for a taft's period given a month string. */
+function buildTaftDates(month: string, startDay: number, endDay: number): Date[] {
+  const { from, to } = buildTaftDateRange(month, startDay, endDay);
+  const dates: Date[] = [];
+  const cur = new Date(from);
+  while (cur <= to) {
+    dates.push(new Date(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+
+const fmtISO = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function AttendancePage() {
@@ -518,19 +581,23 @@ function MonthlyReport({
     const taftInfo = taftList.find(t => t.taft_name === selectedTaft && (selectedStore ? t.store_name?.toLowerCase() === selectedStore.toLowerCase() : true));
     const startDay = parseInt(taftInfo?.start_date || '26');
     const endDay   = parseInt(taftInfo?.end_date   || '25');
-    const [year, mon] = selectedMonth.split('-').map(Number);
-    const startDate = new Date(year, mon - 2, startDay);
-    const endDate   = new Date(year, mon - 1, endDay);
-    const dates: Date[] = [];
-    const cur = new Date(startDate);
-    while (cur <= endDate) { dates.push(new Date(cur)); cur.setDate(cur.getDate() + 1); }
-    const fmtISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+    // Use unified date range builder
+    const dates = buildTaftDates(selectedMonth, startDay, endDay);
+
     const wb      = XLSX.utils.book_new();
     const headers = ['date','store_name','taft_name','clock_in','clock_out','code_time','overtime_hours','reason'];
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...dates.map(d => [fmtISO(d), storeForTemplate, selectedTaft, '', '', '', '', ''])]);
+    const ws = XLSX.utils.aoa_to_sheet([
+      headers,
+      ...dates.map(d => [fmtISO(d), storeForTemplate, selectedTaft, '', '', '', '', '']),
+    ]);
     ws['!cols'] = [{ wch:14 },{ wch:16 },{ wch:28 },{ wch:10 },{ wch:10 },{ wch:12 },{ wch:14 },{ wch:20 }];
     XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
-    const refWs = XLSX.utils.aoa_to_sheet([['Kode','Keterangan'],['P','Pagi'],['S','Siang'],['F','Full'],['MF','Midle Full'],['O','OFF'],['C','Cuti'],['+','Sakit'],['I','Izin'],['A','Alpa']]);
+    const refWs = XLSX.utils.aoa_to_sheet([
+      ['Kode','Keterangan'],
+      ['P','Pagi'],['S','Siang'],['F','Full'],['MF','Midle Full'],
+      ['O','OFF'],['C','Cuti'],['+','Sakit'],['I','Izin'],['A','Alpa'],
+    ]);
     refWs['!cols'] = [{ wch:8 },{ wch:16 }];
     XLSX.utils.book_append_sheet(wb, refWs, 'Kode Referensi');
     XLSX.writeFile(wb, `attendance_${storeForTemplate}_${selectedTaft.replace(/ /g,'_')}_${selectedMonth}.xlsx`);
@@ -547,9 +614,15 @@ function MonthlyReport({
       const ws      = wb.Sheets[wb.SheetNames[0]];
       const rawRows = XLSX.utils.sheet_to_json<any>(ws, { defval: '' });
       const rows = rawRows.filter((r: any) => r.date).map((r: any) => ({
-        date: String(r.date||''), store_name: String(r.store_name||''), taft_name: String(r.taft_name||''),
-        clock_in: String(r.clock_in||''), clock_out: String(r.clock_out||''), code_time: String(r.code_time||''),
-        overtime_hours: String(r.overtime_hours||''), reason: String(r.reason||''),
+        date:           String(r.date           || ''),
+        store_name:     String(r.store_name     || ''),
+        taft_name:      String(r.taft_name      || ''),
+        // Normalize time on import so the sheet stores clean HH:MM
+        clock_in:       normalizeTime(String(r.clock_in      || '')),
+        clock_out:      normalizeTime(String(r.clock_out     || '')),
+        code_time:      String(r.code_time      || ''),
+        overtime_hours: String(r.overtime_hours || ''),
+        reason:         String(r.reason         || ''),
       }));
       if (rows.length === 0) { setPopup({ show: true, message: 'Tidak ada data yang valid di file', type: 'error' }); return; }
       const res = await fetch('/api/attendance/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows }) });
@@ -564,12 +637,21 @@ function MonthlyReport({
   };
 
   // ── Recap logic ──────────────────────────────────────────────────────────────
+  /**
+   * Fetch ALL report data for the selected month (using each taft's own date range).
+   * Since different tafts may have different start/end days, we fetch a wide window
+   * (entire prev+curr month) then filter in the client per taft.
+   */
   const fetchRecap = async () => {
     setRecapLoading(true);
-    const storeParam = recapStore ? `&store_name=${encodeURIComponent(recapStore)}` : '';
-    const res = await fetch(`/api/attendance/report?month=${selectedMonth}${storeParam}`);
-    setRecapReports(await res.json());
-    setRecapLoading(false);
+    try {
+      const storeParam = recapStore ? `&store_name=${encodeURIComponent(recapStore)}` : '';
+      // Fetch without date filter — we filter per-taft client-side using buildTaftDateRange
+      const res = await fetch(`/api/attendance/report?month=${selectedMonth}${storeParam}`);
+      setRecapReports(await res.json());
+    } finally {
+      setRecapLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -580,8 +662,21 @@ function MonthlyReport({
     ? taftList.filter(t => t.store_name?.toLowerCase() === recapStore.toLowerCase())
     : taftList;
 
-  const calcRecap = (taftName: string, storeName: string) => {
-    const rows = recapReports.filter(r => r.taft_name === taftName && r.store_name === storeName);
+  /**
+   * Calculate recap for a single taft, filtering report rows by the taft's
+   * own date range (start_date → end_date) for the selected month.
+   */
+  const calcRecap = (taft: TaftEntry) => {
+    const startDay = parseInt(taft.start_date) || 26;
+    const endDay   = parseInt(taft.end_date)   || 25;
+    const { from, to } = buildTaftDateRange(selectedMonth, startDay, endDay);
+
+    const rows = recapReports.filter(r => {
+      if (r.taft_name !== taft.taft_name || r.store_name !== taft.store_name) return false;
+      const d = parseDateSafe(r.date);
+      return d && d >= from && d <= to;
+    });
+
     const counts: Record<string,number> = {};
     let totalMasuk = 0, totalOff = 0, totalLembur = 0;
     rows.forEach(r => {
@@ -656,6 +751,7 @@ function MonthlyReport({
           <div className="bg-white rounded-lg shadow p-3">
             <p className="text-[11px] font-semibold text-gray-700 mb-1.5">Panduan</p>
             <p className="text-[11px] text-gray-500 mb-2">Download template XLSX → isi kolom <strong>clock_in</strong>, <strong>clock_out</strong>, <strong>code_time</strong>, <strong>overtime_hours</strong>, <strong>reason</strong> → Import kembali.</p>
+            <p className="text-[11px] text-gray-400 mb-2">Format jam: <code className="bg-gray-100 px-1 rounded">08:30</code> atau <code className="bg-gray-100 px-1 rounded">08.30</code> (titik otomatis dikonversi ke titik dua).</p>
             <div className="flex flex-wrap gap-1.5">
               {RECAP_KEYS.map(({ key, label }) => (
                 <span key={key} className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${CODE_COLORS[key] || 'bg-gray-100'}`}>
@@ -705,6 +801,7 @@ function MonthlyReport({
                         <th className="px-2 py-2 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50 z-10 min-w-[100px] w-24 border-r border-gray-200 text-[10px]">Store</th>
                       )}
                       <th className="px-2 py-2 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50 z-10 min-w-[130px] max-w-[150px] w-36 border-r border-gray-200 text-[10px]">Nama TAFT</th>
+                      <th className="px-1 py-2 text-center font-semibold text-gray-500 w-16 text-[10px]">Periode</th>
                       {RECAP_KEYS.map(({ key }) => (
                         <th key={key} className="px-1 py-2 text-center font-semibold text-gray-600 w-10 text-[10px]">
                           <span className={`inline-block px-1 py-0.5 rounded text-[9px] font-bold ${CODE_COLORS[key] || 'bg-gray-100 text-gray-600'}`}>{key}</span>
@@ -720,13 +817,17 @@ function MonthlyReport({
                       <React.Fragment key={storeName}>
                         {!recapStore && (
                           <tr className="bg-primary/5 border-y border-primary/10">
-                            <td colSpan={13} className="px-2 py-1 sticky left-0 bg-primary/5 z-10">
+                            <td colSpan={14} className="px-2 py-1 sticky left-0 bg-primary/5 z-10">
                               <span className="text-[10px] font-bold text-primary">{storeName}</span>
                             </td>
                           </tr>
                         )}
                         {tafts.map(taft => {
-                          const recap = calcRecap(taft.taft_name, taft.store_name);
+                          const recap = calcRecap(taft);
+                          const sd = parseInt(taft.start_date) || 26;
+                          const ed = parseInt(taft.end_date)   || 25;
+                          const { from, to } = buildTaftDateRange(selectedMonth, sd, ed);
+                          const periodeLabel = `${String(from.getDate()).padStart(2,'0')}/${String(from.getMonth()+1).padStart(2,'0')} - ${String(to.getDate()).padStart(2,'0')}/${String(to.getMonth()+1).padStart(2,'0')}`;
                           return (
                             <tr key={taft.id} className="border-b border-gray-100 hover:bg-gray-50/80">
                               {!recapStore && (
@@ -734,6 +835,9 @@ function MonthlyReport({
                               )}
                               <td className="px-2 py-1 sticky left-0 bg-white z-10 border-r border-gray-100 min-w-[130px] max-w-[150px] w-36">
                                 <span className="font-medium text-gray-800 text-[10px] truncate block" title={taft.taft_name}>{taft.taft_name}</span>
+                              </td>
+                              <td className="px-1 py-1 text-center w-16">
+                                <span className="text-[9px] text-gray-400 whitespace-nowrap">{periodeLabel}</span>
                               </td>
                               {RECAP_KEYS.map(({ key }) => (
                                 <td key={key} className="px-1 py-1 text-center w-10">
@@ -803,6 +907,23 @@ function MonthlyReport({
                 <label className="block text-xs font-medium text-gray-700 mb-1">Bulan</label>
                 <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
               </div>
+              {/* Preview date range based on selected taft */}
+              {selectedTaft && (() => {
+                const taftInfo = filteredTafts.find(t => t.taft_name === selectedTaft);
+                if (!taftInfo) return null;
+                const sd = parseInt(taftInfo.start_date) || 26;
+                const ed = parseInt(taftInfo.end_date)   || 25;
+                const dates = buildTaftDates(selectedMonth, sd, ed);
+                if (dates.length === 0) return null;
+                const first = dates[0];
+                const last  = dates[dates.length - 1];
+                const fmt = (d: Date) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+                return (
+                  <div className="px-3 py-2 bg-primary/5 rounded text-[11px] text-primary">
+                    Periode: <strong>{fmt(first)} – {fmt(last)}</strong> ({dates.length} hari)
+                  </div>
+                );
+              })()}
             </div>
             <div className="flex gap-2 mt-5">
               <button onClick={() => setShowDownloadModal(false)} className="flex-1 px-4 py-2 bg-gray-400 text-white rounded text-sm">Batal</button>
@@ -858,6 +979,7 @@ function FullReport({ user }: { user: any }) {
     setLoading(true);
     const storeParam = selectedStore ? `&store_name=${encodeURIComponent(selectedStore)}` : '';
     const taftParam  = selectedTaft  ? `&taft_name=${encodeURIComponent(selectedTaft)}`   : '';
+    // Fetch broad window — per-taft filtering happens client-side in groupedByTaft
     const res = await fetch(`/api/attendance/report?month=${selectedMonth}${storeParam}${taftParam}`);
     setReports(await res.json());
     setLoading(false);
@@ -875,13 +997,27 @@ function FullReport({ user }: { user: any }) {
     ? taftList.filter(t => t.store_name?.toLowerCase() === selectedStore.toLowerCase())
     : taftList;
 
+  /**
+   * Group report rows per taft, filtering each taft's rows by its own date range.
+   */
   const groupedByTaft = filteredTafts.reduce((acc, taft) => {
     if (selectedTaft && taft.taft_name !== selectedTaft) return acc;
     const key = `${taft.store_name}__${taft.taft_name}`;
+
+    const sd = parseInt(taft.start_date) || 26;
+    const ed = parseInt(taft.end_date)   || 25;
+    const { from, to } = buildTaftDateRange(selectedMonth, sd, ed);
+
+    const rows = reports.filter(r => {
+      if (r.taft_name !== taft.taft_name || r.store_name !== taft.store_name) return false;
+      const d = parseDateSafe(r.date);
+      return d && d >= from && d <= to;
+    });
+
     acc[key] = {
-      taft_name: taft.taft_name,
+      taft_name:  taft.taft_name,
       store_name: taft.store_name,
-      rows: reports.filter(r => r.taft_name === taft.taft_name && r.store_name === taft.store_name),
+      rows,
     };
     return acc;
   }, {} as Record<string, { taft_name: string; store_name: string; rows: ReportRow[] }>);
@@ -987,7 +1123,7 @@ function FullReport({ user }: { user: any }) {
             const isExpanded = expandedTafts.has(key);
             return (
               <div key={key} className="border-b border-gray-100 last:border-0">
-                {/* Taft header — arrow on RIGHT, no sendPrompt */}
+                {/* Taft header */}
                 <button
                   onClick={() => toggleTaft(key)}
                   className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors text-left"
@@ -1012,7 +1148,6 @@ function FullReport({ user }: { user: any }) {
                       </div>
                     )}
                   </div>
-                  {/* Arrow on the right */}
                   <span className={`text-gray-400 text-[10px] transition-transform duration-200 ml-2 shrink-0 ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
                 </button>
 
@@ -1020,7 +1155,7 @@ function FullReport({ user }: { user: any }) {
                 {isExpanded && (
                   <div className="border-t border-gray-50">
                     {rows.length === 0 ? (
-                      <div className="px-8 py-3 text-[11px] text-gray-400">Belum ada data untuk bulan ini</div>
+                      <div className="px-8 py-3 text-[11px] text-gray-400">Belum ada data untuk periode ini</div>
                     ) : (
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs">
@@ -1038,8 +1173,9 @@ function FullReport({ user }: { user: any }) {
                             {rows.map((r, i) => (
                               <tr key={i} className="border-t border-gray-50 hover:bg-gray-50/60">
                                 <td className="px-3 py-1 text-gray-600 text-[10px] whitespace-nowrap">{r.date}</td>
-                                <td className="px-3 py-1 text-center text-gray-500 text-[10px]">{r.clock_in || '-'}</td>
-                                <td className="px-3 py-1 text-center text-gray-500 text-[10px]">{r.clock_out || '-'}</td>
+                                {/* displayTime normalizes dot-format times */}
+                                <td className="px-3 py-1 text-center text-gray-500 text-[10px] font-mono">{displayTime(r.clock_in)}</td>
+                                <td className="px-3 py-1 text-center text-gray-500 text-[10px] font-mono">{displayTime(r.clock_out)}</td>
                                 <td className="px-3 py-1 text-center">
                                   {r.code_time
                                     ? <span className={`px-1 py-0.5 rounded font-bold text-[9px] ${CODE_COLORS[r.code_time] || 'bg-gray-100 text-gray-700'}`}>{r.code_time}</span>
