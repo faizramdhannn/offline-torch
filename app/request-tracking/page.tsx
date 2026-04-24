@@ -73,6 +73,7 @@ function validateReceiver(val: string): string {
 }
 
 // ── Drag & Drop Upload Zone ───────────────────────────────────────────────
+// Dipindah ke luar agar tidak di-remount setiap render
 function DropZone({
   file,
   onFile,
@@ -134,7 +135,6 @@ function DropZone({
       />
 
       {file ? (
-        // ── File selected state ──
         <div className="flex items-center gap-2 p-2 rounded border border-green-300 bg-green-50">
           {preview ? (
             <img src={preview} alt="preview" className="w-10 h-10 object-cover rounded border border-green-200 shrink-0" />
@@ -162,7 +162,6 @@ function DropZone({
           </button>
         </div>
       ) : (
-        // ── Drop zone ──
         <div
           onClick={handleClick}
           onDrop={handleDrop}
@@ -192,6 +191,222 @@ function DropZone({
   );
 }
 
+// ── ExpeditionToggle ──────────────────────────────────────────────────────
+// Dipindah ke luar agar tidak di-remount setiap render
+function ExpeditionToggle({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-700 mb-1">
+        Ekspedisi <span className="text-red-500">*</span>
+      </label>
+      <div className="flex gap-2">
+        {EXPEDITIONS.map((exp) => {
+          const isSelected = value === exp;
+          return (
+            <button
+              key={exp}
+              type="button"
+              onClick={() => onChange(exp)}
+              className={`flex-1 flex items-center justify-center py-2 px-3 rounded border-2 transition-all ${
+                isSelected
+                  ? "border-primary bg-primary/5 shadow-sm"
+                  : "border-gray-200 hover:border-gray-400 bg-white"
+              }`}
+            >
+              <img src={EXPEDITION_LOGO[exp]} alt={exp} className="h-7 w-auto object-contain" />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── ExpeditionBadge ───────────────────────────────────────────────────────
+function ExpeditionBadge({ expedition }: { expedition: string }) {
+  const logo = EXPEDITION_LOGO[expedition];
+  if (logo) {
+    return <img src={logo} alt={expedition} className="h-5 w-auto object-contain" title={expedition} />;
+  }
+  return (
+    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700">{expedition}</span>
+  );
+}
+
+// ── SenderSelect ──────────────────────────────────────────────────────────
+// Dipindah ke luar agar tidak di-remount setiap render
+function SenderSelect({
+  value,
+  onChange,
+  details,
+  storeAddresses,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  details: StoreAddress | null;
+  storeAddresses: StoreAddress[];
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-700 mb-1">
+        Pengirim (Store) <span className="text-red-500">*</span>
+      </label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+      >
+        <option value="">Pilih store pengirim</option>
+        {storeAddresses.map((s) => (
+          <option key={s.id} value={s.store_location}>{s.store_location}</option>
+        ))}
+      </select>
+      {details && (
+        <div className="mt-1.5 p-2 bg-blue-50 border border-blue-200 rounded text-[10px] text-blue-800 space-y-0.5">
+          <div>{details.phone_number}</div>
+          <div>{details.address}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── ReceiverField ─────────────────────────────────────────────────────────
+// Dipindah ke luar agar tidak di-remount setiap render
+// Root penyebab bug: jika didefinisikan di dalam komponen parent, React
+// membuat fungsi baru setiap render → unmount/remount → focus/keyboard hilang
+function ReceiverField({
+  mode,
+  onModeChange,
+  storeValue,
+  onStoreChange,
+  customValue,
+  onCustomChange,
+  error,
+  onBlur,
+  storeAddresses,
+}: {
+  mode: "dropdown" | "custom";
+  onModeChange: (m: "dropdown" | "custom") => void;
+  storeValue: string;
+  onStoreChange: (v: string) => void;
+  customValue: string;
+  onCustomChange: (v: string) => void;
+  error: string;
+  onBlur: () => void;
+  storeAddresses: StoreAddress[];
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <label className="text-xs font-medium text-gray-700">
+          Penerima <span className="text-red-500">*</span>
+        </label>
+        <div className="flex gap-1 bg-gray-100 rounded p-0.5">
+          <button
+            type="button"
+            onClick={() => { onModeChange("dropdown"); onCustomChange(""); }}
+            className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
+              mode === "dropdown" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Store
+          </button>
+          <button
+            type="button"
+            onClick={() => { onModeChange("custom"); onStoreChange(""); onCustomChange(""); }}
+            className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
+              mode === "custom" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Custom
+          </button>
+        </div>
+      </div>
+
+      {mode === "dropdown" ? (
+        <>
+          <select
+            value={storeValue}
+            onChange={(e) => onStoreChange(e.target.value)}
+            className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="">Pilih store penerima</option>
+            {storeAddresses.map((s) => (
+              <option key={s.id} value={s.store_location}>{s.store_location}</option>
+            ))}
+          </select>
+          {customValue && (
+            <div className="mt-1.5 p-2 bg-gray-50 border border-gray-200 rounded text-[10px] text-gray-700 font-mono whitespace-pre-line">
+              {customValue}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <textarea
+            value={customValue}
+            onChange={(e) => onCustomChange(e.target.value)}
+            onBlur={onBlur}
+            rows={4}
+            placeholder={"Nama Penerima\n08xxxxxxxxxx\nJl. Contoh No. 1, Kota, Provinsi\n12345"}
+            className={`w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 resize-none font-mono ${
+              error ? "border-red-400 focus:ring-red-400" : "border-gray-300 focus:ring-primary"
+            }`}
+          />
+          {error
+            ? <p className="text-[10px] text-red-500 mt-1">⚠ {error}</p>
+            : <p className="text-[10px] text-gray-400 mt-1">Wajib: nama · nomor HP (08xx/+628xx) · alamat · kode pos 5 digit</p>
+          }
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── CopyButton ────────────────────────────────────────────────────────────
+// Dipindah ke luar agar tidak di-remount setiap render
+function CopyButton({
+  text,
+  id,
+  copiedId,
+  onCopy,
+}: {
+  text: string;
+  id: string;
+  copiedId: string | null;
+  onCopy: (text: string, id: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onCopy(text, id)}
+      title="Copy alamat penerima"
+      className="inline-flex items-center justify-center w-5 h-5 rounded hover:bg-gray-200 transition-colors shrink-0"
+    >
+      {copiedId === id ? (
+        <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+        </svg>
+      ) : (
+        <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Main Page Component
+// ═════════════════════════════════════════════════════════════════════════════
 export default function RequestTrackingPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -508,131 +723,6 @@ export default function RequestTrackingPage() {
   const canEdit = user.request_tracking;
   const canUpload = user.tracking_edit;
 
-  const ExpeditionToggle = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-    <div>
-      <label className="block text-xs font-medium text-gray-700 mb-1">
-        Ekspedisi <span className="text-red-500">*</span>
-      </label>
-      <div className="flex gap-2">
-        {EXPEDITIONS.map((exp) => {
-          const isSelected = value === exp;
-          return (
-            <button
-              key={exp}
-              type="button"
-              onClick={() => onChange(exp)}
-              className={`flex-1 flex items-center justify-center py-2 px-3 rounded border-2 transition-all ${
-                isSelected
-                  ? "border-primary bg-primary/5 shadow-sm"
-                  : "border-gray-200 hover:border-gray-400 bg-white"
-              }`}
-            >
-              <img src={EXPEDITION_LOGO[exp]} alt={exp} className="h-7 w-auto object-contain" />
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  const ExpeditionBadge = ({ expedition }: { expedition: string }) => {
-    const logo = EXPEDITION_LOGO[expedition];
-    if (logo) {
-      return <img src={logo} alt={expedition} className="h-5 w-auto object-contain" title={expedition} />;
-    }
-    return (
-      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700">{expedition}</span>
-    );
-  };
-
-  const SenderSelect = ({ value, onChange, details }: { value: string; onChange: (v: string) => void; details: StoreAddress | null }) => (
-    <div>
-      <label className="block text-xs font-medium text-gray-700 mb-1">Pengirim (Store) <span className="text-red-500">*</span></label>
-      <select value={value} onChange={(e) => onChange(e.target.value)}
-        className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-        <option value="">Pilih store pengirim</option>
-        {storeAddresses.map((s) => <option key={s.id} value={s.store_location}>{s.store_location}</option>)}
-      </select>
-      {details && (
-        <div className="mt-1.5 p-2 bg-blue-50 border border-blue-200 rounded text-[10px] text-blue-800 space-y-0.5">
-          <div>{details.phone_number}</div>
-          <div>{details.address}</div>
-        </div>
-      )}
-    </div>
-  );
-
-  const ReceiverField = ({
-    mode, onModeChange, storeValue, onStoreChange, customValue, onCustomChange, error, onBlur,
-  }: {
-    mode: "dropdown" | "custom"; onModeChange: (m: "dropdown" | "custom") => void;
-    storeValue: string; onStoreChange: (v: string) => void;
-    customValue: string; onCustomChange: (v: string) => void;
-    error: string; onBlur: () => void;
-  }) => (
-    <div>
-      <div className="flex items-center justify-between mb-1">
-        <label className="text-xs font-medium text-gray-700">Penerima <span className="text-red-500">*</span></label>
-        <div className="flex gap-1 bg-gray-100 rounded p-0.5">
-          <button type="button" onClick={() => { onModeChange("dropdown"); onCustomChange(""); }}
-            className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
-              mode === "dropdown" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
-            }`}>Store</button>
-          <button type="button" onClick={() => { onModeChange("custom"); onStoreChange(""); onCustomChange(""); }}
-            className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
-              mode === "custom" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
-            }`}>Custom</button>
-        </div>
-      </div>
-      {mode === "dropdown" ? (
-        <>
-          <select value={storeValue} onChange={(e) => onStoreChange(e.target.value)}
-            className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-            <option value="">Pilih store penerima</option>
-            {storeAddresses.map((s) => <option key={s.id} value={s.store_location}>{s.store_location}</option>)}
-          </select>
-          {customValue && (
-            <div className="mt-1.5 p-2 bg-gray-50 border border-gray-200 rounded text-[10px] text-gray-700 font-mono whitespace-pre-line">
-              {customValue}
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          <textarea value={customValue} onChange={(e) => onCustomChange(e.target.value)} onBlur={onBlur}
-            rows={4} placeholder={"Nama Penerima\n08xxxxxxxxxx\nJl. Contoh No. 1, Kota, Provinsi\n12345"}
-            className={`w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 resize-none font-mono ${
-              error ? "border-red-400 focus:ring-red-400" : "border-gray-300 focus:ring-primary"
-            }`} />
-          {error
-            ? <p className="text-[10px] text-red-500 mt-1">⚠ {error}</p>
-            : <p className="text-[10px] text-gray-400 mt-1">Wajib: nama · nomor HP (08xx/+628xx) · alamat · kode pos 5 digit</p>
-          }
-        </>
-      )}
-    </div>
-  );
-
-  const CopyButton = ({ text, id }: { text: string; id: string }) => (
-    <button
-      type="button"
-      onClick={() => handleCopyReceiver(text, id)}
-      title="Copy alamat penerima"
-      className="inline-flex items-center justify-center w-5 h-5 rounded hover:bg-gray-200 transition-colors shrink-0"
-    >
-      {copiedId === id ? (
-        <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-        </svg>
-      ) : (
-        <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-        </svg>
-      )}
-    </button>
-  );
-
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar userName={user.name} permissions={user} />
@@ -642,8 +732,10 @@ export default function RequestTrackingPage() {
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-primary">Request Shipment</h1>
             {canEdit && (
-              <button onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90">
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90"
+              >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
@@ -688,7 +780,14 @@ export default function RequestTrackingPage() {
                             <td className="px-2 py-1 text-gray-600">
                               <div className="flex items-start gap-1">
                                 <div className="truncate flex-1" title={item.receiver}>{item.receiver.split("\n")[0]}</div>
-                                {canUpload && item.receiver && <CopyButton text={item.receiver} id={item.id} />}
+                                {canUpload && item.receiver && (
+                                  <CopyButton
+                                    text={item.receiver}
+                                    id={item.id}
+                                    copiedId={copiedId}
+                                    onCopy={handleCopyReceiver}
+                                  />
+                                )}
                               </div>
                             </td>
                             <td className="px-2 py-1 text-gray-600">{item.weight} kg</td>
@@ -784,45 +883,95 @@ export default function RequestTrackingPage() {
             <h2 className="text-lg font-bold text-primary mb-4">Request Shipment Baru</h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Tanggal <span className="text-red-500">*</span></label>
-                <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Tanggal <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To <span className="text-red-500">*</span></label>
-                <select value={form.assigned_to} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Assigned To <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={form.assigned_to}
+                  onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                >
                   <option value="">Pilih</option>
-                  {dropdownData.assignees.map((a) => (<option key={a.value} value={a.value}>{a.label}</option>))}
+                  {dropdownData.assignees.map((a) => (
+                    <option key={a.value} value={a.value}>{a.label}</option>
+                  ))}
                 </select>
               </div>
-              <ExpeditionToggle value={form.expedition} onChange={(v) => setForm({ ...form, expedition: v })} />
-              <SenderSelect value={form.sender} onChange={(v) => handleSenderChange(v)} details={selectedSenderDetails} />
+
+              <ExpeditionToggle
+                value={form.expedition}
+                onChange={(v) => setForm({ ...form, expedition: v })}
+              />
+
+              <SenderSelect
+                value={form.sender}
+                onChange={(v) => handleSenderChange(v)}
+                details={selectedSenderDetails}
+                storeAddresses={storeAddresses}
+              />
+
               <ReceiverField
-                mode={addReceiverMode} onModeChange={(m) => setAddReceiverMode(m)}
-                storeValue={addReceiverStore} onStoreChange={(v) => handleReceiverStoreChange(v, false)}
-                customValue={form.receiver} onCustomChange={(v) => { setForm({ ...form, receiver: v }); setReceiverError(""); }}
+                mode={addReceiverMode}
+                onModeChange={(m) => setAddReceiverMode(m)}
+                storeValue={addReceiverStore}
+                onStoreChange={(v) => handleReceiverStoreChange(v, false)}
+                customValue={form.receiver}
+                onCustomChange={(v) => { setForm({ ...form, receiver: v }); setReceiverError(""); }}
                 error={receiverError}
                 onBlur={() => { if (addReceiverMode === "custom") setReceiverError(validateReceiver(form.receiver)); }}
+                storeAddresses={storeAddresses}
               />
+
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Berat (kg) <span className="text-red-500">*</span></label>
-                <input type="number" min="0.1" step="0.1" value={form.weight}
-                  onChange={(e) => setForm({ ...form, weight: e.target.value })} placeholder="contoh: 1.5"
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Berat (kg) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={form.weight}
+                  onChange={(e) => setForm({ ...form, weight: e.target.value })}
+                  placeholder="contoh: 1.5"
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Alasan / Keterangan <span className="text-red-500">*</span></label>
-                <textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })}
-                  rows={2} placeholder="Misal: Order WAG, Retur barang rusak..."
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Alasan / Keterangan <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={form.reason}
+                  onChange={(e) => setForm({ ...form, reason: e.target.value })}
+                  rows={2}
+                  placeholder="Misal: Order WAG, Retur barang rusak..."
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                />
               </div>
             </div>
             <div className="flex gap-2 mt-5">
-              <button onClick={() => { setShowAddModal(false); resetAddForm(); }}
-                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">Batal</button>
-              <button onClick={handleAdd} disabled={submitting}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">
+              <button
+                onClick={() => { setShowAddModal(false); resetAddForm(); }}
+                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleAdd}
+                disabled={submitting}
+                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
+              >
                 {submitting ? "Menyimpan..." : "Submit"}
               </button>
             </div>
@@ -838,44 +987,84 @@ export default function RequestTrackingPage() {
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Tanggal</label>
-                <input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                <input
+                  type="date"
+                  value={editForm.date}
+                  onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To</label>
-                <select value={editForm.assigned_to} onChange={(e) => setEditForm({ ...editForm, assigned_to: e.target.value })}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
+                <select
+                  value={editForm.assigned_to}
+                  onChange={(e) => setEditForm({ ...editForm, assigned_to: e.target.value })}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                >
                   <option value="">Pilih</option>
-                  {dropdownData.assignees.map((a) => (<option key={a.value} value={a.value}>{a.label}</option>))}
+                  {dropdownData.assignees.map((a) => (
+                    <option key={a.value} value={a.value}>{a.label}</option>
+                  ))}
                 </select>
               </div>
-              <ExpeditionToggle value={editForm.expedition} onChange={(v) => setEditForm({ ...editForm, expedition: v })} />
-              <SenderSelect value={editForm.sender} onChange={(v) => handleSenderChange(v, true)} details={editSenderDetails} />
+
+              <ExpeditionToggle
+                value={editForm.expedition}
+                onChange={(v) => setEditForm({ ...editForm, expedition: v })}
+              />
+
+              <SenderSelect
+                value={editForm.sender}
+                onChange={(v) => handleSenderChange(v, true)}
+                details={editSenderDetails}
+                storeAddresses={storeAddresses}
+              />
+
               <ReceiverField
-                mode={editReceiverMode} onModeChange={(m) => setEditReceiverMode(m)}
-                storeValue={editReceiverStore} onStoreChange={(v) => handleReceiverStoreChange(v, true)}
-                customValue={editForm.receiver} onCustomChange={(v) => { setEditForm({ ...editForm, receiver: v }); setReceiverError(""); }}
+                mode={editReceiverMode}
+                onModeChange={(m) => setEditReceiverMode(m)}
+                storeValue={editReceiverStore}
+                onStoreChange={(v) => handleReceiverStoreChange(v, true)}
+                customValue={editForm.receiver}
+                onCustomChange={(v) => { setEditForm({ ...editForm, receiver: v }); setReceiverError(""); }}
                 error={receiverError}
                 onBlur={() => { if (editReceiverMode === "custom") setReceiverError(validateReceiver(editForm.receiver)); }}
+                storeAddresses={storeAddresses}
               />
+
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Berat (kg)</label>
-                <input type="number" min="0.1" step="0.1" value={editForm.weight}
+                <input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={editForm.weight}
                   onChange={(e) => setEditForm({ ...editForm, weight: e.target.value })}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Alasan</label>
-                <textarea value={editForm.reason} onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })}
+                <textarea
+                  value={editForm.reason}
+                  onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })}
                   rows={2}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                />
               </div>
             </div>
             <div className="flex gap-2 mt-5">
-              <button onClick={() => { setShowEditModal(false); setSelectedItem(null); setReceiverError(""); }}
-                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">Batal</button>
-              <button onClick={handleEdit} disabled={submitting}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">
+              <button
+                onClick={() => { setShowEditModal(false); setSelectedItem(null); setReceiverError(""); }}
+                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleEdit}
+                disabled={submitting}
+                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
+              >
                 {submitting ? "Menyimpan..." : "Simpan"}
               </button>
             </div>
@@ -889,7 +1078,6 @@ export default function RequestTrackingPage() {
           <div className="bg-white rounded-lg p-5 max-w-sm w-full mx-4 shadow-xl">
             <h2 className="text-sm font-bold text-primary mb-3">Upload Resi</h2>
 
-            {/* Compact info strip */}
             <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200 mb-3 text-[11px]">
               <div className="flex-1 min-w-0 space-y-0.5">
                 <div className="flex items-center gap-1.5">
@@ -909,15 +1097,18 @@ export default function RequestTrackingPage() {
                   <span>{selectedItem.weight} kg</span>
                 </div>
               </div>
-              <CopyButton text={selectedItem.receiver} id={`upload-${selectedItem.id}`} />
+              <CopyButton
+                text={selectedItem.receiver}
+                id={`upload-${selectedItem.id}`}
+                copiedId={copiedId}
+                onCopy={handleCopyReceiver}
+              />
             </div>
 
-            {/* Receiver preview (compact) */}
             <div className="mb-3 px-2 py-1.5 bg-blue-50 border border-blue-100 rounded text-[10px] font-mono text-blue-800 whitespace-pre-line leading-relaxed">
               {selectedItem.receiver}
             </div>
 
-            {/* Drop zone */}
             <div className="mb-4">
               <label className="block text-xs font-medium text-gray-700 mb-1.5">File Resi / Bukti</label>
               <DropZone
@@ -930,13 +1121,15 @@ export default function RequestTrackingPage() {
             <div className="flex gap-2">
               <button
                 onClick={() => { setShowUploadModal(false); setSelectedItem(null); setUploadFile(null); }}
-                className="flex-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200 border border-gray-200">
+                className="flex-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200 border border-gray-200"
+              >
                 Batal
               </button>
               <button
                 onClick={handleUpload}
                 disabled={submitting || !uploadFile}
-                className="flex-1 px-3 py-1.5 bg-green-600 text-white rounded text-xs hover:bg-green-700 disabled:opacity-40 font-medium">
+                className="flex-1 px-3 py-1.5 bg-green-600 text-white rounded text-xs hover:bg-green-700 disabled:opacity-40 font-medium"
+              >
                 {submitting ? "Mengupload..." : "Upload & Selesaikan"}
               </button>
             </div>
