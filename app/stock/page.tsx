@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
@@ -79,6 +79,112 @@ const PCA_GRADE_COLORS = [
   "#16a34a", "#0891b2", "#ca8a04", "#e11d48",
   "#7c3aed", "#ea580c", "#2563eb", "#db2777",
 ];
+
+// ── Drag & Drop Upload Zone ───────────────────────────────────────────────
+function DropZone({
+  file,
+  onFile,
+  label,
+  disabled = false,
+}: {
+  file: File | null;
+  onFile: (f: File | null) => void;
+  label: string;
+  disabled?: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      if (disabled) return;
+      setDragging(false);
+      const dropped = e.dataTransfer.files[0];
+      if (dropped) onFile(dropped);
+    },
+    [onFile, disabled]
+  );
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!disabled) setDragging(true);
+  };
+
+  const handleDragLeave = () => setDragging(false);
+  const handleClick = () => { if (!disabled) inputRef.current?.click(); };
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onFile(e.target.files?.[0] || null);
+  };
+  const handleRemove = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onFile(null);
+    if (inputRef.current) inputRef.current.value = "";
+  };
+
+  return (
+    <div className={disabled ? "opacity-50 pointer-events-none" : ""}>
+      <p className="text-sm font-semibold text-gray-700 mb-2">{label}</p>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".csv,.xlsx,.xls"
+        onChange={handleInputChange}
+        className="hidden"
+        disabled={disabled}
+      />
+      {file ? (
+        <div className="flex items-center gap-2 p-2 rounded border border-green-300 bg-green-50">
+          <div className="w-9 h-9 rounded border border-green-200 bg-green-100 flex items-center justify-center shrink-0">
+            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-green-800 truncate">{file.name}</p>
+            <p className="text-[10px] text-green-600">{(file.size / 1024).toFixed(1)} KB</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleRemove}
+            className="p-1 rounded hover:bg-green-200 text-green-700 shrink-0"
+            title="Hapus file"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      ) : (
+        <div
+          onClick={handleClick}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          className={`cursor-pointer rounded border-2 border-dashed transition-all select-none
+            flex flex-col items-center justify-center gap-1 py-5 px-3
+            ${dragging
+              ? "border-blue-400 bg-blue-50"
+              : "border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100"
+            }`}
+        >
+          <svg
+            className={`w-7 h-7 transition-colors ${dragging ? "text-blue-500" : "text-gray-400"}`}
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+          </svg>
+          <p className={`text-xs font-medium transition-colors ${dragging ? "text-blue-600" : "text-gray-600"}`}>
+            {dragging ? "Lepaskan file di sini" : "Drag & drop atau klik untuk pilih"}
+          </p>
+          <p className="text-[10px] text-gray-400">CSV, XLSX, atau XLS</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const CustomXTick = ({ x, y, payload }: any) => {
   const name: string = payload.value || "";
@@ -431,7 +537,13 @@ export default function StockPage() {
       if (errors.length > 0) msg += (msg ? "\n\n" : "") + "Errors:\n" + errors.join("\n");
       await logActivity("POST", `Imported stock data: ${results.join(", ")}`);
       showMessage(msg || "Import completed", results.length > 0 && errors.length === 0 ? "success" : "error");
-      if (results.length > 0) { setShowImportModal(false); setErpFile(null); setJavelinFile(null); fetchData(); fetchLastUpdate(); }
+      if (results.length > 0) {
+        setShowImportModal(false);
+        setErpFile(null);
+        setJavelinFile(null);
+        fetchData();
+        fetchLastUpdate();
+      }
     } catch { showMessage("Failed to import data. Please try again.", "error"); }
     finally { setImporting(false); }
   };
@@ -578,7 +690,6 @@ export default function StockPage() {
             {/* ── STORE CHART ── */}
             {selectedView === "store" && (
               <div className="mb-5">
-                {/* Header row — always visible, arrow toggles chart */}
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <h3 className="text-sm font-semibold text-gray-700">Stock Summary</h3>
@@ -590,7 +701,6 @@ export default function StockPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {/* Mode toggle — only show when chart is open */}
                     {storeChartOpen && (
                       <div className="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
                         <button
@@ -607,7 +717,6 @@ export default function StockPage() {
                         </button>
                       </div>
                     )}
-                    {/* Collapse arrow */}
                     <button
                       onClick={() => setStoreChartOpen((v) => !v)}
                       className="flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
@@ -626,10 +735,8 @@ export default function StockPage() {
                   </div>
                 </div>
 
-                {/* Collapsible chart body */}
                 {storeChartOpen && (
                   <>
-                    {/* Store chart */}
                     {chartMode === "store" && (
                       <ResponsiveContainer width="100%" height={200}>
                         <BarChart data={chartData} margin={{ top: 16, right: 4, left: 0, bottom: 0 }} barCategoryGap="30%">
@@ -648,7 +755,6 @@ export default function StockPage() {
                       </ResponsiveContainer>
                     )}
 
-                    {/* Category chart */}
                     {chartMode === "category" && (
                       <>
                         <div className="overflow-x-auto">
@@ -691,7 +797,6 @@ export default function StockPage() {
             {/* ── PCA CHART ── */}
             {selectedView === "pca" && (
               <div className="mb-5">
-                {/* Header row — always visible */}
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <h3 className="text-sm font-semibold text-gray-700">PCA Stock Summary</h3>
@@ -703,7 +808,6 @@ export default function StockPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {/* Mode toggle — only show when chart is open */}
                     {pcaChartOpen && (
                       <div className="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
                         <button
@@ -720,7 +824,6 @@ export default function StockPage() {
                         </button>
                       </div>
                     )}
-                    {/* Collapse arrow */}
                     <button
                       onClick={() => setPcaChartOpen((v) => !v)}
                       className="flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
@@ -739,7 +842,6 @@ export default function StockPage() {
                   </div>
                 </div>
 
-                {/* Collapsible chart body */}
                 {pcaChartOpen && (
                   <>
                     <ResponsiveContainer width="100%" height={200}>
@@ -756,7 +858,6 @@ export default function StockPage() {
                       </BarChart>
                     </ResponsiveContainer>
 
-                    {/* Legend */}
                     <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
                       {pcaActiveData.map((entry, i) => (
                         <div key={entry.name} className="flex items-center gap-1">
@@ -923,28 +1024,48 @@ export default function StockPage() {
         </div>
       </div>
 
-      {/* Import Modal */}
+      {/* ── Import Modal ──────────────────────────────────────────────────── */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
-            <h2 className="text-lg font-bold text-primary mb-4">Import Stock Data</h2>
+            <h2 className="text-lg font-bold text-primary mb-1">Import Stock Data</h2>
+            <p className="text-xs text-gray-500 mb-5">Upload file untuk ERP Stock Balance dan/atau Javelin. Format: CSV, XLSX, atau XLS.</p>
+
             <div className="space-y-4">
-              <p className="text-sm text-gray-600 mb-4">Upload files for ERP Stock Balance and/or Javelin.</p>
-              {[
-                { label: "ERP Stock Balance", file: erpFile, setter: setErpFile },
-                { label: "Javelin", file: javelinFile, setter: setJavelinFile },
-              ].map(({ label, file, setter }) => (
-                <div key={label} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">{label}</label>
-                  <input type="file" accept=".csv,.xlsx,.xls" onChange={(e) => setter(e.target.files?.[0] || null)} disabled={importing} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90 disabled:opacity-50" />
-                  {file && <p className="text-xs text-green-600 mt-2">✓ Selected: {file.name}</p>}
+              <DropZone
+                label="ERP Stock Balance"
+                file={erpFile}
+                onFile={setErpFile}
+                disabled={importing}
+              />
+              <DropZone
+                label="Javelin"
+                file={javelinFile}
+                onFile={setJavelinFile}
+                disabled={importing}
+              />
+              {importing && (
+                <div className="text-sm text-gray-600 text-center py-3">
+                  <div className="animate-pulse">Importing files... Please wait.</div>
                 </div>
-              ))}
-              {importing && <div className="text-sm text-gray-600 text-center py-3"><div className="animate-pulse">Importing files... Please wait.</div></div>}
+              )}
             </div>
+
             <div className="flex gap-2 mt-6">
-              <button onClick={() => { setShowImportModal(false); setErpFile(null); setJavelinFile(null); }} disabled={importing} className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50">Cancel</button>
-              <button onClick={handleImport} disabled={importing || (!erpFile && !javelinFile)} className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">{importing ? "Importing..." : "Import Selected Files"}</button>
+              <button
+                onClick={() => { setShowImportModal(false); setErpFile(null); setJavelinFile(null); }}
+                disabled={importing}
+                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleImport}
+                disabled={importing || (!erpFile && !javelinFile)}
+                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
+              >
+                {importing ? "Importing..." : "Import Selected Files"}
+              </button>
             </div>
           </div>
         </div>
