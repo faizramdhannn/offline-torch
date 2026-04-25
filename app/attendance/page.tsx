@@ -870,89 +870,76 @@ function MonthlyReport({
           ) : recapTafts.length === 0 ? (
             <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">Tidak ada data taft</div>
           ) : (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200">
-                      {!recapStore && (
-                        <th className="px-2 py-2 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50 z-10 min-w-[100px] w-24 border-r border-gray-200 text-[10px]">Store</th>
-                      )}
-                      <th className="px-2 py-2 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50 z-10 min-w-[130px] max-w-[150px] w-36 border-r border-gray-200 text-[10px]">Nama TAFT</th>
-                      <th className="px-1 py-2 text-center font-semibold text-gray-500 w-16 text-[10px]">Periode</th>
-                      {RECAP_KEYS.map(({ key }) => (
-                        <th key={key} className="px-1 py-2 text-center font-semibold text-gray-600 w-10 text-[10px]">
-                          <span className={`inline-block px-1 py-0.5 rounded text-[9px] font-bold ${CODE_COLORS[key] || 'bg-gray-100 text-gray-600'}`}>{key}</span>
-                        </th>
-                      ))}
-                      <th className="px-1 py-2 text-center font-semibold text-gray-600 w-10 text-[10px]">Msk</th>
-                      <th className="px-1 py-2 text-center font-semibold text-gray-600 w-10 text-[10px]">OFF</th>
-                      <th className="px-1 py-2 text-center font-semibold text-gray-600 w-12 text-[10px]">Lembur</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recapStoreGroups.map(({ storeName, tafts }) => (
-                      <React.Fragment key={storeName}>
-                        {!recapStore && (
-                          <tr className="bg-primary/5 border-y border-primary/10">
-                            <td colSpan={14} className="px-2 py-1 sticky left-0 bg-primary/5 z-10">
-                              <span className="text-[10px] font-bold text-primary">{storeName}</span>
-                            </td>
-                          </tr>
-                        )}
-                        {tafts.map(taft => {
-                          const recap = calcRecap(taft);
-                          const sd = parseInt(taft.start_date) || 26;
-                          const ed = parseInt(taft.end_date)   || 25;
-                          const { from, to } = buildTaftDateRange(selectedMonth, sd, ed);
-                          const periodeLabel = `${String(from.getDate()).padStart(2,'0')}/${String(from.getMonth()+1).padStart(2,'0')} - ${String(to.getDate()).padStart(2,'0')}/${String(to.getMonth()+1).padStart(2,'0')}`;
-                          return (
-                            <tr key={taft.id} className="border-b border-gray-100 hover:bg-gray-50/80">
-                              {!recapStore && (
-                                <td className="px-2 py-1 sticky left-0 bg-white z-10 border-r border-gray-100 text-[10px] text-gray-500 min-w-[100px] w-24 truncate" title={storeName}>{storeName}</td>
-                              )}
-                              <td className="px-2 py-1 sticky left-0 bg-white z-10 border-r border-gray-100 min-w-[130px] max-w-[150px] w-36">
-                                <span className="font-medium text-gray-800 text-[10px] truncate block" title={taft.taft_name}>{taft.taft_name}</span>
-                              </td>
-                              <td className="px-1 py-1 text-center w-16">
-                                <span className="text-[9px] text-gray-400 whitespace-nowrap">{periodeLabel}</span>
-                              </td>
-                              {RECAP_KEYS.map(({ key }) => (
-                                <td key={key} className="px-1 py-1 text-center w-10">
-                                  {(recap.counts[key] || 0) > 0
-                                    ? <span className={`inline-block px-1 py-0.5 rounded text-[9px] font-bold ${CODE_COLORS[key] || 'bg-gray-100 text-gray-700'}`}>{recap.counts[key]}</span>
-                                    : <span className="text-gray-200 text-[9px]">—</span>
-                                  }
-                                </td>
-                              ))}
-                              <td className="px-1 py-1 text-center w-10">
-                                <span className="text-[10px] font-bold text-green-700">{recap.totalMasuk}</span>
-                              </td>
-                              <td className="px-1 py-1 text-center w-10">
-                                <span className="text-[10px] font-bold text-gray-500">{recap.totalOff}</span>
-                              </td>
-                              <td className="px-1 py-1 text-center w-12">
-                                {recap.totalLembur > 0
-                                  ? <span className="text-[10px] font-bold text-orange-600">{recap.totalLembur.toFixed(1)}j</span>
-                                  : <span className="text-gray-200 text-[9px]">—</span>
-                                }
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 flex flex-wrap gap-2">
-                {RECAP_KEYS.map(({ key, label }) => (
-                  <span key={key} className="text-[9px] text-gray-500">
-                    <span className={`inline-block px-1 py-0.5 rounded font-bold mr-0.5 ${CODE_COLORS[key] || 'bg-gray-100 text-gray-600'}`}>{key}</span>
-                    {label.replace(/\s*\(.*\)/, '')}
-                  </span>
-                ))}
-              </div>
+            <div className="space-y-4">
+              {recapStoreGroups.map(({ storeName, tafts }) => (
+                <div key={storeName}>
+                  {/* Store header */}
+                  {!recapStore && (
+                    <div className="flex items-center gap-2 mb-2 px-1">
+                      <span className="text-xs font-bold text-primary uppercase tracking-wide">{storeName}</span>
+                      <span className="text-[10px] text-gray-400">{tafts.length} taft</span>
+                      <div className="flex-1 h-px bg-primary/10" />
+                    </div>
+                  )}
+                  {/* Card grid */}
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                    {tafts.map(taft => {
+                      const recap = calcRecap(taft);
+                      const sd = parseInt(taft.start_date) || 26;
+                      const ed = parseInt(taft.end_date)   || 25;
+                      const { from, to } = buildTaftDateRange(selectedMonth, sd, ed);
+
+                      const MONTH_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+                      const fmtTgl = (d: Date) => `${String(d.getDate()).padStart(2,'0')} ${MONTH_ID[d.getMonth()]} ${d.getFullYear()}`;
+                      const toTitleCase = (s: string) => s.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+
+                      const LIST_ROWS = [
+                        { label: 'TOTAL MASUK KERJA', value: recap.totalMasuk,  cls: 'text-gray-800', bg: ''              },
+                        { label: 'TOTAL OFF',          value: recap.totalOff,   cls: 'text-gray-800', bg: ''              },
+                        { label: 'TOTAL JAM LEMBUR',   value: recap.totalLembur > 0 ? `${recap.totalLembur.toFixed(1)}` : 0, cls: 'text-gray-800', bg: 'bg-cyan-200'   },
+                        { label: 'TOTAL CUTI',         value: recap.counts['C']  || 0, cls: 'text-gray-800', bg: ''       },
+                        { label: 'TOTAL SAKIT',        value: recap.counts['+']  || 0, cls: 'text-gray-800', bg: ''       },
+                        { label: 'TOTAL IZIN',         value: recap.counts['I']  || 0, cls: 'text-gray-800', bg: ''       },
+                        { label: 'TOTAL ALPA',         value: recap.counts['A']  || 0, cls: 'text-gray-800', bg: ''       },
+                      ];
+
+                      return (
+                        <div key={taft.id} className="rounded-lg border border-gray-700 overflow-hidden text-[10px] shadow-sm">
+                          {/* Top: periode — kuning */}
+                          <div className="bg-yellow-300 border-b border-gray-700 px-2 py-1 text-center">
+                            <p className="font-black text-gray-900 uppercase text-[8px] leading-tight">
+                              REKAPAN ABSEN {fmtTgl(from).toUpperCase()} - {fmtTgl(to).toUpperCase()}
+                            </p>
+                          </div>
+
+                          {/* Sub-header: nama - store — hijau */}
+                          <div className="bg-green-400 border-b border-gray-700 px-2 py-1 flex items-center justify-between">
+                            <p className="font-black text-gray-900 uppercase text-[8px] leading-tight">
+                              {toTitleCase(taft.taft_name)} / {toTitleCase(storeName)} 
+                            </p>
+                            <p className="font-black text-gray-900 text-[9px] shrink-0 ml-1">TOTAL</p>
+                          </div>
+
+                          {/* Rows */}
+                          {LIST_ROWS.map((row, i) => (
+                            <div
+                              key={row.label}
+                              className={`flex items-center justify-between px-2 py-1 border-b border-gray-200 last:border-b-0 ${row.bg || (i % 2 === 0 ? 'bg-white' : 'bg-gray-50')}`}
+                            >
+                              <span className={`font-semibold uppercase text-[8px] ${row.bg ? 'text-blue-700 font-black' : 'text-gray-700'}`}>
+                                {row.label}
+                              </span>
+                              <span className={`font-black text-[11px] ${row.bg ? 'text-blue-900' : 'text-gray-900'}`}>
+                                {row.value}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -1337,102 +1324,170 @@ function FullReport({ user }: { user: any }) {
       )}
 
       {/* Monthly View */}
-      {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-            <span className="text-[11px] font-semibold text-gray-700">
-              {Object.keys(groupedByTaft).length} TAFT
-            </span>
-            <div className="flex gap-1.5">
-              <button onClick={expandAll} className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors">
-                Buka Semua
-              </button>
-              <button onClick={collapseAll} className="text-[10px] px-2 py-0.5 rounded bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors">
-                Tutup Semua
-              </button>
+      {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (() => {
+        const DAY_ID = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+        const MONTH_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        const fmtDate = (iso: string) => {
+          const d = parseDateSafe(iso);
+          if (!d) return iso;
+          return `${DAY_ID[d.getDay()]}, ${String(d.getDate()).padStart(2,'0')} ${MONTH_SHORT[d.getMonth()]}`;
+        };
+        const isWeekend = (iso: string) => {
+          const d = parseDateSafe(iso);
+          return d ? (d.getDay() === 0 || d.getDay() === 6) : false;
+        };
+        return (
+          <div className="space-y-4">
+            {/* Toolbar */}
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-gray-500 font-medium">{Object.keys(groupedByTaft).length} TAFT</span>
+              <div className="flex gap-1.5">
+                <button onClick={expandAll} className="text-[10px] px-2.5 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors font-medium">
+                  Buka Semua
+                </button>
+                <button onClick={collapseAll} className="text-[10px] px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors font-medium">
+                  Tutup Semua
+                </button>
+              </div>
             </div>
-          </div>
 
-          {Object.entries(groupedByTaft).map(([key, { taft_name, store_name, rows }]) => {
-            const isExpanded = expandedTafts.has(key);
-            return (
-              <div key={key} className="border-b border-gray-100 last:border-0">
-                {/* Taft header */}
-                <button
-                  onClick={() => toggleTaft(key)}
-                  className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors text-left"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-semibold text-gray-800">{taft_name}</span>
-                    {!selectedStore && (
-                      <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{store_name}</span>
-                    )}
-                    <span className="text-[10px] text-gray-400">{rows.length} hari</span>
-                    {rows.length > 0 && (
-                      <div className="flex gap-1">
-                        {RECAP_KEYS.slice(0,5).map(({ key: k }) => {
-                          const count = rows.filter(r => r.code_time?.trim() === k).length;
-                          if (!count) return null;
+            {/* Cards */}
+            {Object.entries(groupedByTaft).map(([key, { taft_name, store_name, rows }]) => {
+              const isExpanded = expandedTafts.has(key);
+
+              // Mini recap for header badges
+              const codeCounts: Record<string,number> = {};
+              let totalMasuk = 0, totalLembur = 0;
+              rows.forEach(r => {
+                const c = r.code_time?.trim();
+                if (c) codeCounts[c] = (codeCounts[c]||0) + 1;
+                if (['P','S','F','MF','M'].includes(c)) totalMasuk++;
+                if (r.overtime_hours && parseFloat(r.overtime_hours) > 0) totalLembur += parseFloat(r.overtime_hours);
+              });
+
+              return (
+                <div key={key} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                  {/* Card header — always visible */}
+                  <button
+                    onClick={() => toggleTaft(key)}
+                    className="w-full text-left"
+                  >
+                    <div className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/80 transition-colors">
+                      {/* Expand indicator */}
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-colors ${isExpanded ? 'bg-primary text-white' : 'bg-gray-100 text-gray-400'}`}>
+                        <span className={`text-[9px] font-black transition-transform duration-200 inline-block ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
+                      </div>
+
+                      {/* Name + store */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-bold text-gray-900">{taft_name}</span>
+                          {!selectedStore && (
+                            <span className="text-[10px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">{store_name}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="text-[10px] text-gray-400">{rows.length} hari data</span>
+                          {totalMasuk > 0 && <span className="text-[10px] text-blue-600 font-semibold">{totalMasuk} masuk</span>}
+                          {totalLembur > 0 && <span className="text-[10px] text-orange-500 font-semibold">{totalLembur.toFixed(1)}j lembur</span>}
+                        </div>
+                      </div>
+
+                      {/* Code badges */}
+                      <div className="flex gap-1 flex-wrap justify-end max-w-[200px]">
+                        {RECAP_KEYS.map(({ key: k }) => {
+                          const cnt = codeCounts[k] || 0;
+                          if (!cnt) return null;
                           return (
-                            <span key={k} className={`text-[9px] px-1 py-0.5 rounded font-bold ${CODE_COLORS[k] || 'bg-gray-100'}`}>
-                              {k}:{count}
+                            <span key={k} className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${CODE_COLORS[k] || 'bg-gray-100 text-gray-600'}`}>
+                              {k} {cnt}
                             </span>
                           );
                         })}
                       </div>
-                    )}
-                  </div>
-                  <span className={`text-gray-400 text-[10px] transition-transform duration-200 ml-2 shrink-0 ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
-                </button>
+                    </div>
+                  </button>
 
-                {/* Detail rows */}
-                {isExpanded && (
-                  <div className="border-t border-gray-50">
-                    {rows.length === 0 ? (
-                      <div className="px-8 py-3 text-[11px] text-gray-400">Belum ada data untuk periode ini</div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
-                          <thead className="bg-gray-50/80">
-                            <tr>
-                              <th className="px-3 py-1.5 text-left font-medium text-gray-500 text-[10px]">Tanggal</th>
-                              <th className="px-3 py-1.5 text-center font-medium text-gray-500 text-[10px]">Clock In</th>
-                              <th className="px-3 py-1.5 text-center font-medium text-gray-500 text-[10px]">Clock Out</th>
-                              <th className="px-3 py-1.5 text-center font-medium text-gray-500 text-[10px]">Kode</th>
-                              <th className="px-3 py-1.5 text-center font-medium text-gray-500 text-[10px]">Lembur</th>
-                              <th className="px-3 py-1.5 text-left font-medium text-gray-500 text-[10px]">Keterangan</th>
+                  {/* Detail table */}
+                  {isExpanded && (
+                    <div className="border-t border-gray-100">
+                      {rows.length === 0 ? (
+                        <div className="px-6 py-6 text-center text-[11px] text-gray-300">Belum ada data untuk periode ini</div>
+                      ) : (
+                        <table className="w-full">
+                          <thead>
+                            <tr className="bg-gray-50 border-b border-gray-100">
+                              <th className="px-4 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide w-36">Tanggal</th>
+                              <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide w-20">Kode</th>
+                              <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide w-20">Masuk</th>
+                              <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide w-20">Keluar</th>
+                              <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide w-16">Lembur</th>
+                              <th className="px-4 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Keterangan</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {rows.map((r, i) => (
-                              <tr key={i} className="border-t border-gray-50 hover:bg-gray-50/60">
-                                <td className="px-3 py-1 text-gray-600 text-[10px] whitespace-nowrap">{r.date}</td>
-                                {/* displayTime normalizes dot-format times */}
-                                <td className="px-3 py-1 text-center text-gray-500 text-[10px] font-mono">{displayTime(r.clock_in)}</td>
-                                <td className="px-3 py-1 text-center text-gray-500 text-[10px] font-mono">{displayTime(r.clock_out)}</td>
-                                <td className="px-3 py-1 text-center">
-                                  {r.code_time
-                                    ? <span className={`px-1 py-0.5 rounded font-bold text-[9px] ${CODE_COLORS[r.code_time] || 'bg-gray-100 text-gray-700'}`}>{r.code_time}</span>
-                                    : <span className="text-gray-300 text-[10px]">-</span>
-                                  }
-                                </td>
-                                <td className="px-3 py-1 text-center text-orange-600 text-[10px]">
-                                  {r.overtime_hours && parseFloat(r.overtime_hours) > 0 ? `${r.overtime_hours}j` : '-'}
-                                </td>
-                                <td className="px-3 py-1 text-gray-500 text-[10px] max-w-[200px] truncate">{r.reason || '-'}</td>
-                              </tr>
-                            ))}
+                            {rows.map((r, i) => {
+                              const weekend = isWeekend(r.date);
+                              const code    = r.code_time?.trim();
+                              const isOff   = code === 'O';
+                              const hasOT   = r.overtime_hours && parseFloat(r.overtime_hours) > 0;
+                              return (
+                                <tr
+                                  key={i}
+                                  className={`border-b border-gray-50 last:border-0 transition-colors ${
+                                    weekend ? 'bg-blue-50/40' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
+                                  } hover:bg-primary/5`}
+                                >
+                                  {/* Tanggal */}
+                                  <td className="px-4 py-2">
+                                    <span className={`text-[11px] font-medium ${weekend ? 'text-blue-600' : 'text-gray-700'}`}>
+                                      {fmtDate(r.date)}
+                                    </span>
+                                  </td>
+                                  {/* Kode */}
+                                  <td className="px-3 py-2 text-center">
+                                    {code
+                                      ? <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-600'}`}>{code}</span>
+                                      : <span className="text-gray-200 text-xs">—</span>
+                                    }
+                                  </td>
+                                  {/* Clock In */}
+                                  <td className="px-3 py-2 text-center">
+                                    <span className={`text-[11px] font-mono font-medium ${isOff ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      {displayTime(r.clock_in) || (isOff ? '—' : '-')}
+                                    </span>
+                                  </td>
+                                  {/* Clock Out */}
+                                  <td className="px-3 py-2 text-center">
+                                    <span className={`text-[11px] font-mono font-medium ${isOff ? 'text-gray-300' : 'text-gray-700'}`}>
+                                      {displayTime(r.clock_out) || (isOff ? '—' : '-')}
+                                    </span>
+                                  </td>
+                                  {/* Lembur */}
+                                  <td className="px-3 py-2 text-center">
+                                    {hasOT
+                                      ? <span className="text-[11px] font-bold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full">{r.overtime_hours}j</span>
+                                      : <span className="text-gray-200 text-xs">—</span>
+                                    }
+                                  </td>
+                                  {/* Keterangan */}
+                                  <td className="px-4 py-2">
+                                    <span className="text-[11px] text-gray-400 truncate block max-w-[220px]">{r.reason || ''}</span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length === 0 && (
         <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">
