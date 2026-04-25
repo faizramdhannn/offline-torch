@@ -1019,6 +1019,148 @@ function MonthlyReport({
   );
 }
 
+// ─── Report Dashboard ─────────────────────────────────────────────────────────
+interface TaftStat {
+  taft_name: string;
+  store_name: string;
+  masuk: number;
+  off: number;
+  cuti: number;
+  lembur: number;
+}
+
+type ChartKey = 'masuk' | 'lembur' | 'cuti' | 'off';
+
+const CHART_CFGS = [
+  { key: 'masuk'  as ChartKey, label: 'Terbanyak Masuk',  color: '#3b82f6', unit: 'hari',  textCls: 'text-blue-600',   bgCls: 'bg-blue-500'   },
+  { key: 'lembur' as ChartKey, label: 'Terbanyak Lembur', color: '#f97316', unit: 'jam',   textCls: 'text-orange-600', bgCls: 'bg-orange-500' },
+  { key: 'cuti'   as ChartKey, label: 'Terbanyak Cuti',   color: '#ec4899', unit: 'hari',  textCls: 'text-pink-600',   bgCls: 'bg-pink-500'   },
+  { key: 'off'    as ChartKey, label: 'Terbanyak OFF',    color: '#ef4444', unit: 'hari',  textCls: 'text-red-600',    bgCls: 'bg-red-500'    },
+] as const;
+
+function MiniBarChart({
+  data, cfg, maxRows = 43,
+}: {
+  data: TaftStat[];
+  cfg: typeof CHART_CFGS[number];
+  maxRows?: number;
+}) {
+  const rows   = data.filter(s => s[cfg.key] > 0).slice(0, maxRows);
+  const maxVal = rows[0]?.[cfg.key] || 1;
+
+  if (rows.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-24 text-[10px] text-gray-300">
+        Tidak ada data
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1 overflow-y-auto" style={{ maxHeight: '320px' }}>
+      {rows.map((s, i) => {
+        const val = s[cfg.key];
+        const pct = Math.round((val / maxVal) * 100);
+        return (
+          <div key={`${s.store_name}__${s.taft_name}`} className="flex items-center gap-1.5">
+            {/* Rank number */}
+            <span className={`text-[8px] font-black w-3.5 text-right shrink-0 ${i === 0 ? cfg.textCls : 'text-gray-300'}`}>
+              {i + 1}
+            </span>
+            {/* Name — full name, wraps if needed */}
+            <div className="w-28 shrink-0">
+              <p className="text-[9px] font-medium text-gray-700 leading-tight break-words">
+                {s.taft_name}
+              </p>
+              <p className="text-[8px] text-gray-400">{s.store_name}</p>
+            </div>
+            {/* Bar track */}
+            <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.max(pct, 3)}%`, backgroundColor: cfg.color }}
+              />
+            </div>
+            {/* Value */}
+            <span className={`text-[9px] font-bold shrink-0 w-6 text-right ${cfg.textCls}`}>
+              {cfg.key === 'lembur' ? val.toFixed(1) : val}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ReportDashboard({
+  groupedByTaft,
+}: {
+  groupedByTaft: Record<string, { taft_name: string; store_name: string; rows: ReportRow[] }>;
+}) {
+  // Build stats per taft
+  const stats: TaftStat[] = Object.values(groupedByTaft).map(({ taft_name, store_name, rows }) => {
+    let masuk = 0, off = 0, cuti = 0, lembur = 0;
+    rows.forEach(r => {
+      const code = r.code_time?.trim();
+      if (['P','S','F','MF','M'].includes(code)) masuk++;
+      if (code === 'O') off++;
+      if (code === 'C') cuti++;
+      if (r.overtime_hours && parseFloat(r.overtime_hours) > 0) lembur += parseFloat(r.overtime_hours);
+    });
+    return { taft_name, store_name, masuk, off, cuti, lembur };
+  });
+
+  const sorted = (key: ChartKey) =>
+    [...stats].sort((a, b) => b[key] - a[key]);
+
+  return (
+    <div className="mb-4">
+      {/* Summary strip — top 1 per category */}
+      <div className="grid grid-cols-4 gap-2 mb-3">
+        {CHART_CFGS.map(cfg => {
+          const top = sorted(cfg.key).find(s => s[cfg.key] > 0);
+          return (
+            <div key={cfg.key} className="bg-white rounded-lg border border-gray-100 shadow-sm px-3 py-2">
+              <p className={`text-[9px] font-bold uppercase tracking-wide mb-1 ${cfg.textCls}`}>{cfg.label}</p>
+              {top ? (
+                <>
+                  <p className="text-[11px] font-bold text-gray-800 leading-tight" title={top.taft_name}>
+                    {top.taft_name}
+                  </p>
+                  <p className="text-[9px] text-gray-400">{top.store_name}</p>
+                  <p className={`text-lg font-black leading-none mt-1 ${cfg.textCls}`}>
+                    {cfg.key === 'lembur' ? top[cfg.key].toFixed(1) : top[cfg.key]}
+                    <span className="text-[9px] font-normal ml-0.5 text-gray-400">{cfg.unit}</span>
+                  </p>
+                </>
+              ) : (
+                <p className="text-[10px] text-gray-300">—</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 4 charts side by side */}
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        {CHART_CFGS.map(cfg => (
+          <div key={cfg.key} className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className={`text-[10px] font-bold uppercase tracking-wide ${cfg.textCls}`}>
+                {cfg.label}
+              </h3>
+              <span className="text-[9px] text-gray-300">
+                {sorted(cfg.key).filter(s => s[cfg.key] > 0).length}
+              </span>
+            </div>
+            <MiniBarChart data={sorted(cfg.key)} cfg={cfg} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Full Report ──────────────────────────────────────────────────────────────
 function FullReport({ user }: { user: any }) {
   const [taftList,      setTaftList]      = useState<TaftEntry[]>([]);
@@ -1182,6 +1324,11 @@ function FullReport({ user }: { user: any }) {
       </div>
 
       {loading && <div className="text-center py-10 text-gray-400 text-sm">Memuat data...</div>}
+
+      {/* ── Dashboard ── */}
+      {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (
+        <ReportDashboard groupedByTaft={groupedByTaft} />
+      )}
 
       {/* Monthly View */}
       {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (
