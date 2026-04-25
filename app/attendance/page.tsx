@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface ScheduleRow {
@@ -68,48 +68,26 @@ const RECAP_KEYS = [
   { key:'A',   label:'ALPA (A)'        },
 ];
 
-// ── Normalize clock time: replace dots with colons, e.g. "08.30" → "08:30" ──
-/**
- * Normalize any clock value into HH:MM string.
- *
- * Handles all formats found in the wild:
- *   number  9.49   -> "09:49"   (Excel float: 9h49m)
- *   number  21     -> "21:00"   (integer = hour only)
- *   number  21.14  -> "21:14"
- *   string "09.00" -> "09:00"   (dot separator)
- *   string "08:36" -> "08:36"   (already correct)
- *   string "`09:30"-> "09:30"   (strip Excel apostrophe/backtick)
- *   null / undefined / '' -> ''
- */
 function normalizeTime(raw: string | number | undefined | null): string {
   if (raw === null || raw === undefined || raw === '') return '';
-
-  // Strip Excel text-prefix artifacts (apostrophe/backtick)
   const s = String(raw).trim().replace(/^[`']+/, '');
   if (s === '' || s.toLowerCase() === 'none' || s === '-') return '';
-
-  // Already HH:MM or HH:MM:SS
   if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) {
     const [h, m] = s.split(':');
     return `${String(parseInt(h, 10)).padStart(2, '0')}:${m.slice(0, 2)}`;
   }
-
   const f = parseFloat(s);
   if (!isNaN(f)) {
-    // Excel time serial: stored as fraction of 24h (e.g. 08:46 → 0.36527...)
-    // Values between 0 (exclusive) and 1 (exclusive) are time serials
     if (f > 0 && f < 1) {
       const totalMinutes = Math.round(f * 24 * 60);
       const h = Math.floor(totalMinutes / 60);
       const m = totalMinutes % 60;
       return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     }
-    // HH.MM float convention: 8.46 = 8h 46m, 17.00 = 17h 00m (Indonesian)
     const h = Math.floor(f);
     const m = Math.round((f - h) * 100);
     return `${String(h).padStart(2, '0')}:${String(Math.min(m, 59)).padStart(2, '0')}`;
   }
-
   return s;
 }
 
@@ -119,25 +97,19 @@ function displayTime(val: string | number | undefined | null): string {
   return n || String(val);
 }
 
-// ── Parse DD/MM/YYYY or YYYY-MM-DD safely ─────────────────────────────────────
 function parseDateSafe(str: string): Date | null {
   if (!str) return null;
-  // DD/MM/YYYY
   const dmY = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (dmY) return new Date(Number(dmY[3]), Number(dmY[2]) - 1, Number(dmY[1]));
-  // YYYY-MM-DD
   const ymd = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (ymd) return new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
-  // fallback
   const d = new Date(str);
   return isNaN(d.getTime()) ? null : d;
 }
 
-// Helper: find current date_range from dateList
 function findCurrentDateRange(dateList: DateEntry[]): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
   for (const d of dateList) {
     if (d.week_start && d.week_end) {
       const start = parseDateSafe(d.week_start);
@@ -148,44 +120,26 @@ function findCurrentDateRange(dateList: DateEntry[]): string {
       if (today >= start && today <= end) return d.date_range;
     }
   }
-
-  // Fallback: use last entry
   if (dateList.length > 0) return dateList[dateList.length - 1].date_range;
   return '';
 }
 
-/**
- * Build the correct date range for a taft given a YYYY-MM month string.
- *
- * Rules:
- *   startDay >= endDay → cross-month: startDay of PREV month → endDay of CURRENT month
- *     e.g. 26-25, April → 26 Mar – 25 Apr
- *     e.g. 25-25, April → 25 Mar – 25 Apr
- *   startDay < endDay  → same-month: startDay → endDay of CURRENT month
- *     e.g. 1-31,  April → 1 Apr – 30 Apr (capped to month end automatically)
- */
 function buildTaftDateRange(month: string, startDay: number, endDay: number): { from: Date; to: Date } {
   const [year, mon] = month.split('-').map(Number);
-
   let from: Date;
   let to: Date;
-
   if (startDay >= endDay) {
-    // Cross-month
     from = new Date(year, mon - 2, startDay);
     to   = new Date(year, mon - 1, endDay);
   } else {
-    // Same-month
     from = new Date(year, mon - 1, startDay);
     to   = new Date(year, mon - 1, endDay);
   }
-
   from.setHours(0, 0, 0, 0);
   to.setHours(23, 59, 59, 999);
   return { from, to };
 }
 
-/** Build YYYY-MM-DD date list for a taft's period given a month string. */
 function buildTaftDates(month: string, startDay: number, endDay: number): Date[] {
   const { from, to } = buildTaftDateRange(month, startDay, endDay);
   const dates: Date[] = [];
@@ -199,6 +153,8 @@ function buildTaftDates(month: string, startDay: number, endDay: number): Date[]
 
 const fmtISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const MONTH_SHORT_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function AttendancePage() {
@@ -303,8 +259,6 @@ function WeeklySchedule({
         return true;
       });
       setTimeCodes(codes);
-
-      // Auto-select current period — uses safe date parser
       const currentRange = findCurrentDateRange(d.dateList || []);
       if (currentRange) setSelectedDateRange(currentRange);
     });
@@ -394,7 +348,6 @@ function WeeklySchedule({
 
   return (
     <div>
-      {/* Filter Bar */}
       <div className="bg-white rounded-lg shadow p-2.5 mb-3">
         <div className="flex items-center gap-2 flex-wrap">
           {isStoreUser ? (
@@ -438,7 +391,6 @@ function WeeklySchedule({
         </div>
       </div>
 
-      {/* Main Table */}
       {!selectedDateRange ? (
         <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">
           Pilih periode untuk melihat jadwal
@@ -557,7 +509,6 @@ function WeeklySchedule({
             </table>
           </div>
 
-          {/* Legend */}
           <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 flex flex-wrap gap-1.5">
             {Object.entries(CODE_COLORS).map(([code, cls]) => (
               <span key={code} className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${cls}`}>{code}</span>
@@ -571,7 +522,7 @@ function WeeklySchedule({
   );
 }
 
-// ─── Monthly Report (+ Recap for attendance_report users) ─────────────────────
+// ─── Monthly Report ────────────────────────────────────────────────────────────
 function MonthlyReport({
   user, isStoreUser, myStoreName,
 }: { user: any; isStoreUser: boolean; myStoreName: string }) {
@@ -587,7 +538,6 @@ function MonthlyReport({
   const [popup, setPopup] = useState({ show: false, message: '', type: 'success' as 'success'|'error' });
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Recap sub-tab — only for attendance_report users
   const [subTab, setSubTab] = useState<'import'|'recap'>('import');
   const [recapStore,   setRecapStore]   = useState('');
   const [recapReports, setRecapReports] = useState<ReportRow[]>([]);
@@ -610,9 +560,6 @@ function MonthlyReport({
 
   const handleDownloadTemplate = () => {
     if (!selectedMonth) return;
-
-    // Determine which tafts to generate sheets for
-    // If isStoreUser → use myStoreName; else use selectedStore (must be selected)
     const storeForTemplate = isStoreUser ? myStoreName : selectedStore;
     if (!storeForTemplate) return;
 
@@ -636,13 +583,10 @@ function MonthlyReport({
       ]);
       ws['!cols'] = colWidths;
 
-      // Sheet name: shorten taft name to max 31 chars (Excel limit)
-      // Excel sheet names cannot contain: \ / ? * [ ] : — replace with underscore, max 31 chars
       const sheetName = taft.taft_name.replace(/[\\\/?*\[\]:']/g, '_').slice(0, 31);
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
     }
 
-    // Add reference sheet at the end
     const refWs = XLSX.utils.aoa_to_sheet([
       ['Kode','Keterangan'],
       ['P','Pagi'],['S','Siang'],['F','Full'],['MF','Midle Full'],
@@ -662,10 +606,7 @@ function MonthlyReport({
     try {
       const buffer = await file.arrayBuffer();
       const wb     = XLSX.read(buffer, { type: 'array' });
-
       const SKIP_SHEETS = ['kode referensi', 'referensi', 'kode'];
-
-      // Collect rows from ALL sheets (skip reference sheet)
       const allRows: any[] = [];
       let dataSheetCount = 0;
       for (const sheetName of wb.SheetNames) {
@@ -715,16 +656,10 @@ function MonthlyReport({
   };
 
   // ── Recap logic ──────────────────────────────────────────────────────────────
-  /**
-   * Fetch ALL report data for the selected month (using each taft's own date range).
-   * Since different tafts may have different start/end days, we fetch a wide window
-   * (entire prev+curr month) then filter in the client per taft.
-   */
   const fetchRecap = async () => {
     setRecapLoading(true);
     try {
       const storeParam = recapStore ? `&store_name=${encodeURIComponent(recapStore)}` : '';
-      // Fetch without date filter — we filter per-taft client-side using buildTaftDateRange
       const res = await fetch(`/api/attendance/report?month=${selectedMonth}${storeParam}`);
       setRecapReports(await res.json());
     } finally {
@@ -740,10 +675,6 @@ function MonthlyReport({
     ? taftList.filter(t => t.store_name?.toLowerCase() === recapStore.toLowerCase())
     : taftList;
 
-  /**
-   * Calculate recap for a single taft, filtering report rows by the taft's
-   * own date range (start_date → end_date) for the selected month.
-   */
   const calcRecap = (taft: TaftEntry) => {
     const startDay = parseInt(taft.start_date) || 26;
     const endDay   = parseInt(taft.end_date)   || 25;
@@ -767,6 +698,188 @@ function MonthlyReport({
     return { counts, totalMasuk, totalOff, totalLembur };
   };
 
+  // ── Export Recap XLSX ────────────────────────────────────────────────────────
+const exportRecapXlsx = () => {
+  const wb = XLSX.utils.book_new();
+
+  // Style helpers
+  const borderAll = {
+    top:    { style: 'thin', color: { rgb: '000000' } },
+    bottom: { style: 'thin', color: { rgb: '000000' } },
+    left:   { style: 'thin', color: { rgb: '000000' } },
+    right:  { style: 'thin', color: { rgb: '000000' } },
+  };
+
+  const styleTitle = {
+    font:      { bold: true, sz: 11, color: { rgb: '000000' } },
+    fill:      { fgColor: { rgb: 'FFC000' } }, // kuning
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+    border:    borderAll,
+  };
+
+  const styleSubHeader = {
+    font:      { bold: true, sz: 10, color: { rgb: '000000' } },
+    fill:      { fgColor: { rgb: '92D050' } }, // hijau
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border:    borderAll,
+  };
+
+  const styleSubHeaderTotal = {
+    font:      { bold: true, sz: 10, color: { rgb: '000000' } },
+    fill:      { fgColor: { rgb: '92D050' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border:    borderAll,
+  };
+
+  const styleLabelNormal = {
+    font:      { bold: true, sz: 10 },
+    fill:      { fgColor: { rgb: 'FFFFFF' } },
+    alignment: { horizontal: 'left', vertical: 'center' },
+    border:    borderAll,
+  };
+
+  const styleValueNormal = {
+    font:      { bold: true, sz: 10 },
+    fill:      { fgColor: { rgb: 'FFFFFF' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border:    borderAll,
+  };
+
+  const styleLabelLembur = {
+    font:      { bold: true, sz: 10, color: { rgb: '0070C0' } },
+    fill:      { fgColor: { rgb: '00B0F0' } }, // cyan
+    alignment: { horizontal: 'left', vertical: 'center' },
+    border:    borderAll,
+  };
+
+  const styleValueLembur = {
+    font:      { bold: true, sz: 10, color: { rgb: '0070C0' } },
+    fill:      { fgColor: { rgb: '00B0F0' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border:    borderAll,
+  };
+
+  for (const { storeName, tafts } of recapStoreGroups) {
+    // Tiap taft = 2 kolom (label + total), dengan 1 kolom gap antar taft
+    // Layout: taft0_col_A | taft0_col_B | gap | taft1_col_A | taft1_col_B | gap | ...
+    // Kita pakai pendekatan: tiap taft diletakkan secara horizontal berdampingan
+    // dengan lebar 2 kolom per taft + 1 kolom spasi
+    
+    const TAFT_WIDTH = 2;  // kolom label + kolom total
+    const GAP        = 1;  // kolom kosong antar taft
+    const BLOCK      = TAFT_WIDTH + GAP; // 3 kolom per taft
+
+    // Hitung baris max yang dibutuhkan (semua taft sama: 12 baris konten + 2 header = 14)
+    const ROWS_PER_CARD = 14; // title(1) + subheader(1) + 7 rows data + spacer + 4 total rows
+
+    // Buat array 2D kosong
+    const maxCols = tafts.length * BLOCK;
+    const grid: any[][] = Array.from({ length: ROWS_PER_CARD }, () =>
+      Array(maxCols).fill(null)
+    );
+
+    tafts.forEach((taft, tIdx) => {
+      const colA = tIdx * BLOCK;       // kolom label
+      const colB = tIdx * BLOCK + 1;   // kolom value
+
+      const sd = parseInt(taft.start_date) || 26;
+      const ed = parseInt(taft.end_date)   || 25;
+      const { from, to } = buildTaftDateRange(selectedMonth, sd, ed);
+      const recap = calcRecap(taft);
+
+      const MONTH_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+      const fmtTgl = (d: Date) => `${String(d.getDate()).padStart(2,'0')} ${MONTH_ID[d.getMonth()].toUpperCase()} ${d.getFullYear()}`;
+      const toUpper = (s: string) => s.toUpperCase();
+
+      // Row 0: Title — REKAPAN ABSEN tanggal - tanggal
+      grid[0][colA] = {
+        v: `REKAPAN ABSEN ${fmtTgl(from)} - ${fmtTgl(to)}`,
+        s: styleTitle,
+      };
+      grid[0][colB] = { v: '', s: styleTitle };
+
+      // Row 1: Sub-header nama taft / store | TOTAL
+      grid[1][colA] = {
+        v: `${toUpper(taft.taft_name)} / ${toUpper(storeName)}`,
+        s: styleSubHeader,
+      };
+      grid[1][colB] = { v: 'TOTAL', s: styleSubHeaderTotal };
+
+      // Rows 2-8: data rows
+      const dataRows = [
+        { label: 'TOTAL MASUK KERJA', value: recap.totalMasuk,           lembur: false },
+        { label: 'TOTAL OFF',         value: recap.totalOff,             lembur: false },
+        { label: 'TOTAL JAM LEMBUR',  value: recap.totalLembur > 0 ? parseFloat(recap.totalLembur.toFixed(1)) : 0, lembur: true },
+        { label: 'TOTAL CUTI',        value: recap.counts['C']  || 0,   lembur: false },
+        { label: 'TOTAL SAKIT',       value: recap.counts['+']  || 0,   lembur: false },
+        { label: 'TOTAL IZIN',        value: recap.counts['I']  || 0,   lembur: false },
+        { label: 'TOTAL ALPA',        value: recap.counts['A']  || 0,   lembur: false },
+      ];
+
+      dataRows.forEach((row, rIdx) => {
+        const r = rIdx + 2; // mulai dari baris index 2
+        grid[r][colA] = {
+          v: row.label,
+          s: row.lembur ? styleLabelLembur : styleLabelNormal,
+        };
+        grid[r][colB] = {
+          v: row.value,
+          t: 'n',
+          s: row.lembur ? styleValueLembur : styleValueNormal,
+        };
+      });
+    });
+
+    // Convert grid to worksheet
+    const ws: any = {};
+    const range = { s: { r: 0, c: 0 }, e: { r: ROWS_PER_CARD - 1, c: tafts.length * BLOCK - 1 } };
+
+    for (let r = 0; r < ROWS_PER_CARD; r++) {
+      for (let c = 0; c < tafts.length * BLOCK; c++) {
+        const cell = grid[r][c];
+        if (cell !== null && cell !== undefined) {
+          const addr = XLSX.utils.encode_cell({ r, c });
+          ws[addr] = { v: cell.v ?? '', t: cell.t || 's', s: cell.s };
+        }
+      }
+    }
+
+    ws['!ref'] = XLSX.utils.encode_range(range);
+
+    // Merge title dan subheader per taft (2 kolom jadi 1)
+    ws['!merges'] = [];
+    tafts.forEach((_, tIdx) => {
+      const colA = tIdx * BLOCK;
+      const colB = tIdx * BLOCK + 1;
+      // Merge baris 0 (title)
+      ws['!merges'].push({ s: { r: 0, c: colA }, e: { r: 0, c: colB } });
+      // Merge baris 1 kolom A (nama taft)
+      // kolom B tetap sendiri untuk "TOTAL"
+    });
+
+    // Set lebar kolom
+    const colWidths: any[] = [];
+    tafts.forEach(() => {
+      colWidths.push({ wch: 32 }); // label
+      colWidths.push({ wch: 10 }); // total
+      colWidths.push({ wch: 2  }); // gap
+    });
+    ws['!cols'] = colWidths;
+
+    // Set tinggi baris
+    ws['!rows'] = [
+      { hpt: 30 }, // title
+      { hpt: 20 }, // subheader
+      ...Array(7).fill({ hpt: 18 }), // data rows
+    ];
+
+    const sheetName = storeName.replace(/[\\\/?*\[\]:']/g, '_').slice(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  }
+
+  XLSX.writeFile(wb, `recap_absen_${selectedMonth}.xlsx`);
+};
+
   const recapStoreGroups: { storeName: string; tafts: TaftEntry[] }[] = [];
   const seenS = new Set<string>();
   recapTafts.forEach(t => {
@@ -779,7 +892,6 @@ function MonthlyReport({
 
   return (
     <div>
-      {/* Sub-tab for attendance_report users */}
       {user.attendance_report && (
         <div className="flex gap-0.5 bg-white rounded-lg p-0.5 shadow border border-gray-100 mb-3 w-fit">
           {(['import','recap'] as const).map(t => (
@@ -862,6 +974,13 @@ function MonthlyReport({
               <button onClick={fetchRecap} className="px-3 py-1 bg-primary text-white rounded text-[11px] hover:bg-primary/90">
                 Refresh
               </button>
+              <button
+                onClick={exportRecapXlsx}
+                disabled={recapLoading || recapStoreGroups.length === 0}
+                className="px-3 py-1 bg-emerald-600 text-white rounded text-[11px] hover:bg-emerald-700 disabled:opacity-50"
+              >
+                ↓ Export XLSX
+              </button>
             </div>
           </div>
 
@@ -873,7 +992,6 @@ function MonthlyReport({
             <div className="space-y-4">
               {recapStoreGroups.map(({ storeName, tafts }) => (
                 <div key={storeName}>
-                  {/* Store header */}
                   {!recapStore && (
                     <div className="flex items-center gap-2 mb-2 px-1">
                       <span className="text-xs font-bold text-primary uppercase tracking-wide">{storeName}</span>
@@ -881,7 +999,6 @@ function MonthlyReport({
                       <div className="flex-1 h-px bg-primary/10" />
                     </div>
                   )}
-                  {/* Card grid */}
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                     {tafts.map(taft => {
                       const recap = calcRecap(taft);
@@ -894,33 +1011,28 @@ function MonthlyReport({
                       const toTitleCase = (s: string) => s.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 
                       const LIST_ROWS = [
-                        { label: 'TOTAL MASUK KERJA', value: recap.totalMasuk,  cls: 'text-gray-800', bg: ''              },
-                        { label: 'TOTAL OFF',          value: recap.totalOff,   cls: 'text-gray-800', bg: ''              },
-                        { label: 'TOTAL JAM LEMBUR',   value: recap.totalLembur > 0 ? `${recap.totalLembur.toFixed(1)}` : 0, cls: 'text-gray-800', bg: 'bg-cyan-200'   },
-                        { label: 'TOTAL CUTI',         value: recap.counts['C']  || 0, cls: 'text-gray-800', bg: ''       },
-                        { label: 'TOTAL SAKIT',        value: recap.counts['+']  || 0, cls: 'text-gray-800', bg: ''       },
-                        { label: 'TOTAL IZIN',         value: recap.counts['I']  || 0, cls: 'text-gray-800', bg: ''       },
-                        { label: 'TOTAL ALPA',         value: recap.counts['A']  || 0, cls: 'text-gray-800', bg: ''       },
+                        { label: 'TOTAL MASUK KERJA', value: recap.totalMasuk,  cls: 'text-gray-800', bg: ''           },
+                        { label: 'TOTAL OFF',          value: recap.totalOff,   cls: 'text-gray-800', bg: ''           },
+                        { label: 'TOTAL JAM LEMBUR',   value: recap.totalLembur > 0 ? `${recap.totalLembur.toFixed(1)}` : 0, cls: 'text-gray-800', bg: 'bg-cyan-200' },
+                        { label: 'TOTAL CUTI',         value: recap.counts['C']  || 0, cls: 'text-gray-800', bg: ''    },
+                        { label: 'TOTAL SAKIT',        value: recap.counts['+']  || 0, cls: 'text-gray-800', bg: ''    },
+                        { label: 'TOTAL IZIN',         value: recap.counts['I']  || 0, cls: 'text-gray-800', bg: ''    },
+                        { label: 'TOTAL ALPA',         value: recap.counts['A']  || 0, cls: 'text-gray-800', bg: ''    },
                       ];
 
                       return (
                         <div key={taft.id} className="rounded-lg border border-gray-700 overflow-hidden text-[10px] shadow-sm">
-                          {/* Top: periode — kuning */}
                           <div className="bg-yellow-300 border-b border-gray-700 px-2 py-1 text-center">
                             <p className="font-black text-gray-900 uppercase text-[8px] leading-tight">
                               REKAPAN ABSEN {fmtTgl(from).toUpperCase()} - {fmtTgl(to).toUpperCase()}
                             </p>
                           </div>
-
-                          {/* Sub-header: nama - store — hijau */}
                           <div className="bg-green-400 border-b border-gray-700 px-2 py-1 flex items-center justify-between">
                             <p className="font-black text-gray-900 uppercase text-[8px] leading-tight">
-                              {toTitleCase(taft.taft_name)} / {toTitleCase(storeName)} 
+                              {toTitleCase(taft.taft_name)} / {toTitleCase(storeName)}
                             </p>
                             <p className="font-black text-gray-900 text-[9px] shrink-0 ml-1">TOTAL</p>
                           </div>
-
-                          {/* Rows */}
                           {LIST_ROWS.map((row, i) => (
                             <div
                               key={row.label}
@@ -966,7 +1078,6 @@ function MonthlyReport({
                 <label className="block text-xs font-medium text-gray-700 mb-1">Bulan</label>
                 <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
               </div>
-              {/* Preview: list all tafts + their date range */}
               {(() => {
                 const storeForPreview = isStoreUser ? myStoreName : selectedStore;
                 if (!storeForPreview) return null;
@@ -1012,7 +1123,7 @@ function MonthlyReport({
   );
 }
 
-// ─── Report Dashboard ─────────────────────────────────────────────────────────
+// ─── Report Dashboard ──────────────────────────────────────────────────────────
 interface TaftStat {
   taft_name: string;
   store_name: string;
@@ -1056,25 +1167,21 @@ function MiniBarChart({
         const pct = Math.round((val / maxVal) * 100);
         return (
           <div key={`${s.store_name}__${s.taft_name}`} className="flex items-center gap-1.5">
-            {/* Rank number */}
             <span className={`text-[8px] font-black w-3.5 text-right shrink-0 ${i === 0 ? cfg.textCls : 'text-gray-300'}`}>
               {i + 1}
             </span>
-            {/* Name — full name, wraps if needed */}
             <div className="w-28 shrink-0">
               <p className="text-[9px] font-medium text-gray-700 leading-tight break-words">
                 {s.taft_name}
               </p>
               <p className="text-[8px] text-gray-400">{s.store_name}</p>
             </div>
-            {/* Bar track */}
             <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{ width: `${Math.max(pct, 3)}%`, backgroundColor: cfg.color }}
               />
             </div>
-            {/* Value */}
             <span className={`text-[9px] font-bold shrink-0 w-6 text-right ${cfg.textCls}`}>
               {cfg.key === 'lembur' ? val.toFixed(1) : val}
             </span>
@@ -1090,7 +1197,6 @@ function ReportDashboard({
 }: {
   groupedByTaft: Record<string, { taft_name: string; store_name: string; rows: ReportRow[] }>;
 }) {
-  // Build stats per taft
   const stats: TaftStat[] = Object.values(groupedByTaft).map(({ taft_name, store_name, rows }) => {
     let masuk = 0, off = 0, cuti = 0, lembur = 0;
     rows.forEach(r => {
@@ -1108,7 +1214,6 @@ function ReportDashboard({
 
   return (
     <div className="mb-4">
-      {/* Summary strip — top 1 per category */}
       <div className="grid grid-cols-4 gap-2 mb-3">
         {CHART_CFGS.map(cfg => {
           const top = sorted(cfg.key).find(s => s[cfg.key] > 0);
@@ -1134,7 +1239,6 @@ function ReportDashboard({
         })}
       </div>
 
-      {/* 4 charts side by side */}
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
         {CHART_CFGS.map(cfg => (
           <div key={cfg.key} className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
@@ -1154,7 +1258,7 @@ function ReportDashboard({
   );
 }
 
-// ─── Full Report ──────────────────────────────────────────────────────────────
+// ─── Full Report ───────────────────────────────────────────────────────────────
 function FullReport({ user }: { user: any }) {
   const [taftList,      setTaftList]      = useState<TaftEntry[]>([]);
   const [allStores,     setAllStores]     = useState<string[]>([]);
@@ -1170,8 +1274,6 @@ function FullReport({ user }: { user: any }) {
   const [schedules, setSchedules] = useState<ScheduleRow[]>([]);
   const [loading,   setLoading]   = useState(false);
   const [viewMode,  setViewMode]  = useState<'monthly'|'weekly'>('monthly');
-
-  // Track which tafts are expanded (showing detail)
   const [expandedTafts, setExpandedTafts] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -1195,7 +1297,6 @@ function FullReport({ user }: { user: any }) {
     setLoading(true);
     const storeParam = selectedStore ? `&store_name=${encodeURIComponent(selectedStore)}` : '';
     const taftParam  = selectedTaft  ? `&taft_name=${encodeURIComponent(selectedTaft)}`   : '';
-    // Fetch broad window — per-taft filtering happens client-side in groupedByTaft
     const res = await fetch(`/api/attendance/report?month=${selectedMonth}${storeParam}${taftParam}`);
     setReports(await res.json());
     setLoading(false);
@@ -1213,9 +1314,6 @@ function FullReport({ user }: { user: any }) {
     ? taftList.filter(t => t.store_name?.toLowerCase() === selectedStore.toLowerCase())
     : taftList;
 
-  /**
-   * Group report rows per taft, filtering each taft's rows by its own date range.
-   */
   const groupedByTaft = filteredTafts.reduce((acc, taft) => {
     if (selectedTaft && taft.taft_name !== selectedTaft) return acc;
     const key = `${taft.store_name}__${taft.taft_name}`;
@@ -1238,7 +1336,7 @@ function FullReport({ user }: { user: any }) {
     return acc;
   }, {} as Record<string, { taft_name: string; store_name: string; rows: ReportRow[] }>);
 
-  const toggleTaft = (key: string) => {
+  const toggleTaft   = (key: string) => {
     setExpandedTafts(prev => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
@@ -1246,9 +1344,255 @@ function FullReport({ user }: { user: any }) {
       return next;
     });
   };
-
   const expandAll   = () => setExpandedTafts(new Set(Object.keys(groupedByTaft)));
   const collapseAll = () => setExpandedTafts(new Set());
+
+  // ── Export Report XLSX ───────────────────────────────────────────────────────
+  const exportReportXlsx = () => {
+  if (Object.keys(groupedByTaft).length === 0) return;
+  const wb = XLSX.utils.book_new();
+
+  const borderAll = {
+    top:    { style: 'thin', color: { rgb: '000000' } },
+    bottom: { style: 'thin', color: { rgb: '000000' } },
+    left:   { style: 'thin', color: { rgb: '000000' } },
+    right:  { style: 'thin', color: { rgb: '000000' } },
+  };
+
+  const sTitle = {
+    font:      { bold: true, sz: 12 },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border:    borderAll,
+  };
+
+  const sHeader = {
+    font:      { bold: true, sz: 10 },
+    fill:      { fgColor: { rgb: 'D9D9D9' } },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+    border:    borderAll,
+  };
+
+  const sDataCenter = {
+    font:      { sz: 10 },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border:    borderAll,
+  };
+
+  const sDataLeft = {
+    font:      { sz: 10 },
+    alignment: { horizontal: 'left', vertical: 'center' },
+    border:    borderAll,
+  };
+
+  const sSummaryLabel = {
+    font:      { bold: true, sz: 10 },
+    alignment: { horizontal: 'left', vertical: 'center' },
+    border:    borderAll,
+  };
+
+  const sSummaryValue = {
+    font:      { bold: true, sz: 10 },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border:    borderAll,
+  };
+
+  const sSummaryLabelLembur = {
+    font:      { bold: true, sz: 10, color: { rgb: '0070C0' } },
+    fill:      { fgColor: { rgb: '00B0F0' } },
+    alignment: { horizontal: 'left', vertical: 'center' },
+    border:    borderAll,
+  };
+
+  const sSummaryValueLembur = {
+    font:      { bold: true, sz: 10, color: { rgb: '0070C0' } },
+    fill:      { fgColor: { rgb: '00B0F0' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border:    borderAll,
+  };
+
+  const sTotalLabel = {
+    font:      { bold: true, sz: 10 },
+    fill:      { fgColor: { rgb: 'FFC000' } },
+    alignment: { horizontal: 'left', vertical: 'center' },
+    border:    borderAll,
+  };
+
+  const sTotalValue = {
+    font:      { bold: true, sz: 10 },
+    fill:      { fgColor: { rgb: 'FFC000' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border:    borderAll,
+  };
+
+  const mkCell = (v: any, s: any, t?: string) => ({ v, t: t || (typeof v === 'number' ? 'n' : 's'), s });
+  const emptyBorder = { v: '', s: { border: borderAll } };
+
+  for (const [, { taft_name, store_name, rows }] of Object.entries(groupedByTaft)) {
+    const sorted = [...rows].sort((a, b) => {
+      const da = parseDateSafe(a.date);
+      const db = parseDateSafe(b.date);
+      return (da?.getTime() || 0) - (db?.getTime() || 0);
+    });
+
+    const taftInfo = taftList.find(t => t.taft_name === taft_name && t.store_name === store_name);
+    const sd = parseInt(taftInfo?.start_date || '26');
+    const ed = parseInt(taftInfo?.end_date   || '25');
+    const { from, to } = buildTaftDateRange(selectedMonth, sd, ed);
+    const fmtTglLong = (d: Date) =>
+      `${String(d.getDate()).padStart(2,'0')} ${MONTH_SHORT_ID[d.getMonth()]} ${d.getFullYear()}`;
+
+    const ws: any = {};
+    let r = 0;
+
+    const setRow = (cols: any[]) => {
+      cols.forEach((cell, c) => {
+        if (cell !== null) {
+          ws[XLSX.utils.encode_cell({ r, c })] = cell;
+        }
+      });
+      r++;
+    };
+
+    // Row 0: Judul
+    setRow([
+      mkCell(`ABSEN IN OUT ${taft_name.toUpperCase()}`, sTitle),
+      mkCell('', sTitle), mkCell('', sTitle),
+      mkCell('', sTitle), mkCell('', sTitle), mkCell('', sTitle),
+    ]);
+
+    // Row 1: kosong
+    r++;
+
+    // Row 2: Header
+    setRow([
+      mkCell('TGL',                               sHeader),
+      mkCell('IN',                                sHeader),
+      mkCell('OUT',                               sHeader),
+      mkCell('SHIFT',                             sHeader),
+      mkCell('OVERTIME / LEMBUR BERAPA JAM',      sHeader),
+      mkCell('KETERANGAN',                        sHeader),
+    ]);
+
+    // Data rows
+    for (const row of sorted) {
+      const d = parseDateSafe(row.date);
+      const tglStr = d
+        ? `${String(d.getDate()).padStart(2,'0')}-${MONTH_SHORT_ID[d.getMonth()]}-${String(d.getFullYear()).slice(2)}`
+        : row.date;
+      const code  = row.code_time?.trim() || '';
+      const isOff = code === 'O';
+      const ot    = row.overtime_hours && parseFloat(row.overtime_hours) > 0
+        ? parseFloat(row.overtime_hours) : '';
+
+      setRow([
+        mkCell(tglStr,                              sDataCenter),
+        mkCell(isOff ? '-' : (row.clock_in  || '-'), sDataCenter),
+        mkCell(isOff ? '-' : (row.clock_out || '-'), sDataCenter),
+        mkCell(code,                                sDataCenter),
+        ot !== '' ? mkCell(ot, sDataCenter, 'n') : mkCell('', sDataCenter),
+        mkCell(row.reason || '',                    sDataLeft),
+      ]);
+    }
+
+    // Spacer
+    r++;
+    r++;
+
+    // Summary kode
+    const codeCounts: Record<string, number> = {};
+    let totalMasuk = 0, totalOff = 0, totalLembur = 0;
+    sorted.forEach(row => {
+      const c = row.code_time?.trim();
+      if (c) codeCounts[c] = (codeCounts[c] || 0) + 1;
+      if (['P','S','F','MF','M'].includes(c)) totalMasuk++;
+      if (c === 'O') totalOff++;
+      if (row.overtime_hours && parseFloat(row.overtime_hours) > 0) totalLembur += parseFloat(row.overtime_hours);
+    });
+
+    const summaryRows = [
+      { label: 'PAGI ( P )',        value: codeCounts['P']  || 0, lembur: false },
+      { label: 'SIANG ( S )',       value: codeCounts['S']  || 0, lembur: false },
+      { label: 'OFF ( O )',         value: codeCounts['O']  || 0, lembur: false },
+      { label: 'FULL ( F )',        value: codeCounts['F']  || 0, lembur: false },
+      { label: 'MIDLE ( M )',       value: codeCounts['M']  || 0, lembur: false },
+      { label: 'MIDLE FULL ( MF )', value: codeCounts['MF'] || 0, lembur: false },
+      { label: 'CUTI ( C )',        value: codeCounts['C']  || 0, lembur: false },
+      { label: 'SAKIT ( + )',       value: codeCounts['+']  || 0, lembur: false },
+      { label: 'IZIN ( I )',        value: codeCounts['I']  || 0, lembur: false },
+      { label: 'ALPA ( A )',        value: codeCounts['A']  || 0, lembur: false },
+    ];
+
+    summaryRows.forEach(({ label, value }) => {
+      setRow([
+        mkCell(label, sSummaryLabel), mkCell('', emptyBorder.s), mkCell('', emptyBorder.s),
+        mkCell(value, sSummaryValue, 'n'),
+        mkCell('', { border: borderAll }), mkCell('', { border: borderAll }),
+      ]);
+    });
+
+    r++; // spacer
+
+    const totalRows = [
+      { label: 'TOTAL MASUK KERJA', value: totalMasuk,                                   lembur: false },
+      { label: 'TOTAL OFF',         value: totalOff,                                     lembur: false },
+      { label: 'TOTAL JAM LEMBUR',  value: parseFloat(totalLembur.toFixed(1)),           lembur: true  },
+      { label: 'TOTAL CUTI',        value: codeCounts['C']  || 0,                        lembur: false },
+      { label: 'TOTAL SAKIT',       value: codeCounts['+']  || 0,                        lembur: false },
+      { label: 'TOTAL IZIN',        value: codeCounts['I']  || 0,                        lembur: false },
+      { label: 'TOTAL ALPA',        value: codeCounts['A']  || 0,                        lembur: false },
+    ];
+
+    totalRows.forEach(({ label, value, lembur }) => {
+      setRow([
+        mkCell(label, lembur ? sSummaryLabelLembur : sTotalLabel),
+        mkCell('', lembur ? sSummaryLabelLembur : sTotalLabel),
+        mkCell('', lembur ? sSummaryLabelLembur : sTotalLabel),
+        mkCell(value, lembur ? sSummaryValueLembur : sTotalValue, 'n'),
+        mkCell('', { border: borderAll }),
+        mkCell('', { border: borderAll }),
+      ]);
+    });
+
+    // Footer periode
+    r++;
+    ws[XLSX.utils.encode_cell({ r, c: 0 })] = {
+      v: `Periode: ${fmtTglLong(from)} - ${fmtTglLong(to)}`,
+      s: { font: { italic: true, sz: 9 }, alignment: { horizontal: 'left' } },
+    };
+    r++;
+    ws[XLSX.utils.encode_cell({ r, c: 0 })] = {
+      v: `${taft_name} / ${store_name}`,
+      s: { font: { bold: true, sz: 9 } },
+    };
+
+    ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: r, c: 5 } });
+
+    // Merges
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }, // judul
+    ];
+    // Merge kolom A-C untuk label summary & total rows
+    const summaryStartRow = sorted.length + 5; // title(1) + empty(1) + header(1) + data(n) + 2 spacer
+    for (let i = 0; i < summaryRows.length; i++) {
+      ws['!merges'].push({ s: { r: summaryStartRow + i, c: 0 }, e: { r: summaryStartRow + i, c: 2 } });
+    }
+    const totalStartRow = summaryStartRow + summaryRows.length + 1;
+    for (let i = 0; i < totalRows.length; i++) {
+      ws['!merges'].push({ s: { r: totalStartRow + i, c: 0 }, e: { r: totalStartRow + i, c: 2 } });
+    }
+
+    ws['!cols'] = [
+      { wch: 14 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 28 }, { wch: 40 },
+    ];
+    ws['!rows'] = [{ hpt: 22 }]; // tinggi baris judul
+
+    const rawName  = `${taft_name} - ${store_name}`;
+    const sheetName = rawName.replace(/[\\\/?*\[\]:']/g, '_').slice(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  }
+
+  XLSX.writeFile(wb, `report_absen_${selectedMonth}.xlsx`);
+};
 
   const todayDay    = new Date().getDay();
   const todayDayKey = DAYS[todayDay === 0 ? 6 : todayDay - 1];
@@ -1313,19 +1657,29 @@ function FullReport({ user }: { user: any }) {
             className="px-3 py-1 bg-primary text-white rounded text-[11px] hover:bg-primary/90">
             Tampilkan
           </button>
+
+          {/* Tombol Export — muncul hanya saat data monthly sudah ada */}
+          {viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (
+            <button
+              onClick={exportReportXlsx}
+              className="px-3 py-1 bg-emerald-600 text-white rounded text-[11px] hover:bg-emerald-700"
+            >
+              ↓ Export XLSX
+            </button>
+          )}
         </div>
       </div>
 
       {loading && <div className="text-center py-10 text-gray-400 text-sm">Memuat data...</div>}
 
-      {/* ── Dashboard ── */}
+      {/* Dashboard */}
       {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (
         <ReportDashboard groupedByTaft={groupedByTaft} />
       )}
 
       {/* Monthly View */}
       {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (() => {
-        const DAY_ID = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+        const DAY_ID      = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
         const MONTH_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
         const fmtDate = (iso: string) => {
           const d = parseDateSafe(iso);
@@ -1338,7 +1692,6 @@ function FullReport({ user }: { user: any }) {
         };
         return (
           <div className="space-y-4">
-            {/* Toolbar */}
             <div className="flex items-center justify-between">
               <span className="text-[11px] text-gray-500 font-medium">{Object.keys(groupedByTaft).length} TAFT</span>
               <div className="flex gap-1.5">
@@ -1351,11 +1704,8 @@ function FullReport({ user }: { user: any }) {
               </div>
             </div>
 
-            {/* Cards */}
             {Object.entries(groupedByTaft).map(([key, { taft_name, store_name, rows }]) => {
               const isExpanded = expandedTafts.has(key);
-
-              // Mini recap for header badges
               const codeCounts: Record<string,number> = {};
               let totalMasuk = 0, totalLembur = 0;
               rows.forEach(r => {
@@ -1367,18 +1717,11 @@ function FullReport({ user }: { user: any }) {
 
               return (
                 <div key={key} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                  {/* Card header — always visible */}
-                  <button
-                    onClick={() => toggleTaft(key)}
-                    className="w-full text-left"
-                  >
+                  <button onClick={() => toggleTaft(key)} className="w-full text-left">
                     <div className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/80 transition-colors">
-                      {/* Expand indicator */}
                       <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-colors ${isExpanded ? 'bg-primary text-white' : 'bg-gray-100 text-gray-400'}`}>
                         <span className={`text-[9px] font-black transition-transform duration-200 inline-block ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
                       </div>
-
-                      {/* Name + store */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-bold text-gray-900">{taft_name}</span>
@@ -1392,8 +1735,6 @@ function FullReport({ user }: { user: any }) {
                           {totalLembur > 0 && <span className="text-[10px] text-orange-500 font-semibold">{totalLembur.toFixed(1)}j lembur</span>}
                         </div>
                       </div>
-
-                      {/* Code badges */}
                       <div className="flex gap-1 flex-wrap justify-end max-w-[200px]">
                         {RECAP_KEYS.map(({ key: k }) => {
                           const cnt = codeCounts[k] || 0;
@@ -1408,7 +1749,6 @@ function FullReport({ user }: { user: any }) {
                     </div>
                   </button>
 
-                  {/* Detail table */}
                   {isExpanded && (
                     <div className="border-t border-gray-100">
                       {rows.length === 0 ? (
@@ -1438,39 +1778,33 @@ function FullReport({ user }: { user: any }) {
                                     weekend ? 'bg-blue-50/40' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
                                   } hover:bg-primary/5`}
                                 >
-                                  {/* Tanggal */}
                                   <td className="px-4 py-2">
                                     <span className={`text-[11px] font-medium ${weekend ? 'text-blue-600' : 'text-gray-700'}`}>
                                       {fmtDate(r.date)}
                                     </span>
                                   </td>
-                                  {/* Kode */}
                                   <td className="px-3 py-2 text-center">
                                     {code
                                       ? <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-600'}`}>{code}</span>
                                       : <span className="text-gray-200 text-xs">—</span>
                                     }
                                   </td>
-                                  {/* Clock In */}
                                   <td className="px-3 py-2 text-center">
                                     <span className={`text-[11px] font-mono font-medium ${isOff ? 'text-gray-300' : 'text-gray-700'}`}>
                                       {displayTime(r.clock_in) || (isOff ? '—' : '-')}
                                     </span>
                                   </td>
-                                  {/* Clock Out */}
                                   <td className="px-3 py-2 text-center">
                                     <span className={`text-[11px] font-mono font-medium ${isOff ? 'text-gray-300' : 'text-gray-700'}`}>
                                       {displayTime(r.clock_out) || (isOff ? '—' : '-')}
                                     </span>
                                   </td>
-                                  {/* Lembur */}
                                   <td className="px-3 py-2 text-center">
                                     {hasOT
                                       ? <span className="text-[11px] font-bold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full">{r.overtime_hours}j</span>
                                       : <span className="text-gray-200 text-xs">—</span>
                                     }
                                   </td>
-                                  {/* Keterangan */}
                                   <td className="px-4 py-2">
                                     <span className="text-[11px] text-gray-400 truncate block max-w-[220px]">{r.reason || ''}</span>
                                   </td>
