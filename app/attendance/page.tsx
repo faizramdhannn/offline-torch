@@ -631,7 +631,8 @@ function MonthlyReport({
       ws['!cols'] = colWidths;
 
       // Sheet name: shorten taft name to max 31 chars (Excel limit)
-      const sheetName = taft.taft_name.slice(0, 31);
+      // Excel sheet names cannot contain: \ / ? * [ ] : — replace with underscore, max 31 chars
+      const sheetName = taft.taft_name.replace(/[\\\/?*\[\]:']/g, '_').slice(0, 31);
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
     }
 
