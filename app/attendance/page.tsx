@@ -86,7 +86,7 @@ function normalizeTime(raw: string | number | undefined | null): string {
 
   // Strip Excel text-prefix artifacts (apostrophe/backtick)
   const s = String(raw).trim().replace(/^[`']+/, '');
-  if (s === '' || s.toLowerCase() === 'none') return '';
+  if (s === '' || s.toLowerCase() === 'none' || s === '-') return '';
 
   // Already HH:MM or HH:MM:SS
   if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) {
@@ -94,10 +94,17 @@ function normalizeTime(raw: string | number | undefined | null): string {
     return `${String(parseInt(h, 10)).padStart(2, '0')}:${m.slice(0, 2)}`;
   }
 
-  // Float/int or dot-separated string ("9.49", "21.14", "21", 9.49, 21)
-  // Indonesian convention: 9.49 = 9 jam 49 menit (NOT decimal hours)
   const f = parseFloat(s);
   if (!isNaN(f)) {
+    // Excel time serial: stored as fraction of 24h (e.g. 08:46 → 0.36527...)
+    // Values between 0 (exclusive) and 1 (exclusive) are time serials
+    if (f > 0 && f < 1) {
+      const totalMinutes = Math.round(f * 24 * 60);
+      const h = Math.floor(totalMinutes / 60);
+      const m = totalMinutes % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+    // HH.MM float convention: 8.46 = 8h 46m, 17.00 = 17h 00m (Indonesian)
     const h = Math.floor(f);
     const m = Math.round((f - h) * 100);
     return `${String(h).padStart(2, '0')}:${String(Math.min(m, 59)).padStart(2, '0')}`;
@@ -106,7 +113,6 @@ function normalizeTime(raw: string | number | undefined | null): string {
   return s;
 }
 
-/** Display a clock value — normalizes and returns '-' for empty */
 function displayTime(val: string | number | undefined | null): string {
   if (val === null || val === undefined || val === '') return '-';
   const n = normalizeTime(val);
