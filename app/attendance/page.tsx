@@ -1012,7 +1012,7 @@ const exportRecapXlsx = () => {
 
                       const LIST_ROWS = [
                         { label: 'TOTAL MASUK KERJA', value: recap.totalMasuk,  cls: 'text-gray-800', bg: ''           },
-                        { label: 'TOTAL OFF',          value: recap.totalOff,   cls: 'text-gray-800', bg: ''           },
+                        { label: 'TOTAL OFF',          value: recap.totalOff,   cls: 'text-gray-800', bg: 'bg-red-200'           },
                         { label: 'TOTAL JAM LEMBUR',   value: recap.totalLembur > 0 ? `${recap.totalLembur.toFixed(1)}` : 0, cls: 'text-gray-800', bg: 'bg-cyan-200' },
                         { label: 'TOTAL CUTI',         value: recap.counts['C']  || 0, cls: 'text-gray-800', bg: ''    },
                         { label: 'TOTAL SAKIT',        value: recap.counts['+']  || 0, cls: 'text-gray-800', bg: ''    },
