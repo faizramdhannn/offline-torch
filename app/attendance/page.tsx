@@ -5,6 +5,18 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
 import * as XLSX from "xlsx-js-style";
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+} from "chart.js";
+import { Doughnut, Bar } from "react-chartjs-2";
+
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface ScheduleRow {
@@ -67,6 +79,9 @@ const RECAP_KEYS = [
   { key:'I',   label:'IZIN (I)'        },
   { key:'A',   label:'ALPA (A)'        },
 ];
+
+// Tarif lembur per jam
+const OVERTIME_RATE = 17500;
 
 function normalizeTime(raw: string | number | undefined | null): string {
   if (raw === null || raw === undefined || raw === '') return '';
@@ -155,6 +170,16 @@ const fmtISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 const MONTH_SHORT_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+
+/** Truncate name to n chars with ellipsis */
+const truncName = (s: string, n = 15) => s && s.length > n ? s.slice(0, n) + '…' : (s || '');
+
+/** Title case */
+const toTitleCase = (str: string) =>
+  str ? str.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()) : str;
+
+/** Format rupiah */
+const fmtRupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function AttendancePage() {
@@ -332,9 +357,6 @@ function WeeklySchedule({
 
   const todayDay    = new Date().getDay();
   const todayDayKey = DAYS[todayDay === 0 ? 6 : todayDay - 1];
-
-  const toTitleCase = (str: string) =>
-    str.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 
   const storeGroups: { storeName: string; tafts: TaftEntry[] }[] = [];
   const seenStores = new Set<string>();
@@ -699,186 +721,147 @@ function MonthlyReport({
   };
 
   // ── Export Recap XLSX ────────────────────────────────────────────────────────
-const exportRecapXlsx = () => {
-  const wb = XLSX.utils.book_new();
+  const exportRecapXlsx = () => {
+    const wb = XLSX.utils.book_new();
 
-  // Style helpers
-  const borderAll = {
-    top:    { style: 'thin', color: { rgb: '000000' } },
-    bottom: { style: 'thin', color: { rgb: '000000' } },
-    left:   { style: 'thin', color: { rgb: '000000' } },
-    right:  { style: 'thin', color: { rgb: '000000' } },
-  };
+    const borderAll = {
+      top:    { style: 'thin', color: { rgb: '000000' } },
+      bottom: { style: 'thin', color: { rgb: '000000' } },
+      left:   { style: 'thin', color: { rgb: '000000' } },
+      right:  { style: 'thin', color: { rgb: '000000' } },
+    };
 
-  const styleTitle = {
-    font:      { bold: true, sz: 11, color: { rgb: '000000' } },
-    fill:      { fgColor: { rgb: 'FFC000' } }, // kuning
-    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-    border:    borderAll,
-  };
+    const styleTitle = {
+      font:      { bold: true, sz: 11, color: { rgb: '000000' } },
+      fill:      { fgColor: { rgb: 'FFC000' } },
+      alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+      border:    borderAll,
+    };
 
-  const styleSubHeader = {
-    font:      { bold: true, sz: 10, color: { rgb: '000000' } },
-    fill:      { fgColor: { rgb: '92D050' } }, // hijau
-    alignment: { horizontal: 'center', vertical: 'center' },
-    border:    borderAll,
-  };
+    const styleSubHeader = {
+      font:      { bold: true, sz: 10, color: { rgb: '000000' } },
+      fill:      { fgColor: { rgb: '92D050' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border:    borderAll,
+    };
 
-  const styleSubHeaderTotal = {
-    font:      { bold: true, sz: 10, color: { rgb: '000000' } },
-    fill:      { fgColor: { rgb: '92D050' } },
-    alignment: { horizontal: 'center', vertical: 'center' },
-    border:    borderAll,
-  };
+    const styleSubHeaderTotal = {
+      font:      { bold: true, sz: 10, color: { rgb: '000000' } },
+      fill:      { fgColor: { rgb: '92D050' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border:    borderAll,
+    };
 
-  const styleLabelNormal = {
-    font:      { bold: true, sz: 10 },
-    fill:      { fgColor: { rgb: 'FFFFFF' } },
-    alignment: { horizontal: 'left', vertical: 'center' },
-    border:    borderAll,
-  };
+    const styleLabelNormal = {
+      font:      { bold: true, sz: 10 },
+      fill:      { fgColor: { rgb: 'FFFFFF' } },
+      alignment: { horizontal: 'left', vertical: 'center' },
+      border:    borderAll,
+    };
 
-  const styleValueNormal = {
-    font:      { bold: true, sz: 10 },
-    fill:      { fgColor: { rgb: 'FFFFFF' } },
-    alignment: { horizontal: 'center', vertical: 'center' },
-    border:    borderAll,
-  };
+    const styleValueNormal = {
+      font:      { bold: true, sz: 10 },
+      fill:      { fgColor: { rgb: 'FFFFFF' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border:    borderAll,
+    };
 
-  const styleLabelLembur = {
-    font:      { bold: true, sz: 10, color: { rgb: '0070C0' } },
-    fill:      { fgColor: { rgb: '00B0F0' } }, // cyan
-    alignment: { horizontal: 'left', vertical: 'center' },
-    border:    borderAll,
-  };
+    const styleLabelLembur = {
+      font:      { bold: true, sz: 10, color: { rgb: '0070C0' } },
+      fill:      { fgColor: { rgb: '00B0F0' } },
+      alignment: { horizontal: 'left', vertical: 'center' },
+      border:    borderAll,
+    };
 
-  const styleValueLembur = {
-    font:      { bold: true, sz: 10, color: { rgb: '0070C0' } },
-    fill:      { fgColor: { rgb: '00B0F0' } },
-    alignment: { horizontal: 'center', vertical: 'center' },
-    border:    borderAll,
-  };
+    const styleValueLembur = {
+      font:      { bold: true, sz: 10, color: { rgb: '0070C0' } },
+      fill:      { fgColor: { rgb: '00B0F0' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border:    borderAll,
+    };
 
-  for (const { storeName, tafts } of recapStoreGroups) {
-    // Tiap taft = 2 kolom (label + total), dengan 1 kolom gap antar taft
-    // Layout: taft0_col_A | taft0_col_B | gap | taft1_col_A | taft1_col_B | gap | ...
-    // Kita pakai pendekatan: tiap taft diletakkan secara horizontal berdampingan
-    // dengan lebar 2 kolom per taft + 1 kolom spasi
-    
-    const TAFT_WIDTH = 2;  // kolom label + kolom total
-    const GAP        = 1;  // kolom kosong antar taft
-    const BLOCK      = TAFT_WIDTH + GAP; // 3 kolom per taft
+    for (const { storeName, tafts } of recapStoreGroups) {
+      const TAFT_WIDTH = 2;
+      const GAP        = 1;
+      const BLOCK      = TAFT_WIDTH + GAP;
+      const ROWS_PER_CARD = 14;
 
-    // Hitung baris max yang dibutuhkan (semua taft sama: 12 baris konten + 2 header = 14)
-    const ROWS_PER_CARD = 14; // title(1) + subheader(1) + 7 rows data + spacer + 4 total rows
+      const maxCols = tafts.length * BLOCK;
+      const grid: any[][] = Array.from({ length: ROWS_PER_CARD }, () =>
+        Array(maxCols).fill(null)
+      );
 
-    // Buat array 2D kosong
-    const maxCols = tafts.length * BLOCK;
-    const grid: any[][] = Array.from({ length: ROWS_PER_CARD }, () =>
-      Array(maxCols).fill(null)
-    );
+      tafts.forEach((taft, tIdx) => {
+        const colA = tIdx * BLOCK;
+        const colB = tIdx * BLOCK + 1;
 
-    tafts.forEach((taft, tIdx) => {
-      const colA = tIdx * BLOCK;       // kolom label
-      const colB = tIdx * BLOCK + 1;   // kolom value
+        const sd = parseInt(taft.start_date) || 26;
+        const ed = parseInt(taft.end_date)   || 25;
+        const { from, to } = buildTaftDateRange(selectedMonth, sd, ed);
+        const recap = calcRecap(taft);
 
-      const sd = parseInt(taft.start_date) || 26;
-      const ed = parseInt(taft.end_date)   || 25;
-      const { from, to } = buildTaftDateRange(selectedMonth, sd, ed);
-      const recap = calcRecap(taft);
+        const MONTH_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+        const fmtTgl = (d: Date) => `${String(d.getDate()).padStart(2,'0')} ${MONTH_ID[d.getMonth()].toUpperCase()} ${d.getFullYear()}`;
+        const toUpper = (s: string) => s.toUpperCase();
 
-      const MONTH_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-      const fmtTgl = (d: Date) => `${String(d.getDate()).padStart(2,'0')} ${MONTH_ID[d.getMonth()].toUpperCase()} ${d.getFullYear()}`;
-      const toUpper = (s: string) => s.toUpperCase();
+        grid[0][colA] = { v: `REKAPAN ABSEN ${fmtTgl(from)} - ${fmtTgl(to)}`, s: styleTitle };
+        grid[0][colB] = { v: '', s: styleTitle };
+        grid[1][colA] = { v: `${toUpper(taft.taft_name)} / ${toUpper(storeName)}`, s: styleSubHeader };
+        grid[1][colB] = { v: 'TOTAL', s: styleSubHeaderTotal };
 
-      // Row 0: Title — REKAPAN ABSEN tanggal - tanggal
-      grid[0][colA] = {
-        v: `REKAPAN ABSEN ${fmtTgl(from)} - ${fmtTgl(to)}`,
-        s: styleTitle,
-      };
-      grid[0][colB] = { v: '', s: styleTitle };
+        const dataRows = [
+          { label: 'TOTAL MASUK KERJA', value: recap.totalMasuk,           lembur: false },
+          { label: 'TOTAL OFF',         value: recap.totalOff,             lembur: false },
+          { label: 'TOTAL JAM LEMBUR',  value: recap.totalLembur > 0 ? parseFloat(recap.totalLembur.toFixed(1)) : 0, lembur: true },
+          { label: 'TOTAL CUTI',        value: recap.counts['C']  || 0,   lembur: false },
+          { label: 'TOTAL SAKIT',       value: recap.counts['+']  || 0,   lembur: false },
+          { label: 'TOTAL IZIN',        value: recap.counts['I']  || 0,   lembur: false },
+          { label: 'TOTAL ALPA',        value: recap.counts['A']  || 0,   lembur: false },
+        ];
 
-      // Row 1: Sub-header nama taft / store | TOTAL
-      grid[1][colA] = {
-        v: `${toUpper(taft.taft_name)} / ${toUpper(storeName)}`,
-        s: styleSubHeader,
-      };
-      grid[1][colB] = { v: 'TOTAL', s: styleSubHeaderTotal };
-
-      // Rows 2-8: data rows
-      const dataRows = [
-        { label: 'TOTAL MASUK KERJA', value: recap.totalMasuk,           lembur: false },
-        { label: 'TOTAL OFF',         value: recap.totalOff,             lembur: false },
-        { label: 'TOTAL JAM LEMBUR',  value: recap.totalLembur > 0 ? parseFloat(recap.totalLembur.toFixed(1)) : 0, lembur: true },
-        { label: 'TOTAL CUTI',        value: recap.counts['C']  || 0,   lembur: false },
-        { label: 'TOTAL SAKIT',       value: recap.counts['+']  || 0,   lembur: false },
-        { label: 'TOTAL IZIN',        value: recap.counts['I']  || 0,   lembur: false },
-        { label: 'TOTAL ALPA',        value: recap.counts['A']  || 0,   lembur: false },
-      ];
-
-      dataRows.forEach((row, rIdx) => {
-        const r = rIdx + 2; // mulai dari baris index 2
-        grid[r][colA] = {
-          v: row.label,
-          s: row.lembur ? styleLabelLembur : styleLabelNormal,
-        };
-        grid[r][colB] = {
-          v: row.value,
-          t: 'n',
-          s: row.lembur ? styleValueLembur : styleValueNormal,
-        };
+        dataRows.forEach((row, rIdx) => {
+          const r = rIdx + 2;
+          grid[r][colA] = { v: row.label, s: row.lembur ? styleLabelLembur : styleLabelNormal };
+          grid[r][colB] = { v: row.value, t: 'n', s: row.lembur ? styleValueLembur : styleValueNormal };
+        });
       });
-    });
 
-    // Convert grid to worksheet
-    const ws: any = {};
-    const range = { s: { r: 0, c: 0 }, e: { r: ROWS_PER_CARD - 1, c: tafts.length * BLOCK - 1 } };
+      const ws: any = {};
+      const range = { s: { r: 0, c: 0 }, e: { r: ROWS_PER_CARD - 1, c: tafts.length * BLOCK - 1 } };
 
-    for (let r = 0; r < ROWS_PER_CARD; r++) {
-      for (let c = 0; c < tafts.length * BLOCK; c++) {
-        const cell = grid[r][c];
-        if (cell !== null && cell !== undefined) {
-          const addr = XLSX.utils.encode_cell({ r, c });
-          ws[addr] = { v: cell.v ?? '', t: cell.t || 's', s: cell.s };
+      for (let r = 0; r < ROWS_PER_CARD; r++) {
+        for (let c = 0; c < tafts.length * BLOCK; c++) {
+          const cell = grid[r][c];
+          if (cell !== null && cell !== undefined) {
+            const addr = XLSX.utils.encode_cell({ r, c });
+            ws[addr] = { v: cell.v ?? '', t: cell.t || 's', s: cell.s };
+          }
         }
       }
+
+      ws['!ref'] = XLSX.utils.encode_range(range);
+      ws['!merges'] = [];
+      tafts.forEach((_, tIdx) => {
+        const colA = tIdx * BLOCK;
+        const colB = tIdx * BLOCK + 1;
+        ws['!merges'].push({ s: { r: 0, c: colA }, e: { r: 0, c: colB } });
+      });
+
+      const colWidths: any[] = [];
+      tafts.forEach(() => {
+        colWidths.push({ wch: 32 });
+        colWidths.push({ wch: 10 });
+        colWidths.push({ wch: 2  });
+      });
+      ws['!cols'] = colWidths;
+      ws['!rows'] = [{ hpt: 30 }, { hpt: 20 }, ...Array(7).fill({ hpt: 18 })];
+
+      const sheetName = storeName.replace(/[\\\/?*\[\]:']/g, '_').slice(0, 31);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
     }
 
-    ws['!ref'] = XLSX.utils.encode_range(range);
-
-    // Merge title dan subheader per taft (2 kolom jadi 1)
-    ws['!merges'] = [];
-    tafts.forEach((_, tIdx) => {
-      const colA = tIdx * BLOCK;
-      const colB = tIdx * BLOCK + 1;
-      // Merge baris 0 (title)
-      ws['!merges'].push({ s: { r: 0, c: colA }, e: { r: 0, c: colB } });
-      // Merge baris 1 kolom A (nama taft)
-      // kolom B tetap sendiri untuk "TOTAL"
-    });
-
-    // Set lebar kolom
-    const colWidths: any[] = [];
-    tafts.forEach(() => {
-      colWidths.push({ wch: 32 }); // label
-      colWidths.push({ wch: 10 }); // total
-      colWidths.push({ wch: 2  }); // gap
-    });
-    ws['!cols'] = colWidths;
-
-    // Set tinggi baris
-    ws['!rows'] = [
-      { hpt: 30 }, // title
-      { hpt: 20 }, // subheader
-      ...Array(7).fill({ hpt: 18 }), // data rows
-    ];
-
-    const sheetName = storeName.replace(/[\\\/?*\[\]:']/g, '_').slice(0, 31);
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  }
-
-  XLSX.writeFile(wb, `recap_absen_${selectedMonth}.xlsx`);
-};
+    XLSX.writeFile(wb, `recap_absen_${selectedMonth}.xlsx`);
+  };
 
   const recapStoreGroups: { storeName: string; tafts: TaftEntry[] }[] = [];
   const seenS = new Set<string>();
@@ -911,7 +894,7 @@ const exportRecapXlsx = () => {
               {isStoreUser ? (
                 <div className="flex items-center gap-1.5">
                   <span className="text-[11px] text-gray-500">Store:</span>
-                  <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">{myStoreName}</span>
+                  <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">{toTitleCase(myStoreName)}</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5">
@@ -919,7 +902,7 @@ const exportRecapXlsx = () => {
                   <select value={selectedStore} onChange={e => { setSelectedStore(e.target.value); }}
                     className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary">
                     <option value="">Semua Store</option>
-                    {allStores.map(s => <option key={s} value={s}>{s}</option>)}
+                    {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
                   </select>
                 </div>
               )}
@@ -963,7 +946,7 @@ const exportRecapXlsx = () => {
                 <select value={recapStore} onChange={e => setRecapStore(e.target.value)}
                   className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary">
                   <option value="">Semua Store</option>
-                  {allStores.map(s => <option key={s} value={s}>{s}</option>)}
+                  {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
                 </select>
               </div>
               <div className="flex items-center gap-1.5">
@@ -994,7 +977,7 @@ const exportRecapXlsx = () => {
                 <div key={storeName}>
                   {!recapStore && (
                     <div className="flex items-center gap-2 mb-2 px-1">
-                      <span className="text-xs font-bold text-primary uppercase tracking-wide">{storeName}</span>
+                      <span className="text-xs font-bold text-primary uppercase tracking-wide">{toTitleCase(storeName)}</span>
                       <span className="text-[10px] text-gray-400">{tafts.length} taft</span>
                       <div className="flex-1 h-px bg-primary/10" />
                     </div>
@@ -1008,16 +991,15 @@ const exportRecapXlsx = () => {
 
                       const MONTH_ID = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
                       const fmtTgl = (d: Date) => `${String(d.getDate()).padStart(2,'0')} ${MONTH_ID[d.getMonth()]} ${d.getFullYear()}`;
-                      const toTitleCase = (s: string) => s.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 
                       const LIST_ROWS = [
                         { label: 'TOTAL MASUK KERJA', value: recap.totalMasuk,  cls: 'text-gray-800', bg: ''           },
-                        { label: 'TOTAL OFF',          value: recap.totalOff,   cls: 'text-gray-800', bg: 'bg-red-200'           },
+                        { label: 'TOTAL OFF',          value: recap.totalOff,   cls: 'text-gray-800', bg: 'bg-red-200' },
                         { label: 'TOTAL JAM LEMBUR',   value: recap.totalLembur > 0 ? `${recap.totalLembur.toFixed(1)}` : 0, cls: 'text-gray-800', bg: 'bg-cyan-200' },
-                        { label: 'TOTAL CUTI',         value: recap.counts['C']  || 0, cls: 'text-gray-800', bg: ''    },
-                        { label: 'TOTAL SAKIT',        value: recap.counts['+']  || 0, cls: 'text-gray-800', bg: ''    },
-                        { label: 'TOTAL IZIN',         value: recap.counts['I']  || 0, cls: 'text-gray-800', bg: ''    },
-                        { label: 'TOTAL ALPA',         value: recap.counts['A']  || 0, cls: 'text-gray-800', bg: ''    },
+                        { label: 'TOTAL CUTI',         value: recap.counts['C']  || 0, cls: 'text-gray-800', bg: '' },
+                        { label: 'TOTAL SAKIT',        value: recap.counts['+']  || 0, cls: 'text-gray-800', bg: '' },
+                        { label: 'TOTAL IZIN',         value: recap.counts['I']  || 0, cls: 'text-gray-800', bg: '' },
+                        { label: 'TOTAL ALPA',         value: recap.counts['A']  || 0, cls: 'text-gray-800', bg: '' },
                       ];
 
                       return (
@@ -1067,10 +1049,10 @@ const exportRecapXlsx = () => {
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
                 {isStoreUser
-                  ? <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-600">{myStoreName}</div>
+                  ? <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-600">{toTitleCase(myStoreName)}</div>
                   : <select value={selectedStore} onChange={e => setSelectedStore(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary">
                       <option value="">Pilih Store</option>
-                      {allStores.map(s => <option key={s} value={s}>{s}</option>)}
+                      {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
                     </select>
                 }
               </div>
@@ -1131,6 +1113,9 @@ interface TaftStat {
   off: number;
   cuti: number;
   lembur: number;
+  sakit: number;
+  izin: number;
+  alpa: number;
 }
 
 type ChartKey = 'masuk' | 'lembur' | 'cuti' | 'off';
@@ -1142,6 +1127,13 @@ const CHART_CFGS = [
   { key: 'off'    as ChartKey, label: 'Terbanyak OFF',    color: '#ef4444', unit: 'hari',  textCls: 'text-red-600',    bgCls: 'bg-red-500'    },
 ] as const;
 
+// Warna palette donut
+const DONUT_COLORS = [
+  '#f97316','#fb923c','#fdba74','#fbbf24','#f59e0b',
+  '#ef4444','#ec4899','#8b5cf6','#3b82f6','#22c55e',
+];
+
+// ─── Mini Bar Chart (vertikal list) ───────────────────────────────────────────
 function MiniBarChart({
   data, cfg, maxRows = 43,
 }: {
@@ -1171,10 +1163,13 @@ function MiniBarChart({
               {i + 1}
             </span>
             <div className="w-28 shrink-0">
-              <p className="text-[9px] font-medium text-gray-700 leading-tight break-words">
-                {s.taft_name}
+              <p
+                className="text-[9px] font-medium text-gray-700 leading-tight"
+                title={s.taft_name}
+              >
+                {truncName(s.taft_name, 15)}
               </p>
-              <p className="text-[8px] text-gray-400">{s.store_name}</p>
+              <p className="text-[8px] text-gray-400">{toTitleCase(s.store_name)}</p>
             </div>
             <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
               <div
@@ -1192,29 +1187,136 @@ function MiniBarChart({
   );
 }
 
+// ─── Report Dashboard (komponen utama analitik) ───────────────────────────────
 function ReportDashboard({
   groupedByTaft,
 }: {
   groupedByTaft: Record<string, { taft_name: string; store_name: string; rows: ReportRow[] }>;
 }) {
   const stats: TaftStat[] = Object.values(groupedByTaft).map(({ taft_name, store_name, rows }) => {
-    let masuk = 0, off = 0, cuti = 0, lembur = 0;
+    let masuk = 0, off = 0, cuti = 0, lembur = 0, sakit = 0, izin = 0, alpa = 0;
     rows.forEach(r => {
       const code = r.code_time?.trim();
       if (['P','S','F','MF','M'].includes(code)) masuk++;
       if (code === 'O') off++;
       if (code === 'C') cuti++;
+      if (code === '+') sakit++;
+      if (code === 'I') izin++;
+      if (code === 'A') alpa++;
       if (r.overtime_hours && parseFloat(r.overtime_hours) > 0) lembur += parseFloat(r.overtime_hours);
     });
-    return { taft_name, store_name, masuk, off, cuti, lembur };
+    return { taft_name, store_name, masuk, off, cuti, lembur, sakit, izin, alpa };
   });
 
-  const sorted = (key: ChartKey) =>
-    [...stats].sort((a, b) => b[key] - a[key]);
+  const sorted = (key: ChartKey) => [...stats].sort((a, b) => b[key] - a[key]);
+
+  // ── Data untuk donut lembur per TAFT (top 10) ──────────────────────────────
+  const top10Lembur = [...stats]
+    .filter(s => s.lembur > 0)
+    .sort((a, b) => b.lembur - a.lembur)
+    .slice(0, 10);
+
+  const totalLemburJam    = stats.reduce((s, d) => s + d.lembur, 0);
+  const totalBiayaLembur  = totalLemburJam * OVERTIME_RATE;
+
+  const donutLemburData = {
+    labels: top10Lembur.map(s => truncName(s.taft_name, 15)),
+    datasets: [{
+      data: top10Lembur.map(s => parseFloat(s.lembur.toFixed(1))),
+      backgroundColor: DONUT_COLORS,
+      borderWidth: 1,
+      borderColor: '#ffffff',
+    }],
+  };
+
+  // ── Data untuk distribusi kode shift ──────────────────────────────────────
+  const allRows = Object.values(groupedByTaft).flatMap(g => g.rows);
+  const codeCounts: Record<string, number> = {};
+  allRows.forEach(r => {
+    const c = r.code_time?.trim();
+    if (c) codeCounts[c] = (codeCounts[c] || 0) + 1;
+  });
+
+  const shiftOrder = ['P','S','F','MF','M','O','C','+','I','A'];
+  const shiftColors: Record<string,string> = {
+    P:'#3b82f6', S:'#eab308', F:'#22c55e', MF:'#8b5cf6',
+    M:'#f97316', O:'#ef4444', C:'#ec4899', '+':'#f97316',
+    I:'#6366f1', A:'#b91c1c',
+  };
+  const shiftLabels = shiftOrder.filter(k => codeCounts[k] > 0);
+  const shiftValues = shiftLabels.map(k => codeCounts[k]);
+  const shiftBgColors = shiftLabels.map(k => shiftColors[k] || '#9ca3af');
+
+  const barShiftData = {
+    labels: shiftLabels,
+    datasets: [{
+      data: shiftValues,
+      backgroundColor: shiftBgColors,
+      borderWidth: 0,
+    }],
+  };
+
+  // ── Data masuk vs off per toko (top 8 toko) ────────────────────────────────
+  const storeMap: Record<string, { masuk: number; off: number }> = {};
+  stats.forEach(s => {
+    if (!storeMap[s.store_name]) storeMap[s.store_name] = { masuk: 0, off: 0 };
+    storeMap[s.store_name].masuk += s.masuk;
+    storeMap[s.store_name].off   += s.off;
+  });
+  const storeEntries = Object.entries(storeMap)
+    .sort((a, b) => (b[1].masuk + b[1].off) - (a[1].masuk + a[1].off))
+    .slice(0, 8);
+
+  const barStoreData = {
+    labels: storeEntries.map(([name]) => toTitleCase(name)),
+    datasets: [
+      { label: 'Masuk', data: storeEntries.map(([,v]) => v.masuk), backgroundColor: '#3b82f6', borderWidth: 0 },
+      { label: 'Off',   data: storeEntries.map(([,v]) => v.off),   backgroundColor: '#ef4444', borderWidth: 0 },
+    ],
+  };
+
+  // ── Data biaya lembur top 8 ────────────────────────────────────────────────
+  const top8Lembur = [...stats]
+    .filter(s => s.lembur > 0)
+    .sort((a, b) => b.lembur - a.lembur)
+    .slice(0, 8);
+
+  const barBiayaData = {
+    labels: top8Lembur.map(s => truncName(s.taft_name, 13)),
+    datasets: [{
+      data: top8Lembur.map(s => Math.round(s.lembur * OVERTIME_RATE)),
+      backgroundColor: '#f97316',
+      borderWidth: 0,
+    }],
+  };
+
+  // ── Data ketidakhadiran stacked (top 8 yang paling banyak absen) ───────────
+  const top8Absen = [...stats]
+    .filter(s => s.cuti + s.sakit + s.izin + s.alpa > 0)
+    .sort((a, b) => (b.cuti + b.sakit + b.izin + b.alpa) - (a.cuti + a.sakit + a.izin + a.alpa))
+    .slice(0, 8);
+
+  const barAbsenData = {
+    labels: top8Absen.map(s => truncName(s.taft_name, 13)),
+    datasets: [
+      { label: 'Cuti',  data: top8Absen.map(s => s.cuti),  backgroundColor: '#ec4899', borderWidth: 0 },
+      { label: 'Sakit', data: top8Absen.map(s => s.sakit), backgroundColor: '#f97316', borderWidth: 0 },
+      { label: 'Izin',  data: top8Absen.map(s => s.izin),  backgroundColor: '#6366f1', borderWidth: 0 },
+      { label: 'Alpa',  data: top8Absen.map(s => s.alpa),  backgroundColor: '#b91c1c', borderWidth: 0 },
+    ],
+  };
+
+  const chartBaseOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+  };
 
   return (
-    <div className="mb-4">
-      <div className="grid grid-cols-4 gap-2 mb-3">
+    <div className="mb-4 space-y-2">
+
+      {/* ── Row 1: Top card summary ── */}
+      <div className="grid grid-cols-4 gap-2">
         {CHART_CFGS.map(cfg => {
           const top = sorted(cfg.key).find(s => s[cfg.key] > 0);
           return (
@@ -1223,9 +1325,9 @@ function ReportDashboard({
               {top ? (
                 <>
                   <p className="text-[11px] font-bold text-gray-800 leading-tight" title={top.taft_name}>
-                    {top.taft_name}
+                    {truncName(top.taft_name, 18)}
                   </p>
-                  <p className="text-[9px] text-gray-400">{top.store_name}</p>
+                  <p className="text-[9px] text-gray-400">{toTitleCase(top.store_name)}</p>
                   <p className={`text-lg font-black leading-none mt-1 ${cfg.textCls}`}>
                     {cfg.key === 'lembur' ? top[cfg.key].toFixed(1) : top[cfg.key]}
                     <span className="text-[9px] font-normal ml-0.5 text-gray-400">{cfg.unit}</span>
@@ -1239,6 +1341,7 @@ function ReportDashboard({
         })}
       </div>
 
+      {/* ── Row 2: Bar chart lists (masuk, lembur, cuti, off) ── */}
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
         {CHART_CFGS.map(cfg => (
           <div key={cfg.key} className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
@@ -1254,6 +1357,213 @@ function ReportDashboard({
           </div>
         ))}
       </div>
+
+      {/* ── Row 3: Donut lembur + distribusi shift + masuk vs off per toko ── */}
+      <div className="grid grid-cols-3 gap-2">
+
+        {/* Donut distribusi lembur */}
+        <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-orange-500 mb-2">
+            Distribusi lembur per TAFT
+          </p>
+          {top10Lembur.length === 0 ? (
+            <div className="flex items-center justify-center h-32 text-[10px] text-gray-300">Tidak ada data lembur</div>
+          ) : (
+            <>
+              <div style={{ position: 'relative', height: '160px' }}>
+                <Doughnut
+                  data={donutLemburData}
+                  options={{
+                    ...chartBaseOptions,
+                    cutout: '60%',
+                    plugins: {
+                      legend: { display: false },
+                      tooltip: {
+                        callbacks: {
+                          label: (ctx) => {
+                            const jam = ctx.raw as number;
+                            const biaya = Math.round(jam * OVERTIME_RATE);
+                            return [`${ctx.label}: ${jam.toFixed(1)} jam`, `Biaya: ${fmtRupiah(biaya)}`];
+                          },
+                        },
+                      },
+                    },
+                  }}
+                />
+              </div>
+              {/* Legend donut */}
+              <div className="flex flex-wrap gap-x-2 gap-y-1 mt-2">
+                {top10Lembur.map((s, i) => (
+                  <span key={s.taft_name} className="flex items-center gap-1 text-[8px] text-gray-500">
+                    <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: DONUT_COLORS[i] }} />
+                    {truncName(s.taft_name, 12)} <span className="font-bold text-gray-700">{s.lembur.toFixed(1)}j</span>
+                  </span>
+                ))}
+              </div>
+              {/* Total biaya */}
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <p className="text-[9px] text-gray-400">Total jam lembur</p>
+                <p className="text-[13px] font-bold text-orange-500">{totalLemburJam.toFixed(1)} jam</p>
+                <p className="text-[9px] text-gray-400 mt-0.5">Estimasi biaya lembur</p>
+                <p className="text-[13px] font-bold text-orange-600">{fmtRupiah(totalBiayaLembur)}</p>
+                <p className="text-[8px] text-gray-300 mt-0.5">@ Rp 17.500/jam</p>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Distribusi kode shift */}
+        <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-2">
+            Distribusi kode shift
+          </p>
+          {shiftLabels.length === 0 ? (
+            <div className="flex items-center justify-center h-32 text-[10px] text-gray-300">Tidak ada data</div>
+          ) : (
+            <>
+              {/* Legend warna shift */}
+              <div className="flex flex-wrap gap-1 mb-2">
+                {shiftLabels.map((k, i) => (
+                  <span key={k} className="flex items-center gap-1 text-[8px] text-gray-500">
+                    <span className="w-2 h-2 rounded-sm" style={{ background: shiftBgColors[i] }} />
+                    {k}
+                  </span>
+                ))}
+              </div>
+              <div style={{ position: 'relative', height: '160px' }}>
+                <Bar
+                  data={barShiftData}
+                  options={{
+                    ...chartBaseOptions,
+                    scales: {
+                      x: { ticks: { font: { size: 10 } } },
+                      y: { ticks: { font: { size: 9 }, stepSize: 1 } },
+                    },
+                    plugins: {
+                      legend: { display: false },
+                      tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.raw} hari` } },
+                    },
+                  }}
+                />
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Masuk vs Off per toko */}
+        <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-2">
+            Masuk vs Off per toko
+          </p>
+          <div className="flex gap-3 mb-2">
+            <span className="flex items-center gap-1 text-[8px] text-gray-500">
+              <span className="w-2 h-2 rounded-sm bg-blue-500" /> Masuk
+            </span>
+            <span className="flex items-center gap-1 text-[8px] text-gray-500">
+              <span className="w-2 h-2 rounded-sm bg-red-500" /> Off
+            </span>
+          </div>
+          <div style={{ position: 'relative', height: '160px' }}>
+            <Bar
+              data={barStoreData}
+              options={{
+                ...chartBaseOptions,
+                scales: {
+                  x: { ticks: { font: { size: 8 }, maxRotation: 30 } },
+                  y: { ticks: { font: { size: 9 }, stepSize: 5 } },
+                },
+                plugins: { legend: { display: false } },
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Row 4: Biaya lembur + ketidakhadiran ── */}
+      <div className="grid grid-cols-2 gap-2">
+
+        {/* Top 8 biaya lembur horizontal */}
+        <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-orange-500 mb-1">
+            Top 8 biaya lembur
+          </p>
+          <p className="text-[8px] text-gray-400 mb-2">@ Rp 17.500/jam</p>
+          {top8Lembur.length === 0 ? (
+            <div className="flex items-center justify-center h-32 text-[10px] text-gray-300">Tidak ada data</div>
+          ) : (
+            <div style={{ position: 'relative', height: `${top8Lembur.length * 30 + 20}px` }}>
+              <Bar
+                data={barBiayaData}
+                options={{
+                  ...chartBaseOptions,
+                  indexAxis: 'y' as const,
+                  scales: {
+                    x: {
+                      ticks: {
+                        font: { size: 8 },
+                        callback: (v: number | string) => {
+                          const n = Number(v);
+                          return n >= 1000000
+                            ? `Rp ${(n / 1000000).toFixed(1)}jt`
+                            : `Rp ${(n / 1000).toFixed(0)}rb`;
+                        },
+                      },
+                    },
+                    y: { ticks: { font: { size: 9 } } },
+                  },
+                  plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                      callbacks: {
+                        label: ctx => fmtRupiah(ctx.raw as number),
+                      },
+                    },
+                  },
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Ketidakhadiran stacked */}
+        <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-1">
+            Ketidakhadiran per TAFT
+          </p>
+          <div className="flex gap-3 mb-2">
+            {[
+              { label: 'Cuti', color: '#ec4899' },
+              { label: 'Sakit', color: '#f97316' },
+              { label: 'Izin', color: '#6366f1' },
+              { label: 'Alpa', color: '#b91c1c' },
+            ].map(({ label, color }) => (
+              <span key={label} className="flex items-center gap-1 text-[8px] text-gray-500">
+                <span className="w-2 h-2 rounded-sm" style={{ background: color }} />
+                {label}
+              </span>
+            ))}
+          </div>
+          {top8Absen.length === 0 ? (
+            <div className="flex items-center justify-center h-32 text-[10px] text-gray-300">Tidak ada data absensi</div>
+          ) : (
+            <div style={{ position: 'relative', height: `${top8Absen.length * 30 + 20}px` }}>
+              <Bar
+                data={barAbsenData}
+                options={{
+                  ...chartBaseOptions,
+                  indexAxis: 'y' as const,
+                  scales: {
+                    x: { stacked: true, ticks: { font: { size: 9 }, stepSize: 1 } },
+                    y: { stacked: true, ticks: { font: { size: 9 } } },
+                  },
+                  plugins: { legend: { display: false } },
+                }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
     </div>
   );
 }
@@ -1328,11 +1638,7 @@ function FullReport({ user }: { user: any }) {
       return d && d >= from && d <= to;
     });
 
-    acc[key] = {
-      taft_name:  taft.taft_name,
-      store_name: taft.store_name,
-      rows,
-    };
+    acc[key] = { taft_name: taft.taft_name, store_name: taft.store_name, rows };
     return acc;
   }, {} as Record<string, { taft_name: string; store_name: string; rows: ReportRow[] }>);
 
@@ -1349,250 +1655,226 @@ function FullReport({ user }: { user: any }) {
 
   // ── Export Report XLSX ───────────────────────────────────────────────────────
   const exportReportXlsx = () => {
-  if (Object.keys(groupedByTaft).length === 0) return;
-  const wb = XLSX.utils.book_new();
+    if (Object.keys(groupedByTaft).length === 0) return;
+    const wb = XLSX.utils.book_new();
 
-  const borderAll = {
-    top:    { style: 'thin', color: { rgb: '000000' } },
-    bottom: { style: 'thin', color: { rgb: '000000' } },
-    left:   { style: 'thin', color: { rgb: '000000' } },
-    right:  { style: 'thin', color: { rgb: '000000' } },
-  };
+    const borderAll = {
+      top:    { style: 'thin', color: { rgb: '000000' } },
+      bottom: { style: 'thin', color: { rgb: '000000' } },
+      left:   { style: 'thin', color: { rgb: '000000' } },
+      right:  { style: 'thin', color: { rgb: '000000' } },
+    };
 
-  const sTitle = {
-    font:      { bold: true, sz: 12 },
-    alignment: { horizontal: 'center', vertical: 'center' },
-    border:    borderAll,
-  };
+    const sTitle = {
+      font:      { bold: true, sz: 12 },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border:    borderAll,
+    };
+    const sHeader = {
+      font:      { bold: true, sz: 10 },
+      fill:      { fgColor: { rgb: 'D9D9D9' } },
+      alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+      border:    borderAll,
+    };
+    const sDataCenter = {
+      font:      { sz: 10 },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border:    borderAll,
+    };
+    const sDataLeft = {
+      font:      { sz: 10 },
+      alignment: { horizontal: 'left', vertical: 'center' },
+      border:    borderAll,
+    };
+    const sSummaryLabel = {
+      font:      { bold: true, sz: 10 },
+      alignment: { horizontal: 'left', vertical: 'center' },
+      border:    borderAll,
+    };
+    const sSummaryValue = {
+      font:      { bold: true, sz: 10 },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border:    borderAll,
+    };
+    const sSummaryLabelLembur = {
+      font:      { bold: true, sz: 10, color: { rgb: '0070C0' } },
+      fill:      { fgColor: { rgb: '00B0F0' } },
+      alignment: { horizontal: 'left', vertical: 'center' },
+      border:    borderAll,
+    };
+    const sSummaryValueLembur = {
+      font:      { bold: true, sz: 10, color: { rgb: '0070C0' } },
+      fill:      { fgColor: { rgb: '00B0F0' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border:    borderAll,
+    };
+    const sTotalLabel = {
+      font:      { bold: true, sz: 10 },
+      fill:      { fgColor: { rgb: 'FFC000' } },
+      alignment: { horizontal: 'left', vertical: 'center' },
+      border:    borderAll,
+    };
+    const sTotalValue = {
+      font:      { bold: true, sz: 10 },
+      fill:      { fgColor: { rgb: 'FFC000' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border:    borderAll,
+    };
 
-  const sHeader = {
-    font:      { bold: true, sz: 10 },
-    fill:      { fgColor: { rgb: 'D9D9D9' } },
-    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-    border:    borderAll,
-  };
+    const mkCell = (v: any, s: any, t?: string) => ({ v, t: t || (typeof v === 'number' ? 'n' : 's'), s });
+    const emptyBorder = { v: '', s: { border: borderAll } };
 
-  const sDataCenter = {
-    font:      { sz: 10 },
-    alignment: { horizontal: 'center', vertical: 'center' },
-    border:    borderAll,
-  };
-
-  const sDataLeft = {
-    font:      { sz: 10 },
-    alignment: { horizontal: 'left', vertical: 'center' },
-    border:    borderAll,
-  };
-
-  const sSummaryLabel = {
-    font:      { bold: true, sz: 10 },
-    alignment: { horizontal: 'left', vertical: 'center' },
-    border:    borderAll,
-  };
-
-  const sSummaryValue = {
-    font:      { bold: true, sz: 10 },
-    alignment: { horizontal: 'center', vertical: 'center' },
-    border:    borderAll,
-  };
-
-  const sSummaryLabelLembur = {
-    font:      { bold: true, sz: 10, color: { rgb: '0070C0' } },
-    fill:      { fgColor: { rgb: '00B0F0' } },
-    alignment: { horizontal: 'left', vertical: 'center' },
-    border:    borderAll,
-  };
-
-  const sSummaryValueLembur = {
-    font:      { bold: true, sz: 10, color: { rgb: '0070C0' } },
-    fill:      { fgColor: { rgb: '00B0F0' } },
-    alignment: { horizontal: 'center', vertical: 'center' },
-    border:    borderAll,
-  };
-
-  const sTotalLabel = {
-    font:      { bold: true, sz: 10 },
-    fill:      { fgColor: { rgb: 'FFC000' } },
-    alignment: { horizontal: 'left', vertical: 'center' },
-    border:    borderAll,
-  };
-
-  const sTotalValue = {
-    font:      { bold: true, sz: 10 },
-    fill:      { fgColor: { rgb: 'FFC000' } },
-    alignment: { horizontal: 'center', vertical: 'center' },
-    border:    borderAll,
-  };
-
-  const mkCell = (v: any, s: any, t?: string) => ({ v, t: t || (typeof v === 'number' ? 'n' : 's'), s });
-  const emptyBorder = { v: '', s: { border: borderAll } };
-
-  for (const [, { taft_name, store_name, rows }] of Object.entries(groupedByTaft)) {
-    const sorted = [...rows].sort((a, b) => {
-      const da = parseDateSafe(a.date);
-      const db = parseDateSafe(b.date);
-      return (da?.getTime() || 0) - (db?.getTime() || 0);
-    });
-
-    const taftInfo = taftList.find(t => t.taft_name === taft_name && t.store_name === store_name);
-    const sd = parseInt(taftInfo?.start_date || '26');
-    const ed = parseInt(taftInfo?.end_date   || '25');
-    const { from, to } = buildTaftDateRange(selectedMonth, sd, ed);
-    const fmtTglLong = (d: Date) =>
-      `${String(d.getDate()).padStart(2,'0')} ${MONTH_SHORT_ID[d.getMonth()]} ${d.getFullYear()}`;
-
-    const ws: any = {};
-    let r = 0;
-
-    const setRow = (cols: any[]) => {
-      cols.forEach((cell, c) => {
-        if (cell !== null) {
-          ws[XLSX.utils.encode_cell({ r, c })] = cell;
-        }
+    for (const [, { taft_name, store_name, rows }] of Object.entries(groupedByTaft)) {
+      const sortedRows = [...rows].sort((a, b) => {
+        const da = parseDateSafe(a.date);
+        const db = parseDateSafe(b.date);
+        return (da?.getTime() || 0) - (db?.getTime() || 0);
       });
+
+      const taftInfo = taftList.find(t => t.taft_name === taft_name && t.store_name === store_name);
+      const sd = parseInt(taftInfo?.start_date || '26');
+      const ed = parseInt(taftInfo?.end_date   || '25');
+      const { from, to } = buildTaftDateRange(selectedMonth, sd, ed);
+      const fmtTglLong = (d: Date) =>
+        `${String(d.getDate()).padStart(2,'0')} ${MONTH_SHORT_ID[d.getMonth()]} ${d.getFullYear()}`;
+
+      const ws: any = {};
+      let r = 0;
+
+      const setRow = (cols: any[]) => {
+        cols.forEach((cell, c) => {
+          if (cell !== null) ws[XLSX.utils.encode_cell({ r, c })] = cell;
+        });
+        r++;
+      };
+
+      setRow([
+        mkCell(`ABSEN IN OUT ${taft_name.toUpperCase()}`, sTitle),
+        mkCell('', sTitle), mkCell('', sTitle),
+        mkCell('', sTitle), mkCell('', sTitle), mkCell('', sTitle),
+      ]);
       r++;
-    };
-
-    // Row 0: Judul
-    setRow([
-      mkCell(`ABSEN IN OUT ${taft_name.toUpperCase()}`, sTitle),
-      mkCell('', sTitle), mkCell('', sTitle),
-      mkCell('', sTitle), mkCell('', sTitle), mkCell('', sTitle),
-    ]);
-
-    // Row 1: kosong
-    r++;
-
-    // Row 2: Header
-    setRow([
-      mkCell('TGL',                               sHeader),
-      mkCell('IN',                                sHeader),
-      mkCell('OUT',                               sHeader),
-      mkCell('SHIFT',                             sHeader),
-      mkCell('OVERTIME / LEMBUR BERAPA JAM',      sHeader),
-      mkCell('KETERANGAN',                        sHeader),
-    ]);
-
-    // Data rows
-    for (const row of sorted) {
-      const d = parseDateSafe(row.date);
-      const tglStr = d
-        ? `${String(d.getDate()).padStart(2,'0')}-${MONTH_SHORT_ID[d.getMonth()]}-${String(d.getFullYear()).slice(2)}`
-        : row.date;
-      const code  = row.code_time?.trim() || '';
-      const isOff = code === 'O';
-      const ot    = row.overtime_hours && parseFloat(row.overtime_hours) > 0
-        ? parseFloat(row.overtime_hours) : '';
-
       setRow([
-        mkCell(tglStr,                              sDataCenter),
-        mkCell(isOff ? '-' : (row.clock_in  || '-'), sDataCenter),
-        mkCell(isOff ? '-' : (row.clock_out || '-'), sDataCenter),
-        mkCell(code,                                sDataCenter),
-        ot !== '' ? mkCell(ot, sDataCenter, 'n') : mkCell('', sDataCenter),
-        mkCell(row.reason || '',                    sDataLeft),
+        mkCell('TGL',                               sHeader),
+        mkCell('IN',                                sHeader),
+        mkCell('OUT',                               sHeader),
+        mkCell('SHIFT',                             sHeader),
+        mkCell('OVERTIME / LEMBUR BERAPA JAM',      sHeader),
+        mkCell('KETERANGAN',                        sHeader),
       ]);
+
+      for (const row of sortedRows) {
+        const d = parseDateSafe(row.date);
+        const tglStr = d
+          ? `${String(d.getDate()).padStart(2,'0')}-${MONTH_SHORT_ID[d.getMonth()]}-${String(d.getFullYear()).slice(2)}`
+          : row.date;
+        const code  = row.code_time?.trim() || '';
+        const isOff = code === 'O';
+        const ot    = row.overtime_hours && parseFloat(row.overtime_hours) > 0
+          ? parseFloat(row.overtime_hours) : '';
+
+        setRow([
+          mkCell(tglStr,                              sDataCenter),
+          mkCell(isOff ? '-' : (row.clock_in  || '-'), sDataCenter),
+          mkCell(isOff ? '-' : (row.clock_out || '-'), sDataCenter),
+          mkCell(code,                                sDataCenter),
+          ot !== '' ? mkCell(ot, sDataCenter, 'n') : mkCell('', sDataCenter),
+          mkCell(row.reason || '',                    sDataLeft),
+        ]);
+      }
+
+      r++;
+      r++;
+
+      const codeCounts: Record<string, number> = {};
+      let totalMasuk = 0, totalOff = 0, totalLembur = 0;
+      sortedRows.forEach(row => {
+        const c = row.code_time?.trim();
+        if (c) codeCounts[c] = (codeCounts[c] || 0) + 1;
+        if (['P','S','F','MF','M'].includes(c)) totalMasuk++;
+        if (c === 'O') totalOff++;
+        if (row.overtime_hours && parseFloat(row.overtime_hours) > 0) totalLembur += parseFloat(row.overtime_hours);
+      });
+
+      const summaryRows = [
+        { label: 'PAGI ( P )',        value: codeCounts['P']  || 0 },
+        { label: 'SIANG ( S )',       value: codeCounts['S']  || 0 },
+        { label: 'OFF ( O )',         value: codeCounts['O']  || 0 },
+        { label: 'FULL ( F )',        value: codeCounts['F']  || 0 },
+        { label: 'MIDLE ( M )',       value: codeCounts['M']  || 0 },
+        { label: 'MIDLE FULL ( MF )', value: codeCounts['MF'] || 0 },
+        { label: 'CUTI ( C )',        value: codeCounts['C']  || 0 },
+        { label: 'SAKIT ( + )',       value: codeCounts['+']  || 0 },
+        { label: 'IZIN ( I )',        value: codeCounts['I']  || 0 },
+        { label: 'ALPA ( A )',        value: codeCounts['A']  || 0 },
+      ];
+
+      summaryRows.forEach(({ label, value }) => {
+        setRow([
+          mkCell(label, sSummaryLabel), mkCell('', emptyBorder.s), mkCell('', emptyBorder.s),
+          mkCell(value, sSummaryValue, 'n'),
+          mkCell('', { border: borderAll }), mkCell('', { border: borderAll }),
+        ]);
+      });
+
+      r++;
+
+      const totalRows = [
+        { label: 'TOTAL MASUK KERJA', value: totalMasuk,                         lembur: false },
+        { label: 'TOTAL OFF',         value: totalOff,                           lembur: false },
+        { label: 'TOTAL JAM LEMBUR',  value: parseFloat(totalLembur.toFixed(1)), lembur: true  },
+        { label: 'TOTAL CUTI',        value: codeCounts['C']  || 0,              lembur: false },
+        { label: 'TOTAL SAKIT',       value: codeCounts['+']  || 0,              lembur: false },
+        { label: 'TOTAL IZIN',        value: codeCounts['I']  || 0,              lembur: false },
+        { label: 'TOTAL ALPA',        value: codeCounts['A']  || 0,              lembur: false },
+      ];
+
+      totalRows.forEach(({ label, value, lembur }) => {
+        setRow([
+          mkCell(label, lembur ? sSummaryLabelLembur : sTotalLabel),
+          mkCell('', lembur ? sSummaryLabelLembur : sTotalLabel),
+          mkCell('', lembur ? sSummaryLabelLembur : sTotalLabel),
+          mkCell(value, lembur ? sSummaryValueLembur : sTotalValue, 'n'),
+          mkCell('', { border: borderAll }),
+          mkCell('', { border: borderAll }),
+        ]);
+      });
+
+      r++;
+      ws[XLSX.utils.encode_cell({ r, c: 0 })] = {
+        v: `Periode: ${fmtTglLong(from)} - ${fmtTglLong(to)}`,
+        s: { font: { italic: true, sz: 9 }, alignment: { horizontal: 'left' } },
+      };
+      r++;
+      ws[XLSX.utils.encode_cell({ r, c: 0 })] = {
+        v: `${taft_name} / ${store_name}`,
+        s: { font: { bold: true, sz: 9 } },
+      };
+
+      ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: r, c: 5 } });
+      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
+
+      const summaryStartRow = sortedRows.length + 5;
+      for (let i = 0; i < summaryRows.length; i++) {
+        ws['!merges'].push({ s: { r: summaryStartRow + i, c: 0 }, e: { r: summaryStartRow + i, c: 2 } });
+      }
+      const totalStartRow = summaryStartRow + summaryRows.length + 1;
+      for (let i = 0; i < totalRows.length; i++) {
+        ws['!merges'].push({ s: { r: totalStartRow + i, c: 0 }, e: { r: totalStartRow + i, c: 2 } });
+      }
+
+      ws['!cols'] = [
+        { wch: 14 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 28 }, { wch: 40 },
+      ];
+      ws['!rows'] = [{ hpt: 22 }];
+
+      const rawName   = `${taft_name} - ${store_name}`;
+      const sheetName = rawName.replace(/[\\\/?*\[\]:']/g, '_').slice(0, 31);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
     }
 
-    // Spacer
-    r++;
-    r++;
-
-    // Summary kode
-    const codeCounts: Record<string, number> = {};
-    let totalMasuk = 0, totalOff = 0, totalLembur = 0;
-    sorted.forEach(row => {
-      const c = row.code_time?.trim();
-      if (c) codeCounts[c] = (codeCounts[c] || 0) + 1;
-      if (['P','S','F','MF','M'].includes(c)) totalMasuk++;
-      if (c === 'O') totalOff++;
-      if (row.overtime_hours && parseFloat(row.overtime_hours) > 0) totalLembur += parseFloat(row.overtime_hours);
-    });
-
-    const summaryRows = [
-      { label: 'PAGI ( P )',        value: codeCounts['P']  || 0, lembur: false },
-      { label: 'SIANG ( S )',       value: codeCounts['S']  || 0, lembur: false },
-      { label: 'OFF ( O )',         value: codeCounts['O']  || 0, lembur: false },
-      { label: 'FULL ( F )',        value: codeCounts['F']  || 0, lembur: false },
-      { label: 'MIDLE ( M )',       value: codeCounts['M']  || 0, lembur: false },
-      { label: 'MIDLE FULL ( MF )', value: codeCounts['MF'] || 0, lembur: false },
-      { label: 'CUTI ( C )',        value: codeCounts['C']  || 0, lembur: false },
-      { label: 'SAKIT ( + )',       value: codeCounts['+']  || 0, lembur: false },
-      { label: 'IZIN ( I )',        value: codeCounts['I']  || 0, lembur: false },
-      { label: 'ALPA ( A )',        value: codeCounts['A']  || 0, lembur: false },
-    ];
-
-    summaryRows.forEach(({ label, value }) => {
-      setRow([
-        mkCell(label, sSummaryLabel), mkCell('', emptyBorder.s), mkCell('', emptyBorder.s),
-        mkCell(value, sSummaryValue, 'n'),
-        mkCell('', { border: borderAll }), mkCell('', { border: borderAll }),
-      ]);
-    });
-
-    r++; // spacer
-
-    const totalRows = [
-      { label: 'TOTAL MASUK KERJA', value: totalMasuk,                                   lembur: false },
-      { label: 'TOTAL OFF',         value: totalOff,                                     lembur: false },
-      { label: 'TOTAL JAM LEMBUR',  value: parseFloat(totalLembur.toFixed(1)),           lembur: true  },
-      { label: 'TOTAL CUTI',        value: codeCounts['C']  || 0,                        lembur: false },
-      { label: 'TOTAL SAKIT',       value: codeCounts['+']  || 0,                        lembur: false },
-      { label: 'TOTAL IZIN',        value: codeCounts['I']  || 0,                        lembur: false },
-      { label: 'TOTAL ALPA',        value: codeCounts['A']  || 0,                        lembur: false },
-    ];
-
-    totalRows.forEach(({ label, value, lembur }) => {
-      setRow([
-        mkCell(label, lembur ? sSummaryLabelLembur : sTotalLabel),
-        mkCell('', lembur ? sSummaryLabelLembur : sTotalLabel),
-        mkCell('', lembur ? sSummaryLabelLembur : sTotalLabel),
-        mkCell(value, lembur ? sSummaryValueLembur : sTotalValue, 'n'),
-        mkCell('', { border: borderAll }),
-        mkCell('', { border: borderAll }),
-      ]);
-    });
-
-    // Footer periode
-    r++;
-    ws[XLSX.utils.encode_cell({ r, c: 0 })] = {
-      v: `Periode: ${fmtTglLong(from)} - ${fmtTglLong(to)}`,
-      s: { font: { italic: true, sz: 9 }, alignment: { horizontal: 'left' } },
-    };
-    r++;
-    ws[XLSX.utils.encode_cell({ r, c: 0 })] = {
-      v: `${taft_name} / ${store_name}`,
-      s: { font: { bold: true, sz: 9 } },
-    };
-
-    ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: r, c: 5 } });
-
-    // Merges
-    ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }, // judul
-    ];
-    // Merge kolom A-C untuk label summary & total rows
-    const summaryStartRow = sorted.length + 5; // title(1) + empty(1) + header(1) + data(n) + 2 spacer
-    for (let i = 0; i < summaryRows.length; i++) {
-      ws['!merges'].push({ s: { r: summaryStartRow + i, c: 0 }, e: { r: summaryStartRow + i, c: 2 } });
-    }
-    const totalStartRow = summaryStartRow + summaryRows.length + 1;
-    for (let i = 0; i < totalRows.length; i++) {
-      ws['!merges'].push({ s: { r: totalStartRow + i, c: 0 }, e: { r: totalStartRow + i, c: 2 } });
-    }
-
-    ws['!cols'] = [
-      { wch: 14 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 28 }, { wch: 40 },
-    ];
-    ws['!rows'] = [{ hpt: 22 }]; // tinggi baris judul
-
-    const rawName  = `${taft_name} - ${store_name}`;
-    const sheetName = rawName.replace(/[\\\/?*\[\]:']/g, '_').slice(0, 31);
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  }
-
-  XLSX.writeFile(wb, `report_absen_${selectedMonth}.xlsx`);
-};
+    XLSX.writeFile(wb, `report_absen_${selectedMonth}.xlsx`);
+  };
 
   const todayDay    = new Date().getDay();
   const todayDayKey = DAYS[todayDay === 0 ? 6 : todayDay - 1];
@@ -1620,7 +1902,7 @@ function FullReport({ user }: { user: any }) {
             <select value={selectedStore} onChange={e => { setSelectedStore(e.target.value); setSelectedTaft(''); setExpandedTafts(new Set()); }}
               className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary">
               <option value="">Semua Store</option>
-              {allStores.map(s => <option key={s} value={s}>{s}</option>)}
+              {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
             </select>
           </div>
 
@@ -1658,7 +1940,6 @@ function FullReport({ user }: { user: any }) {
             Tampilkan
           </button>
 
-          {/* Tombol Export — muncul hanya saat data monthly sudah ada */}
           {viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (
             <button
               onClick={exportReportXlsx}
@@ -1672,12 +1953,12 @@ function FullReport({ user }: { user: any }) {
 
       {loading && <div className="text-center py-10 text-gray-400 text-sm">Memuat data...</div>}
 
-      {/* Dashboard */}
+      {/* Dashboard analitik */}
       {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (
         <ReportDashboard groupedByTaft={groupedByTaft} />
       )}
 
-      {/* Monthly View */}
+      {/* Monthly View — detail per TAFT */}
       {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (() => {
         const DAY_ID      = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
         const MONTH_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
@@ -1726,7 +2007,7 @@ function FullReport({ user }: { user: any }) {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-bold text-gray-900">{taft_name}</span>
                           {!selectedStore && (
-                            <span className="text-[10px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">{store_name}</span>
+                            <span className="text-[10px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">{toTitleCase(store_name)}</span>
                           )}
                         </div>
                         <div className="flex items-center gap-3 mt-0.5">
@@ -1858,7 +2139,7 @@ function FullReport({ user }: { user: any }) {
                     <tr key={taft.id} className="border-b hover:bg-gray-50">
                       <td className="px-3 py-1.5 font-medium text-gray-800 text-[11px]">{taft.taft_name}</td>
                       {!selectedStore && (
-                        <td className="px-3 py-1.5 text-gray-500 text-[10px]">{taft.store_name}</td>
+                        <td className="px-3 py-1.5 text-gray-500 text-[10px]">{toTitleCase(taft.store_name)}</td>
                       )}
                       {DAYS.map((d, i) => {
                         const code = sched?.[d as keyof ScheduleRow] as string || '';
