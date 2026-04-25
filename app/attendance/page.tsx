@@ -69,20 +69,48 @@ const RECAP_KEYS = [
 ];
 
 // ── Normalize clock time: replace dots with colons, e.g. "08.30" → "08:30" ──
-function normalizeTime(raw: string | undefined | null): string {
-  if (!raw) return '';
-  // Replace any dot used as time separator with colon
-  // Matches patterns like 08.30, 8.30, 08.30.00
-  return raw.toString().trim().replace(/^(\d{1,2})\.(\d{2})(\.(\d{2}))?$/, (_, h, m, _s, s) => {
-    return s ? `${h.padStart(2,'0')}:${m}:${s}` : `${h.padStart(2,'0')}:${m}`;
-  });
+/**
+ * Normalize any clock value into HH:MM string.
+ *
+ * Handles all formats found in the wild:
+ *   number  9.49   -> "09:49"   (Excel float: 9h49m)
+ *   number  21     -> "21:00"   (integer = hour only)
+ *   number  21.14  -> "21:14"
+ *   string "09.00" -> "09:00"   (dot separator)
+ *   string "08:36" -> "08:36"   (already correct)
+ *   string "`09:30"-> "09:30"   (strip Excel apostrophe/backtick)
+ *   null / undefined / '' -> ''
+ */
+function normalizeTime(raw: string | number | undefined | null): string {
+  if (raw === null || raw === undefined || raw === '') return '';
+
+  // Strip Excel text-prefix artifacts (apostrophe/backtick)
+  const s = String(raw).trim().replace(/^[`']+/, '');
+  if (s === '' || s.toLowerCase() === 'none') return '';
+
+  // Already HH:MM or HH:MM:SS
+  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) {
+    const [h, m] = s.split(':');
+    return `${String(parseInt(h, 10)).padStart(2, '0')}:${m.slice(0, 2)}`;
+  }
+
+  // Float/int or dot-separated string ("9.49", "21.14", "21", 9.49, 21)
+  // Indonesian convention: 9.49 = 9 jam 49 menit (NOT decimal hours)
+  const f = parseFloat(s);
+  if (!isNaN(f)) {
+    const h = Math.floor(f);
+    const m = Math.round((f - h) * 100);
+    return `${String(h).padStart(2, '0')}:${String(Math.min(m, 59)).padStart(2, '0')}`;
+  }
+
+  return s;
 }
 
-/** Display a clock value — normalizes both dot and colon formats */
-function displayTime(val: string | undefined): string {
-  if (!val) return '-';
+/** Display a clock value — normalizes and returns '-' for empty */
+function displayTime(val: string | number | undefined | null): string {
+  if (val === null || val === undefined || val === '') return '-';
   const n = normalizeTime(val);
-  return n || val; // fallback to original if regex didn't match
+  return n || String(val);
 }
 
 // ── Parse DD/MM/YYYY or YYYY-MM-DD safely ─────────────────────────────────────
@@ -544,7 +572,6 @@ function MonthlyReport({
   const [taftList,          setTaftList]          = useState<TaftEntry[]>([]);
   const [allStores,         setAllStores]         = useState<string[]>([]);
   const [selectedStore,     setSelectedStore]     = useState('');
-  const [selectedTaft,      setSelectedTaft]      = useState('');
   const [selectedMonth,     setSelectedMonth]     = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
@@ -576,23 +603,39 @@ function MonthlyReport({
     : taftList;
 
   const handleDownloadTemplate = () => {
-    if (!selectedTaft || !selectedMonth) return;
-    const storeForTemplate = selectedStore || (filteredTafts.find(t => t.taft_name === selectedTaft)?.store_name || '');
-    const taftInfo = taftList.find(t => t.taft_name === selectedTaft && (selectedStore ? t.store_name?.toLowerCase() === selectedStore.toLowerCase() : true));
-    const startDay = parseInt(taftInfo?.start_date || '26');
-    const endDay   = parseInt(taftInfo?.end_date   || '25');
+    if (!selectedMonth) return;
 
-    // Use unified date range builder
-    const dates = buildTaftDates(selectedMonth, startDay, endDay);
+    // Determine which tafts to generate sheets for
+    // If isStoreUser → use myStoreName; else use selectedStore (must be selected)
+    const storeForTemplate = isStoreUser ? myStoreName : selectedStore;
+    if (!storeForTemplate) return;
+
+    const taftsForStore = taftList.filter(
+      t => t.store_name?.toLowerCase() === storeForTemplate.toLowerCase()
+    );
+    if (taftsForStore.length === 0) return;
 
     const wb      = XLSX.utils.book_new();
     const headers = ['date','store_name','taft_name','clock_in','clock_out','code_time','overtime_hours','reason'];
-    const ws = XLSX.utils.aoa_to_sheet([
-      headers,
-      ...dates.map(d => [fmtISO(d), storeForTemplate, selectedTaft, '', '', '', '', '']),
-    ]);
-    ws['!cols'] = [{ wch:14 },{ wch:16 },{ wch:28 },{ wch:10 },{ wch:10 },{ wch:12 },{ wch:14 },{ wch:20 }];
-    XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
+    const colWidths = [{ wch:14 },{ wch:16 },{ wch:28 },{ wch:10 },{ wch:10 },{ wch:12 },{ wch:14 },{ wch:20 }];
+
+    for (const taft of taftsForStore) {
+      const startDay = parseInt(taft.start_date || '26');
+      const endDay   = parseInt(taft.end_date   || '25');
+      const dates    = buildTaftDates(selectedMonth, startDay, endDay);
+
+      const ws = XLSX.utils.aoa_to_sheet([
+        headers,
+        ...dates.map(d => [fmtISO(d), storeForTemplate, taft.taft_name, '', '', '', '', '']),
+      ]);
+      ws['!cols'] = colWidths;
+
+      // Sheet name: shorten taft name to max 31 chars (Excel limit)
+      const sheetName = taft.taft_name.slice(0, 31);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    }
+
+    // Add reference sheet at the end
     const refWs = XLSX.utils.aoa_to_sheet([
       ['Kode','Keterangan'],
       ['P','Pagi'],['S','Siang'],['F','Full'],['MF','Midle Full'],
@@ -600,7 +643,8 @@ function MonthlyReport({
     ]);
     refWs['!cols'] = [{ wch:8 },{ wch:16 }];
     XLSX.utils.book_append_sheet(wb, refWs, 'Kode Referensi');
-    XLSX.writeFile(wb, `attendance_${storeForTemplate}_${selectedTaft.replace(/ /g,'_')}_${selectedMonth}.xlsx`);
+
+    XLSX.writeFile(wb, `attendance_${storeForTemplate}_${selectedMonth}.xlsx`);
     setShowDownloadModal(false);
   };
 
@@ -609,25 +653,52 @@ function MonthlyReport({
     if (!file) return;
     setImporting(true);
     try {
-      const buffer  = await file.arrayBuffer();
-      const wb      = XLSX.read(buffer, { type: 'array' });
-      const ws      = wb.Sheets[wb.SheetNames[0]];
-      const rawRows = XLSX.utils.sheet_to_json<any>(ws, { defval: '' });
-      const rows = rawRows.filter((r: any) => r.date).map((r: any) => ({
-        date:           String(r.date           || ''),
-        store_name:     String(r.store_name     || ''),
-        taft_name:      String(r.taft_name      || ''),
-        // Normalize time on import so the sheet stores clean HH:MM
-        clock_in:       normalizeTime(String(r.clock_in      || '')),
-        clock_out:      normalizeTime(String(r.clock_out     || '')),
-        code_time:      String(r.code_time      || ''),
-        overtime_hours: String(r.overtime_hours || ''),
-        reason:         String(r.reason         || ''),
-      }));
-      if (rows.length === 0) { setPopup({ show: true, message: 'Tidak ada data yang valid di file', type: 'error' }); return; }
-      const res = await fetch('/api/attendance/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows }) });
+      const buffer = await file.arrayBuffer();
+      const wb     = XLSX.read(buffer, { type: 'array' });
+
+      const SKIP_SHEETS = ['kode referensi', 'referensi', 'kode'];
+
+      // Collect rows from ALL sheets (skip reference sheet)
+      const allRows: any[] = [];
+      let dataSheetCount = 0;
+      for (const sheetName of wb.SheetNames) {
+        if (SKIP_SHEETS.includes(sheetName.toLowerCase())) continue;
+        dataSheetCount++;
+        const ws      = wb.Sheets[sheetName];
+        const rawRows = XLSX.utils.sheet_to_json<any>(ws, { defval: '' });
+        for (const r of rawRows) {
+          if (!r.date) continue;
+          allRows.push({
+            date:           String(r.date           || ''),
+            store_name:     String(r.store_name     || ''),
+            taft_name:      String(r.taft_name      || ''),
+            clock_in:       normalizeTime(r.clock_in  ?? ''),
+            clock_out:      normalizeTime(r.clock_out ?? ''),
+            code_time:      String(r.code_time      || ''),
+            overtime_hours: String(r.overtime_hours || ''),
+            reason:         String(r.reason         || ''),
+          });
+        }
+      }
+
+      if (allRows.length === 0) {
+        setPopup({ show: true, message: 'Tidak ada data yang valid di file', type: 'error' });
+        return;
+      }
+
+      const res    = await fetch('/api/attendance/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: allRows }),
+      });
       const result = await res.json();
-      setPopup({ show: true, message: result.success ? `${result.imported} baris berhasil diimport` : (result.error || 'Import gagal'), type: result.success ? 'success' : 'error' });
+      setPopup({
+        show: true,
+        message: result.success
+          ? `${result.imported} baris dari ${dataSheetCount} sheet berhasil diimport`
+          : (result.error || 'Import gagal'),
+        type: result.success ? 'success' : 'error',
+      });
     } catch {
       setPopup({ show: true, message: 'Gagal membaca file XLSX', type: 'error' });
     } finally {
@@ -726,7 +797,7 @@ function MonthlyReport({
               ) : (
                 <div className="flex items-center gap-1.5">
                   <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Store</label>
-                  <select value={selectedStore} onChange={e => { setSelectedStore(e.target.value); setSelectedTaft(''); }}
+                  <select value={selectedStore} onChange={e => { setSelectedStore(e.target.value); }}
                     className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary">
                     <option value="">Semua Store</option>
                     {allStores.map(s => <option key={s} value={s}>{s}</option>)}
@@ -884,50 +955,59 @@ function MonthlyReport({
       {showDownloadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h2 className="text-base font-bold text-primary mb-4">Download Template XLSX</h2>
+            <h2 className="text-base font-bold text-primary mb-1">Download Template XLSX</h2>
+            <p className="text-[11px] text-gray-400 mb-4">1 file berisi semua TAFT dalam store yang dipilih</p>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
                 {isStoreUser
                   ? <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-600">{myStoreName}</div>
-                  : <select value={selectedStore} onChange={e => { setSelectedStore(e.target.value); setSelectedTaft(''); }} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary">
-                      <option value="">Semua Store</option>
+                  : <select value={selectedStore} onChange={e => setSelectedStore(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary">
+                      <option value="">Pilih Store</option>
                       {allStores.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                 }
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">TAFT</label>
-                <select value={selectedTaft} onChange={e => setSelectedTaft(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary">
-                  <option value="">Pilih TAFT</option>
-                  {filteredTafts.map(t => <option key={t.id} value={t.taft_name}>{t.taft_name}</option>)}
-                </select>
-              </div>
-              <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Bulan</label>
                 <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
               </div>
-              {/* Preview date range based on selected taft */}
-              {selectedTaft && (() => {
-                const taftInfo = filteredTafts.find(t => t.taft_name === selectedTaft);
-                if (!taftInfo) return null;
-                const sd = parseInt(taftInfo.start_date) || 26;
-                const ed = parseInt(taftInfo.end_date)   || 25;
-                const dates = buildTaftDates(selectedMonth, sd, ed);
-                if (dates.length === 0) return null;
-                const first = dates[0];
-                const last  = dates[dates.length - 1];
-                const fmt = (d: Date) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+              {/* Preview: list all tafts + their date range */}
+              {(() => {
+                const storeForPreview = isStoreUser ? myStoreName : selectedStore;
+                if (!storeForPreview) return null;
+                const taftsForPreview = taftList.filter(t => t.store_name?.toLowerCase() === storeForPreview.toLowerCase());
+                if (taftsForPreview.length === 0) return null;
+                const fmt = (d: Date) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
                 return (
-                  <div className="px-3 py-2 bg-primary/5 rounded text-[11px] text-primary">
-                    Periode: <strong>{fmt(first)} – {fmt(last)}</strong> ({dates.length} hari)
+                  <div className="bg-gray-50 rounded border border-gray-200 p-3 max-h-48 overflow-y-auto">
+                    <p className="text-[10px] font-semibold text-gray-500 mb-2">{taftsForPreview.length} sheet yang akan dibuat:</p>
+                    {taftsForPreview.map(t => {
+                      const sd = parseInt(t.start_date) || 26;
+                      const ed = parseInt(t.end_date)   || 25;
+                      const dates = buildTaftDates(selectedMonth, sd, ed);
+                      const first = dates[0];
+                      const last  = dates[dates.length - 1];
+                      return (
+                        <div key={t.id} className="flex items-center justify-between py-0.5 border-b border-gray-100 last:border-0">
+                          <span className="text-[11px] text-gray-700 truncate max-w-[200px]" title={t.taft_name}>{t.taft_name}</span>
+                          <span className="text-[10px] text-primary ml-2 whitespace-nowrap">{fmt(first)} – {fmt(last)} ({dates.length}h)</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })()}
             </div>
             <div className="flex gap-2 mt-5">
               <button onClick={() => setShowDownloadModal(false)} className="flex-1 px-4 py-2 bg-gray-400 text-white rounded text-sm">Batal</button>
-              <button onClick={handleDownloadTemplate} disabled={!selectedTaft} className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">Download</button>
+              <button
+                onClick={handleDownloadTemplate}
+                disabled={!(isStoreUser ? myStoreName : selectedStore)}
+                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
+              >
+                Download
+              </button>
             </div>
           </div>
         </div>
