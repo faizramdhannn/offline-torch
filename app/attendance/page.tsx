@@ -169,6 +169,23 @@ function buildTaftDates(month: string, startDay: number, endDay: number): Date[]
 const fmtISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
+/** Hitung array 7 tanggal (Sen-Min) dari week_start suatu date range */
+function getWeekDates(dateList: DateEntry[], dateRange: string): Date[] | null {
+  const entry = dateList.find(d => d.date_range === dateRange);
+  if (!entry?.week_start) return null;
+  const start = parseDateSafe(entry.week_start);
+  if (!start) return null;
+  // Pastikan start = Senin (day 1). week_start diasumsikan sudah Senin.
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    return d;
+  });
+}
+
+const fmtDDMM = (d: Date) =>
+  `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+
 const MONTH_SHORT_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 
 /** Truncate name to n chars with ellipsis */
@@ -261,6 +278,7 @@ function WeeklySchedule({
   const [schedules,         setSchedules]         = useState<ScheduleRow[]>([]);
   const [selectedStore,     setSelectedStore]     = useState('');
   const [selectedDateRange, setSelectedDateRange] = useState('');
+  const weekDates = getWeekDates(dateList, selectedDateRange);
 
   const [editingRow,   setEditingRow]   = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState<Record<string, string>>({});
@@ -430,19 +448,24 @@ function WeeklySchedule({
                   <th className="px-3 py-2 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50 z-10 min-w-[140px] max-w-[160px] w-40 border-r border-gray-200">
                     Nama TAFT
                   </th>
-                  {DAYS.map((day, i) => (
-                    <th
-                      key={day}
-                      className={`px-1 py-2 text-center font-semibold text-gray-600 w-16 ${
-                        day === todayDayKey ? 'bg-blue-50 text-blue-700' : ''
-                      }`}
-                    >
-                      <div className="text-[11px]">{DAY_LABELS[i]}</div>
-                      {day === todayDayKey && (
-                        <div className="text-[9px] text-blue-500 font-normal">Hari ini</div>
-                      )}
-                    </th>
-                  ))}
+{DAYS.map((day, i) => (
+  <th
+    key={day}
+    className={`px-1 py-2 text-center font-semibold text-gray-600 w-16 ${
+      day === todayDayKey ? 'bg-blue-50 text-blue-700' : ''
+    }`}
+  >
+    <div className="text-[11px]">{DAY_LABELS[i]}</div>
+    {weekDates?.[i] && (
+      <div className="text-[9px] font-normal text-gray-400 mt-0.5">
+        {fmtDDMM(weekDates[i])}
+      </div>
+    )}
+    {day === todayDayKey && (
+      <div className="text-[9px] text-blue-500 font-normal">Hari ini</div>
+    )}
+  </th>
+))}
                   <th className="px-3 py-2 text-center font-semibold text-gray-600 w-24 sticky right-0 bg-gray-50 z-10 border-l border-gray-200">
                     Aksi
                   </th>
