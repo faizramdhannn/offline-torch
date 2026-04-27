@@ -91,141 +91,235 @@ interface Row {
   [key: string]: string | null | undefined;
 }
 
-// ─── Order Detail Popup ───────────────────────────────────────────────────────
 interface OrderDetailPopupProps {
-  orderName: string | null;
+  groupLabel: string | null;
+  orderNames: string[];
   rows: Row[];
   trafficMap: Record<string, string>;
   onClose: () => void;
 }
 
-function OrderDetailPopup({ orderName, rows, trafficMap, onClose }: OrderDetailPopupProps) {
-  if (!orderName) return null;
+function OrderDetailPopup({ groupLabel, orderNames, rows, trafficMap, onClose }: OrderDetailPopupProps) {
+  const [selectedOrderName, setSelectedOrderName] = useState<string | null>(null);
 
-  const orderRows = rows.filter((r) => r.Name === orderName);
-  if (orderRows.length === 0) return null;
+  if (!groupLabel || orderNames.length === 0) return null;
 
-  const first = orderRows[0];
-  const paidAt = first["Paid at"] || first["Created at"] || "";
-  const paidDate = paidAt.split(" ")[0];
-  const subtotal = parseSubtotal(first.Subtotal);
-  const discountCode = first["Discount Code"]?.trim() || null;
-  const notes = first.Notes || "";
-  const trafficCode = extractTrafficCode(notes, trafficMap);
-  const trafficLabel = trafficCode ? (trafficMap[trafficCode] || trafficCode) : null;
+  // ── Detail view ──────────────────────────────────────────────────────────
+  if (selectedOrderName) {
+    const orderRows = rows.filter((r) => r.Name === selectedOrderName);
+    const first = orderRows[0];
+    if (!first) return null;
 
-  const lineitems = orderRows.map((r) => ({
-    name: r["Lineitem name"] || "-",
-    qty: parseInt(r["Lineitem quantity"] || "1") || 1,
-    price: parseSubtotal(r["Lineitem price"]),
-  }));
+    const paidAt = first["Paid at"] || first["Created at"] || "";
+    const paidDate = paidAt.split(" ")[0];
+    const subtotal = parseSubtotal(first.Subtotal);
+    const discountCode = first["Discount Code"]?.trim() || null;
+    const notes = first.Notes || "";
+    const trafficCode = extractTrafficCode(notes, trafficMap);
+    const trafficLabel = trafficCode ? (trafficMap[trafficCode] || trafficCode) : null;
+    const lineitems = orderRows.map((r) => ({
+      name: r["Lineitem name"] || "-",
+      qty: parseInt(r["Lineitem quantity"] || "1") || 1,
+      price: parseSubtotal(r["Lineitem price"]),
+    }));
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-gradient-to-r from-primary to-primary/80 px-5 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setSelectedOrderName(null)}
+                className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+              >
+                <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <div>
+                <p className="text-[10px] text-white/60 font-medium uppercase tracking-wider">Order</p>
+                <h2 className="text-lg font-bold text-white">{selectedOrderName}</h2>
+              </div>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="px-5 py-4 grid grid-cols-2 gap-3 border-b">
+            <div className="bg-gray-50 rounded-xl px-3 py-2.5">
+              <p className="text-[10px] text-gray-400 font-medium mb-0.5">Paid At</p>
+              <p className="text-xs font-semibold text-gray-700">{paidDate ? formatDisplayDate(paidDate) : "-"}</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl px-3 py-2.5">
+              <p className="text-[10px] text-gray-400 font-medium mb-0.5">Subtotal</p>
+              <p className="text-xs font-bold text-green-600">{formatRupiah(subtotal)}</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl px-3 py-2.5">
+              <p className="text-[10px] text-gray-400 font-medium mb-0.5">Discount Code</p>
+              {discountCode ? (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-mono text-[11px] font-semibold">{discountCode}</span>
+              ) : (
+                <p className="text-xs text-gray-400">-</p>
+              )}
+            </div>
+            <div className="bg-gray-50 rounded-xl px-3 py-2.5">
+              <p className="text-[10px] text-gray-400 font-medium mb-0.5">Traffic Source</p>
+              {trafficCode ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-mono text-[11px] font-bold border border-blue-200">{trafficCode}</span>
+                  {trafficLabel && <span className="text-[11px] text-gray-600 truncate">{trafficLabel}</span>}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400">Tidak Diketahui</p>
+              )}
+            </div>
+          </div>
+
+          {notes && (
+            <div className="px-5 py-3 border-b">
+              <p className="text-[10px] text-gray-400 font-medium mb-1">Notes</p>
+              <p className="text-xs text-gray-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 leading-relaxed">{notes}</p>
+            </div>
+          )}
+
+          <div className="px-5 py-4">
+            <p className="text-[10px] text-gray-400 font-medium mb-2 uppercase tracking-wider">Line Items ({lineitems.length})</p>
+            <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+              {lineitems.map((item, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-2.5 transition-colors">
+                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                    <span className="w-5 h-5 rounded-md bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0">{item.qty}</span>
+                    <p className="text-xs text-gray-700 truncate font-medium">{item.name}</p>
+                  </div>
+                  <p className="text-xs font-semibold text-gray-700 flex-shrink-0">{formatRupiah(item.price)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="px-5 py-2.5 bg-gray-50 border-t">
+            <p className="text-[10px] text-gray-400 text-center">← Klik panah kembali untuk ke daftar order</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── List view ────────────────────────────────────────────────────────────
+  const orderSummaries = orderNames.map((name) => {
+    const orderRows = rows.filter((r) => r.Name === name);
+    const first = orderRows[0];
+    if (!first) return null;
+    const paidAt = first["Paid at"] || first["Created at"] || "";
+    const paidDate = paidAt.split(" ")[0];
+    const subtotal = parseSubtotal(first.Subtotal);
+    const discountCode = first["Discount Code"]?.trim() || null;
+    const notes = first.Notes || "";
+    const trafficCode = extractTrafficCode(notes, trafficMap);
+    const location = cleanLocationName(first.Location);
+    const itemCount = orderRows.length;
+    return { name, paidDate, subtotal, discountCode, trafficCode, location, itemCount };
+  }).filter(Boolean) as {
+    name: string; paidDate: string; subtotal: number; discountCode: string | null;
+    trafficCode: string | null; location: string; itemCount: number;
+  }[];
+
+  const totalRevenue = orderSummaries.reduce((s, o) => s + o.subtotal, 0);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      onClick={onClose}
-    >
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
-
-      {/* Modal */}
       <div
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden"
+        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4 flex flex-col overflow-hidden"
+        style={{ maxHeight: "85vh" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-primary to-primary/80 px-5 py-4 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-primary to-primary/80 px-5 py-4 flex items-center justify-between flex-shrink-0">
           <div>
-            <p className="text-[10px] text-white/60 font-medium uppercase tracking-wider">Order</p>
-            <h2 className="text-lg font-bold text-white">{orderName}</h2>
+            <p className="text-[10px] text-white/60 font-medium uppercase tracking-wider">Daftar Order</p>
+            <h2 className="text-base font-bold text-white">{groupLabel}</h2>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
-          >
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Meta info */}
-        <div className="px-5 py-4 grid grid-cols-2 gap-3 border-b">
-          <div className="bg-gray-50 rounded-xl px-3 py-2.5">
-            <p className="text-[10px] text-gray-400 font-medium mb-0.5">Paid At</p>
-            <p className="text-xs font-semibold text-gray-700">
-              {paidDate ? formatDisplayDate(paidDate) : "-"}
-            </p>
-          </div>
-          <div className="bg-gray-50 rounded-xl px-3 py-2.5">
-            <p className="text-[10px] text-gray-400 font-medium mb-0.5">Subtotal</p>
-            <p className="text-xs font-bold text-green-600">{formatRupiah(subtotal)}</p>
-          </div>
-          <div className="bg-gray-50 rounded-xl px-3 py-2.5">
-            <p className="text-[10px] text-gray-400 font-medium mb-0.5">Discount Code</p>
-            {discountCode ? (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-mono text-[11px] font-semibold">
-                {discountCode}
-              </span>
-            ) : (
-              <p className="text-xs text-gray-400">-</p>
-            )}
-          </div>
-          <div className="bg-gray-50 rounded-xl px-3 py-2.5">
-            <p className="text-[10px] text-gray-400 font-medium mb-0.5">Traffic Source</p>
-            {trafficCode ? (
-              <div className="flex items-center gap-1.5">
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-mono text-[11px] font-bold border border-blue-200">
-                  {trafficCode}
-                </span>
-                {trafficLabel && (
-                  <span className="text-[11px] text-gray-600 truncate">{trafficLabel}</span>
-                )}
-              </div>
-            ) : (
-              <p className="text-xs text-gray-400">Tidak Diketahui</p>
-            )}
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-[10px] text-white/60">Total Revenue</p>
+              <p className="text-sm font-bold text-white">{formatRupiah(totalRevenue)}</p>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         </div>
 
-        {/* Notes */}
-        {notes && (
-          <div className="px-5 py-3 border-b">
-            <p className="text-[10px] text-gray-400 font-medium mb-1">Notes</p>
-            <p className="text-xs text-gray-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 leading-relaxed">
-              {notes}
-            </p>
-          </div>
-        )}
-
-        {/* Line items */}
-        <div className="px-5 py-4">
-          <p className="text-[10px] text-gray-400 font-medium mb-2 uppercase tracking-wider">
-            Line Items ({lineitems.length})
-          </p>
-          <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-            {lineitems.map((item, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between gap-3 bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-2.5 transition-colors"
-              >
-                <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                  <span className="w-5 h-5 rounded-md bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0">
-                    {item.qty}
-                  </span>
-                  <p className="text-xs text-gray-700 truncate font-medium">{item.name}</p>
-                </div>
-                <p className="text-xs font-semibold text-gray-700 flex-shrink-0">
-                  {formatRupiah(item.price)}
-                </p>
-              </div>
-            ))}
-          </div>
+        {/* Table */}
+        <div className="overflow-auto flex-1">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 bg-gray-50 z-10 border-b">
+              <tr>
+                <th className="px-4 py-2.5 text-left font-semibold text-gray-600 whitespace-nowrap">Order</th>
+                <th className="px-4 py-2.5 text-left font-semibold text-gray-600 whitespace-nowrap">Tanggal</th>
+                <th className="px-4 py-2.5 text-left font-semibold text-gray-600 whitespace-nowrap">Store</th>
+                <th className="px-4 py-2.5 text-left font-semibold text-gray-600 whitespace-nowrap">Traffic</th>
+                <th className="px-4 py-2.5 text-left font-semibold text-gray-600 whitespace-nowrap">Discount</th>
+                <th className="px-4 py-2.5 text-right font-semibold text-gray-600 whitespace-nowrap">Items</th>
+                <th className="px-4 py-2.5 text-right font-semibold text-gray-600 whitespace-nowrap">Subtotal</th>
+                <th className="px-4 py-2.5 w-8" />
+              </tr>
+            </thead>
+            <tbody>
+              {orderSummaries.map((o, i) => (
+                <tr
+                  key={i}
+                  className="border-b hover:bg-blue-50 cursor-pointer transition-colors group"
+                  onClick={() => setSelectedOrderName(o.name)}
+                >
+                  <td className="px-4 py-2.5 font-mono font-semibold text-primary whitespace-nowrap">{o.name}</td>
+                  <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">
+                    {o.paidDate ? formatDisplayDate(o.paidDate) : "-"}
+                  </td>
+                  <td className="px-4 py-2.5 text-gray-600 max-w-[110px] truncate">{o.location}</td>
+                  <td className="px-4 py-2.5">
+                    {o.trafficCode ? (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-mono text-[10px] font-bold border border-blue-100">
+                        {o.trafficCode}
+                      </span>
+                    ) : (
+                      <span className="text-gray-300 text-[10px]">–</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {o.discountCode ? (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-mono text-[10px] font-semibold border border-purple-100">
+                        {o.discountCode}
+                      </span>
+                    ) : (
+                      <span className="text-gray-300 text-[10px]">–</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-gray-500">{o.itemCount}</td>
+                  <td className="px-4 py-2.5 text-right font-semibold text-green-700 whitespace-nowrap">
+                    {formatRupiah(o.subtotal)}
+                  </td>
+                  <td className="px-4 py-2.5 text-center">
+                    <svg className="w-3.5 h-3.5 text-gray-300 group-hover:text-primary transition-colors mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
-        {/* Footer hint */}
-        <div className="px-5 py-2.5 bg-gray-50 border-t">
-          <p className="text-[10px] text-gray-400 text-center">Klik di luar popup untuk menutup</p>
+        <div className="px-5 py-2.5 bg-gray-50 border-t flex-shrink-0 flex items-center justify-between">
+          <p className="text-[10px] text-gray-400">{orderSummaries.length} order · Klik baris untuk melihat detail</p>
+          <p className="text-[10px] text-gray-400">Klik di luar untuk menutup</p>
         </div>
       </div>
     </div>
@@ -611,7 +705,7 @@ export default function AnalyticsOrderPage() {
   const [chartView, setChartView] = useState<"all" | "daily">("all");
 
   // ─── Order detail popup ───────────────────────────────────────────────────
-  const [selectedOrderName, setSelectedOrderName] = useState<string | null>(null);
+  const [popupGroup, setPopupGroup] = useState<{ label: string; orderNames: string[] } | null>(null);
 
   const [pageStore, setPageStore] = useState(1);
   const [pageTraffic, setPageTraffic] = useState(1);
@@ -1410,11 +1504,10 @@ export default function AnalyticsOrderPage() {
                               {revenueByStore.slice((pageStore - 1) * PAGE_SIZE, pageStore * PAGE_SIZE).map((s, i) => {
                                 const orders = orderCountByStore.find(o => o.name === s.name)?.count || 0;
                                 // Get first order name from this store for popup
-                                const firstOrderName = fr.find(r => cleanLocationName(r.Location) === s.name && r.Name)?.Name || null;
+                                const storeOrders = [...new Set(fr.filter(r => cleanLocationName(r.Location) === s.name && r.Name).map(r => r.Name!))]
                                 return (
                                   <tr key={i} className={clickableRowClass}
-                                    onClick={() => firstOrderName && setSelectedOrderName(firstOrderName)}
-                                    title={firstOrderName ? `Lihat detail order ${firstOrderName}` : undefined}
+                                    onClick={() => storeOrders.length > 0 && setPopupGroup({ label: s.name, orderNames: storeOrders })}
                                   >
                                     <td className="px-3 py-2 flex items-center gap-1.5">
                                       {s.name}
@@ -1548,15 +1641,15 @@ export default function AnalyticsOrderPage() {
                                 return trafficData.slice((pageTraffic - 1) * PAGE_SIZE, pageTraffic * PAGE_SIZE).map((t, i) => {
                                   const globalIdx = (pageTraffic - 1) * PAGE_SIZE + i;
                                   // Find a sample order for this traffic label
-                                  const sampleOrder = fr.find((r) => {
-                                    const code = extractTrafficCode(r.Notes, trafficMap);
-                                    if (t.name === "Tidak Diketahui") return code === null && r.Name;
-                                    const label = code ? (trafficMap[code] || code) : null;
-                                    return label === t.name && r.Name;
-                                  });
+const trafficOrders = [...new Set(fr.filter((r) => {
+  const code = extractTrafficCode(r.Notes, trafficMap);
+  if (t.name === "Tidak Diketahui") return code === null && r.Name;
+  const label = code ? (trafficMap[code] || code) : null;
+  return label === t.name && r.Name;
+}).map(r => r.Name!))]
                                   return (
                                     <tr key={i} className={clickableRowClass}
-                                      onClick={() => sampleOrder?.Name && setSelectedOrderName(sampleOrder.Name)}
+                                      onClick={() => trafficOrders.length > 0 && setPopupGroup({ label: t.name, orderNames: trafficOrders })}
                                     >
                                       <td className="px-3 py-2 flex items-center gap-2">
                                         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[globalIdx % COLORS.length] }} />
@@ -1655,10 +1748,10 @@ export default function AnalyticsOrderPage() {
                             </thead>
                             <tbody>
                               {discountData.slice((pageDiscount - 1) * PAGE_SIZE, pageDiscount * PAGE_SIZE).map((d, i) => {
-                                const sampleOrder = fr.find(r => r["Discount Code"]?.trim() === d.name && r.Name);
+                                const discountOrders = [...new Set(fr.filter(r => r["Discount Code"]?.trim() === d.name && r.Name).map(r => r.Name!))]
                                 return (
                                   <tr key={i} className={clickableRowClass}
-                                    onClick={() => sampleOrder?.Name && setSelectedOrderName(sampleOrder.Name)}
+                                    onClick={() => discountOrders.length > 0 && setPopupGroup({ label: `Discount: ${d.name}`, orderNames: discountOrders })}
                                   >
                                     <td className="px-3 py-2 flex items-center gap-1.5">
                                       <span className="font-mono">{d.name}</span>
@@ -1755,10 +1848,10 @@ export default function AnalyticsOrderPage() {
                             </thead>
                             <tbody>
                               {productData.slice((pageProduct - 1) * PAGE_SIZE, pageProduct * PAGE_SIZE).map((p, i) => {
-                                const sampleOrder = fr.find(r => r["Lineitem name"]?.trim() === p.name && r.Name);
+                                const productOrders = [...new Set(fr.filter(r => r["Lineitem name"]?.trim() === p.name && r.Name).map(r => r.Name!))]
                                 return (
                                   <tr key={i} className={clickableRowClass}
-                                    onClick={() => sampleOrder?.Name && setSelectedOrderName(sampleOrder.Name)}
+                                    onClick={() => productOrders.length > 0 && setPopupGroup({ label: p.name, orderNames: productOrders })}
                                   >
                                     <td className="px-3 py-2 flex items-center gap-1.5">
                                       {p.name}
@@ -1849,10 +1942,10 @@ export default function AnalyticsOrderPage() {
                             </thead>
                             <tbody>
                               {employeeData.slice((pageEmployee - 1) * PAGE_SIZE, pageEmployee * PAGE_SIZE).map((e, i) => {
-                                const sampleOrder = fr.find(r => r.Employee?.trim() === e.name && r.Name);
+                                const empOrders = [...new Set(fr.filter(r => r.Employee?.trim() === e.name && r.Name).map(r => r.Name!))]
                                 return (
                                   <tr key={i} className={clickableRowClass}
-                                    onClick={() => sampleOrder?.Name && setSelectedOrderName(sampleOrder.Name)}
+                                    onClick={() => empOrders.length > 0 && setPopupGroup({ label: e.name, orderNames: empOrders })}
                                   >
                                     <td className="px-3 py-2 flex items-center gap-1.5">
                                       {e.name}
@@ -1924,12 +2017,13 @@ export default function AnalyticsOrderPage() {
       )}
 
       {/* Order Detail Popup */}
-      <OrderDetailPopup
-        orderName={selectedOrderName}
-        rows={rows}
-        trafficMap={trafficMap}
-        onClose={() => setSelectedOrderName(null)}
-      />
+<OrderDetailPopup
+  groupLabel={popupGroup?.label ?? null}
+  orderNames={popupGroup?.orderNames ?? []}
+  rows={rows}
+  trafficMap={trafficMap}
+  onClose={() => setPopupGroup(null)}
+/>
 
       <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
     </div>
