@@ -396,6 +396,43 @@ function CopyButton({
   );
 }
 
+// ── Google Drive URL converter ────────────────────────────────────────────
+function getEmbedUrl(url: string): string {
+  if (!url) return url;
+  
+  // Format: https://drive.google.com/file/d/FILE_ID/view?usp=...
+  const fileMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileMatch) {
+    const fileId = fileMatch[1];
+    return `https://drive.google.com/file/d/${fileId}/preview`;
+  }
+  
+  // Format: https://drive.google.com/open?id=FILE_ID
+  const openMatch = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
+  if (openMatch) {
+    const fileId = openMatch[1];
+    return `https://drive.google.com/file/d/${fileId}/preview`;
+  }
+  
+  return url; // bukan URL Drive, kembalikan as-is
+}
+
+function getDownloadUrl(url: string): string {
+  if (!url) return url;
+  
+  const fileMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileMatch) {
+    return `https://drive.google.com/uc?export=download&id=${fileMatch[1]}`;
+  }
+  
+  const openMatch = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
+  if (openMatch) {
+    return `https://drive.google.com/uc?export=download&id=${openMatch[1]}`;
+  }
+  
+  return url;
+}
+
 // ── Detail Popup ──────────────────────────────────────────────────────────
 function DetailPopup({
   item,
@@ -409,7 +446,13 @@ function DetailPopup({
   onCopy: (text: string, id: string) => void;
 }) {
   const status = item.link_tracking ? "completed" : "pending";
-  const isPdf = item.link_tracking?.toLowerCase().includes(".pdf") ||
+  const isDriveUrl = item.link_tracking?.includes("drive.google.com");
+  const embedUrl = getEmbedUrl(item.link_tracking || "");
+  const downloadUrl = getDownloadUrl(item.link_tracking || "");
+
+  const isPdf = isDriveUrl
+  ? true // Drive preview iframe works for both
+  : item.link_tracking?.toLowerCase().includes(".pdf") ||
     item.link_tracking?.toLowerCase().includes("application/pdf") ||
     (item.link_tracking && !item.link_tracking?.match(/\.(png|jpg|jpeg|gif|webp)/i));
 
@@ -435,10 +478,16 @@ function DetailPopup({
         <div className="flex items-center justify-between px-5 py-3.5 border-b bg-gray-50 rounded-t-xl">
           <div className="flex items-center gap-3">
             <h2 className="text-sm font-bold text-gray-800">Detail Shipment</h2>
-            <span className="font-mono text-[11px] text-gray-500 bg-gray-200 px-2 py-0.5 rounded">{item.id}</span>
-            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-              status === "completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-            }`}>
+            <span className="font-mono text-[11px] text-gray-500 bg-gray-200 px-2 py-0.5 rounded">
+              {item.id}
+            </span>
+            <span
+              className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                status === "completed"
+                  ? "bg-green-100 text-green-800"
+                  : "bg-yellow-100 text-yellow-800"
+              }`}
+            >
               {status === "completed" ? "Selesai" : "Pending"}
             </span>
           </div>
@@ -446,8 +495,18 @@ function DetailPopup({
             onClick={onClose}
             className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors text-gray-500"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -460,19 +519,28 @@ function DetailPopup({
               <>
                 <div className="flex items-center justify-between px-3 py-2 bg-white border-b">
                   <span className="text-[11px] text-gray-500 font-medium">
-                    {isPdf ? "📄 File PDF" : "🖼 Bukti Gambar"}
+                    {isPdf ? "File PDF" : "Bukti Gambar"}
                   </span>
                   <a
-                    href={item.link_tracking}
+                    href={downloadUrl}
                     download
                     target="_blank"
                     rel="noopener noreferrer"
                     title="Download file"
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary text-white rounded text-[10px] font-medium hover:bg-primary/90 transition-colors"
                   >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                      />
                     </svg>
                     Download
                   </a>
@@ -480,13 +548,13 @@ function DetailPopup({
                 <div className="flex-1 overflow-auto flex items-center justify-center p-3">
                   {isPdf ? (
                     <iframe
-                      src={item.link_tracking}
+                      src={embedUrl}
                       className="w-full h-full rounded border border-gray-200 bg-white"
                       title="Resi PDF"
                     />
                   ) : (
                     <img
-                      src={item.link_tracking}
+                      src={embedUrl}
                       alt="Bukti Resi"
                       className="max-w-full max-h-full object-contain rounded border border-gray-200 shadow-sm"
                     />
@@ -495,9 +563,18 @@ function DetailPopup({
               </>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-2">
-                <svg className="w-12 h-12 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <svg
+                  className="w-12 h-12 opacity-30"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
                 </svg>
                 <p className="text-xs text-gray-400">Belum ada resi diupload</p>
               </div>
@@ -507,39 +584,54 @@ function DetailPopup({
           {/* Right: Detail info */}
           <div className="w-64 flex flex-col overflow-y-auto bg-white">
             <div className="p-4 space-y-4">
-
               {/* Expedition */}
               <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Ekspedisi</p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">
+                  Ekspedisi
+                </p>
                 {EXPEDITION_LOGO[item.expedition] ? (
-                  <img src={EXPEDITION_LOGO[item.expedition]} alt={item.expedition} className="h-6 w-auto object-contain" />
+                  <img
+                    src={EXPEDITION_LOGO[item.expedition]}
+                    alt={item.expedition}
+                    className="h-6 w-auto object-contain"
+                  />
                 ) : (
-                  <p className="text-xs font-medium text-gray-800">{item.expedition}</p>
+                  <p className="text-xs font-medium text-gray-800">
+                    {item.expedition}
+                  </p>
                 )}
               </div>
 
               {/* Date */}
               <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Tanggal</p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">
+                  Tanggal
+                </p>
                 <p className="text-xs text-gray-800">{item.date}</p>
               </div>
 
               {/* Assigned To */}
               <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Assigned To</p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">
+                  Assigned To
+                </p>
                 <p className="text-xs text-gray-800">{item.assigned_to}</p>
               </div>
 
               {/* Sender */}
               <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Pengirim</p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">
+                  Pengirim
+                </p>
                 <p className="text-xs text-gray-800">{item.sender}</p>
               </div>
 
               {/* Receiver */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Penerima</p>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">
+                    Penerima
+                  </p>
                   {item.receiver && (
                     <CopyButton
                       text={item.receiver}
@@ -556,26 +648,34 @@ function DetailPopup({
 
               {/* Weight */}
               <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Berat</p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">
+                  Berat
+                </p>
                 <p className="text-xs text-gray-800">{item.weight} kg</p>
               </div>
 
               {/* Reason */}
               <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Alasan</p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">
+                  Alasan
+                </p>
                 <p className="text-xs text-gray-800">{item.reason}</p>
               </div>
 
               {/* Request By */}
               <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Request By</p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">
+                  Request By
+                </p>
                 <p className="text-xs text-gray-800">{item.request_by}</p>
               </div>
 
               {/* Updated By */}
               {item.update_by && (
                 <div>
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Update By</p>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">
+                    Update By
+                  </p>
                   <p className="text-xs text-gray-800">{item.update_by}</p>
                 </div>
               )}
