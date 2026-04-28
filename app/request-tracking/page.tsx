@@ -73,7 +73,6 @@ function validateReceiver(val: string): string {
 }
 
 // ── Drag & Drop Upload Zone ───────────────────────────────────────────────
-// Dipindah ke luar agar tidak di-remount setiap render
 function DropZone({
   file,
   onFile,
@@ -101,7 +100,6 @@ function DropZone({
   };
 
   const handleDragLeave = () => setDragging(false);
-
   const handleClick = () => inputRef.current?.click();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -192,7 +190,6 @@ function DropZone({
 }
 
 // ── ExpeditionToggle ──────────────────────────────────────────────────────
-// Dipindah ke luar agar tidak di-remount setiap render
 function ExpeditionToggle({
   value,
   onChange,
@@ -240,7 +237,6 @@ function ExpeditionBadge({ expedition }: { expedition: string }) {
 }
 
 // ── SenderSelect ──────────────────────────────────────────────────────────
-// Dipindah ke luar agar tidak di-remount setiap render
 function SenderSelect({
   value,
   onChange,
@@ -278,9 +274,6 @@ function SenderSelect({
 }
 
 // ── ReceiverField ─────────────────────────────────────────────────────────
-// Dipindah ke luar agar tidak di-remount setiap render
-// Root penyebab bug: jika didefinisikan di dalam komponen parent, React
-// membuat fungsi baru setiap render → unmount/remount → focus/keyboard hilang
 function ReceiverField({
   mode,
   onModeChange,
@@ -371,7 +364,6 @@ function ReceiverField({
 }
 
 // ── CopyButton ────────────────────────────────────────────────────────────
-// Dipindah ke luar agar tidak di-remount setiap render
 function CopyButton({
   text,
   id,
@@ -404,6 +396,211 @@ function CopyButton({
   );
 }
 
+// ── Detail Popup ──────────────────────────────────────────────────────────
+function DetailPopup({
+  item,
+  onClose,
+  copiedId,
+  onCopy,
+}: {
+  item: TrackingItem;
+  onClose: () => void;
+  copiedId: string | null;
+  onCopy: (text: string, id: string) => void;
+}) {
+  const status = item.link_tracking ? "completed" : "pending";
+  const isPdf = item.link_tracking?.toLowerCase().includes(".pdf") ||
+    item.link_tracking?.toLowerCase().includes("application/pdf") ||
+    (item.link_tracking && !item.link_tracking?.match(/\.(png|jpg|jpeg|gif|webp)/i));
+
+  // Close on backdrop click
+  const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4"
+      onClick={handleBackdrop}
+    >
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b bg-gray-50 rounded-t-xl">
+          <div className="flex items-center gap-3">
+            <h2 className="text-sm font-bold text-gray-800">Detail Shipment</h2>
+            <span className="font-mono text-[11px] text-gray-500 bg-gray-200 px-2 py-0.5 rounded">{item.id}</span>
+            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+              status === "completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+            }`}>
+              {status === "completed" ? "Selesai" : "Pending"}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors text-gray-500"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left: File viewer */}
+          <div className="flex-1 bg-gray-100 flex flex-col overflow-hidden border-r">
+            {item.link_tracking ? (
+              <>
+                <div className="flex items-center justify-between px-3 py-2 bg-white border-b">
+                  <span className="text-[11px] text-gray-500 font-medium">
+                    {isPdf ? "📄 File PDF" : "🖼 Bukti Gambar"}
+                  </span>
+                  <a
+                    href={item.link_tracking}
+                    download
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Download file"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary text-white rounded text-[10px] font-medium hover:bg-primary/90 transition-colors"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download
+                  </a>
+                </div>
+                <div className="flex-1 overflow-auto flex items-center justify-center p-3">
+                  {isPdf ? (
+                    <iframe
+                      src={item.link_tracking}
+                      className="w-full h-full rounded border border-gray-200 bg-white"
+                      title="Resi PDF"
+                    />
+                  ) : (
+                    <img
+                      src={item.link_tracking}
+                      alt="Bukti Resi"
+                      className="max-w-full max-h-full object-contain rounded border border-gray-200 shadow-sm"
+                    />
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-2">
+                <svg className="w-12 h-12 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="text-xs text-gray-400">Belum ada resi diupload</p>
+              </div>
+            )}
+          </div>
+
+          {/* Right: Detail info */}
+          <div className="w-64 flex flex-col overflow-y-auto bg-white">
+            <div className="p-4 space-y-4">
+
+              {/* Expedition */}
+              <div>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Ekspedisi</p>
+                {EXPEDITION_LOGO[item.expedition] ? (
+                  <img src={EXPEDITION_LOGO[item.expedition]} alt={item.expedition} className="h-6 w-auto object-contain" />
+                ) : (
+                  <p className="text-xs font-medium text-gray-800">{item.expedition}</p>
+                )}
+              </div>
+
+              {/* Date */}
+              <div>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Tanggal</p>
+                <p className="text-xs text-gray-800">{item.date}</p>
+              </div>
+
+              {/* Assigned To */}
+              <div>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Assigned To</p>
+                <p className="text-xs text-gray-800">{item.assigned_to}</p>
+              </div>
+
+              {/* Sender */}
+              <div>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Pengirim</p>
+                <p className="text-xs text-gray-800">{item.sender}</p>
+              </div>
+
+              {/* Receiver */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Penerima</p>
+                  {item.receiver && (
+                    <CopyButton
+                      text={item.receiver}
+                      id={`detail-${item.id}`}
+                      copiedId={copiedId}
+                      onCopy={onCopy}
+                    />
+                  )}
+                </div>
+                <p className="text-xs text-gray-800 font-mono whitespace-pre-line leading-relaxed bg-gray-50 rounded p-2 border border-gray-100">
+                  {item.receiver || "-"}
+                </p>
+              </div>
+
+              {/* Weight */}
+              <div>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Berat</p>
+                <p className="text-xs text-gray-800">{item.weight} kg</p>
+              </div>
+
+              {/* Reason */}
+              <div>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Alasan</p>
+                <p className="text-xs text-gray-800">{item.reason}</p>
+              </div>
+
+              {/* Request By */}
+              <div>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Request By</p>
+                <p className="text-xs text-gray-800">{item.request_by}</p>
+              </div>
+
+              {/* Updated By */}
+              {item.update_by && (
+                <div>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Update By</p>
+                  <p className="text-xs text-gray-800">{item.update_by}</p>
+                </div>
+              )}
+
+              {/* Timestamps */}
+              <div className="pt-2 border-t border-gray-100 space-y-1">
+                {item.created_at && (
+                  <p className="text-[10px] text-gray-400">
+                    Dibuat: {new Date(item.created_at).toLocaleString("id-ID")}
+                  </p>
+                )}
+                {item.update_at && (
+                  <p className="text-[10px] text-gray-400">
+                    Diupdate: {new Date(item.update_at).toLocaleString("id-ID")}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Main Page Component
 // ═════════════════════════════════════════════════════════════════════════════
@@ -418,12 +615,17 @@ export default function RequestTrackingPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<TrackingItem | null>(null);
+  const [detailItem, setDetailItem] = useState<TrackingItem | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [submitting, setSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // ── Search state ──────────────────────────────────────────────────────────
+  const [searchReceiver, setSearchReceiver] = useState("");
+
   const itemsPerPage = 25;
 
   const uploadFileRef = useRef<HTMLInputElement>(null);
@@ -713,10 +915,33 @@ export default function RequestTrackingPage() {
 
   const getStatus = (item: TrackingItem) => item.link_tracking ? "completed" : "pending";
 
+  // ── Filtered data ─────────────────────────────────────────────────────────
+  const filteredData = (() => {
+    if (!searchReceiver.trim()) return data;
+    const q = searchReceiver.trim().toLowerCase();
+    return data.filter((d) => (d.receiver || "").toLowerCase().includes(q));
+  })();
+
+  const hasActiveSearch = searchReceiver.trim().length > 0;
+
   const indexOfLast = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
-  const currentItems = data.slice(indexOfFirst, indexOfLast);
-  const totalPages = Math.ceil(data.length / itemsPerPage);
+  const currentItems = filteredData.slice(indexOfFirst, indexOfLast);
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+  // Highlight helper
+  const highlightText = (text: string, query: string) => {
+    if (!query || !text) return text || "-";
+    const i = text.toLowerCase().indexOf(query.toLowerCase());
+    if (i === -1) return text;
+    return (
+      <>
+        {text.slice(0, i)}
+        <mark className="bg-yellow-200 text-yellow-900 rounded px-0.5">{text.slice(i, i + query.length)}</mark>
+        {text.slice(i + query.length)}
+      </>
+    );
+  };
 
   if (!user) return null;
 
@@ -729,7 +954,7 @@ export default function RequestTrackingPage() {
 
       <div className="flex-1 overflow-auto">
         <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold text-primary">Request Shipment</h1>
             {canEdit && (
               <button
@@ -741,6 +966,43 @@ export default function RequestTrackingPage() {
                 </svg>
                 Add Request
               </button>
+            )}
+          </div>
+
+          {/* ── Search Bar ───────────────────────────────────────────────── */}
+          <div className="bg-white rounded-lg shadow px-3 py-2 mb-3 flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <svg
+                className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+              </svg>
+              <input
+                type="text"
+                value={searchReceiver}
+                onChange={(e) => { setSearchReceiver(e.target.value); setCurrentPage(1); }}
+                placeholder="Cari penerima..."
+                className="pl-6 pr-2 py-1 border border-gray-300 rounded text-[11px] w-52 focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+
+            {hasActiveSearch && (
+              <>
+                <button
+                  onClick={() => { setSearchReceiver(""); setCurrentPage(1); }}
+                  className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 border border-gray-200 rounded text-[11px] hover:bg-gray-200 transition-colors"
+                >
+                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Clear
+                </button>
+                <span className="text-[10px] text-gray-400">
+                  {filteredData.length} result{filteredData.length !== 1 ? "s" : ""}
+                </span>
+              </>
             )}
           </div>
 
@@ -772,21 +1034,31 @@ export default function RequestTrackingPage() {
                         const status = getStatus(item);
                         const waLink = item.link_tracking ? buildWhatsappLink(item) : null;
                         return (
-                          <tr key={item.id} className={`border-b ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}>
+                          <tr
+                            key={item.id}
+                            className={`border-b cursor-pointer ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-blue-50 transition-colors`}
+                            onClick={() => setDetailItem(item)}
+                          >
                             <td className="px-2 py-1 text-gray-600">{item.date}</td>
                             <td className="px-2 py-1 text-gray-700 truncate">{item.assigned_to}</td>
                             <td className="px-2 py-1"><ExpeditionBadge expedition={item.expedition} /></td>
                             <td className="px-2 py-1 text-gray-700 truncate">{item.sender}</td>
                             <td className="px-2 py-1 text-gray-600">
                               <div className="flex items-start gap-1">
-                                <div className="truncate flex-1" title={item.receiver}>{item.receiver.split("\n")[0]}</div>
+                                <div className="truncate flex-1" title={item.receiver}>
+                                  {hasActiveSearch
+                                    ? highlightText(item.receiver.split("\n")[0], searchReceiver)
+                                    : item.receiver.split("\n")[0]}
+                                </div>
                                 {canUpload && item.receiver && (
-                                  <CopyButton
-                                    text={item.receiver}
-                                    id={item.id}
-                                    copiedId={copiedId}
-                                    onCopy={handleCopyReceiver}
-                                  />
+                                  <span onClick={(e) => e.stopPropagation()}>
+                                    <CopyButton
+                                      text={item.receiver}
+                                      id={item.id}
+                                      copiedId={copiedId}
+                                      onCopy={handleCopyReceiver}
+                                    />
+                                  </span>
                                 )}
                               </div>
                             </td>
@@ -800,7 +1072,7 @@ export default function RequestTrackingPage() {
                                 {status === "completed" ? "Selesai" : "Pending"}
                               </span>
                             </td>
-                            <td className="px-2 py-1">
+                            <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
                               <div className="flex flex-wrap gap-1">
                                 {canUpload && status === "pending" && (
                                   <button onClick={() => openUpload(item)}
@@ -838,15 +1110,17 @@ export default function RequestTrackingPage() {
                       })}
                     </tbody>
                   </table>
-                  {data.length === 0 && (
-                    <div className="p-8 text-center text-gray-500 text-sm">Belum ada request shipment</div>
+                  {filteredData.length === 0 && (
+                    <div className="p-8 text-center text-gray-500 text-sm">
+                      {hasActiveSearch ? "Tidak ada penerima yang sesuai pencarian" : "Belum ada request shipment"}
+                    </div>
                   )}
                 </div>
 
                 {totalPages > 1 && (
                   <div className="flex justify-between items-center px-4 py-2.5 border-t">
                     <div className="text-xs text-gray-500">
-                      {indexOfFirst + 1}–{Math.min(indexOfLast, data.length)} dari {data.length} entri
+                      {indexOfFirst + 1}–{Math.min(indexOfLast, filteredData.length)} dari {filteredData.length} entri
                     </div>
                     <div className="flex gap-1">
                       <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}
@@ -875,6 +1149,16 @@ export default function RequestTrackingPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Detail Popup ─────────────────────────────────────────────────── */}
+      {detailItem && (
+        <DetailPopup
+          item={detailItem}
+          onClose={() => setDetailItem(null)}
+          copiedId={copiedId}
+          onCopy={handleCopyReceiver}
+        />
+      )}
 
       {/* ── Add Modal ─────────────────────────────────────────────────────── */}
       {showAddModal && (
