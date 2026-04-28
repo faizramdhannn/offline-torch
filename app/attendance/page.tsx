@@ -263,7 +263,7 @@ export default function AttendancePage() {
                   className={`px-3 py-1.5 rounded text-xs font-medium transition-colors whitespace-nowrap ${
                     activeTab === tab.key
                       ? 'bg-primary text-white shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                      : 'text-gray-900 hover:text-gray-700 hover:bg-gray-50'
                   }`}
                 >
                   {tab.label}
@@ -406,12 +406,12 @@ function WeeklySchedule({
         <div className="flex items-center gap-2 flex-wrap">
           {isStoreUser ? (
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-gray-500">Store:</span>
+              <span className="text-[11px] text-gray-900">Store:</span>
               <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">{toTitleCase(myStoreName)}</span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5">
-              <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Store</label>
+              <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">Store</label>
               <select
                 value={selectedStore}
                 onChange={e => { setSelectedStore(e.target.value); setSchedules([]); setEditingRow(null); }}
@@ -424,7 +424,7 @@ function WeeklySchedule({
           )}
 
           <div className="flex items-center gap-1.5">
-            <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Periode</label>
+            <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">Periode</label>
             <select
               value={selectedDateRange}
               onChange={e => { setSelectedDateRange(e.target.value); setEditingRow(null); }}
@@ -446,11 +446,11 @@ function WeeklySchedule({
       </div>
 
       {!selectedDateRange ? (
-        <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">
+        <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-900 text-sm">
           Pilih periode untuk melihat jadwal
         </div>
       ) : storeGroups.length === 0 ? (
-        <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">
+        <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-900 text-sm">
           Tidak ada data taft
         </div>
       ) : (
@@ -459,19 +459,19 @@ function WeeklySchedule({
             <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50 z-10 min-w-[140px] max-w-[160px] w-40 border-r border-gray-200">
+                  <th className="px-3 py-2 text-left font-semibold text-gray-900 sticky left-0 bg-gray-50 z-10 min-w-[140px] max-w-[160px] w-40 border-r border-gray-200">
                     Nama TAFT
                   </th>
                   {DAYS.map((day, i) => (
                     <th
                       key={day}
-                      className={`px-1 py-2 text-center font-semibold text-gray-600 w-16 ${
+                      className={`px-1 py-2 text-center font-semibold text-gray-900 w-16 ${
                         day === todayDayKey ? 'bg-blue-50 text-blue-700' : ''
                       }`}
                     >
                       <div className="text-[11px]">{DAY_LABELS[i]}</div>
                       {weekDates?.[i] && (
-                        <div className="text-[9px] font-normal text-gray-400 mt-0.5">
+                        <div className="text-[9px] font-normal text-gray-900 mt-0.5">
                           {fmtDDMM(weekDates[i])}
                         </div>
                       )}
@@ -480,7 +480,7 @@ function WeeklySchedule({
                       )}
                     </th>
                   ))}
-                  <th className="px-3 py-2 text-center font-semibold text-gray-600 w-24 sticky right-0 bg-gray-50 z-10 border-l border-gray-200">
+                  <th className="px-3 py-2 text-center font-semibold text-gray-900 w-24 sticky right-0 bg-gray-50 z-10 border-l border-gray-200">
                     Aksi
                   </th>
                 </tr>
@@ -492,7 +492,7 @@ function WeeklySchedule({
                       <td colSpan={9} className="px-3 py-1.5 sticky left-0 bg-primary/5 z-10">
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] font-bold text-primary">{toTitleCase(storeName)}</span>
-                          <span className="text-[10px] text-gray-400">{tafts.length} taft</span>
+                          <span className="text-[10px] text-gray-900">{tafts.length} taft</span>
                         </div>
                       </td>
                     </tr>
@@ -535,7 +535,7 @@ function WeeklySchedule({
                                   code ? (
                                     <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>{code}</span>
                                   ) : (
-                                    <span className="text-gray-200 text-[10px]">—</span>
+                                    <span className="text-gray-900 text-[10px]">—</span>
                                   )
                                 )}
                               </td>
@@ -553,7 +553,7 @@ function WeeklySchedule({
                             ) : (
                               <button
                                 onClick={() => startEdit(taft)}
-                                className={`px-2.5 py-1 rounded text-[10px] font-medium transition-colors whitespace-nowrap ${hasEntry ? 'bg-gray-100 text-gray-600 hover:bg-primary/10 hover:text-primary' : 'bg-primary/10 text-primary hover:bg-primary hover:text-white'}`}
+                                className={`px-2.5 py-1 rounded text-[10px] font-medium transition-colors whitespace-nowrap ${hasEntry ? 'bg-gray-100 text-gray-900 hover:bg-primary/10 hover:text-primary' : 'bg-primary/10 text-primary hover:bg-primary hover:text-white'}`}
                               >
                                 {hasEntry ? 'Edit' : '+ Input'}
                               </button>
@@ -914,7 +914,7 @@ function MonthlyReport({
         <div className="flex gap-0.5 bg-white rounded-lg p-0.5 shadow border border-gray-100 mb-3 w-fit">
           {(['import','recap'] as const).map(t => (
             <button key={t} onClick={() => setSubTab(t)}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${subTab === t ? 'bg-primary text-white shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${subTab === t ? 'bg-primary text-white shadow-sm' : 'text-gray-900 hover:text-gray-700 hover:bg-gray-50'}`}>
               {t === 'import' ? 'Import' : 'Recap'}
             </button>
           ))}
@@ -927,12 +927,12 @@ function MonthlyReport({
             <div className="flex items-center gap-2 flex-wrap">
               {isStoreUser ? (
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-gray-500">Store:</span>
+                  <span className="text-[11px] text-gray-900">Store:</span>
                   <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">{toTitleCase(myStoreName)}</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5">
-                  <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Store</label>
+                  <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">Store</label>
                   <select value={selectedStore} onChange={e => { setSelectedStore(e.target.value); }}
                     className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary">
                     <option value="">Semua Store</option>
@@ -941,7 +941,7 @@ function MonthlyReport({
                 </div>
               )}
               <div className="flex items-center gap-1.5">
-                <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Bulan</label>
+                <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">Bulan</label>
                 <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
                   className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary" />
               </div>
@@ -957,8 +957,8 @@ function MonthlyReport({
 
           <div className="bg-white rounded-lg shadow p-3">
             <p className="text-[11px] font-semibold text-gray-700 mb-1.5">Panduan</p>
-            <p className="text-[11px] text-gray-500 mb-2">Download template XLSX → isi kolom <strong>clock_in</strong>, <strong>clock_out</strong>, <strong>code_time</strong>, <strong>overtime_hours</strong>, <strong>reason</strong> → Import kembali.</p>
-            <p className="text-[11px] text-gray-400 mb-2">Format jam: <code className="bg-gray-100 px-1 rounded">08:30</code> atau <code className="bg-gray-100 px-1 rounded">08.30</code> (titik otomatis dikonversi ke titik dua).</p>
+            <p className="text-[11px] text-gray-900 mb-2">Download template XLSX → isi kolom <strong>clock_in</strong>, <strong>clock_out</strong>, <strong>code_time</strong>, <strong>overtime_hours</strong>, <strong>reason</strong> → Import kembali.</p>
+            <p className="text-[11px] text-gray-900 mb-2">Format jam: <code className="bg-gray-100 px-1 rounded">08:30</code> atau <code className="bg-gray-100 px-1 rounded">08.30</code> (titik otomatis dikonversi ke titik dua).</p>
             <div className="flex flex-wrap gap-1.5">
               {RECAP_KEYS.map(({ key, label }) => (
                 <span key={key} className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${CODE_COLORS[key] || 'bg-gray-100'}`}>
@@ -975,7 +975,7 @@ function MonthlyReport({
           <div className="bg-white rounded-lg shadow p-2.5 mb-3">
             <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-1.5">
-                <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Store</label>
+                <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">Store</label>
                 <select value={recapStore} onChange={e => setRecapStore(e.target.value)}
                   className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary">
                   <option value="">Semua Store</option>
@@ -983,7 +983,7 @@ function MonthlyReport({
                 </select>
               </div>
               <div className="flex items-center gap-1.5">
-                <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Bulan</label>
+                <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">Bulan</label>
                 <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
                   className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary" />
               </div>
@@ -1001,9 +1001,9 @@ function MonthlyReport({
           </div>
 
           {recapLoading ? (
-            <div className="text-center py-10 text-gray-400 text-sm">Memuat data...</div>
+            <div className="text-center py-10 text-gray-900 text-sm">Memuat data...</div>
           ) : recapTafts.length === 0 ? (
-            <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">Tidak ada data taft</div>
+            <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-900 text-sm">Tidak ada data taft</div>
           ) : (
             <div className="space-y-4">
               {recapStoreGroups.map(({ storeName, tafts }) => (
@@ -1011,7 +1011,7 @@ function MonthlyReport({
                   {!recapStore && (
                     <div className="flex items-center gap-2 mb-2 px-1">
                       <span className="text-xs font-bold text-primary uppercase tracking-wide">{toTitleCase(storeName)}</span>
-                      <span className="text-[10px] text-gray-400">{tafts.length} taft</span>
+                      <span className="text-[10px] text-gray-900">{tafts.length} taft</span>
                       <div className="flex-1 h-px bg-primary/10" />
                     </div>
                   )}
@@ -1076,12 +1076,12 @@ function MonthlyReport({
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h2 className="text-base font-bold text-primary mb-1">Download Template XLSX</h2>
-            <p className="text-[11px] text-gray-400 mb-4">1 file berisi semua TAFT dalam store yang dipilih</p>
+            <p className="text-[11px] text-gray-900 mb-4">1 file berisi semua TAFT dalam store yang dipilih</p>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
                 {isStoreUser
-                  ? <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-600">{toTitleCase(myStoreName)}</div>
+                  ? <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-900">{toTitleCase(myStoreName)}</div>
                   : <select value={selectedStore} onChange={e => setSelectedStore(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary">
                       <option value="">Pilih Store</option>
                       {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
@@ -1100,7 +1100,7 @@ function MonthlyReport({
                 const fmt = (d: Date) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
                 return (
                   <div className="bg-gray-50 rounded border border-gray-200 p-3 max-h-48 overflow-y-auto">
-                    <p className="text-[10px] font-semibold text-gray-500 mb-2">{taftsForPreview.length} sheet yang akan dibuat:</p>
+                    <p className="text-[10px] font-semibold text-gray-900 mb-2">{taftsForPreview.length} sheet yang akan dibuat:</p>
                     {taftsForPreview.map(t => {
                       const sd = parseInt(t.start_date) || 26;
                       const ed = parseInt(t.end_date)   || 25;
@@ -1233,7 +1233,7 @@ function SalesWagesChart({
   const ratioColor = (r: number) =>
     r >= 3   ? 'text-emerald-600 bg-emerald-50'  :
     r >= 1.5 ? 'text-yellow-600 bg-yellow-50'    :
-    r >  0   ? 'text-red-600 bg-red-50'           : 'text-gray-400 bg-gray-50';
+    r >  0   ? 'text-red-600 bg-red-50'           : 'text-gray-900 bg-gray-50';
 
   const profitColor = (n: number) => n >= 0 ? 'text-emerald-600' : 'text-red-500';
 
@@ -1272,10 +1272,9 @@ function SalesWagesChart({
       <div className="mb-3">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
           <div>
-            <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+            <p className="text-xs font-bold text-gray-700 tracking-wide">
               Sales vs Pengeluaran — {monthLabel}
             </p>
-            <p className="text-[10px] text-gray-400">Klik card untuk detail per TAFT</p>
           </div>
           {/* Global totals */}
           <div className="flex gap-2 flex-wrap">
@@ -1313,24 +1312,24 @@ function SalesWagesChart({
                       </span>
                     )}
                   </div>
-                  <p className="text-[9px] text-gray-400">{r.taftCount} TAFT</p>
+                  <p className="text-[9px] text-gray-900">{r.taftCount} TAFT</p>
                 </div>
 
                 {/* Card body — 4 rows */}
                 <div className="px-3 py-2 space-y-1.5">
                   {/* Sales */}
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] text-gray-400 font-medium">Sales</span>
+                    <span className="text-[9px] text-gray-900 font-medium">Sales</span>
                     <span className="text-[10px] font-bold text-blue-600">{fmtJt(r.sales)}</span>
                   </div>
                   {/* Gaji */}
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] text-gray-400 font-medium">Gaji</span>
+                    <span className="text-[9px] text-gray-900 font-medium">Gaji</span>
                     <span className="text-[10px] font-bold text-orange-500">{fmtJt(r.totalGaji)}</span>
                   </div>
                   {/* Lembur */}
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] text-gray-400 font-medium">Lembur</span>
+                    <span className="text-[9px] text-gray-900 font-medium">Lembur</span>
                     <span className="text-[10px] font-bold text-purple-500">
                       {r.biayaLembur > 0 ? fmtJt(r.biayaLembur) : '—'}
                     </span>
@@ -1338,7 +1337,7 @@ function SalesWagesChart({
                   {/* Divider */}
                   <div className="border-t border-gray-100 pt-1.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-gray-500 font-semibold">Net</span>
+                      <span className="text-[9px] text-gray-900 font-semibold">Net</span>
                       <span className={`text-[11px] font-black ${profitColor(r.profit)}`}>
                         {isProfit ? '+' : ''}{fmtJt(r.profit)}
                       </span>
@@ -1388,11 +1387,11 @@ function SalesWagesChart({
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <div>
                 <p className="text-sm font-black text-gray-900 capitalize">{activeStore}</p>
-                <p className="text-[10px] text-gray-400">{activeRow.taftCount} TAFT · {monthLabel}</p>
+                <p className="text-[10px] text-gray-900">{activeRow.taftCount} TAFT · {monthLabel}</p>
               </div>
               <button
                 onClick={() => setActiveStore(null)}
-                className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 text-[11px] font-bold transition-colors"
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-900 text-[11px] font-bold transition-colors"
               >✕</button>
             </div>
 
@@ -1405,7 +1404,7 @@ function SalesWagesChart({
                 { label: 'Net',         val: activeRow.profit,          cls: profitColor(activeRow.profit) },
               ].map(({ label, val, cls }) => (
                 <div key={label} className="px-4 py-3 text-center">
-                  <p className="text-[8px] text-gray-400 uppercase font-semibold mb-0.5">{label}</p>
+                  <p className="text-[8px] text-gray-900 uppercase font-semibold mb-0.5">{label}</p>
                   <p className={`text-[12px] font-black ${cls}`}>
                     {label === 'Net' && val >= 0 ? '+' : ''}{fmtJt(val)}
                   </p>
@@ -1416,16 +1415,16 @@ function SalesWagesChart({
             {/* Per-TAFT table */}
             <div className="overflow-y-auto flex-1">
               {taftDetails.length === 0 ? (
-                <div className="py-10 text-center text-gray-400 text-sm">Tidak ada data TAFT</div>
+                <div className="py-10 text-center text-gray-900 text-sm">Tidak ada data TAFT</div>
               ) : (
                 <table className="w-full text-[11px]">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50 sticky top-0">
-                      <th className="px-5 py-2.5 text-left font-semibold text-gray-500 text-[9px] uppercase tracking-wide">TAFT</th>
+                      <th className="px-5 py-2.5 text-left font-semibold text-gray-900 text-[9px] uppercase tracking-wide">TAFT</th>
                       <th className="px-4 py-2.5 text-right font-semibold text-orange-400 text-[9px] uppercase tracking-wide">Gaji</th>
                       <th className="px-4 py-2.5 text-right font-semibold text-purple-400 text-[9px] uppercase tracking-wide">Jam Lembur</th>
                       <th className="px-4 py-2.5 text-right font-semibold text-purple-400 text-[9px] uppercase tracking-wide">Biaya Lembur</th>
-                      <th className="px-4 py-2.5 text-right font-semibold text-gray-500 text-[9px] uppercase tracking-wide">Total</th>
+                      <th className="px-4 py-2.5 text-right font-semibold text-gray-900 text-[9px] uppercase tracking-wide">Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1461,9 +1460,9 @@ function SalesWagesChart({
 
             {/* Modal footer */}
             <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between bg-gray-50/60">
-              <p className="text-[9px] text-gray-400">
-                Gaji/orang: <span className="font-semibold text-gray-600">{fmtJt(activeRow.gajiPerOrang)}</span>
-                &nbsp;·&nbsp;Rate lembur: <span className="font-semibold text-gray-600">Rp17.500/jam</span>
+              <p className="text-[9px] text-gray-900">
+                Gaji/orang: <span className="font-semibold text-gray-900">{fmtJt(activeRow.gajiPerOrang)}</span>
+                &nbsp;·&nbsp;Rate lembur: <span className="font-semibold text-gray-900">Rp17.500/jam</span>
               </p>
               <button
                 onClick={() => setActiveStore(null)}
@@ -1518,7 +1517,7 @@ function MiniBarChart({
 
   if (rows.length === 0) {
     return (
-      <div className="flex items-center justify-center h-24 text-[10px] text-gray-300">
+      <div className="flex items-center justify-center h-24 text-[10px] text-gray-900">
         Tidak ada data
       </div>
     );
@@ -1531,14 +1530,14 @@ function MiniBarChart({
         const pct = Math.round((val / maxVal) * 100);
         return (
           <div key={`${s.store_name}__${s.taft_name}`} className="flex items-center gap-1.5">
-            <span className={`text-[8px] font-black w-3.5 text-right shrink-0 ${i === 0 ? cfg.textCls : 'text-gray-300'}`}>
+            <span className={`text-[8px] font-black w-3.5 text-right shrink-0 ${i === 0 ? cfg.textCls : 'text-gray-900'}`}>
               {i + 1}
             </span>
             <div className="w-28 shrink-0">
               <p className="text-[9px] font-medium text-gray-700 leading-tight" title={s.taft_name}>
                 {truncName(s.taft_name, 15)}
               </p>
-              <p className="text-[8px] text-gray-400">{toTitleCase(s.store_name)}</p>
+              <p className="text-[8px] text-gray-900">{toTitleCase(s.store_name)}</p>
             </div>
             <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
               <div
@@ -1680,14 +1679,14 @@ function ReportDashboard({
                   <p className="text-[11px] font-bold text-gray-800 leading-tight" title={top.taft_name}>
                     {truncName(top.taft_name, 18)}
                   </p>
-                  <p className="text-[9px] text-gray-400">{toTitleCase(top.store_name)}</p>
+                  <p className="text-[9px] text-gray-900">{toTitleCase(top.store_name)}</p>
                   <p className={`text-lg font-black leading-none mt-1 ${cfg.textCls}`}>
                     {cfg.key === 'lembur' ? top[cfg.key].toFixed(1) : top[cfg.key]}
-                    <span className="text-[9px] font-normal ml-0.5 text-gray-400">{cfg.unit}</span>
+                    <span className="text-[9px] font-normal ml-0.5 text-gray-900">{cfg.unit}</span>
                   </p>
                 </>
               ) : (
-                <p className="text-[10px] text-gray-300">—</p>
+                <p className="text-[10px] text-gray-900">—</p>
               )}
             </div>
           );
@@ -1699,7 +1698,7 @@ function ReportDashboard({
           <div key={cfg.key} className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
             <div className="flex items-center justify-between mb-2">
               <h3 className={`text-[10px] font-bold uppercase tracking-wide ${cfg.textCls}`}>{cfg.label}</h3>
-              <span className="text-[9px] text-gray-300">{sorted(cfg.key).filter(s => s[cfg.key] > 0).length}</span>
+              <span className="text-[9px] text-gray-900">{sorted(cfg.key).filter(s => s[cfg.key] > 0).length}</span>
             </div>
             <MiniBarChart data={sorted(cfg.key)} cfg={cfg} />
           </div>
@@ -1710,7 +1709,7 @@ function ReportDashboard({
         <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
           <p className="text-[10px] font-bold uppercase tracking-wide text-orange-500 mb-2">Distribusi lembur per TAFT</p>
           {top10Lembur.length === 0 ? (
-            <div className="flex items-center justify-center h-32 text-[10px] text-gray-300">Tidak ada data lembur</div>
+            <div className="flex items-center justify-center h-32 text-[10px] text-gray-900">Tidak ada data lembur</div>
           ) : (
             <>
               <div style={{ position: 'relative', height: '160px' }}>
@@ -1735,32 +1734,32 @@ function ReportDashboard({
               </div>
               <div className="flex flex-wrap gap-x-2 gap-y-1 mt-2">
                 {top10Lembur.map((s, i) => (
-                  <span key={s.taft_name} className="flex items-center gap-1 text-[8px] text-gray-500">
+                  <span key={s.taft_name} className="flex items-center gap-1 text-[8px] text-gray-900">
                     <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: DONUT_COLORS[i] }} />
                     {truncName(s.taft_name, 12)} <span className="font-bold text-gray-700">{s.lembur.toFixed(1)}j</span>
                   </span>
                 ))}
               </div>
               <div className="mt-2 pt-2 border-t border-gray-100">
-                <p className="text-[9px] text-gray-400">Total jam lembur</p>
+                <p className="text-[9px] text-gray-900">Total jam lembur</p>
                 <p className="text-[13px] font-bold text-orange-500">{totalLemburJam.toFixed(1)} jam</p>
-                <p className="text-[9px] text-gray-400 mt-0.5">Estimasi biaya lembur</p>
+                <p className="text-[9px] text-gray-900 mt-0.5">Estimasi biaya lembur</p>
                 <p className="text-[13px] font-bold text-orange-600">{fmtRupiah(totalBiayaLembur)}</p>
-                <p className="text-[8px] text-gray-300 mt-0.5">@ Rp 17.500/jam</p>
+                <p className="text-[8px] text-gray-900 mt-0.5">@ Rp 17.500/jam</p>
               </div>
             </>
           )}
         </div>
 
         <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-2">Distribusi kode shift</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-900 mb-2">Distribusi kode shift</p>
           {shiftLabels.length === 0 ? (
-            <div className="flex items-center justify-center h-32 text-[10px] text-gray-300">Tidak ada data</div>
+            <div className="flex items-center justify-center h-32 text-[10px] text-gray-900">Tidak ada data</div>
           ) : (
             <>
               <div className="flex flex-wrap gap-1 mb-2">
                 {shiftLabels.map((k, i) => (
-                  <span key={k} className="flex items-center gap-1 text-[8px] text-gray-500">
+                  <span key={k} className="flex items-center gap-1 text-[8px] text-gray-900">
                     <span className="w-2 h-2 rounded-sm" style={{ background: shiftBgColors[i] }} />
                     {k}
                   </span>
@@ -1774,10 +1773,10 @@ function ReportDashboard({
         </div>
 
         <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-2">Masuk vs Off per toko</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-900 mb-2">Masuk vs Off per toko</p>
           <div className="flex gap-3 mb-2">
-            <span className="flex items-center gap-1 text-[8px] text-gray-500"><span className="w-2 h-2 rounded-sm bg-blue-500" /> Masuk</span>
-            <span className="flex items-center gap-1 text-[8px] text-gray-500"><span className="w-2 h-2 rounded-sm bg-red-500" /> Off</span>
+            <span className="flex items-center gap-1 text-[8px] text-gray-900"><span className="w-2 h-2 rounded-sm bg-blue-500" /> Masuk</span>
+            <span className="flex items-center gap-1 text-[8px] text-gray-900"><span className="w-2 h-2 rounded-sm bg-red-500" /> Off</span>
           </div>
           <div style={{ position: 'relative', height: '160px' }}>
             <Bar data={barStoreData} options={{ ...chartBaseOptions, scales: { x: { ticks: { font: { size: 8 }, maxRotation: 30 } }, y: { ticks: { font: { size: 9 }, stepSize: 5 } } }, plugins: { legend: { display: false } } }} />
@@ -1788,9 +1787,9 @@ function ReportDashboard({
       <div className="grid grid-cols-2 gap-2">
         <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
           <p className="text-[10px] font-bold uppercase tracking-wide text-orange-500 mb-1">Top 8 biaya lembur</p>
-          <p className="text-[8px] text-gray-400 mb-2">@ Rp 17.500/jam</p>
+          <p className="text-[8px] text-gray-900 mb-2">@ Rp 17.500/jam</p>
           {top8Lembur.length === 0 ? (
-            <div className="flex items-center justify-center h-32 text-[10px] text-gray-300">Tidak ada data</div>
+            <div className="flex items-center justify-center h-32 text-[10px] text-gray-900">Tidak ada data</div>
           ) : (
             <div style={{ position: 'relative', height: `${top8Lembur.length * 30 + 20}px` }}>
               <Bar
@@ -1810,16 +1809,16 @@ function ReportDashboard({
         </div>
 
         <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-1">Ketidakhadiran per TAFT</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-900 mb-1">Ketidakhadiran per TAFT</p>
           <div className="flex gap-3 mb-2">
             {[{ label:'Cuti',color:'#ec4899'},{ label:'Sakit',color:'#f97316'},{ label:'Izin',color:'#6366f1'},{ label:'Alpa',color:'#b91c1c'}].map(({ label, color }) => (
-              <span key={label} className="flex items-center gap-1 text-[8px] text-gray-500">
+              <span key={label} className="flex items-center gap-1 text-[8px] text-gray-900">
                 <span className="w-2 h-2 rounded-sm" style={{ background: color }} />{label}
               </span>
             ))}
           </div>
           {top8Absen.length === 0 ? (
-            <div className="flex items-center justify-center h-32 text-[10px] text-gray-300">Tidak ada data absensi</div>
+            <div className="flex items-center justify-center h-32 text-[10px] text-gray-900">Tidak ada data absensi</div>
           ) : (
             <div style={{ position: 'relative', height: `${top8Absen.length * 30 + 20}px` }}>
               <Bar data={barAbsenData} options={{ ...chartBaseOptions, indexAxis: 'y' as const, scales: { x: { stacked: true, ticks: { font: { size: 9 }, stepSize: 1 } }, y: { stacked: true, ticks: { font: { size: 9 } } } }, plugins: { legend: { display: false } } }} />
@@ -2070,247 +2069,462 @@ function FullReport({ user }: { user: any }) {
       <div className="bg-white rounded-lg shadow p-2.5 mb-3">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1">
-            <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Tampilan</label>
+            <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">
+              Tampilan
+            </label>
             <div className="flex gap-0.5 bg-gray-100 rounded p-0.5 ml-1">
-              {(['monthly','weekly'] as const).map(m => (
-                <button key={m} onClick={() => { setViewMode(m); setReports([]); setSchedules([]); setExpandedTafts(new Set()); setSalesData([]); }}
-                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${viewMode === m ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-                  {m === 'monthly' ? 'Monthly' : 'Weekly'}
+              {(["monthly", "weekly"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => {
+                    setViewMode(m);
+                    setReports([]);
+                    setSchedules([]);
+                    setExpandedTafts(new Set());
+                    setSalesData([]);
+                  }}
+                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${viewMode === m ? "bg-white text-primary shadow-sm" : "text-gray-900 hover:text-gray-700"}`}
+                >
+                  {m === "monthly" ? "Monthly" : "Weekly"}
                 </button>
               ))}
             </div>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Store</label>
-            <select value={selectedStore} onChange={e => { setSelectedStore(e.target.value); setSelectedTaft(''); setExpandedTafts(new Set()); }}
-              className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary">
+            <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">
+              Store
+            </label>
+            <select
+              value={selectedStore}
+              onChange={(e) => {
+                setSelectedStore(e.target.value);
+                setSelectedTaft("");
+                setExpandedTafts(new Set());
+              }}
+              className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+            >
               <option value="">Semua Store</option>
-              {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
+              {allStores.map((s) => (
+                <option key={s} value={s}>
+                  {toTitleCase(s)}
+                </option>
+              ))}
             </select>
           </div>
 
-          {viewMode === 'monthly' && (
+          {viewMode === "monthly" && (
             <>
               <div className="flex items-center gap-1.5">
-                <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">TAFT</label>
-                <select value={selectedTaft} onChange={e => { setSelectedTaft(e.target.value); setExpandedTafts(new Set()); }}
-                  className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary">
+                <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">
+                  TAFT
+                </label>
+                <select
+                  value={selectedTaft}
+                  onChange={(e) => {
+                    setSelectedTaft(e.target.value);
+                    setExpandedTafts(new Set());
+                  }}
+                  className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+                >
                   <option value="">Semua TAFT</option>
-                  {filteredTafts.map(t => <option key={t.id} value={t.taft_name}>{t.taft_name}</option>)}
+                  {filteredTafts.map((t) => (
+                    <option key={t.id} value={t.taft_name}>
+                      {t.taft_name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="flex items-center gap-1.5">
-                <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Bulan</label>
-                <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
-                  className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary" />
+                <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">
+                  Bulan
+                </label>
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+                />
               </div>
             </>
           )}
 
-          {viewMode === 'weekly' && (
+          {viewMode === "weekly" && (
             <div className="flex items-center gap-1.5">
-              <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Periode</label>
-              <select value={selectedDateRange} onChange={e => setSelectedDateRange(e.target.value)}
-                className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary">
+              <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">
+                Periode
+              </label>
+              <select
+                value={selectedDateRange}
+                onChange={(e) => setSelectedDateRange(e.target.value)}
+                className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+              >
                 <option value="">Pilih Periode</option>
-                {dateList.map(d => <option key={d.id} value={d.date_range}>{d.date_range}</option>)}
+                {dateList.map((d) => (
+                  <option key={d.id} value={d.date_range}>
+                    {d.date_range}
+                  </option>
+                ))}
               </select>
             </div>
           )}
 
-          <button onClick={viewMode === 'monthly' ? fetchReports : fetchSchedules}
-            className="px-3 py-1 bg-primary text-white rounded text-[11px] hover:bg-primary/90">
+          <button
+            onClick={viewMode === "monthly" ? fetchReports : fetchSchedules}
+            className="px-3 py-1 bg-primary text-white rounded text-[11px] hover:bg-primary/90"
+          >
             Tampilkan
           </button>
 
-          {viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (
-            <button onClick={exportReportXlsx} className="px-3 py-1 bg-emerald-600 text-white rounded text-[11px] hover:bg-emerald-700">
+          {viewMode === "monthly" && Object.keys(groupedByTaft).length > 0 && (
+            <button
+              onClick={exportReportXlsx}
+              className="px-3 py-1 bg-emerald-600 text-white rounded text-[11px] hover:bg-emerald-700"
+            >
               ↓ Export XLSX
             </button>
           )}
         </div>
       </div>
 
-      {loading && <div className="text-center py-10 text-gray-400 text-sm">Memuat data...</div>}
-
-      {/* Sales vs Wages Chart — tampil di monthly view */}
-{!loading && viewMode === 'monthly' && (salesData.length > 0 || storeWages.length > 0) && (
-  <SalesWagesChart
-    salesData={salesData}
-    storeWages={storeWages}
-    taftList={filteredTafts.length > 0 ? filteredTafts : taftList}
-    selectedMonth={selectedMonth}
-    groupedByTaft={groupedByTaft}
-  />
-)}
-
-      {/* Dashboard analitik */}
-      {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (
-        <ReportDashboard groupedByTaft={groupedByTaft} />
-      )}
-
-      {/* Monthly View — detail per TAFT */}
-      {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (() => {
-        const DAY_ID      = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
-        const MONTH_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-        const fmtDate = (iso: string) => {
-          const d = parseDateSafe(iso);
-          if (!d) return iso;
-          return `${DAY_ID[d.getDay()]}, ${String(d.getDate()).padStart(2,'0')} ${MONTH_SHORT[d.getMonth()]}`;
-        };
-        const isWeekend = (iso: string) => {
-          const d = parseDateSafe(iso);
-          return d ? (d.getDay() === 0 || d.getDay() === 6) : false;
-        };
-        return (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] text-gray-500 font-medium">{Object.keys(groupedByTaft).length} TAFT</span>
-              <div className="flex gap-1.5">
-                <button onClick={expandAll} className="text-[10px] px-2.5 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors font-medium">Buka Semua</button>
-                <button onClick={collapseAll} className="text-[10px] px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors font-medium">Tutup Semua</button>
-              </div>
-            </div>
-
-            {Object.entries(groupedByTaft).map(([key, { taft_name, store_name, rows }]) => {
-              const isExpanded = expandedTafts.has(key);
-              const codeCounts: Record<string,number> = {};
-              let totalMasuk = 0, totalLembur = 0;
-              rows.forEach(r => {
-                const c = r.code_time?.trim();
-                if (c) codeCounts[c] = (codeCounts[c]||0) + 1;
-                if (['P','S','F','MF','M'].includes(c)) totalMasuk++;
-                if (r.overtime_hours && parseFloat(r.overtime_hours) > 0) totalLembur += parseFloat(r.overtime_hours);
-              });
-
-              return (
-                <div key={key} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                  <button onClick={() => toggleTaft(key)} className="w-full text-left">
-                    <div className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/80 transition-colors">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-colors ${isExpanded ? 'bg-primary text-white' : 'bg-gray-100 text-gray-400'}`}>
-                        <span className={`text-[9px] font-black transition-transform duration-200 inline-block ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-bold text-gray-900">{taft_name}</span>
-                          {!selectedStore && (
-                            <span className="text-[10px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">{toTitleCase(store_name)}</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3 mt-0.5">
-                          <span className="text-[10px] text-gray-400">{rows.length} hari data</span>
-                          {totalMasuk > 0 && <span className="text-[10px] text-blue-600 font-semibold">{totalMasuk} masuk</span>}
-                          {totalLembur > 0 && <span className="text-[10px] text-orange-500 font-semibold">{totalLembur.toFixed(1)}j lembur</span>}
-                        </div>
-                      </div>
-                      <div className="flex gap-1 flex-wrap justify-end max-w-[200px]">
-                        {RECAP_KEYS.map(({ key: k }) => {
-                          const cnt = codeCounts[k] || 0;
-                          if (!cnt) return null;
-                          return (
-                            <span key={k} className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${CODE_COLORS[k] || 'bg-gray-100 text-gray-600'}`}>
-                              {k} {cnt}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </button>
-
-                  {isExpanded && (
-                    <div className="border-t border-gray-100">
-                      {rows.length === 0 ? (
-                        <div className="px-6 py-6 text-center text-[11px] text-gray-300">Belum ada data untuk periode ini</div>
-                      ) : (
-                        <table className="w-full">
-                          <thead>
-                            <tr className="bg-gray-50 border-b border-gray-100">
-                              <th className="px-4 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide w-36">Tanggal</th>
-                              <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide w-20">Kode</th>
-                              <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide w-20">Masuk</th>
-                              <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide w-20">Keluar</th>
-                              <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-400 uppercase tracking-wide w-16">Lembur</th>
-                              <th className="px-4 py-2 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Keterangan</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {rows.map((r, i) => {
-                              const weekend = isWeekend(r.date);
-                              const code    = r.code_time?.trim();
-                              const isOff   = code === 'O';
-                              const hasOT   = r.overtime_hours && parseFloat(r.overtime_hours) > 0;
-                              return (
-                                <tr key={i} className={`border-b border-gray-50 last:border-0 transition-colors ${weekend ? 'bg-blue-50/40' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} hover:bg-primary/5`}>
-                                  <td className="px-4 py-2">
-                                    <span className={`text-[11px] font-medium ${weekend ? 'text-blue-600' : 'text-gray-700'}`}>{fmtDate(r.date)}</span>
-                                  </td>
-                                  <td className="px-3 py-2 text-center">
-                                    {code ? <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-600'}`}>{code}</span> : <span className="text-gray-200 text-xs">—</span>}
-                                  </td>
-                                  <td className="px-3 py-2 text-center">
-                                    <span className={`text-[11px] font-mono font-medium ${isOff ? 'text-gray-300' : 'text-gray-700'}`}>{displayTime(r.clock_in) || (isOff ? '—' : '-')}</span>
-                                  </td>
-                                  <td className="px-3 py-2 text-center">
-                                    <span className={`text-[11px] font-mono font-medium ${isOff ? 'text-gray-300' : 'text-gray-700'}`}>{displayTime(r.clock_out) || (isOff ? '—' : '-')}</span>
-                                  </td>
-                                  <td className="px-3 py-2 text-center">
-                                    {hasOT ? <span className="text-[11px] font-bold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full">{r.overtime_hours}j</span> : <span className="text-gray-200 text-xs">—</span>}
-                                  </td>
-                                  <td className="px-4 py-2">
-                                    <span className="text-[11px] text-gray-400 truncate block max-w-[220px]">{r.reason || ''}</span>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        );
-      })()}
-
-      {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length === 0 && salesData.length === 0 && storeWages.length === 0 && (
-        <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">
-          Pilih bulan untuk melihat data
+      {loading && (
+        <div className="text-center py-10 text-gray-900 text-sm">
+          Memuat data...
         </div>
       )}
 
+      {/* Sales vs Wages Chart — tampil di monthly view */}
+      {!loading &&
+        viewMode === "monthly" &&
+        (salesData.length > 0 || storeWages.length > 0) && (
+          <SalesWagesChart
+            salesData={salesData}
+            storeWages={storeWages}
+            taftList={filteredTafts.length > 0 ? filteredTafts : taftList}
+            selectedMonth={selectedMonth}
+            groupedByTaft={groupedByTaft}
+          />
+        )}
+
+      {/* Dashboard analitik */}
+      {!loading &&
+        viewMode === "monthly" &&
+        Object.keys(groupedByTaft).length > 0 && (
+          <ReportDashboard groupedByTaft={groupedByTaft} />
+        )}
+
+      {/* Monthly View — detail per TAFT */}
+      {!loading &&
+        viewMode === "monthly" &&
+        Object.keys(groupedByTaft).length > 0 &&
+        (() => {
+          const DAY_ID = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+          const MONTH_SHORT = [
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "Mei",
+            "Jun",
+            "Jul",
+            "Agu",
+            "Sep",
+            "Okt",
+            "Nov",
+            "Des",
+          ];
+          const fmtDate = (iso: string) => {
+            const d = parseDateSafe(iso);
+            if (!d) return iso;
+            return `${DAY_ID[d.getDay()]}, ${String(d.getDate()).padStart(2, "0")} ${MONTH_SHORT[d.getMonth()]}`;
+          };
+          const isWeekend = (iso: string) => {
+            const d = parseDateSafe(iso);
+            return d ? d.getDay() === 0 || d.getDay() === 6 : false;
+          };
+          return (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-gray-900 font-medium">
+                  {Object.keys(groupedByTaft).length} TAFT
+                </span>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={expandAll}
+                    className="text-[10px] px-2.5 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors font-medium"
+                  >
+                    Buka Semua
+                  </button>
+                  <button
+                    onClick={collapseAll}
+                    className="text-[10px] px-2.5 py-1 rounded-full bg-gray-100 text-gray-900 hover:bg-gray-200 transition-colors font-medium"
+                  >
+                    Tutup Semua
+                  </button>
+                </div>
+              </div>
+
+              {Object.entries(groupedByTaft).map(
+                ([key, { taft_name, store_name, rows }]) => {
+                  const isExpanded = expandedTafts.has(key);
+                  const codeCounts: Record<string, number> = {};
+                  let totalMasuk = 0,
+                    totalLembur = 0;
+                  rows.forEach((r) => {
+                    const c = r.code_time?.trim();
+                    if (c) codeCounts[c] = (codeCounts[c] || 0) + 1;
+                    if (["P", "S", "F", "MF", "M"].includes(c)) totalMasuk++;
+                    if (r.overtime_hours && parseFloat(r.overtime_hours) > 0)
+                      totalLembur += parseFloat(r.overtime_hours);
+                  });
+
+                  return (
+                    <div
+                      key={key}
+                      className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+                    >
+                      <button
+                        onClick={() => toggleTaft(key)}
+                        className="w-full text-left"
+                      >
+                        <div className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/80 transition-colors">
+                          <div
+                            className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-colors ${isExpanded ? "bg-primary text-white" : "bg-gray-100 text-gray-900"}`}
+                          >
+                            <span
+                              className={`text-[9px] font-black transition-transform duration-200 inline-block ${isExpanded ? "rotate-180" : ""}`}
+                            >
+                              ▼
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-bold text-gray-900">
+                                {taft_name}
+                              </span>
+                              {!selectedStore && (
+                                <span className="text-[10px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                                  {toTitleCase(store_name)}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 mt-0.5">
+                              <span className="text-[10px] text-gray-900">
+                                {rows.length} hari data
+                              </span>
+                              {totalMasuk > 0 && (
+                                <span className="text-[10px] text-blue-600 font-semibold">
+                                  {totalMasuk} masuk
+                                </span>
+                              )}
+                              {totalLembur > 0 && (
+                                <span className="text-[10px] text-orange-500 font-semibold">
+                                  {totalLembur.toFixed(1)}j lembur
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex gap-1 flex-wrap justify-end max-w-[200px]">
+                            {RECAP_KEYS.map(({ key: k }) => {
+                              const cnt = codeCounts[k] || 0;
+                              if (!cnt) return null;
+                              return (
+                                <span
+                                  key={k}
+                                  className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${CODE_COLORS[k] || "bg-gray-100 text-gray-900"}`}
+                                >
+                                  {k} {cnt}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="border-t border-gray-100">
+                          {rows.length === 0 ? (
+                            <div className="px-6 py-6 text-center text-[11px] text-gray-900">
+                              Belum ada data untuk periode ini
+                            </div>
+                          ) : (
+                            <table className="w-full">
+                              <thead>
+                                <tr className="bg-gray-50 border-b border-gray-100">
+                                  <th className="px-4 py-2 text-left text-[10px] font-semibold text-gray-900 uppercase tracking-wide w-36">
+                                    Tanggal
+                                  </th>
+                                  <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-900 uppercase tracking-wide w-20">
+                                    Kode
+                                  </th>
+                                  <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-900 uppercase tracking-wide w-20">
+                                    Masuk
+                                  </th>
+                                  <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-900 uppercase tracking-wide w-20">
+                                    Keluar
+                                  </th>
+                                  <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-900 uppercase tracking-wide w-16">
+                                    Lembur
+                                  </th>
+                                  <th className="px-4 py-2 text-left text-[10px] font-semibold text-gray-900 uppercase tracking-wide">
+                                    Keterangan
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {rows.map((r, i) => {
+                                  const weekend = isWeekend(r.date);
+                                  const code = r.code_time?.trim();
+                                  const isOff = code === "O";
+                                  const hasOT =
+                                    r.overtime_hours &&
+                                    parseFloat(r.overtime_hours) > 0;
+                                  return (
+                                    <tr
+                                      key={i}
+                                      className={`border-b border-gray-50 last:border-0 transition-colors ${weekend ? "bg-blue-50/40" : i % 2 === 0 ? "bg-white" : "bg-gray-50/40"} hover:bg-primary/5`}
+                                    >
+                                      <td className="px-4 py-2">
+                                        <span
+                                          className={`text-[11px] font-medium ${weekend ? "text-blue-600" : "text-gray-700"}`}
+                                        >
+                                          {fmtDate(r.date)}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-2 text-center">
+                                        {code ? (
+                                          <span
+                                            className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${CODE_COLORS[code] || "bg-gray-100 text-gray-900"}`}
+                                          >
+                                            {code}
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-900 text-xs">
+                                            —
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="px-3 py-2 text-center">
+                                        <span
+                                          className={`text-[11px] font-mono font-medium ${isOff ? "text-gray-900" : "text-gray-700"}`}
+                                        >
+                                          {displayTime(r.clock_in) ||
+                                            (isOff ? "—" : "-")}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-2 text-center">
+                                        <span
+                                          className={`text-[11px] font-mono font-medium ${isOff ? "text-gray-900" : "text-gray-700"}`}
+                                        >
+                                          {displayTime(r.clock_out) ||
+                                            (isOff ? "—" : "-")}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-2 text-center">
+                                        {hasOT ? (
+                                          <span className="text-[11px] font-bold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full">
+                                            {r.overtime_hours}j
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-900 text-xs">
+                                            —
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="px-4 py-2">
+                                        <span className="text-[11px] text-gray-900 truncate block max-w-[220px]">
+                                          {r.reason || ""}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                },
+              )}
+            </div>
+          );
+        })()}
+
+      {!loading &&
+        viewMode === "monthly" &&
+        Object.keys(groupedByTaft).length === 0 &&
+        salesData.length === 0 &&
+        storeWages.length === 0 && (
+          <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-900 text-sm">
+            Pilih bulan untuk melihat data
+          </div>
+        )}
+
       {/* Weekly View */}
-      {!loading && viewMode === 'weekly' && (
-        selectedDateRange ? (
+      {!loading &&
+        viewMode === "weekly" &&
+        (selectedDateRange ? (
           <div className="bg-white rounded-lg shadow overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="bg-gray-100 border-b">
                 <tr>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-700 text-[11px] min-w-[150px]">Nama TAFT</th>
+                  <th className="px-3 py-2 text-left font-semibold text-gray-700 text-[11px] min-w-[150px]">
+                    Nama TAFT
+                  </th>
                   {!selectedStore && (
-                    <th className="px-3 py-2 text-left font-semibold text-gray-700 text-[11px] min-w-[110px]">Store</th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-700 text-[11px] min-w-[110px]">
+                      Store
+                    </th>
                   )}
                   {DAY_LABELS_FULL.map((label, i) => (
-                    <th key={label} className={`px-2 py-2 text-center font-semibold text-gray-700 text-[11px] min-w-[56px] ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}>
+                    <th
+                      key={label}
+                      className={`px-2 py-2 text-center font-semibold text-gray-700 text-[11px] min-w-[56px] ${DAYS[i] === todayDayKey ? "bg-blue-50" : ""}`}
+                    >
                       {label}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {weeklyTafts.map(taft => {
-                  const sched = schedules.find(s => s.taft_name === taft.taft_name && s.store_name === taft.store_name && s.date_range === selectedDateRange);
+                {weeklyTafts.map((taft) => {
+                  const sched = schedules.find(
+                    (s) =>
+                      s.taft_name === taft.taft_name &&
+                      s.store_name === taft.store_name &&
+                      s.date_range === selectedDateRange,
+                  );
                   return (
                     <tr key={taft.id} className="border-b hover:bg-gray-50">
-                      <td className="px-3 py-1.5 font-medium text-gray-800 text-[11px]">{taft.taft_name}</td>
-                      {!selectedStore && (<td className="px-3 py-1.5 text-gray-500 text-[10px]">{toTitleCase(taft.store_name)}</td>)}
+                      <td className="px-3 py-1.5 font-medium text-gray-800 text-[11px]">
+                        {taft.taft_name}
+                      </td>
+                      {!selectedStore && (
+                        <td className="px-3 py-1.5 text-gray-900 text-[10px]">
+                          {toTitleCase(taft.store_name)}
+                        </td>
+                      )}
                       {DAYS.map((d, i) => {
-                        const code = sched?.[d as keyof ScheduleRow] as string || '';
+                        const code =
+                          (sched?.[d as keyof ScheduleRow] as string) || "";
                         return (
-                          <td key={d} className={`px-2 py-1.5 text-center ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}>
-                            {code ? <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>{code}</span> : <span className="text-gray-300 text-[10px]">-</span>}
+                          <td
+                            key={d}
+                            className={`px-2 py-1.5 text-center ${DAYS[i] === todayDayKey ? "bg-blue-50" : ""}`}
+                          >
+                            {code ? (
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${CODE_COLORS[code] || "bg-gray-100 text-gray-700"}`}
+                              >
+                                {code}
+                              </span>
+                            ) : (
+                              <span className="text-gray-900 text-[10px]">
+                                -
+                              </span>
+                            )}
                           </td>
                         );
                       })}
@@ -2318,17 +2532,23 @@ function FullReport({ user }: { user: any }) {
                   );
                 })}
                 {weeklyTafts.length === 0 && (
-                  <tr><td colSpan={!selectedStore ? 9 : 8} className="px-3 py-8 text-center text-gray-400 text-sm">Tidak ada data taft</td></tr>
+                  <tr>
+                    <td
+                      colSpan={!selectedStore ? 9 : 8}
+                      className="px-3 py-8 text-center text-gray-900 text-sm"
+                    >
+                      Tidak ada data taft
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">
+          <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-900 text-sm">
             Pilih periode minggu untuk melihat jadwal
           </div>
-        )
-      )}
+        ))}
     </div>
   );
 }

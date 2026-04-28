@@ -49,6 +49,11 @@ export default function RequestStorePage() {
   const [submitting, setSubmitting] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
+  // ─── Filter state ──────────────────────────────────────────────────────────
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterDoc, setFilterDoc] = useState("");
+
   const itemsPerPage = 25;
 
   // File refs
@@ -324,9 +329,40 @@ export default function RequestStorePage() {
 
   // ─── Filtered data & Pagination ───────────────────────────────────────────
   const canEdit = user?.edit_request;
-  const filteredData = canEdit
-    ? data
-    : data.filter((d) => d.created_by === user?.user_name);
+
+  const filteredData = (() => {
+    let result = canEdit ? data : data.filter((d) => d.created_by === user?.user_name);
+
+    // Filter by date range
+    if (filterDateFrom) {
+      result = result.filter((d) => d.date >= filterDateFrom);
+    }
+    if (filterDateTo) {
+      result = result.filter((d) => d.date <= filterDateTo);
+    }
+
+    // Filter by SO / DN / SI (case-insensitive)
+    if (filterDoc.trim()) {
+      const q = filterDoc.trim().toLowerCase();
+      result = result.filter(
+        (d) =>
+          (d.sales_order || "").toLowerCase().includes(q) ||
+          (d.delivery_note || "").toLowerCase().includes(q) ||
+          (d.sales_invoice || "").toLowerCase().includes(q)
+      );
+    }
+
+    return result;
+  })();
+
+  const handleClearFilters = () => {
+    setFilterDateFrom("");
+    setFilterDateTo("");
+    setFilterDoc("");
+    setCurrentPage(1);
+  };
+
+  const hasActiveFilter = filterDateFrom || filterDateTo || filterDoc.trim();
 
   const indexOfLast = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
@@ -365,7 +401,7 @@ export default function RequestStorePage() {
       <Sidebar userName={user.name} permissions={user} />
       <div className="flex-1 overflow-auto">
         <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold text-primary">Request Store</h1>
             <div className="flex items-center gap-3">
               {user.request && (
@@ -380,6 +416,77 @@ export default function RequestStorePage() {
                 </button>
               )}
             </div>
+          </div>
+
+          {/* ── Filter Bar ─────────────────────────────────────────────────── */}
+          <div className="bg-white rounded-lg shadow px-4 py-3 mb-4 flex flex-wrap items-end gap-3">
+            <div className="flex items-end gap-2">
+              <div>
+                <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Date From
+                </label>
+                <input
+                  type="date"
+                  value={filterDateFrom}
+                  onChange={(e) => { setFilterDateFrom(e.target.value); setCurrentPage(1); }}
+                  className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <span className="text-gray-400 text-xs pb-2">—</span>
+              <div>
+                <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  Date To
+                </label>
+                <input
+                  type="date"
+                  value={filterDateTo}
+                  onChange={(e) => { setFilterDateTo(e.target.value); setCurrentPage(1); }}
+                  className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 min-w-[200px] max-w-xs">
+              <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                Search SO / DN / SI
+              </label>
+              <div className="relative">
+                <svg
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400"
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                </svg>
+                <input
+                  type="text"
+                  value={filterDoc}
+                  onChange={(e) => { setFilterDoc(e.target.value); setCurrentPage(1); }}
+                  placeholder="Cari nomor SO, DN, atau SI..."
+                  className="w-full pl-7 pr-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+
+            {hasActiveFilter && (
+              <button
+                onClick={handleClearFilters}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded text-xs hover:bg-red-100 transition-colors self-end"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Clear Filter
+              </button>
+            )}
+
+            {hasActiveFilter && (
+              <div className="self-end pb-0.5">
+                <span className="text-[10px] text-gray-400">
+                  {filteredData.length} result{filteredData.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -405,103 +512,121 @@ export default function RequestStorePage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {currentItems.map((item, idx) => (
-                        <tr
-                          key={item.id}
-                          className={`border-b ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}
-                        >
-                          <td className="px-2 py-1 text-gray-600 whitespace-nowrap">{item.date}</td>
-                          <td className="px-2 py-1 text-gray-700">{item.requester}</td>
-                          <td className="px-2 py-1 text-gray-700">{item.assigned_to}</td>
-                          <td className="px-2 py-1 text-gray-700">{item.reason_request}</td>
-                          <td className="px-2 py-1 text-gray-600 font-mono text-[10px]">{item.sales_order || "-"}</td>
-                          <td className="px-2 py-1 text-gray-600 font-mono text-[10px]">{item.delivery_note || "-"}</td>
-                          <td className="px-2 py-1 text-gray-600 font-mono text-[10px]">{item.sales_invoice || "-"}</td>
-                          <td className="px-2 py-1 text-gray-600 truncate overflow-hidden max-w-[140px]" title={item.notes}>
-                            {item.notes || "-"}
-                          </td>
-                          <td className="px-2 py-1 text-center">
-                            {item.image_url ? (
-                              <a
-                                href={item.image_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors"
-                                title="Lihat foto"
-                              >
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                              </a>
-                            ) : (
-                              <span className="text-gray-300">—</span>
-                            )}
-                          </td>
-                          <td className="px-2 py-1">
-                            {canEdit ? (
-                              <div className="flex gap-1">
-                                <button
-                                  onClick={() => item.status !== "Pending" && handleStatusChange(item, "Pending")}
-                                  disabled={updatingStatus === item.id || item.status === "Pending"}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
-                                    item.status === "Pending"
-                                      ? "bg-yellow-100 text-yellow-800 ring-1 ring-yellow-400 cursor-default"
-                                      : "bg-gray-100 text-gray-400 hover:bg-yellow-50 hover:text-yellow-700 cursor-pointer"
-                                  }`}
+                      {currentItems.map((item, idx) => {
+                        const docQ = filterDoc.trim().toLowerCase();
+                        const highlight = (val: string) => {
+                          if (!docQ || !val) return val || "-";
+                          const i = val.toLowerCase().indexOf(docQ);
+                          if (i === -1) return val;
+                          return (
+                            <>
+                              {val.slice(0, i)}
+                              <mark className="bg-yellow-200 text-yellow-900 rounded px-0.5">{val.slice(i, i + docQ.length)}</mark>
+                              {val.slice(i + docQ.length)}
+                            </>
+                          );
+                        };
+
+                        return (
+                          <tr
+                            key={item.id}
+                            className={`border-b ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}
+                          >
+                            <td className="px-2 py-1 text-gray-600 whitespace-nowrap">{item.date}</td>
+                            <td className="px-2 py-1 text-gray-700">{item.requester}</td>
+                            <td className="px-2 py-1 text-gray-700">{item.assigned_to}</td>
+                            <td className="px-2 py-1 text-gray-700">{item.reason_request}</td>
+                            <td className="px-2 py-1 text-gray-600 font-mono text-[10px]">{highlight(item.sales_order || "")}</td>
+                            <td className="px-2 py-1 text-gray-600 font-mono text-[10px]">{highlight(item.delivery_note || "")}</td>
+                            <td className="px-2 py-1 text-gray-600 font-mono text-[10px]">{highlight(item.sales_invoice || "")}</td>
+                            <td className="px-2 py-1 text-gray-600 truncate overflow-hidden max-w-[140px]" title={item.notes}>
+                              {item.notes || "-"}
+                            </td>
+                            <td className="px-2 py-1 text-center">
+                              {item.image_url ? (
+                                <a
+                                  href={item.image_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors"
+                                  title="Lihat foto"
                                 >
-                                  Pending
-                                </button>
-                                <button
-                                  onClick={() => item.status !== "Completed" && handleStatusChange(item, "Completed")}
-                                  disabled={updatingStatus === item.id || item.status === "Completed"}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                </a>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-1">
+                              {canEdit ? (
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={() => item.status !== "Pending" && handleStatusChange(item, "Pending")}
+                                    disabled={updatingStatus === item.id || item.status === "Pending"}
+                                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
+                                      item.status === "Pending"
+                                        ? "bg-yellow-100 text-yellow-800 ring-1 ring-yellow-400 cursor-default"
+                                        : "bg-gray-100 text-gray-400 hover:bg-yellow-50 hover:text-yellow-700 cursor-pointer"
+                                    }`}
+                                  >
+                                    Pending
+                                  </button>
+                                  <button
+                                    onClick={() => item.status !== "Completed" && handleStatusChange(item, "Completed")}
+                                    disabled={updatingStatus === item.id || item.status === "Completed"}
+                                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
+                                      item.status === "Completed"
+                                        ? "bg-green-100 text-green-800 ring-1 ring-green-400 cursor-default"
+                                        : "bg-gray-100 text-gray-400 hover:bg-green-50 hover:text-green-700 cursor-pointer"
+                                    }`}
+                                  >
+                                    {updatingStatus === item.id ? "..." : "Completed"}
+                                  </button>
+                                </div>
+                              ) : (
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                                     item.status === "Completed"
-                                      ? "bg-green-100 text-green-800 ring-1 ring-green-400 cursor-default"
-                                      : "bg-gray-100 text-gray-400 hover:bg-green-50 hover:text-green-700 cursor-pointer"
+                                      ? "bg-green-100 text-green-800"
+                                      : "bg-yellow-100 text-yellow-800"
                                   }`}
                                 >
-                                  {updatingStatus === item.id ? "..." : "Completed"}
-                                </button>
+                                  {item.status}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-2 py-1">
+                              <div className="flex gap-1">
+                                {canEdit && (
+                                  <button
+                                    onClick={() => openEdit(item)}
+                                    className="px-1.5 py-0.5 bg-blue-500 text-white rounded text-[10px] hover:bg-blue-600"
+                                  >
+                                    Edit
+                                  </button>
+                                )}
+                                {item.created_by === user.user_name && item.status === "Pending" && (
+                                  <button
+                                    onClick={() => handleDelete(item)}
+                                    className="px-1.5 py-0.5 bg-red-500 text-white rounded text-[10px] hover:bg-red-600"
+                                  >
+                                    Cancel
+                                  </button>
+                                )}
                               </div>
-                            ) : (
-                              <span
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                  item.status === "Completed"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-yellow-100 text-yellow-800"
-                                }`}
-                              >
-                                {item.status}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-2 py-1">
-                            <div className="flex gap-1">
-                              {canEdit && (
-                                <button
-                                  onClick={() => openEdit(item)}
-                                  className="px-1.5 py-0.5 bg-blue-500 text-white rounded text-[10px] hover:bg-blue-600"
-                                >
-                                  Edit
-                                </button>
-                              )}
-                              {item.created_by === user.user_name && item.status === "Pending" && (
-                                <button
-                                  onClick={() => handleDelete(item)}
-                                  className="px-1.5 py-0.5 bg-red-500 text-white rounded text-[10px] hover:bg-red-600"
-                                >
-                                  Cancel
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                   {filteredData.length === 0 && (
-                    <div className="p-8 text-center text-gray-500">No requests found</div>
+                    <div className="p-8 text-center text-gray-500">
+                      {hasActiveFilter ? "Tidak ada data yang sesuai filter" : "No requests found"}
+                    </div>
                   )}
                 </div>
 
