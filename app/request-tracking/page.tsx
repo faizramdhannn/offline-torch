@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
 import Popup from "@/components/Popup";
 
@@ -83,6 +82,7 @@ function DropZone({
   inputRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const [dragging, setDragging] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -113,14 +113,16 @@ function DropZone({
   };
 
   const isImage = file && file.type.startsWith("image/");
-  const [preview, setPreview] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!file || !isImage) { setPreview(null); return; }
+    if (!file || !isImage) {
+      setPreview(null);
+      return;
+    }
     const url = URL.createObjectURL(file);
     setPreview(url);
     return () => URL.revokeObjectURL(url);
-  }, [file]);
+  }, [file, isImage]);
 
   return (
     <div>
@@ -135,12 +137,20 @@ function DropZone({
       {file ? (
         <div className="flex items-center gap-2 p-2 rounded border border-green-300 bg-green-50">
           {preview ? (
-            <img src={preview} alt="preview" className="w-10 h-10 object-cover rounded border border-green-200 shrink-0" />
+            <img
+              src={preview}
+              alt="preview"
+              className="w-10 h-10 object-cover rounded border border-green-200 shrink-0"
+            />
           ) : (
             <div className="w-10 h-10 rounded border border-green-200 bg-green-100 flex items-center justify-center shrink-0">
               <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
               </svg>
             </div>
           )}
@@ -167,19 +177,30 @@ function DropZone({
           onDragLeave={handleDragLeave}
           className={`cursor-pointer rounded border-2 border-dashed transition-all select-none
             flex flex-col items-center justify-center gap-1 py-4 px-3
-            ${dragging
-              ? "border-blue-400 bg-blue-50"
-              : "border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100"
+            ${
+              dragging
+                ? "border-blue-400 bg-blue-50"
+                : "border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100"
             }`}
         >
           <svg
             className={`w-6 h-6 transition-colors ${dragging ? "text-blue-500" : "text-gray-400"}`}
-            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+            />
           </svg>
-          <p className={`text-[11px] font-medium transition-colors ${dragging ? "text-blue-600" : "text-gray-600"}`}>
+          <p
+            className={`text-[11px] font-medium transition-colors ${
+              dragging ? "text-blue-600" : "text-gray-600"
+            }`}
+          >
             {dragging ? "Lepaskan file di sini" : "Drag & drop atau klik untuk pilih"}
           </p>
           <p className="text-[10px] text-gray-400">Gambar atau PDF</p>
@@ -216,7 +237,11 @@ function ExpeditionToggle({
                   : "border-gray-200 hover:border-gray-400 bg-white"
               }`}
             >
-              <img src={EXPEDITION_LOGO[exp]} alt={exp} className="h-7 w-auto object-contain" />
+              <img
+                src={EXPEDITION_LOGO[exp]}
+                alt={exp}
+                className="h-7 w-auto object-contain"
+              />
             </button>
           );
         })}
@@ -229,10 +254,14 @@ function ExpeditionToggle({
 function ExpeditionBadge({ expedition }: { expedition: string }) {
   const logo = EXPEDITION_LOGO[expedition];
   if (logo) {
-    return <img src={logo} alt={expedition} className="h-5 w-auto object-contain" title={expedition} />;
+    return (
+      <img src={logo} alt={expedition} className="h-5 w-auto object-contain" title={expedition} />
+    );
   }
   return (
-    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700">{expedition}</span>
+    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700">
+      {expedition}
+    </span>
   );
 }
 
@@ -260,7 +289,9 @@ function SenderSelect({
       >
         <option value="">Pilih store pengirim</option>
         {storeAddresses.map((s) => (
-          <option key={s.id} value={s.store_location}>{s.store_location}</option>
+          <option key={s.id} value={s.store_location}>
+            {s.store_location}
+          </option>
         ))}
       </select>
       {details && (
@@ -304,18 +335,29 @@ function ReceiverField({
         <div className="flex gap-1 bg-gray-100 rounded p-0.5">
           <button
             type="button"
-            onClick={() => { onModeChange("dropdown"); onCustomChange(""); }}
+            onClick={() => {
+              onModeChange("dropdown");
+              onCustomChange("");
+            }}
             className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
-              mode === "dropdown" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              mode === "dropdown"
+                ? "bg-white text-gray-800 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
             }`}
           >
             Store
           </button>
           <button
             type="button"
-            onClick={() => { onModeChange("custom"); onStoreChange(""); onCustomChange(""); }}
+            onClick={() => {
+              onModeChange("custom");
+              onStoreChange("");
+              onCustomChange("");
+            }}
             className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
-              mode === "custom" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              mode === "custom"
+                ? "bg-white text-gray-800 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
             }`}
           >
             Custom
@@ -332,7 +374,9 @@ function ReceiverField({
           >
             <option value="">Pilih store penerima</option>
             {storeAddresses.map((s) => (
-              <option key={s.id} value={s.store_location}>{s.store_location}</option>
+              <option key={s.id} value={s.store_location}>
+                {s.store_location}
+              </option>
             ))}
           </select>
           {customValue && (
@@ -350,13 +394,18 @@ function ReceiverField({
             rows={4}
             placeholder={"Nama Penerima\n08xxxxxxxxxx\nJl. Contoh No. 1, Kota, Provinsi\n12345"}
             className={`w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 resize-none font-mono ${
-              error ? "border-red-400 focus:ring-red-400" : "border-gray-300 focus:ring-primary"
+              error
+                ? "border-red-400 focus:ring-red-400"
+                : "border-gray-300 focus:ring-primary"
             }`}
           />
-          {error
-            ? <p className="text-[10px] text-red-500 mt-1">⚠ {error}</p>
-            : <p className="text-[10px] text-gray-400 mt-1">Wajib: nama · nomor HP (08xx/+628xx) · alamat · kode pos 5 digit</p>
-          }
+          {error ? (
+            <p className="text-[10px] text-red-500 mt-1">⚠ {error}</p>
+          ) : (
+            <p className="text-[10px] text-gray-400 mt-1">
+              Wajib: nama · nomor HP (08xx/+628xx) · alamat · kode pos 5 digit
+            </p>
+          )}
         </>
       )}
     </div>
@@ -388,8 +437,12 @@ function CopyButton({
         </svg>
       ) : (
         <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+          />
         </svg>
       )}
     </button>
@@ -399,37 +452,19 @@ function CopyButton({
 // ── Google Drive URL converter ────────────────────────────────────────────
 function getEmbedUrl(url: string): string {
   if (!url) return url;
-  
-  // Format: https://drive.google.com/file/d/FILE_ID/view?usp=...
   const fileMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if (fileMatch) {
-    const fileId = fileMatch[1];
-    return `https://drive.google.com/file/d/${fileId}/preview`;
-  }
-  
-  // Format: https://drive.google.com/open?id=FILE_ID
+  if (fileMatch) return `https://drive.google.com/file/d/${fileMatch[1]}/preview`;
   const openMatch = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
-  if (openMatch) {
-    const fileId = openMatch[1];
-    return `https://drive.google.com/file/d/${fileId}/preview`;
-  }
-  
-  return url; // bukan URL Drive, kembalikan as-is
+  if (openMatch) return `https://drive.google.com/file/d/${openMatch[1]}/preview`;
+  return url;
 }
 
 function getDownloadUrl(url: string): string {
   if (!url) return url;
-  
   const fileMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if (fileMatch) {
-    return `https://drive.google.com/uc?export=download&id=${fileMatch[1]}`;
-  }
-  
+  if (fileMatch) return `https://drive.google.com/uc?export=download&id=${fileMatch[1]}`;
   const openMatch = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
-  if (openMatch) {
-    return `https://drive.google.com/uc?export=download&id=${openMatch[1]}`;
-  }
-  
+  if (openMatch) return `https://drive.google.com/uc?export=download&id=${openMatch[1]}`;
   return url;
 }
 
@@ -450,20 +485,22 @@ function DetailPopup({
   const embedUrl = getEmbedUrl(item.link_tracking || "");
   const downloadUrl = getDownloadUrl(item.link_tracking || "");
 
-  const isPdf = isDriveUrl
-  ? true // Drive preview iframe works for both
-  : item.link_tracking?.toLowerCase().includes(".pdf") ||
-    item.link_tracking?.toLowerCase().includes("application/pdf") ||
-    (item.link_tracking && !item.link_tracking?.match(/\.(png|jpg|jpeg|gif|webp)/i));
+  const isPdf =
+    isDriveUrl
+      ? true
+      : item.link_tracking?.toLowerCase().includes(".pdf") ||
+        item.link_tracking?.toLowerCase().includes("application/pdf") ||
+        (item.link_tracking &&
+          !item.link_tracking?.match(/\.(png|jpg|jpeg|gif|webp)/i));
 
-  // Close on backdrop click
   const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) onClose();
   };
 
-  // Close on Escape
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
@@ -495,18 +532,8 @@ function DetailPopup({
             onClick={onClose}
             className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors text-gray-500"
           >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -529,12 +556,7 @@ function DetailPopup({
                     title="Download file"
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary text-white rounded text-[10px] font-medium hover:bg-primary/90 transition-colors"
                   >
-                    <svg
-                      className="w-3 h-3"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -563,12 +585,7 @@ function DetailPopup({
               </>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-2">
-                <svg
-                  className="w-12 h-12 opacity-30"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
+                <svg className="w-12 h-12 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -584,7 +601,6 @@ function DetailPopup({
           {/* Right: Detail info */}
           <div className="w-64 flex flex-col overflow-y-auto bg-white">
             <div className="p-4 space-y-4">
-              {/* Expedition */}
               <div>
                 <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">
                   Ekspedisi
@@ -596,42 +612,24 @@ function DetailPopup({
                     className="h-6 w-auto object-contain"
                   />
                 ) : (
-                  <p className="text-xs font-medium text-gray-800">
-                    {item.expedition}
-                  </p>
+                  <p className="text-xs font-medium text-gray-800">{item.expedition}</p>
                 )}
               </div>
-
-              {/* Date */}
               <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">
-                  Tanggal
-                </p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Tanggal</p>
                 <p className="text-xs text-gray-800">{item.date}</p>
               </div>
-
-              {/* Assigned To */}
               <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">
-                  Assigned To
-                </p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Assigned To</p>
                 <p className="text-xs text-gray-800">{item.assigned_to}</p>
               </div>
-
-              {/* Sender */}
               <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">
-                  Pengirim
-                </p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Pengirim</p>
                 <p className="text-xs text-gray-800">{item.sender}</p>
               </div>
-
-              {/* Receiver */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">
-                    Penerima
-                  </p>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Penerima</p>
                   {item.receiver && (
                     <CopyButton
                       text={item.receiver}
@@ -645,42 +643,24 @@ function DetailPopup({
                   {item.receiver || "-"}
                 </p>
               </div>
-
-              {/* Weight */}
               <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">
-                  Berat
-                </p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Berat</p>
                 <p className="text-xs text-gray-800">{item.weight} kg</p>
               </div>
-
-              {/* Reason */}
               <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">
-                  Alasan
-                </p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Alasan</p>
                 <p className="text-xs text-gray-800">{item.reason}</p>
               </div>
-
-              {/* Request By */}
               <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">
-                  Request By
-                </p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Request By</p>
                 <p className="text-xs text-gray-800">{item.request_by}</p>
               </div>
-
-              {/* Updated By */}
               {item.update_by && (
                 <div>
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">
-                    Update By
-                  </p>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Update By</p>
                   <p className="text-xs text-gray-800">{item.update_by}</p>
                 </div>
               )}
-
-              {/* Timestamps */}
               <div className="pt-2 border-t border-gray-100 space-y-1">
                 {item.created_at && (
                   <p className="text-[10px] text-gray-400">
@@ -709,7 +689,11 @@ export default function RequestTrackingPage() {
   const [user, setUser] = useState<any>(null);
   const [data, setData] = useState<TrackingItem[]>([]);
   const [storeAddresses, setStoreAddresses] = useState<StoreAddress[]>([]);
-  const [dropdownData, setDropdownData] = useState<DropdownData>({ requesters: [], assignees: [], reasons: [] });
+  const [dropdownData, setDropdownData] = useState<DropdownData>({
+    requesters: [],
+    assignees: [],
+    reasons: [],
+  });
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -722,6 +706,11 @@ export default function RequestTrackingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // ── Tab & tracking state — FIXED: moved inside component ──────────────────
+  const [activeTab, setActiveTab] = useState<"table" | "tracking">("table");
+  const [trackingInput, setTrackingInput] = useState("");
+  const [iframeUrl, setIframeUrl] = useState("https://offline-tracking.vercel.app/");
 
   // ── Search state ──────────────────────────────────────────────────────────
   const [searchReceiver, setSearchReceiver] = useState("");
@@ -756,7 +745,10 @@ export default function RequestTrackingPage() {
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
-    if (!userData) { router.push("/login"); return; }
+    if (!userData) {
+      router.push("/login");
+      return;
+    }
     const parsedUser = JSON.parse(userData);
     if (!parsedUser.request_tracking && !parsedUser.tracking_edit) {
       router.push("/dashboard");
@@ -814,7 +806,11 @@ export default function RequestTrackingPage() {
       await fetch("/api/activity-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user: user.user_name, method, activity_log: activity }),
+        body: JSON.stringify({
+          user: user.user_name,
+          method,
+          activity_log: activity,
+        }),
       });
     } catch {}
   };
@@ -861,12 +857,23 @@ export default function RequestTrackingPage() {
   };
 
   const handleAdd = async () => {
-    if (!form.date || !form.assigned_to || !form.expedition || !form.sender || !form.receiver || !form.weight || !form.reason) {
+    if (
+      !form.date ||
+      !form.assigned_to ||
+      !form.expedition ||
+      !form.sender ||
+      !form.receiver ||
+      !form.weight ||
+      !form.reason
+    ) {
       showMessage("Semua field wajib diisi", "error");
       return;
     }
     const err = validateReceiver(form.receiver);
-    if (err) { showMessage(err, "error"); return; }
+    if (err) {
+      showMessage(err, "error");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -879,7 +886,10 @@ export default function RequestTrackingPage() {
         showMessage("Request berhasil dibuat", "success");
         setShowAddModal(false);
         resetAddForm();
-        await logActivity("POST", `Created shipment request: ${form.expedition} → ${form.assigned_to}`);
+        await logActivity(
+          "POST",
+          `Created shipment request: ${form.expedition} → ${form.assigned_to}`
+        );
         fetchData();
       } else {
         showMessage("Gagal membuat request", "error");
@@ -910,9 +920,12 @@ export default function RequestTrackingPage() {
       weight: item.weight,
       reason: item.reason,
     });
-    setEditSenderDetails(storeAddresses.find((s) => s.store_location === item.sender) || null);
-
-    const matchedStore = storeAddresses.find((s) => formatStoreAddress(s) === item.receiver);
+    setEditSenderDetails(
+      storeAddresses.find((s) => s.store_location === item.sender) || null
+    );
+    const matchedStore = storeAddresses.find(
+      (s) => formatStoreAddress(s) === item.receiver
+    );
     if (matchedStore) {
       setEditReceiverMode("dropdown");
       setEditReceiverStore(matchedStore.store_location);
@@ -927,14 +940,21 @@ export default function RequestTrackingPage() {
   const handleEdit = async () => {
     if (!selectedItem) return;
     const err = validateReceiver(editForm.receiver);
-    if (err) { showMessage(err, "error"); return; }
+    if (err) {
+      showMessage(err, "error");
+      return;
+    }
 
     setSubmitting(true);
     try {
       const res = await fetch("/api/request-tracking", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: selectedItem.id, update_by: user.user_name, ...editForm }),
+        body: JSON.stringify({
+          id: selectedItem.id,
+          update_by: user.user_name,
+          ...editForm,
+        }),
       });
       if (res.ok) {
         showMessage("Request berhasil diupdate", "success");
@@ -955,7 +975,9 @@ export default function RequestTrackingPage() {
   const handleDelete = async (item: TrackingItem) => {
     if (!confirm("Hapus request ini?")) return;
     try {
-      const res = await fetch(`/api/request-tracking?id=${item.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/request-tracking?id=${item.id}`, {
+        method: "DELETE",
+      });
       if (res.ok) {
         setData((prev) => prev.filter((d) => d.id !== item.id));
         showMessage("Request dihapus", "success");
@@ -993,7 +1015,10 @@ export default function RequestTrackingPage() {
         setShowUploadModal(false);
         setSelectedItem(null);
         setUploadFile(null);
-        await logActivity("PUT", `Uploaded tracking file for ID: ${selectedItem.id}`);
+        await logActivity(
+          "PUT",
+          `Uploaded tracking file for ID: ${selectedItem.id}`
+        );
         fetchData();
       } else {
         showMessage("Gagal upload file", "error");
@@ -1009,11 +1034,14 @@ export default function RequestTrackingPage() {
     const store = storeAddresses.find((s) => s.store_location === item.sender);
     if (!store || !store.phone_number) return null;
     const phone = store.phone_number.replace(/\D/g, "");
-    const message = encodeURIComponent(`Berikut resi untuk ${item.id}\n${item.link_tracking}`);
+    const message = encodeURIComponent(
+      `Berikut resi untuk ${item.id}\n${item.link_tracking}`
+    );
     return `https://wa.me/${phone}?text=${message}`;
   };
 
-  const getStatus = (item: TrackingItem) => item.link_tracking ? "completed" : "pending";
+  const getStatus = (item: TrackingItem) =>
+    item.link_tracking ? "completed" : "pending";
 
   // ── Filtered data ─────────────────────────────────────────────────────────
   const filteredData = (() => {
@@ -1029,7 +1057,6 @@ export default function RequestTrackingPage() {
   const currentItems = filteredData.slice(indexOfFirst, indexOfLast);
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
 
-  // Highlight helper
   const highlightText = (text: string, query: string) => {
     if (!query || !text) return text || "-";
     const i = text.toLowerCase().indexOf(query.toLowerCase());
@@ -1037,7 +1064,9 @@ export default function RequestTrackingPage() {
     return (
       <>
         {text.slice(0, i)}
-        <mark className="bg-yellow-200 text-yellow-900 rounded px-0.5">{text.slice(i, i + query.length)}</mark>
+        <mark className="bg-yellow-200 text-yellow-900 rounded px-0.5">
+          {text.slice(i, i + query.length)}
+        </mark>
         {text.slice(i + query.length)}
       </>
     );
@@ -1054,6 +1083,7 @@ export default function RequestTrackingPage() {
 
       <div className="flex-1 overflow-auto">
         <div className="p-6">
+          {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold text-primary">Request Shipment</h1>
             {canEdit && (
@@ -1062,191 +1092,375 @@ export default function RequestTrackingPage() {
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
                 </svg>
                 Add Request
               </button>
             )}
           </div>
 
-          {/* ── Search Bar ───────────────────────────────────────────────── */}
-          <div className="bg-white rounded-lg shadow px-3 py-2 mb-3 flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <svg
-                className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400"
-                fill="none" stroke="currentColor" viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-              </svg>
-              <input
-                type="text"
-                value={searchReceiver}
-                onChange={(e) => { setSearchReceiver(e.target.value); setCurrentPage(1); }}
-                placeholder="Cari penerima..."
-                className="pl-6 pr-2 py-1 border border-gray-300 rounded text-[11px] w-52 focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-
-            {hasActiveSearch && (
-              <>
-                <button
-                  onClick={() => { setSearchReceiver(""); setCurrentPage(1); }}
-                  className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 border border-gray-200 rounded text-[11px] hover:bg-gray-200 transition-colors"
-                >
-                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  Clear
-                </button>
-                <span className="text-[10px] text-gray-400">
-                  {filteredData.length} result{filteredData.length !== 1 ? "s" : ""}
-                </span>
-              </>
-            )}
+          {/* ── Tabs ──────────────────────────────────────────────────────── */}
+          <div className="flex gap-1 mb-4 border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab("table")}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === "table"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              List
+            </button>
+            <button
+              onClick={() => setActiveTab("tracking")}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === "tracking"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Cek Resi
+            </button>
           </div>
 
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            {loading ? (
-              <div className="p-8 text-center text-sm text-gray-500">Loading...</div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-[11px] table-fixed">
-                    <thead className="bg-gray-100 border-b">
-                      <tr>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[88px]">Tanggal</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[90px]">Assigned To</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[75px]">Ekspedisi</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[100px]">Pengirim</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[160px]">Penerima</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[50px]">Berat</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[110px]">Alasan</th>
-                        {canUpload && (
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[85px]">Request By</th>
-                        )}
-                        <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-[60px]">Status</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[130px]">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentItems.map((item, idx) => {
-                        const status = getStatus(item);
-                        const waLink = item.link_tracking ? buildWhatsappLink(item) : null;
-                        return (
-                          <tr
-                            key={item.id}
-                            className={`border-b cursor-pointer ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-blue-50 transition-colors`}
-                            onClick={() => setDetailItem(item)}
-                          >
-                            <td className="px-2 py-1 text-gray-600">{item.date}</td>
-                            <td className="px-2 py-1 text-gray-700 truncate">{item.assigned_to}</td>
-                            <td className="px-2 py-1"><ExpeditionBadge expedition={item.expedition} /></td>
-                            <td className="px-2 py-1 text-gray-700 truncate">{item.sender}</td>
-                            <td className="px-2 py-1 text-gray-600">
-                              <div className="flex items-start gap-1">
-                                <div className="truncate flex-1" title={item.receiver}>
-                                  {hasActiveSearch
-                                    ? highlightText(item.receiver.split("\n")[0], searchReceiver)
-                                    : item.receiver.split("\n")[0]}
-                                </div>
-                                {canUpload && item.receiver && (
-                                  <span onClick={(e) => e.stopPropagation()}>
-                                    <CopyButton
-                                      text={item.receiver}
-                                      id={item.id}
-                                      copiedId={copiedId}
-                                      onCopy={handleCopyReceiver}
-                                    />
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-2 py-1 text-gray-600">{item.weight} kg</td>
-                            <td className="px-2 py-1 text-gray-600 truncate" title={item.reason}>{item.reason}</td>
-                            {canUpload && <td className="px-2 py-1 text-gray-500">{item.request_by}</td>}
-                            <td className="px-2 py-1 text-center">
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                status === "completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                              }`}>
-                                {status === "completed" ? "Selesai" : "Pending"}
-                              </span>
-                            </td>
-                            <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex flex-wrap gap-1">
-                                {canUpload && status === "pending" && (
-                                  <button onClick={() => openUpload(item)}
-                                    className="px-1.5 py-0.5 bg-blue-600 text-white rounded text-[10px] hover:bg-blue-700">
-                                    Upload
-                                  </button>
-                                )}
-                                {status === "completed" && waLink && (
-                                  <a href={waLink} target="_blank" rel="noopener noreferrer"
-                                    className="px-1.5 py-0.5 bg-green-500 text-white rounded text-[10px] hover:bg-green-600 inline-flex items-center gap-0.5">
-                                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24">
-                                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                                    </svg>
-                                    WA
-                                  </a>
-                                )}
-                                {item.link_tracking && (
-                                  <a href={item.link_tracking} target="_blank" rel="noopener noreferrer"
-                                    className="px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded text-[10px] hover:bg-gray-300">
-                                    Resi
-                                  </a>
-                                )}
-                                {canEdit && !canUpload && item.request_by === user.user_name && status === "pending" && (
-                                  <>
-                                    <button onClick={() => openEdit(item)}
-                                      className="px-1.5 py-0.5 bg-yellow-500 text-white rounded text-[10px] hover:bg-yellow-600">Edit</button>
-                                    <button onClick={() => handleDelete(item)}
-                                      className="px-1.5 py-0.5 bg-red-500 text-white rounded text-[10px] hover:bg-red-600">Hapus</button>
-                                  </>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  {filteredData.length === 0 && (
-                    <div className="p-8 text-center text-gray-500 text-sm">
-                      {hasActiveSearch ? "Tidak ada penerima yang sesuai pencarian" : "Belum ada request shipment"}
-                    </div>
-                  )}
+          {/* ── Tab: Table ────────────────────────────────────────────────── */}
+          {activeTab === "table" && (
+            <>
+              {/* Search Bar */}
+              <div className="bg-white rounded-lg shadow px-3 py-2 mb-3 flex flex-wrap items-center gap-2">
+                <div className="relative">
+                  <svg
+                    className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"
+                    />
+                  </svg>
+                  <input
+                    type="text"
+                    value={searchReceiver}
+                    onChange={(e) => {
+                      setSearchReceiver(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="Cari penerima..."
+                    className="pl-6 pr-2 py-1 border border-gray-300 rounded text-[11px] w-52 focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
                 </div>
 
-                {totalPages > 1 && (
-                  <div className="flex justify-between items-center px-4 py-2.5 border-t">
-                    <div className="text-xs text-gray-500">
-                      {indexOfFirst + 1}–{Math.min(indexOfLast, filteredData.length)} dari {filteredData.length} entri
-                    </div>
-                    <div className="flex gap-1">
-                      <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}
-                        className="px-2.5 py-1 text-xs border rounded disabled:opacity-40 hover:bg-gray-50">Prev</button>
-                      {[...Array(totalPages)].map((_, i) => {
-                        const page = i + 1;
-                        if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
-                          return (
-                            <button key={page} onClick={() => setCurrentPage(page)}
-                              className={`px-2.5 py-1 text-xs border rounded ${currentPage === page ? "bg-primary text-white border-primary" : "hover:bg-gray-50"}`}>
-                              {page}
-                            </button>
-                          );
-                        } else if (page === currentPage - 2 || page === currentPage + 2) {
-                          return <span key={page} className="px-1 text-xs text-gray-400 self-center">…</span>;
-                        }
-                        return null;
-                      })}
-                      <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-                        className="px-2.5 py-1 text-xs border rounded disabled:opacity-40 hover:bg-gray-50">Next</button>
-                    </div>
-                  </div>
+                {hasActiveSearch && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setSearchReceiver("");
+                        setCurrentPage(1);
+                      }}
+                      className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 border border-gray-200 rounded text-[11px] hover:bg-gray-200 transition-colors"
+                    >
+                      <svg
+                        className="w-2.5 h-2.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                      Clear
+                    </button>
+                    <span className="text-[10px] text-gray-400">
+                      {filteredData.length} result{filteredData.length !== 1 ? "s" : ""}
+                    </span>
+                  </>
                 )}
-              </>
-            )}
-          </div>
+              </div>
+
+              {/* Table */}
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                {loading ? (
+                  <div className="p-8 text-center text-sm text-gray-500">Loading...</div>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[11px] table-fixed">
+                        <thead className="bg-gray-100 border-b">
+                          <tr>
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[88px]">
+                              Tanggal
+                            </th>
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[90px]">
+                              Assigned To
+                            </th>
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[75px]">
+                              Ekspedisi
+                            </th>
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[100px]">
+                              Pengirim
+                            </th>
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[160px]">
+                              Penerima
+                            </th>
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[50px]">
+                              Berat
+                            </th>
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[110px]">
+                              Alasan
+                            </th>
+                            {canUpload && (
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[85px]">
+                                Request By
+                              </th>
+                            )}
+                            <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-[60px]">
+                              Status
+                            </th>
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[130px]">
+                              Action
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {currentItems.map((item, idx) => {
+                            const status = getStatus(item);
+                            const waLink =
+                              item.link_tracking ? buildWhatsappLink(item) : null;
+                            return (
+                              <tr
+                                key={item.id}
+                                className={`border-b cursor-pointer ${
+                                  idx % 2 === 0 ? "bg-white" : "bg-gray-50"
+                                } hover:bg-blue-50 transition-colors`}
+                                onClick={() => setDetailItem(item)}
+                              >
+                                <td className="px-2 py-1 text-gray-600">{item.date}</td>
+                                <td className="px-2 py-1 text-gray-700 truncate">
+                                  {item.assigned_to}
+                                </td>
+                                <td className="px-2 py-1">
+                                  <ExpeditionBadge expedition={item.expedition} />
+                                </td>
+                                <td className="px-2 py-1 text-gray-700 truncate">
+                                  {item.sender}
+                                </td>
+                                <td className="px-2 py-1 text-gray-600">
+                                  <div className="flex items-start gap-1">
+                                    <div
+                                      className="truncate flex-1"
+                                      title={item.receiver}
+                                    >
+                                      {hasActiveSearch
+                                        ? highlightText(
+                                            item.receiver.split("\n")[0],
+                                            searchReceiver
+                                          )
+                                        : item.receiver.split("\n")[0]}
+                                    </div>
+                                    {canUpload && item.receiver && (
+                                      <span onClick={(e) => e.stopPropagation()}>
+                                        <CopyButton
+                                          text={item.receiver}
+                                          id={item.id}
+                                          copiedId={copiedId}
+                                          onCopy={handleCopyReceiver}
+                                        />
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-2 py-1 text-gray-600">
+                                  {item.weight} kg
+                                </td>
+                                <td
+                                  className="px-2 py-1 text-gray-600 truncate"
+                                  title={item.reason}
+                                >
+                                  {item.reason}
+                                </td>
+                                {canUpload && (
+                                  <td className="px-2 py-1 text-gray-500">
+                                    {item.request_by}
+                                  </td>
+                                )}
+                                <td className="px-2 py-1 text-center">
+                                  <span
+                                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                      status === "completed"
+                                        ? "bg-green-100 text-green-800"
+                                        : "bg-yellow-100 text-yellow-800"
+                                    }`}
+                                  >
+                                    {status === "completed" ? "Selesai" : "Pending"}
+                                  </span>
+                                </td>
+                                <td
+                                  className="px-2 py-1"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div className="flex flex-wrap gap-1">
+                                    {canUpload && status === "pending" && (
+                                      <button
+                                        onClick={() => openUpload(item)}
+                                        className="px-1.5 py-0.5 bg-blue-600 text-white rounded text-[10px] hover:bg-blue-700"
+                                      >
+                                        Upload
+                                      </button>
+                                    )}
+                                    {status === "completed" && waLink && (
+                                      <a
+                                        href={waLink}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="px-1.5 py-0.5 bg-green-500 text-white rounded text-[10px] hover:bg-green-600 inline-flex items-center gap-0.5"
+                                      >
+                                        <svg
+                                          className="w-2.5 h-2.5"
+                                          fill="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                                        </svg>
+                                        WA
+                                      </a>
+                                    )}
+                                    {item.link_tracking && (
+                                      <a
+                                        href={item.link_tracking}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded text-[10px] hover:bg-gray-300"
+                                      >
+                                        Resi
+                                      </a>
+                                    )}
+                                    {canEdit &&
+                                      !canUpload &&
+                                      item.request_by === user.user_name &&
+                                      status === "pending" && (
+                                        <>
+                                          <button
+                                            onClick={() => openEdit(item)}
+                                            className="px-1.5 py-0.5 bg-yellow-500 text-white rounded text-[10px] hover:bg-yellow-600"
+                                          >
+                                            Edit
+                                          </button>
+                                          <button
+                                            onClick={() => handleDelete(item)}
+                                            className="px-1.5 py-0.5 bg-red-500 text-white rounded text-[10px] hover:bg-red-600"
+                                          >
+                                            Hapus
+                                          </button>
+                                        </>
+                                      )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      {filteredData.length === 0 && (
+                        <div className="p-8 text-center text-gray-500 text-sm">
+                          {hasActiveSearch
+                            ? "Tidak ada penerima yang sesuai pencarian"
+                            : "Belum ada request shipment"}
+                        </div>
+                      )}
+                    </div>
+
+                    {totalPages > 1 && (
+                      <div className="flex justify-between items-center px-4 py-2.5 border-t">
+                        <div className="text-xs text-gray-500">
+                          {indexOfFirst + 1}–{Math.min(indexOfLast, filteredData.length)}{" "}
+                          dari {filteredData.length} entri
+                        </div>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="px-2.5 py-1 text-xs border rounded disabled:opacity-40 hover:bg-gray-50"
+                          >
+                            Prev
+                          </button>
+                          {[...Array(totalPages)].map((_, i) => {
+                            const page = i + 1;
+                            if (
+                              page === 1 ||
+                              page === totalPages ||
+                              (page >= currentPage - 1 && page <= currentPage + 1)
+                            ) {
+                              return (
+                                <button
+                                  key={page}
+                                  onClick={() => setCurrentPage(page)}
+                                  className={`px-2.5 py-1 text-xs border rounded ${
+                                    currentPage === page
+                                      ? "bg-primary text-white border-primary"
+                                      : "hover:bg-gray-50"
+                                  }`}
+                                >
+                                  {page}
+                                </button>
+                              );
+                            } else if (
+                              page === currentPage - 2 ||
+                              page === currentPage + 2
+                            ) {
+                              return (
+                                <span
+                                  key={page}
+                                  className="px-1 text-xs text-gray-400 self-center"
+                                >
+                                  …
+                                </span>
+                              );
+                            }
+                            return null;
+                          })}
+                          <button
+                            onClick={() =>
+                              setCurrentPage((p) => Math.min(totalPages, p + 1))
+                            }
+                            disabled={currentPage === totalPages}
+                            className="px-2.5 py-1 text-xs border rounded disabled:opacity-40 hover:bg-gray-50"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* ── Tab: Cek Resi — FIXED: now inside layout div ──────────────── */}
+{activeTab === "tracking" && (
+  <div className="bg-white rounded-lg shadow overflow-hidden">
+    <iframe
+      key={iframeUrl}
+      src={iframeUrl}
+      className="w-full"
+      style={{ height: "100vh" }}
+      title="Tracking Pengiriman"
+    />
+  </div>
+)}
         </div>
       </div>
 
@@ -1264,7 +1478,9 @@ export default function RequestTrackingPage() {
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-bold text-primary mb-4">Request Shipment Baru</h2>
+            <h2 className="text-lg font-bold text-primary mb-4">
+              Request Shipment Baru
+            </h2>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -1288,7 +1504,9 @@ export default function RequestTrackingPage() {
                 >
                   <option value="">Pilih</option>
                   {dropdownData.assignees.map((a) => (
-                    <option key={a.value} value={a.value}>{a.label}</option>
+                    <option key={a.value} value={a.value}>
+                      {a.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -1311,9 +1529,15 @@ export default function RequestTrackingPage() {
                 storeValue={addReceiverStore}
                 onStoreChange={(v) => handleReceiverStoreChange(v, false)}
                 customValue={form.receiver}
-                onCustomChange={(v) => { setForm({ ...form, receiver: v }); setReceiverError(""); }}
+                onCustomChange={(v) => {
+                  setForm({ ...form, receiver: v });
+                  setReceiverError("");
+                }}
                 error={receiverError}
-                onBlur={() => { if (addReceiverMode === "custom") setReceiverError(validateReceiver(form.receiver)); }}
+                onBlur={() => {
+                  if (addReceiverMode === "custom")
+                    setReceiverError(validateReceiver(form.receiver));
+                }}
                 storeAddresses={storeAddresses}
               />
 
@@ -1346,7 +1570,10 @@ export default function RequestTrackingPage() {
             </div>
             <div className="flex gap-2 mt-5">
               <button
-                onClick={() => { setShowAddModal(false); resetAddForm(); }}
+                onClick={() => {
+                  setShowAddModal(false);
+                  resetAddForm();
+                }}
                 className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
               >
                 Batal
@@ -1367,10 +1594,14 @@ export default function RequestTrackingPage() {
       {showEditModal && selectedItem && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-bold text-primary mb-4">Edit Request Shipment</h2>
+            <h2 className="text-lg font-bold text-primary mb-4">
+              Edit Request Shipment
+            </h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Tanggal</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Tanggal
+                </label>
                 <input
                   type="date"
                   value={editForm.date}
@@ -1379,15 +1610,21 @@ export default function RequestTrackingPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Assigned To
+                </label>
                 <select
                   value={editForm.assigned_to}
-                  onChange={(e) => setEditForm({ ...editForm, assigned_to: e.target.value })}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, assigned_to: e.target.value })
+                  }
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="">Pilih</option>
                   {dropdownData.assignees.map((a) => (
-                    <option key={a.value} value={a.value}>{a.label}</option>
+                    <option key={a.value} value={a.value}>
+                      {a.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -1410,28 +1647,42 @@ export default function RequestTrackingPage() {
                 storeValue={editReceiverStore}
                 onStoreChange={(v) => handleReceiverStoreChange(v, true)}
                 customValue={editForm.receiver}
-                onCustomChange={(v) => { setEditForm({ ...editForm, receiver: v }); setReceiverError(""); }}
+                onCustomChange={(v) => {
+                  setEditForm({ ...editForm, receiver: v });
+                  setReceiverError("");
+                }}
                 error={receiverError}
-                onBlur={() => { if (editReceiverMode === "custom") setReceiverError(validateReceiver(editForm.receiver)); }}
+                onBlur={() => {
+                  if (editReceiverMode === "custom")
+                    setReceiverError(validateReceiver(editForm.receiver));
+                }}
                 storeAddresses={storeAddresses}
               />
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Berat (kg)</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Berat (kg)
+                </label>
                 <input
                   type="number"
                   min="0.1"
                   step="0.1"
                   value={editForm.weight}
-                  onChange={(e) => setEditForm({ ...editForm, weight: e.target.value })}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, weight: e.target.value })
+                  }
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Alasan</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Alasan
+                </label>
                 <textarea
                   value={editForm.reason}
-                  onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, reason: e.target.value })
+                  }
                   rows={2}
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none"
                 />
@@ -1439,7 +1690,11 @@ export default function RequestTrackingPage() {
             </div>
             <div className="flex gap-2 mt-5">
               <button
-                onClick={() => { setShowEditModal(false); setSelectedItem(null); setReceiverError(""); }}
+                onClick={() => {
+                  setShowEditModal(false);
+                  setSelectedItem(null);
+                  setReceiverError("");
+                }}
                 className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
               >
                 Batal
@@ -1465,13 +1720,21 @@ export default function RequestTrackingPage() {
             <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200 mb-3 text-[11px]">
               <div className="flex-1 min-w-0 space-y-0.5">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-mono font-semibold text-gray-800 truncate">{selectedItem.id}</span>
+                  <span className="font-mono font-semibold text-gray-800 truncate">
+                    {selectedItem.id}
+                  </span>
                   <span className="text-gray-400">·</span>
-                  <span className="text-gray-600 truncate">{selectedItem.assigned_to}</span>
+                  <span className="text-gray-600 truncate">
+                    {selectedItem.assigned_to}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1.5 text-gray-500">
                   {EXPEDITION_LOGO[selectedItem.expedition] ? (
-                    <img src={EXPEDITION_LOGO[selectedItem.expedition]} alt={selectedItem.expedition} className="h-3.5 w-auto object-contain" />
+                    <img
+                      src={EXPEDITION_LOGO[selectedItem.expedition]}
+                      alt={selectedItem.expedition}
+                      className="h-3.5 w-auto object-contain"
+                    />
                   ) : (
                     <span>{selectedItem.expedition}</span>
                   )}
@@ -1494,7 +1757,9 @@ export default function RequestTrackingPage() {
             </div>
 
             <div className="mb-4">
-              <label className="block text-xs font-medium text-gray-700 mb-1.5">File Resi / Bukti</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                File Resi / Bukti
+              </label>
               <DropZone
                 file={uploadFile}
                 onFile={setUploadFile}
@@ -1504,7 +1769,11 @@ export default function RequestTrackingPage() {
 
             <div className="flex gap-2">
               <button
-                onClick={() => { setShowUploadModal(false); setSelectedItem(null); setUploadFile(null); }}
+                onClick={() => {
+                  setShowUploadModal(false);
+                  setSelectedItem(null);
+                  setUploadFile(null);
+                }}
                 className="flex-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200 border border-gray-200"
               >
                 Batal
@@ -1521,7 +1790,12 @@ export default function RequestTrackingPage() {
         </div>
       )}
 
-      <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
+      <Popup
+        show={showPopup}
+        message={popupMessage}
+        type={popupType}
+        onClose={() => setShowPopup(false)}
+      />
     </div>
   );
 }
