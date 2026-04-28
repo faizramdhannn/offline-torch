@@ -32,10 +32,30 @@ interface DateEntry    { id: string; date_range: string; week_start: string; wee
 interface TaftEntry    { id: string; store_name: string; taft_name: string; start_date: string; end_date: string; }
 interface TimeCode     { id: string; code_time: string; definition_code: string; }
 interface StoreEntry   { id: string; store_name: string; }
+interface StoreWagesEntry {
+  id: string;
+  store_name: string;
+  type_store?: string;
+  open_hours?: string;
+  close_hours?: string;
+  store_wages?: string; // e.g. "Rp2.878.646"
+}
+interface SalesStat {
+  month_sales: string;
+  store_name: string;
+  sales: number;
+}
 interface ReportRow {
   date: string; store_name: string; taft_name: string;
   clock_in: string; clock_out: string; code_time: string;
   overtime_hours: string; reason: string;
+}
+
+function parseCurrencyStr(val: string | undefined | null): number {
+  if (!val) return 0;
+  const s = String(val).replace(/Rp\s?/i, '').replace(/\./g, '').replace(',', '.').trim();
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
 }
 
 const DAYS       = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] as const;
@@ -80,7 +100,6 @@ const RECAP_KEYS = [
   { key:'A',   label:'ALPA (A)'        },
 ];
 
-// Tarif lembur per jam
 const OVERTIME_RATE = 17500;
 
 function normalizeTime(raw: string | number | undefined | null): string {
@@ -169,13 +188,11 @@ function buildTaftDates(month: string, startDay: number, endDay: number): Date[]
 const fmtISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-/** Hitung array 7 tanggal (Sen-Min) dari week_start suatu date range */
 function getWeekDates(dateList: DateEntry[], dateRange: string): Date[] | null {
   const entry = dateList.find(d => d.date_range === dateRange);
   if (!entry?.week_start) return null;
   const start = parseDateSafe(entry.week_start);
   if (!start) return null;
-  // Pastikan start = Senin (day 1). week_start diasumsikan sudah Senin.
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(start);
     d.setDate(start.getDate() + i);
@@ -188,14 +205,11 @@ const fmtDDMM = (d: Date) =>
 
 const MONTH_SHORT_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 
-/** Truncate name to n chars with ellipsis */
 const truncName = (s: string, n = 15) => s && s.length > n ? s.slice(0, n) + '…' : (s || '');
 
-/** Title case */
 const toTitleCase = (str: string) =>
   str ? str.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()) : str;
 
-/** Format rupiah */
 const fmtRupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
@@ -448,24 +462,24 @@ function WeeklySchedule({
                   <th className="px-3 py-2 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50 z-10 min-w-[140px] max-w-[160px] w-40 border-r border-gray-200">
                     Nama TAFT
                   </th>
-{DAYS.map((day, i) => (
-  <th
-    key={day}
-    className={`px-1 py-2 text-center font-semibold text-gray-600 w-16 ${
-      day === todayDayKey ? 'bg-blue-50 text-blue-700' : ''
-    }`}
-  >
-    <div className="text-[11px]">{DAY_LABELS[i]}</div>
-    {weekDates?.[i] && (
-      <div className="text-[9px] font-normal text-gray-400 mt-0.5">
-        {fmtDDMM(weekDates[i])}
-      </div>
-    )}
-    {day === todayDayKey && (
-      <div className="text-[9px] text-blue-500 font-normal">Hari ini</div>
-    )}
-  </th>
-))}
+                  {DAYS.map((day, i) => (
+                    <th
+                      key={day}
+                      className={`px-1 py-2 text-center font-semibold text-gray-600 w-16 ${
+                        day === todayDayKey ? 'bg-blue-50 text-blue-700' : ''
+                      }`}
+                    >
+                      <div className="text-[11px]">{DAY_LABELS[i]}</div>
+                      {weekDates?.[i] && (
+                        <div className="text-[9px] font-normal text-gray-400 mt-0.5">
+                          {fmtDDMM(weekDates[i])}
+                        </div>
+                      )}
+                      {day === todayDayKey && (
+                        <div className="text-[9px] text-blue-500 font-normal">Hari ini</div>
+                      )}
+                    </th>
+                  ))}
                   <th className="px-3 py-2 text-center font-semibold text-gray-600 w-24 sticky right-0 bg-gray-50 z-10 border-l border-gray-200">
                     Aksi
                   </th>
@@ -700,7 +714,6 @@ function MonthlyReport({
     }
   };
 
-  // ── Recap logic ──────────────────────────────────────────────────────────────
   const fetchRecap = async () => {
     setRecapLoading(true);
     try {
@@ -743,7 +756,6 @@ function MonthlyReport({
     return { counts, totalMasuk, totalOff, totalLembur };
   };
 
-  // ── Export Recap XLSX ────────────────────────────────────────────────────────
   const exportRecapXlsx = () => {
     const wb = XLSX.utils.book_new();
 
@@ -909,7 +921,6 @@ function MonthlyReport({
         </div>
       )}
 
-      {/* ── Import Panel ── */}
       {subTab === 'import' && (
         <>
           <div className="bg-white rounded-lg shadow p-2.5 mb-3">
@@ -959,7 +970,6 @@ function MonthlyReport({
         </>
       )}
 
-      {/* ── Recap Panel ── */}
       {subTab === 'recap' && user.attendance_report && (
         <div>
           <div className="bg-white rounded-lg shadow p-2.5 mb-3">
@@ -1062,7 +1072,6 @@ function MonthlyReport({
         </div>
       )}
 
-      {/* Download Template Modal */}
       {showDownloadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
@@ -1128,6 +1137,348 @@ function MonthlyReport({
   );
 }
 
+// ─── SalesWagesChart (GANTI SELURUH KOMPONEN LAMA) ────────────────────────────
+// Letakkan tepat menggantikan komponen SalesWagesChart yang lama di page.tsx
+
+function SalesWagesChart({
+  salesData,
+  storeWages,
+  taftList,
+  selectedMonth,
+  groupedByTaft,
+}: {
+  salesData: SalesStat[];
+  storeWages: StoreWagesEntry[];
+  taftList: TaftEntry[];
+  selectedMonth: string;
+  groupedByTaft: Record<string, { taft_name: string; store_name: string; rows: ReportRow[] }>;
+}) {
+  const [activeStore, setActiveStore] = useState<string | null>(null);
+
+  if (salesData.length === 0 && storeWages.length === 0) return null;
+
+  // ── helpers ──────────────────────────────────────────────────────────────────
+  const wagesMap: Record<string, number> = {};
+  storeWages.forEach(s => {
+    wagesMap[s.store_name.toLowerCase()] = parseCurrencyStr(s.store_wages);
+  });
+
+  const taftCountMap: Record<string, number> = {};
+  taftList.forEach(t => {
+    const k = t.store_name.toLowerCase();
+    taftCountMap[k] = (taftCountMap[k] || 0) + 1;
+  });
+
+  // Lembur per store dari groupedByTaft
+  const lemburByStore: Record<string, number> = {};
+  Object.values(groupedByTaft).forEach(({ store_name, rows }) => {
+    const k = store_name.toLowerCase();
+    rows.forEach(r => {
+      if (r.overtime_hours && parseFloat(r.overtime_hours) > 0) {
+        lemburByStore[k] = (lemburByStore[k] || 0) + parseFloat(r.overtime_hours);
+      }
+    });
+  });
+
+  const allStores = [...new Set([
+    ...salesData.map(s => s.store_name.toLowerCase()),
+    ...Object.keys(wagesMap),
+  ])].sort();
+
+  interface StoreRow {
+    store: string;
+    sales: number;
+    gajiPerOrang: number;
+    totalGaji: number;
+    biayaLembur: number;
+    totalPengeluaran: number;
+    taftCount: number;
+    lemburJam: number;
+    profit: number;
+    ratio: number;
+  }
+
+  const rows: StoreRow[] = allStores.map(store => {
+    const salesRow      = salesData.find(s => s.store_name.toLowerCase() === store);
+    const sales         = salesRow?.sales ?? 0;
+    const gajiPerOrang  = wagesMap[store] || 0;
+    const taftCount     = taftCountMap[store] || 0;
+    const totalGaji     = gajiPerOrang * taftCount;
+    const lemburJam     = lemburByStore[store] || 0;
+    const biayaLembur   = lemburJam * OVERTIME_RATE;
+    const totalPengeluaran = totalGaji + biayaLembur;
+    const profit        = sales - totalPengeluaran;
+    const ratio         = totalPengeluaran > 0 ? sales / totalPengeluaran : 0;
+    return { store, sales, gajiPerOrang, totalGaji, biayaLembur, totalPengeluaran, taftCount, lemburJam, profit, ratio };
+  }).sort((a, b) => b.sales - a.sales);
+
+  const totalSales        = rows.reduce((s, r) => s + r.sales, 0);
+  const totalGaji         = rows.reduce((s, r) => s + r.totalGaji, 0);
+  const totalBiayaLembur  = rows.reduce((s, r) => s + r.biayaLembur, 0);
+  const totalPengeluaran  = totalGaji + totalBiayaLembur;
+  const totalProfit       = totalSales - totalPengeluaran;
+
+  const MONTH_NAMES = ['','Januari','Februari','Maret','April','Mei','Juni',
+    'Juli','Agustus','September','Oktober','November','Desember'];
+  const [, mm] = selectedMonth.split('-').map(Number);
+  const monthLabel = MONTH_NAMES[mm] || selectedMonth;
+
+  const fmtJt = (n: number) => {
+    if (n === 0) return '—';
+    if (Math.abs(n) >= 1_000_000) return `Rp${(n / 1_000_000).toFixed(1)}jt`;
+    if (Math.abs(n) >= 1_000)     return `Rp${(n / 1_000).toFixed(0)}rb`;
+    return `Rp${Math.round(n).toLocaleString('id-ID')}`;
+  };
+
+  const ratioColor = (r: number) =>
+    r >= 3   ? 'text-emerald-600 bg-emerald-50'  :
+    r >= 1.5 ? 'text-yellow-600 bg-yellow-50'    :
+    r >  0   ? 'text-red-600 bg-red-50'           : 'text-gray-400 bg-gray-50';
+
+  const profitColor = (n: number) => n >= 0 ? 'text-emerald-600' : 'text-red-500';
+
+  // ── popup data ────────────────────────────────────────────────────────────────
+  const activeRow    = rows.find(r => r.store === activeStore);
+  const activeTafts  = taftList.filter(t => t.store_name.toLowerCase() === activeStore);
+
+  interface TaftDetail {
+    taft_name: string;
+    gaji: number;
+    lemburJam: number;
+    biayaLembur: number;
+    totalPengeluaran: number;
+  }
+
+  const taftDetails: TaftDetail[] = activeTafts.map(t => {
+    const key     = `${t.store_name}__${t.taft_name}`;
+    const entry   = groupedByTaft[key];
+    const lemJam  = entry
+      ? entry.rows.reduce((s, r) => s + (parseFloat(r.overtime_hours || '0') || 0), 0)
+      : 0;
+    const biaya   = lemJam * OVERTIME_RATE;
+    const gaji    = wagesMap[t.store_name.toLowerCase()] || 0;
+    return {
+      taft_name:        t.taft_name,
+      gaji,
+      lemburJam:        lemJam,
+      biayaLembur:      biaya,
+      totalPengeluaran: gaji + biaya,
+    };
+  });
+
+  return (
+    <>
+      {/* ── Summary header ─────────────────────────────────────────────────── */}
+      <div className="mb-3">
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+          <div>
+            <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+              Sales vs Pengeluaran — {monthLabel}
+            </p>
+            <p className="text-[10px] text-gray-400">Klik card untuk detail per TAFT</p>
+          </div>
+          {/* Global totals */}
+          <div className="flex gap-2 flex-wrap">
+            {[
+              { label: 'Total Sales',     val: totalSales,       cls: 'text-blue-600 bg-blue-50 border-blue-100' },
+              { label: 'Total Gaji',      val: totalGaji,        cls: 'text-orange-600 bg-orange-50 border-orange-100' },
+              { label: 'Total Lembur',    val: totalBiayaLembur, cls: 'text-purple-600 bg-purple-50 border-purple-100' },
+              { label: 'Net',             val: totalProfit,      cls: `${totalProfit >= 0 ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-red-600 bg-red-50 border-red-100'}` },
+            ].map(({ label, val, cls }) => (
+              <div key={label} className={`rounded-lg border px-3 py-1.5 text-center ${cls}`}>
+                <p className="text-[8px] font-semibold uppercase opacity-70">{label}</p>
+                <p className="text-[13px] font-black leading-tight">{fmtJt(val)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Cards grid ──────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+          {rows.map(r => {
+            const isProfit = r.profit >= 0;
+            return (
+              <button
+                key={r.store}
+                onClick={() => setActiveStore(r.store)}
+                className="text-left bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-150 overflow-hidden group"
+              >
+                {/* Card header */}
+                <div className="px-3 pt-2.5 pb-2 border-b border-gray-50">
+                  <div className="flex items-center justify-between gap-1 mb-0.5">
+                    <p className="text-[11px] font-bold text-gray-800 capitalize truncate">{r.store}</p>
+                    {r.ratio > 0 && (
+                      <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full shrink-0 ${ratioColor(r.ratio)}`}>
+                        {r.ratio.toFixed(1)}×
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[9px] text-gray-400">{r.taftCount} TAFT</p>
+                </div>
+
+                {/* Card body — 4 rows */}
+                <div className="px-3 py-2 space-y-1.5">
+                  {/* Sales */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-gray-400 font-medium">Sales</span>
+                    <span className="text-[10px] font-bold text-blue-600">{fmtJt(r.sales)}</span>
+                  </div>
+                  {/* Gaji */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-gray-400 font-medium">Gaji</span>
+                    <span className="text-[10px] font-bold text-orange-500">{fmtJt(r.totalGaji)}</span>
+                  </div>
+                  {/* Lembur */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-gray-400 font-medium">Lembur</span>
+                    <span className="text-[10px] font-bold text-purple-500">
+                      {r.biayaLembur > 0 ? fmtJt(r.biayaLembur) : '—'}
+                    </span>
+                  </div>
+                  {/* Divider */}
+                  <div className="border-t border-gray-100 pt-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] text-gray-500 font-semibold">Net</span>
+                      <span className={`text-[11px] font-black ${profitColor(r.profit)}`}>
+                        {isProfit ? '+' : ''}{fmtJt(r.profit)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress bar: sales vs total pengeluaran */}
+                <div className="px-3 pb-2.5">
+                  <div className="relative h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    {r.sales > 0 && r.totalPengeluaran > 0 && (
+                      <>
+                        <div
+                          className="absolute left-0 top-0 h-full rounded-full bg-blue-400"
+                          style={{ width: `${Math.min((r.sales / Math.max(r.sales, r.totalPengeluaran)) * 100, 100)}%` }}
+                        />
+                        <div
+                          className="absolute left-0 top-0 h-full rounded-full bg-orange-400 opacity-60"
+                          style={{ width: `${Math.min((r.totalPengeluaran / Math.max(r.sales, r.totalPengeluaran)) * 100, 100)}%` }}
+                        />
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Hover hint */}
+                <div className="px-3 pb-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <p className="text-[8px] text-primary font-medium text-center">Lihat detail →</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Popup modal detail per TAFT ─────────────────────────────────────── */}
+      {activeStore && activeRow && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+          onClick={() => setActiveStore(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <p className="text-sm font-black text-gray-900 capitalize">{activeStore}</p>
+                <p className="text-[10px] text-gray-400">{activeRow.taftCount} TAFT · {monthLabel}</p>
+              </div>
+              <button
+                onClick={() => setActiveStore(null)}
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 text-[11px] font-bold transition-colors"
+              >✕</button>
+            </div>
+
+            {/* Summary strip */}
+            <div className="grid grid-cols-4 divide-x divide-gray-100 border-b border-gray-100">
+              {[
+                { label: 'Sales',       val: activeRow.sales,           cls: 'text-blue-600'    },
+                { label: 'Total Gaji',  val: activeRow.totalGaji,       cls: 'text-orange-500'  },
+                { label: 'Biaya Lembur',val: activeRow.biayaLembur,     cls: 'text-purple-500'  },
+                { label: 'Net',         val: activeRow.profit,          cls: profitColor(activeRow.profit) },
+              ].map(({ label, val, cls }) => (
+                <div key={label} className="px-4 py-3 text-center">
+                  <p className="text-[8px] text-gray-400 uppercase font-semibold mb-0.5">{label}</p>
+                  <p className={`text-[12px] font-black ${cls}`}>
+                    {label === 'Net' && val >= 0 ? '+' : ''}{fmtJt(val)}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Per-TAFT table */}
+            <div className="overflow-y-auto flex-1">
+              {taftDetails.length === 0 ? (
+                <div className="py-10 text-center text-gray-400 text-sm">Tidak ada data TAFT</div>
+              ) : (
+                <table className="w-full text-[11px]">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gray-50 sticky top-0">
+                      <th className="px-5 py-2.5 text-left font-semibold text-gray-500 text-[9px] uppercase tracking-wide">TAFT</th>
+                      <th className="px-4 py-2.5 text-right font-semibold text-orange-400 text-[9px] uppercase tracking-wide">Gaji</th>
+                      <th className="px-4 py-2.5 text-right font-semibold text-purple-400 text-[9px] uppercase tracking-wide">Jam Lembur</th>
+                      <th className="px-4 py-2.5 text-right font-semibold text-purple-400 text-[9px] uppercase tracking-wide">Biaya Lembur</th>
+                      <th className="px-4 py-2.5 text-right font-semibold text-gray-500 text-[9px] uppercase tracking-wide">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {taftDetails.map((t, i) => (
+                      <tr key={t.taft_name} className={`border-b border-gray-50 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}>
+                        <td className="px-5 py-2.5 font-medium text-gray-800">{t.taft_name}</td>
+                        <td className="px-4 py-2.5 text-right text-orange-500 font-semibold">{fmtJt(t.gaji)}</td>
+                        <td className="px-4 py-2.5 text-right text-purple-500 font-semibold">
+                          {t.lemburJam > 0 ? `${t.lemburJam.toFixed(1)} jam` : '—'}
+                        </td>
+                        <td className="px-4 py-2.5 text-right text-purple-500 font-semibold">
+                          {t.biayaLembur > 0 ? fmtJt(t.biayaLembur) : '—'}
+                        </td>
+                        <td className="px-4 py-2.5 text-right text-gray-700 font-bold">{fmtJt(t.totalPengeluaran)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  {/* Footer total */}
+                  <tfoot>
+                    <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold">
+                      <td className="px-5 py-2.5 text-gray-700 text-[10px]">TOTAL</td>
+                      <td className="px-4 py-2.5 text-right text-orange-600 text-[10px]">{fmtJt(activeRow.totalGaji)}</td>
+                      <td className="px-4 py-2.5 text-right text-purple-600 text-[10px]">
+                        {activeRow.lemburJam > 0 ? `${activeRow.lemburJam.toFixed(1)} jam` : '—'}
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-purple-600 text-[10px]">{fmtJt(activeRow.biayaLembur)}</td>
+                      <td className="px-4 py-2.5 text-right text-gray-900 text-[10px]">{fmtJt(activeRow.totalPengeluaran)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              )}
+            </div>
+
+            {/* Modal footer */}
+            <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between bg-gray-50/60">
+              <p className="text-[9px] text-gray-400">
+                Gaji/orang: <span className="font-semibold text-gray-600">{fmtJt(activeRow.gajiPerOrang)}</span>
+                &nbsp;·&nbsp;Rate lembur: <span className="font-semibold text-gray-600">Rp17.500/jam</span>
+              </p>
+              <button
+                onClick={() => setActiveStore(null)}
+                className="px-3 py-1.5 bg-primary text-white rounded-lg text-[10px] font-semibold hover:bg-primary/90 transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── Report Dashboard ──────────────────────────────────────────────────────────
 interface TaftStat {
   taft_name: string;
@@ -1150,13 +1501,11 @@ const CHART_CFGS = [
   { key: 'off'    as ChartKey, label: 'Terbanyak OFF',    color: '#ef4444', unit: 'hari',  textCls: 'text-red-600',    bgCls: 'bg-red-500'    },
 ] as const;
 
-// Warna palette donut
 const DONUT_COLORS = [
   '#f97316','#fb923c','#fdba74','#fbbf24','#f59e0b',
   '#ef4444','#ec4899','#8b5cf6','#3b82f6','#22c55e',
 ];
 
-// ─── Mini Bar Chart (vertikal list) ───────────────────────────────────────────
 function MiniBarChart({
   data, cfg, maxRows = 43,
 }: {
@@ -1186,10 +1535,7 @@ function MiniBarChart({
               {i + 1}
             </span>
             <div className="w-28 shrink-0">
-              <p
-                className="text-[9px] font-medium text-gray-700 leading-tight"
-                title={s.taft_name}
-              >
+              <p className="text-[9px] font-medium text-gray-700 leading-tight" title={s.taft_name}>
                 {truncName(s.taft_name, 15)}
               </p>
               <p className="text-[8px] text-gray-400">{toTitleCase(s.store_name)}</p>
@@ -1210,7 +1556,6 @@ function MiniBarChart({
   );
 }
 
-// ─── Report Dashboard (komponen utama analitik) ───────────────────────────────
 function ReportDashboard({
   groupedByTaft,
 }: {
@@ -1233,7 +1578,6 @@ function ReportDashboard({
 
   const sorted = (key: ChartKey) => [...stats].sort((a, b) => b[key] - a[key]);
 
-  // ── Data untuk donut lembur per TAFT (top 10) ──────────────────────────────
   const top10Lembur = [...stats]
     .filter(s => s.lembur > 0)
     .sort((a, b) => b.lembur - a.lembur)
@@ -1252,7 +1596,6 @@ function ReportDashboard({
     }],
   };
 
-  // ── Data untuk distribusi kode shift ──────────────────────────────────────
   const allRows = Object.values(groupedByTaft).flatMap(g => g.rows);
   const codeCounts: Record<string, number> = {};
   allRows.forEach(r => {
@@ -1266,20 +1609,15 @@ function ReportDashboard({
     M:'#f97316', O:'#ef4444', C:'#ec4899', '+':'#f97316',
     I:'#6366f1', A:'#b91c1c',
   };
-  const shiftLabels = shiftOrder.filter(k => codeCounts[k] > 0);
-  const shiftValues = shiftLabels.map(k => codeCounts[k]);
-  const shiftBgColors = shiftLabels.map(k => shiftColors[k] || '#9ca3af');
+  const shiftLabels    = shiftOrder.filter(k => codeCounts[k] > 0);
+  const shiftValues    = shiftLabels.map(k => codeCounts[k]);
+  const shiftBgColors  = shiftLabels.map(k => shiftColors[k] || '#9ca3af');
 
   const barShiftData = {
     labels: shiftLabels,
-    datasets: [{
-      data: shiftValues,
-      backgroundColor: shiftBgColors,
-      borderWidth: 0,
-    }],
+    datasets: [{ data: shiftValues, backgroundColor: shiftBgColors, borderWidth: 0 }],
   };
 
-  // ── Data masuk vs off per toko (top 8 toko) ────────────────────────────────
   const storeMap: Record<string, { masuk: number; off: number }> = {};
   stats.forEach(s => {
     if (!storeMap[s.store_name]) storeMap[s.store_name] = { masuk: 0, off: 0 };
@@ -1298,7 +1636,6 @@ function ReportDashboard({
     ],
   };
 
-  // ── Data biaya lembur top 8 ────────────────────────────────────────────────
   const top8Lembur = [...stats]
     .filter(s => s.lembur > 0)
     .sort((a, b) => b.lembur - a.lembur)
@@ -1306,14 +1643,9 @@ function ReportDashboard({
 
   const barBiayaData = {
     labels: top8Lembur.map(s => truncName(s.taft_name, 13)),
-    datasets: [{
-      data: top8Lembur.map(s => Math.round(s.lembur * OVERTIME_RATE)),
-      backgroundColor: '#f97316',
-      borderWidth: 0,
-    }],
+    datasets: [{ data: top8Lembur.map(s => Math.round(s.lembur * OVERTIME_RATE)), backgroundColor: '#f97316', borderWidth: 0 }],
   };
 
-  // ── Data ketidakhadiran stacked (top 8 yang paling banyak absen) ───────────
   const top8Absen = [...stats]
     .filter(s => s.cuti + s.sakit + s.izin + s.alpa > 0)
     .sort((a, b) => (b.cuti + b.sakit + b.izin + b.alpa) - (a.cuti + a.sakit + a.izin + a.alpa))
@@ -1337,8 +1669,6 @@ function ReportDashboard({
 
   return (
     <div className="mb-4 space-y-2">
-
-      {/* ── Row 1: Top card summary ── */}
       <div className="grid grid-cols-4 gap-2">
         {CHART_CFGS.map(cfg => {
           const top = sorted(cfg.key).find(s => s[cfg.key] > 0);
@@ -1364,31 +1694,21 @@ function ReportDashboard({
         })}
       </div>
 
-      {/* ── Row 2: Bar chart lists (masuk, lembur, cuti, off) ── */}
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
         {CHART_CFGS.map(cfg => (
           <div key={cfg.key} className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
             <div className="flex items-center justify-between mb-2">
-              <h3 className={`text-[10px] font-bold uppercase tracking-wide ${cfg.textCls}`}>
-                {cfg.label}
-              </h3>
-              <span className="text-[9px] text-gray-300">
-                {sorted(cfg.key).filter(s => s[cfg.key] > 0).length}
-              </span>
+              <h3 className={`text-[10px] font-bold uppercase tracking-wide ${cfg.textCls}`}>{cfg.label}</h3>
+              <span className="text-[9px] text-gray-300">{sorted(cfg.key).filter(s => s[cfg.key] > 0).length}</span>
             </div>
             <MiniBarChart data={sorted(cfg.key)} cfg={cfg} />
           </div>
         ))}
       </div>
 
-      {/* ── Row 3: Donut lembur + distribusi shift + masuk vs off per toko ── */}
       <div className="grid grid-cols-3 gap-2">
-
-        {/* Donut distribusi lembur */}
         <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-orange-500 mb-2">
-            Distribusi lembur per TAFT
-          </p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-orange-500 mb-2">Distribusi lembur per TAFT</p>
           {top10Lembur.length === 0 ? (
             <div className="flex items-center justify-center h-32 text-[10px] text-gray-300">Tidak ada data lembur</div>
           ) : (
@@ -1405,8 +1725,7 @@ function ReportDashboard({
                         callbacks: {
                           label: (ctx) => {
                             const jam = ctx.raw as number;
-                            const biaya = Math.round(jam * OVERTIME_RATE);
-                            return [`${ctx.label}: ${jam.toFixed(1)} jam`, `Biaya: ${fmtRupiah(biaya)}`];
+                            return [`${ctx.label}: ${jam.toFixed(1)} jam`, `Biaya: ${fmtRupiah(jam * OVERTIME_RATE)}`];
                           },
                         },
                       },
@@ -1414,7 +1733,6 @@ function ReportDashboard({
                   }}
                 />
               </div>
-              {/* Legend donut */}
               <div className="flex flex-wrap gap-x-2 gap-y-1 mt-2">
                 {top10Lembur.map((s, i) => (
                   <span key={s.taft_name} className="flex items-center gap-1 text-[8px] text-gray-500">
@@ -1423,7 +1741,6 @@ function ReportDashboard({
                   </span>
                 ))}
               </div>
-              {/* Total biaya */}
               <div className="mt-2 pt-2 border-t border-gray-100">
                 <p className="text-[9px] text-gray-400">Total jam lembur</p>
                 <p className="text-[13px] font-bold text-orange-500">{totalLemburJam.toFixed(1)} jam</p>
@@ -1435,16 +1752,12 @@ function ReportDashboard({
           )}
         </div>
 
-        {/* Distribusi kode shift */}
         <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-2">
-            Distribusi kode shift
-          </p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-2">Distribusi kode shift</p>
           {shiftLabels.length === 0 ? (
             <div className="flex items-center justify-center h-32 text-[10px] text-gray-300">Tidak ada data</div>
           ) : (
             <>
-              {/* Legend warna shift */}
               <div className="flex flex-wrap gap-1 mb-2">
                 {shiftLabels.map((k, i) => (
                   <span key={k} className="flex items-center gap-1 text-[8px] text-gray-500">
@@ -1454,62 +1767,27 @@ function ReportDashboard({
                 ))}
               </div>
               <div style={{ position: 'relative', height: '160px' }}>
-                <Bar
-                  data={barShiftData}
-                  options={{
-                    ...chartBaseOptions,
-                    scales: {
-                      x: { ticks: { font: { size: 10 } } },
-                      y: { ticks: { font: { size: 9 }, stepSize: 1 } },
-                    },
-                    plugins: {
-                      legend: { display: false },
-                      tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.raw} hari` } },
-                    },
-                  }}
-                />
+                <Bar data={barShiftData} options={{ ...chartBaseOptions, scales: { x: { ticks: { font: { size: 10 } } }, y: { ticks: { font: { size: 9 }, stepSize: 1 } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.raw} hari` } } } }} />
               </div>
             </>
           )}
         </div>
 
-        {/* Masuk vs Off per toko */}
         <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-2">
-            Masuk vs Off per toko
-          </p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-2">Masuk vs Off per toko</p>
           <div className="flex gap-3 mb-2">
-            <span className="flex items-center gap-1 text-[8px] text-gray-500">
-              <span className="w-2 h-2 rounded-sm bg-blue-500" /> Masuk
-            </span>
-            <span className="flex items-center gap-1 text-[8px] text-gray-500">
-              <span className="w-2 h-2 rounded-sm bg-red-500" /> Off
-            </span>
+            <span className="flex items-center gap-1 text-[8px] text-gray-500"><span className="w-2 h-2 rounded-sm bg-blue-500" /> Masuk</span>
+            <span className="flex items-center gap-1 text-[8px] text-gray-500"><span className="w-2 h-2 rounded-sm bg-red-500" /> Off</span>
           </div>
           <div style={{ position: 'relative', height: '160px' }}>
-            <Bar
-              data={barStoreData}
-              options={{
-                ...chartBaseOptions,
-                scales: {
-                  x: { ticks: { font: { size: 8 }, maxRotation: 30 } },
-                  y: { ticks: { font: { size: 9 }, stepSize: 5 } },
-                },
-                plugins: { legend: { display: false } },
-              }}
-            />
+            <Bar data={barStoreData} options={{ ...chartBaseOptions, scales: { x: { ticks: { font: { size: 8 }, maxRotation: 30 } }, y: { ticks: { font: { size: 9 }, stepSize: 5 } } }, plugins: { legend: { display: false } } }} />
           </div>
         </div>
       </div>
 
-      {/* ── Row 4: Biaya lembur + ketidakhadiran ── */}
       <div className="grid grid-cols-2 gap-2">
-
-        {/* Top 8 biaya lembur horizontal */}
         <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-orange-500 mb-1">
-            Top 8 biaya lembur
-          </p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-orange-500 mb-1">Top 8 biaya lembur</p>
           <p className="text-[8px] text-gray-400 mb-2">@ Rp 17.500/jam</p>
           {top8Lembur.length === 0 ? (
             <div className="flex items-center justify-center h-32 text-[10px] text-gray-300">Tidak ada data</div>
@@ -1521,48 +1799,22 @@ function ReportDashboard({
                   ...chartBaseOptions,
                   indexAxis: 'y' as const,
                   scales: {
-                    x: {
-                      ticks: {
-                        font: { size: 8 },
-                        callback: (v: number | string) => {
-                          const n = Number(v);
-                          return n >= 1000000
-                            ? `Rp ${(n / 1000000).toFixed(1)}jt`
-                            : `Rp ${(n / 1000).toFixed(0)}rb`;
-                        },
-                      },
-                    },
+                    x: { ticks: { font: { size: 8 }, callback: (v: number | string) => { const n = Number(v); return n >= 1000000 ? `Rp ${(n/1000000).toFixed(1)}jt` : `Rp ${(n/1000).toFixed(0)}rb`; } } },
                     y: { ticks: { font: { size: 9 } } },
                   },
-                  plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                      callbacks: {
-                        label: ctx => fmtRupiah(ctx.raw as number),
-                      },
-                    },
-                  },
+                  plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => fmtRupiah(ctx.raw as number) } } },
                 }}
               />
             </div>
           )}
         </div>
 
-        {/* Ketidakhadiran stacked */}
         <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-1">
-            Ketidakhadiran per TAFT
-          </p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-1">Ketidakhadiran per TAFT</p>
           <div className="flex gap-3 mb-2">
-            {[
-              { label: 'Cuti', color: '#ec4899' },
-              { label: 'Sakit', color: '#f97316' },
-              { label: 'Izin', color: '#6366f1' },
-              { label: 'Alpa', color: '#b91c1c' },
-            ].map(({ label, color }) => (
+            {[{ label:'Cuti',color:'#ec4899'},{ label:'Sakit',color:'#f97316'},{ label:'Izin',color:'#6366f1'},{ label:'Alpa',color:'#b91c1c'}].map(({ label, color }) => (
               <span key={label} className="flex items-center gap-1 text-[8px] text-gray-500">
-                <span className="w-2 h-2 rounded-sm" style={{ background: color }} />
-                {label}
+                <span className="w-2 h-2 rounded-sm" style={{ background: color }} />{label}
               </span>
             ))}
           </div>
@@ -1570,23 +1822,11 @@ function ReportDashboard({
             <div className="flex items-center justify-center h-32 text-[10px] text-gray-300">Tidak ada data absensi</div>
           ) : (
             <div style={{ position: 'relative', height: `${top8Absen.length * 30 + 20}px` }}>
-              <Bar
-                data={barAbsenData}
-                options={{
-                  ...chartBaseOptions,
-                  indexAxis: 'y' as const,
-                  scales: {
-                    x: { stacked: true, ticks: { font: { size: 9 }, stepSize: 1 } },
-                    y: { stacked: true, ticks: { font: { size: 9 } } },
-                  },
-                  plugins: { legend: { display: false } },
-                }}
-              />
+              <Bar data={barAbsenData} options={{ ...chartBaseOptions, indexAxis: 'y' as const, scales: { x: { stacked: true, ticks: { font: { size: 9 }, stepSize: 1 } }, y: { stacked: true, ticks: { font: { size: 9 } } } }, plugins: { legend: { display: false } } }} />
             </div>
           )}
         </div>
       </div>
-
     </div>
   );
 }
@@ -1603,16 +1843,21 @@ function FullReport({ user }: { user: any }) {
     return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   });
   const [selectedDateRange, setSelectedDateRange] = useState('');
-  const [reports,   setReports]   = useState<ReportRow[]>([]);
-  const [schedules, setSchedules] = useState<ScheduleRow[]>([]);
-  const [loading,   setLoading]   = useState(false);
-  const [viewMode,  setViewMode]  = useState<'monthly'|'weekly'>('monthly');
+  const [reports,       setReports]       = useState<ReportRow[]>([]);
+  const [schedules,     setSchedules]     = useState<ScheduleRow[]>([]);
+  const [loading,       setLoading]       = useState(false);
+  const [viewMode,      setViewMode]      = useState<'monthly'|'weekly'>('monthly');
   const [expandedTafts, setExpandedTafts] = useState<Set<string>>(new Set());
+
+  // ── NEW: sales & wages state ──────────────────────────────────────────────
+  const [storeWages, setStoreWages] = useState<StoreWagesEntry[]>([]);
+  const [salesData,  setSalesData]  = useState<SalesStat[]>([]);
 
   useEffect(() => {
     fetch('/api/attendance/meta?type=all').then(r => r.json()).then(data => {
       setTaftList(data.taftList || []);
       setDateList(data.dateList || []);
+      setStoreWages(data.storeList || []); // storeList now includes store_wages column
       const stores = [...new Set((data.taftList || []).map((t: TaftEntry) => t.store_name))] as string[];
       setAllStores(stores);
     });
@@ -1630,8 +1875,12 @@ function FullReport({ user }: { user: any }) {
     setLoading(true);
     const storeParam = selectedStore ? `&store_name=${encodeURIComponent(selectedStore)}` : '';
     const taftParam  = selectedTaft  ? `&taft_name=${encodeURIComponent(selectedTaft)}`   : '';
-    const res = await fetch(`/api/attendance/report?month=${selectedMonth}${storeParam}${taftParam}`);
-    setReports(await res.json());
+    const [reportRes, salesRes] = await Promise.all([
+      fetch(`/api/attendance/report?month=${selectedMonth}${storeParam}${taftParam}`),
+      fetch(`/api/attendance/sales?month=${selectedMonth}`),
+    ]);
+    setReports(await reportRes.json());
+    setSalesData(await salesRes.json());
     setLoading(false);
   };
 
@@ -1650,17 +1899,14 @@ function FullReport({ user }: { user: any }) {
   const groupedByTaft = filteredTafts.reduce((acc, taft) => {
     if (selectedTaft && taft.taft_name !== selectedTaft) return acc;
     const key = `${taft.store_name}__${taft.taft_name}`;
-
     const sd = parseInt(taft.start_date) || 26;
     const ed = parseInt(taft.end_date)   || 25;
     const { from, to } = buildTaftDateRange(selectedMonth, sd, ed);
-
     const rows = reports.filter(r => {
       if (r.taft_name !== taft.taft_name || r.store_name !== taft.store_name) return false;
       const d = parseDateSafe(r.date);
       return d && d >= from && d <= to;
     });
-
     acc[key] = { taft_name: taft.taft_name, store_name: taft.store_name, rows };
     return acc;
   }, {} as Record<string, { taft_name: string; store_name: string; rows: ReportRow[] }>);
@@ -1668,15 +1914,13 @@ function FullReport({ user }: { user: any }) {
   const toggleTaft   = (key: string) => {
     setExpandedTafts(prev => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
   };
   const expandAll   = () => setExpandedTafts(new Set(Object.keys(groupedByTaft)));
   const collapseAll = () => setExpandedTafts(new Set());
 
-  // ── Export Report XLSX ───────────────────────────────────────────────────────
   const exportReportXlsx = () => {
     if (Object.keys(groupedByTaft).length === 0) return;
     const wb = XLSX.utils.book_new();
@@ -1688,61 +1932,16 @@ function FullReport({ user }: { user: any }) {
       right:  { style: 'thin', color: { rgb: '000000' } },
     };
 
-    const sTitle = {
-      font:      { bold: true, sz: 12 },
-      alignment: { horizontal: 'center', vertical: 'center' },
-      border:    borderAll,
-    };
-    const sHeader = {
-      font:      { bold: true, sz: 10 },
-      fill:      { fgColor: { rgb: 'D9D9D9' } },
-      alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-      border:    borderAll,
-    };
-    const sDataCenter = {
-      font:      { sz: 10 },
-      alignment: { horizontal: 'center', vertical: 'center' },
-      border:    borderAll,
-    };
-    const sDataLeft = {
-      font:      { sz: 10 },
-      alignment: { horizontal: 'left', vertical: 'center' },
-      border:    borderAll,
-    };
-    const sSummaryLabel = {
-      font:      { bold: true, sz: 10 },
-      alignment: { horizontal: 'left', vertical: 'center' },
-      border:    borderAll,
-    };
-    const sSummaryValue = {
-      font:      { bold: true, sz: 10 },
-      alignment: { horizontal: 'center', vertical: 'center' },
-      border:    borderAll,
-    };
-    const sSummaryLabelLembur = {
-      font:      { bold: true, sz: 10, color: { rgb: '0070C0' } },
-      fill:      { fgColor: { rgb: '00B0F0' } },
-      alignment: { horizontal: 'left', vertical: 'center' },
-      border:    borderAll,
-    };
-    const sSummaryValueLembur = {
-      font:      { bold: true, sz: 10, color: { rgb: '0070C0' } },
-      fill:      { fgColor: { rgb: '00B0F0' } },
-      alignment: { horizontal: 'center', vertical: 'center' },
-      border:    borderAll,
-    };
-    const sTotalLabel = {
-      font:      { bold: true, sz: 10 },
-      fill:      { fgColor: { rgb: 'FFC000' } },
-      alignment: { horizontal: 'left', vertical: 'center' },
-      border:    borderAll,
-    };
-    const sTotalValue = {
-      font:      { bold: true, sz: 10 },
-      fill:      { fgColor: { rgb: 'FFC000' } },
-      alignment: { horizontal: 'center', vertical: 'center' },
-      border:    borderAll,
-    };
+    const sTitle = { font: { bold: true, sz: 12 }, alignment: { horizontal: 'center', vertical: 'center' }, border: borderAll };
+    const sHeader = { font: { bold: true, sz: 10 }, fill: { fgColor: { rgb: 'D9D9D9' } }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border: borderAll };
+    const sDataCenter = { font: { sz: 10 }, alignment: { horizontal: 'center', vertical: 'center' }, border: borderAll };
+    const sDataLeft = { font: { sz: 10 }, alignment: { horizontal: 'left', vertical: 'center' }, border: borderAll };
+    const sSummaryLabel = { font: { bold: true, sz: 10 }, alignment: { horizontal: 'left', vertical: 'center' }, border: borderAll };
+    const sSummaryValue = { font: { bold: true, sz: 10 }, alignment: { horizontal: 'center', vertical: 'center' }, border: borderAll };
+    const sSummaryLabelLembur = { font: { bold: true, sz: 10, color: { rgb: '0070C0' } }, fill: { fgColor: { rgb: '00B0F0' } }, alignment: { horizontal: 'left', vertical: 'center' }, border: borderAll };
+    const sSummaryValueLembur = { font: { bold: true, sz: 10, color: { rgb: '0070C0' } }, fill: { fgColor: { rgb: '00B0F0' } }, alignment: { horizontal: 'center', vertical: 'center' }, border: borderAll };
+    const sTotalLabel = { font: { bold: true, sz: 10 }, fill: { fgColor: { rgb: 'FFC000' } }, alignment: { horizontal: 'left', vertical: 'center' }, border: borderAll };
+    const sTotalValue = { font: { bold: true, sz: 10 }, fill: { fgColor: { rgb: 'FFC000' } }, alignment: { horizontal: 'center', vertical: 'center' }, border: borderAll };
 
     const mkCell = (v: any, s: any, t?: string) => ({ v, t: t || (typeof v === 'number' ? 'n' : 's'), s });
     const emptyBorder = { v: '', s: { border: borderAll } };
@@ -1758,56 +1957,37 @@ function FullReport({ user }: { user: any }) {
       const sd = parseInt(taftInfo?.start_date || '26');
       const ed = parseInt(taftInfo?.end_date   || '25');
       const { from, to } = buildTaftDateRange(selectedMonth, sd, ed);
-      const fmtTglLong = (d: Date) =>
-        `${String(d.getDate()).padStart(2,'0')} ${MONTH_SHORT_ID[d.getMonth()]} ${d.getFullYear()}`;
+      const fmtTglLong = (d: Date) => `${String(d.getDate()).padStart(2,'0')} ${MONTH_SHORT_ID[d.getMonth()]} ${d.getFullYear()}`;
 
       const ws: any = {};
       let r = 0;
 
       const setRow = (cols: any[]) => {
-        cols.forEach((cell, c) => {
-          if (cell !== null) ws[XLSX.utils.encode_cell({ r, c })] = cell;
-        });
+        cols.forEach((cell, c) => { if (cell !== null) ws[XLSX.utils.encode_cell({ r, c })] = cell; });
         r++;
       };
 
-      setRow([
-        mkCell(`ABSEN IN OUT ${taft_name.toUpperCase()}`, sTitle),
-        mkCell('', sTitle), mkCell('', sTitle),
-        mkCell('', sTitle), mkCell('', sTitle), mkCell('', sTitle),
-      ]);
+      setRow([mkCell(`ABSEN IN OUT ${taft_name.toUpperCase()}`, sTitle), mkCell('', sTitle), mkCell('', sTitle), mkCell('', sTitle), mkCell('', sTitle), mkCell('', sTitle)]);
       r++;
-      setRow([
-        mkCell('TGL',                               sHeader),
-        mkCell('IN',                                sHeader),
-        mkCell('OUT',                               sHeader),
-        mkCell('SHIFT',                             sHeader),
-        mkCell('OVERTIME / LEMBUR BERAPA JAM',      sHeader),
-        mkCell('KETERANGAN',                        sHeader),
-      ]);
+      setRow([mkCell('TGL', sHeader), mkCell('IN', sHeader), mkCell('OUT', sHeader), mkCell('SHIFT', sHeader), mkCell('OVERTIME / LEMBUR BERAPA JAM', sHeader), mkCell('KETERANGAN', sHeader)]);
 
       for (const row of sortedRows) {
         const d = parseDateSafe(row.date);
-        const tglStr = d
-          ? `${String(d.getDate()).padStart(2,'0')}-${MONTH_SHORT_ID[d.getMonth()]}-${String(d.getFullYear()).slice(2)}`
-          : row.date;
+        const tglStr = d ? `${String(d.getDate()).padStart(2,'0')}-${MONTH_SHORT_ID[d.getMonth()]}-${String(d.getFullYear()).slice(2)}` : row.date;
         const code  = row.code_time?.trim() || '';
         const isOff = code === 'O';
-        const ot    = row.overtime_hours && parseFloat(row.overtime_hours) > 0
-          ? parseFloat(row.overtime_hours) : '';
-
+        const ot    = row.overtime_hours && parseFloat(row.overtime_hours) > 0 ? parseFloat(row.overtime_hours) : '';
         setRow([
-          mkCell(tglStr,                              sDataCenter),
+          mkCell(tglStr, sDataCenter),
           mkCell(isOff ? '-' : (row.clock_in  || '-'), sDataCenter),
           mkCell(isOff ? '-' : (row.clock_out || '-'), sDataCenter),
-          mkCell(code,                                sDataCenter),
+          mkCell(code, sDataCenter),
           ot !== '' ? mkCell(ot, sDataCenter, 'n') : mkCell('', sDataCenter),
-          mkCell(row.reason || '',                    sDataLeft),
+          mkCell(row.reason || '', sDataLeft),
         ]);
       }
 
-      r++;
-      r++;
+      r++; r++;
 
       const codeCounts: Record<string, number> = {};
       let totalMasuk = 0, totalOff = 0, totalLembur = 0;
@@ -1833,11 +2013,7 @@ function FullReport({ user }: { user: any }) {
       ];
 
       summaryRows.forEach(({ label, value }) => {
-        setRow([
-          mkCell(label, sSummaryLabel), mkCell('', emptyBorder.s), mkCell('', emptyBorder.s),
-          mkCell(value, sSummaryValue, 'n'),
-          mkCell('', { border: borderAll }), mkCell('', { border: borderAll }),
-        ]);
+        setRow([mkCell(label, sSummaryLabel), mkCell('', emptyBorder.s), mkCell('', emptyBorder.s), mkCell(value, sSummaryValue, 'n'), mkCell('', { border: borderAll }), mkCell('', { border: borderAll })]);
       });
 
       r++;
@@ -1853,26 +2029,13 @@ function FullReport({ user }: { user: any }) {
       ];
 
       totalRows.forEach(({ label, value, lembur }) => {
-        setRow([
-          mkCell(label, lembur ? sSummaryLabelLembur : sTotalLabel),
-          mkCell('', lembur ? sSummaryLabelLembur : sTotalLabel),
-          mkCell('', lembur ? sSummaryLabelLembur : sTotalLabel),
-          mkCell(value, lembur ? sSummaryValueLembur : sTotalValue, 'n'),
-          mkCell('', { border: borderAll }),
-          mkCell('', { border: borderAll }),
-        ]);
+        setRow([mkCell(label, lembur ? sSummaryLabelLembur : sTotalLabel), mkCell('', lembur ? sSummaryLabelLembur : sTotalLabel), mkCell('', lembur ? sSummaryLabelLembur : sTotalLabel), mkCell(value, lembur ? sSummaryValueLembur : sTotalValue, 'n'), mkCell('', { border: borderAll }), mkCell('', { border: borderAll })]);
       });
 
       r++;
-      ws[XLSX.utils.encode_cell({ r, c: 0 })] = {
-        v: `Periode: ${fmtTglLong(from)} - ${fmtTglLong(to)}`,
-        s: { font: { italic: true, sz: 9 }, alignment: { horizontal: 'left' } },
-      };
+      ws[XLSX.utils.encode_cell({ r, c: 0 })] = { v: `Periode: ${fmtTglLong(from)} - ${fmtTglLong(to)}`, s: { font: { italic: true, sz: 9 }, alignment: { horizontal: 'left' } } };
       r++;
-      ws[XLSX.utils.encode_cell({ r, c: 0 })] = {
-        v: `${taft_name} / ${store_name}`,
-        s: { font: { bold: true, sz: 9 } },
-      };
+      ws[XLSX.utils.encode_cell({ r, c: 0 })] = { v: `${taft_name} / ${store_name}`, s: { font: { bold: true, sz: 9 } } };
 
       ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: r, c: 5 } });
       ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
@@ -1886,9 +2049,7 @@ function FullReport({ user }: { user: any }) {
         ws['!merges'].push({ s: { r: totalStartRow + i, c: 0 }, e: { r: totalStartRow + i, c: 2 } });
       }
 
-      ws['!cols'] = [
-        { wch: 14 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 28 }, { wch: 40 },
-      ];
+      ws['!cols'] = [{ wch: 14 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 28 }, { wch: 40 }];
       ws['!rows'] = [{ hpt: 22 }];
 
       const rawName   = `${taft_name} - ${store_name}`;
@@ -1912,7 +2073,7 @@ function FullReport({ user }: { user: any }) {
             <label className="text-[11px] font-medium text-gray-600 whitespace-nowrap">Tampilan</label>
             <div className="flex gap-0.5 bg-gray-100 rounded p-0.5 ml-1">
               {(['monthly','weekly'] as const).map(m => (
-                <button key={m} onClick={() => { setViewMode(m); setReports([]); setSchedules([]); setExpandedTafts(new Set()); }}
+                <button key={m} onClick={() => { setViewMode(m); setReports([]); setSchedules([]); setExpandedTafts(new Set()); setSalesData([]); }}
                   className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${viewMode === m ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
                   {m === 'monthly' ? 'Monthly' : 'Weekly'}
                 </button>
@@ -1964,10 +2125,7 @@ function FullReport({ user }: { user: any }) {
           </button>
 
           {viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (
-            <button
-              onClick={exportReportXlsx}
-              className="px-3 py-1 bg-emerald-600 text-white rounded text-[11px] hover:bg-emerald-700"
-            >
+            <button onClick={exportReportXlsx} className="px-3 py-1 bg-emerald-600 text-white rounded text-[11px] hover:bg-emerald-700">
               ↓ Export XLSX
             </button>
           )}
@@ -1975,6 +2133,17 @@ function FullReport({ user }: { user: any }) {
       </div>
 
       {loading && <div className="text-center py-10 text-gray-400 text-sm">Memuat data...</div>}
+
+      {/* Sales vs Wages Chart — tampil di monthly view */}
+{!loading && viewMode === 'monthly' && (salesData.length > 0 || storeWages.length > 0) && (
+  <SalesWagesChart
+    salesData={salesData}
+    storeWages={storeWages}
+    taftList={filteredTafts.length > 0 ? filteredTafts : taftList}
+    selectedMonth={selectedMonth}
+    groupedByTaft={groupedByTaft}
+  />
+)}
 
       {/* Dashboard analitik */}
       {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (
@@ -1999,12 +2168,8 @@ function FullReport({ user }: { user: any }) {
             <div className="flex items-center justify-between">
               <span className="text-[11px] text-gray-500 font-medium">{Object.keys(groupedByTaft).length} TAFT</span>
               <div className="flex gap-1.5">
-                <button onClick={expandAll} className="text-[10px] px-2.5 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors font-medium">
-                  Buka Semua
-                </button>
-                <button onClick={collapseAll} className="text-[10px] px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors font-medium">
-                  Tutup Semua
-                </button>
+                <button onClick={expandAll} className="text-[10px] px-2.5 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors font-medium">Buka Semua</button>
+                <button onClick={collapseAll} className="text-[10px] px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors font-medium">Tutup Semua</button>
               </div>
             </div>
 
@@ -2076,38 +2241,21 @@ function FullReport({ user }: { user: any }) {
                               const isOff   = code === 'O';
                               const hasOT   = r.overtime_hours && parseFloat(r.overtime_hours) > 0;
                               return (
-                                <tr
-                                  key={i}
-                                  className={`border-b border-gray-50 last:border-0 transition-colors ${
-                                    weekend ? 'bg-blue-50/40' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
-                                  } hover:bg-primary/5`}
-                                >
+                                <tr key={i} className={`border-b border-gray-50 last:border-0 transition-colors ${weekend ? 'bg-blue-50/40' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} hover:bg-primary/5`}>
                                   <td className="px-4 py-2">
-                                    <span className={`text-[11px] font-medium ${weekend ? 'text-blue-600' : 'text-gray-700'}`}>
-                                      {fmtDate(r.date)}
-                                    </span>
+                                    <span className={`text-[11px] font-medium ${weekend ? 'text-blue-600' : 'text-gray-700'}`}>{fmtDate(r.date)}</span>
                                   </td>
                                   <td className="px-3 py-2 text-center">
-                                    {code
-                                      ? <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-600'}`}>{code}</span>
-                                      : <span className="text-gray-200 text-xs">—</span>
-                                    }
+                                    {code ? <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-600'}`}>{code}</span> : <span className="text-gray-200 text-xs">—</span>}
                                   </td>
                                   <td className="px-3 py-2 text-center">
-                                    <span className={`text-[11px] font-mono font-medium ${isOff ? 'text-gray-300' : 'text-gray-700'}`}>
-                                      {displayTime(r.clock_in) || (isOff ? '—' : '-')}
-                                    </span>
+                                    <span className={`text-[11px] font-mono font-medium ${isOff ? 'text-gray-300' : 'text-gray-700'}`}>{displayTime(r.clock_in) || (isOff ? '—' : '-')}</span>
                                   </td>
                                   <td className="px-3 py-2 text-center">
-                                    <span className={`text-[11px] font-mono font-medium ${isOff ? 'text-gray-300' : 'text-gray-700'}`}>
-                                      {displayTime(r.clock_out) || (isOff ? '—' : '-')}
-                                    </span>
+                                    <span className={`text-[11px] font-mono font-medium ${isOff ? 'text-gray-300' : 'text-gray-700'}`}>{displayTime(r.clock_out) || (isOff ? '—' : '-')}</span>
                                   </td>
                                   <td className="px-3 py-2 text-center">
-                                    {hasOT
-                                      ? <span className="text-[11px] font-bold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full">{r.overtime_hours}j</span>
-                                      : <span className="text-gray-200 text-xs">—</span>
-                                    }
+                                    {hasOT ? <span className="text-[11px] font-bold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full">{r.overtime_hours}j</span> : <span className="text-gray-200 text-xs">—</span>}
                                   </td>
                                   <td className="px-4 py-2">
                                     <span className="text-[11px] text-gray-400 truncate block max-w-[220px]">{r.reason || ''}</span>
@@ -2127,7 +2275,7 @@ function FullReport({ user }: { user: any }) {
         );
       })()}
 
-      {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length === 0 && (
+      {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length === 0 && salesData.length === 0 && storeWages.length === 0 && (
         <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-400 text-sm">
           Pilih bulan untuk melihat data
         </div>
@@ -2153,25 +2301,16 @@ function FullReport({ user }: { user: any }) {
               </thead>
               <tbody>
                 {weeklyTafts.map(taft => {
-                  const sched = schedules.find(
-                    s => s.taft_name === taft.taft_name &&
-                         s.store_name === taft.store_name &&
-                         s.date_range === selectedDateRange
-                  );
+                  const sched = schedules.find(s => s.taft_name === taft.taft_name && s.store_name === taft.store_name && s.date_range === selectedDateRange);
                   return (
                     <tr key={taft.id} className="border-b hover:bg-gray-50">
                       <td className="px-3 py-1.5 font-medium text-gray-800 text-[11px]">{taft.taft_name}</td>
-                      {!selectedStore && (
-                        <td className="px-3 py-1.5 text-gray-500 text-[10px]">{toTitleCase(taft.store_name)}</td>
-                      )}
+                      {!selectedStore && (<td className="px-3 py-1.5 text-gray-500 text-[10px]">{toTitleCase(taft.store_name)}</td>)}
                       {DAYS.map((d, i) => {
                         const code = sched?.[d as keyof ScheduleRow] as string || '';
                         return (
                           <td key={d} className={`px-2 py-1.5 text-center ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}>
-                            {code
-                              ? <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>{code}</span>
-                              : <span className="text-gray-300 text-[10px]">-</span>
-                            }
+                            {code ? <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>{code}</span> : <span className="text-gray-300 text-[10px]">-</span>}
                           </td>
                         );
                       })}
@@ -2179,11 +2318,7 @@ function FullReport({ user }: { user: any }) {
                   );
                 })}
                 {weeklyTafts.length === 0 && (
-                  <tr>
-                    <td colSpan={!selectedStore ? 9 : 8} className="px-3 py-8 text-center text-gray-400 text-sm">
-                      Tidak ada data taft
-                    </td>
-                  </tr>
+                  <tr><td colSpan={!selectedStore ? 9 : 8} className="px-3 py-8 text-center text-gray-400 text-sm">Tidak ada data taft</td></tr>
                 )}
               </tbody>
             </table>

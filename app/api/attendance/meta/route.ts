@@ -1,5 +1,21 @@
+// app/api/attendance/meta/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData } from '@/lib/sheets';
+
+/**
+ * Normalise store list rows: the sheet header might be "store_wadges" (typo)
+ * or "store_wages" — map both to "store_wages" so the frontend always gets
+ * a consistent field name.
+ */
+function normalizeStoreList(rows: any[]): any[] {
+  return rows.map((r) => {
+    if ('store_wadges' in r && !('store_wages' in r)) {
+      const { store_wadges, ...rest } = r;
+      return { ...rest, store_wages: store_wadges };
+    }
+    return r;
+  });
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,7 +31,9 @@ export async function GET(request: NextRequest) {
       const data = await getSheetData('taft_list');
       const store = searchParams.get('store');
       if (store) {
-        return NextResponse.json(data.filter((r: any) => r.store_name?.toLowerCase() === store.toLowerCase()));
+        return NextResponse.json(
+          data.filter((r: any) => r.store_name?.toLowerCase() === store.toLowerCase())
+        );
       }
       return NextResponse.json(data);
     }
@@ -27,10 +45,10 @@ export async function GET(request: NextRequest) {
 
     if (type === 'store_list') {
       const data = await getSheetData('store_list');
-      return NextResponse.json(data);
+      return NextResponse.json(normalizeStoreList(data));
     }
 
-    // all
+    // type === 'all'
     const [dateList, taftList, timeSchedule, storeList] = await Promise.all([
       getSheetData('date_list'),
       getSheetData('taft_list'),
@@ -38,7 +56,12 @@ export async function GET(request: NextRequest) {
       getSheetData('store_list'),
     ]);
 
-    return NextResponse.json({ dateList, taftList, timeSchedule, storeList });
+    return NextResponse.json({
+      dateList,
+      taftList,
+      timeSchedule,
+      storeList: normalizeStoreList(storeList),
+    });
   } catch (error) {
     console.error('Error fetching attendance meta:', error);
     return NextResponse.json({ error: 'Failed to fetch meta' }, { status: 500 });

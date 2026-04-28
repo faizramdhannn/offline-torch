@@ -30,6 +30,7 @@ const SPREADSHEET_MAP: Record<string, string> = {
   store_list: process.env.SPREADSHEET_ATTENDANCE || "",
   time_schedule: process.env.SPREADSHEET_ATTENDANCE || "",
   schedule_report: process.env.SPREADSHEET_ATTENDANCE || "",
+  sales_store: process.env.SPREADSHEET_ATTENDANCE || "",
   "Torch Cirebon": process.env.SPREADSHEET_CUSTOMER || "",
   "Torch Jogja": process.env.SPREADSHEET_CUSTOMER || "",
   "Torch Karawaci": process.env.SPREADSHEET_CUSTOMER || "",
