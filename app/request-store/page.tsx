@@ -419,73 +419,59 @@ export default function RequestStorePage() {
           </div>
 
           {/* ── Filter Bar ─────────────────────────────────────────────────── */}
-          <div className="bg-white rounded-lg shadow px-4 py-3 mb-4 flex flex-wrap items-end gap-3">
-            <div className="flex items-end gap-2">
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                  Date From
-                </label>
-                <input
-                  type="date"
-                  value={filterDateFrom}
-                  onChange={(e) => { setFilterDateFrom(e.target.value); setCurrentPage(1); }}
-                  className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <span className="text-gray-400 text-xs pb-2">—</span>
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                  Date To
-                </label>
-                <input
-                  type="date"
-                  value={filterDateTo}
-                  onChange={(e) => { setFilterDateTo(e.target.value); setCurrentPage(1); }}
-                  className="px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
+          <div className="bg-white rounded-lg shadow px-3 py-2 mb-3 flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <label className="text-[10px] text-gray-400 whitespace-nowrap">Date From</label>
+              <input
+                type="date"
+                value={filterDateFrom}
+                onChange={(e) => { setFilterDateFrom(e.target.value); setCurrentPage(1); }}
+                className="px-1.5 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <span className="text-gray-300 text-[11px]">—</span>
+              <label className="text-[10px] text-gray-400 whitespace-nowrap">Date To</label>
+              <input
+                type="date"
+                value={filterDateTo}
+                onChange={(e) => { setFilterDateTo(e.target.value); setCurrentPage(1); }}
+                className="px-1.5 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+              />
             </div>
 
-            <div className="flex-1 min-w-[200px] max-w-xs">
-              <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                Search SO / DN / SI
-              </label>
-              <div className="relative">
-                <svg
-                  className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400"
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-                </svg>
-                <input
-                  type="text"
-                  value={filterDoc}
-                  onChange={(e) => { setFilterDoc(e.target.value); setCurrentPage(1); }}
-                  placeholder="Cari nomor SO, DN, atau SI..."
-                  className="w-full pl-7 pr-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-            </div>
+            <div className="w-px h-4 bg-gray-200" />
 
-            {hasActiveFilter && (
-              <button
-                onClick={handleClearFilters}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded text-xs hover:bg-red-100 transition-colors self-end"
+            <div className="relative">
+              <svg
+                className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
               >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Clear Filter
-              </button>
-            )}
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+              </svg>
+              <input
+                type="text"
+                value={filterDoc}
+                onChange={(e) => { setFilterDoc(e.target.value); setCurrentPage(1); }}
+                placeholder="Cari SO / DN / SI..."
+                className="pl-6 pr-2 py-1 border border-gray-300 rounded text-[11px] w-44 focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
 
             {hasActiveFilter && (
-              <div className="self-end pb-0.5">
+              <>
+                <button
+                  onClick={handleClearFilters}
+                  className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 border border-gray-200 rounded text-[11px] hover:bg-gray-200 transition-colors"
+                >
+                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Clear
+                </button>
                 <span className="text-[10px] text-gray-400">
                   {filteredData.length} result{filteredData.length !== 1 ? "s" : ""}
                 </span>
-              </div>
+              </>
             )}
           </div>
 
