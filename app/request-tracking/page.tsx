@@ -19,7 +19,7 @@ interface TrackingItem {
   update_by: string;
   created_at: string;
   update_at: string;
-  tracking_number?: string; // ← NEW
+  tracking_number?: string;
 }
 
 interface StoreAddress {
@@ -311,6 +311,26 @@ function CopyButton({ text, id, copiedId, onCopy }: {
   );
 }
 
+// ── CheckResiButton ───────────────────────────────────────────────────────
+// Klik → pindah ke tab "Cek Resi" dan kirim nomor resi via postMessage ke iframe
+function CheckResiButton({ trackingNumber, onCheck }: {
+  trackingNumber: string; onCheck: (resi: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onCheck(trackingNumber)}
+      title="Cek resi"
+      className="inline-flex items-center justify-center w-5 h-5 rounded hover:bg-blue-100 transition-colors shrink-0"
+    >
+      <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+      </svg>
+    </button>
+  );
+}
+
 // ── Google Drive URL converter ────────────────────────────────────────────
 function getEmbedUrl(url: string): string {
   if (!url) return url;
@@ -420,12 +440,14 @@ function DetailPopup({ item, onClose, copiedId, onCopy }: {
                   : <p className="text-xs font-medium text-gray-800">{item.expedition}</p>}
               </div>
 
-              {/* No. Resi — tampil jika ada tracking_number */}
+              {/* No. Resi — tampil jika ada tracking_number, teks bisa di-select-all */}
               {item.tracking_number && (
                 <div>
                   <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">No. Resi</p>
                   <div className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded p-2">
-                    <p className="text-xs font-mono font-bold text-blue-900 flex-1 break-all">{item.tracking_number}</p>
+                    <p className="text-xs font-mono font-bold text-blue-900 flex-1 break-all select-all">
+                      {item.tracking_number}
+                    </p>
                     <CopyButton text={item.tracking_number} id={`resi-detail-${item.id}`} copiedId={copiedId} onCopy={onCopy} />
                   </div>
                 </div>
@@ -450,7 +472,8 @@ function DetailPopup({ item, onClose, copiedId, onCopy }: {
                     <CopyButton text={item.receiver} id={`detail-${item.id}`} copiedId={copiedId} onCopy={onCopy} />
                   )}
                 </div>
-                <p className="text-xs text-gray-800 font-mono whitespace-pre-line leading-relaxed bg-gray-50 rounded p-2 border border-gray-100">
+                {/* select-all agar Ctrl+A bisa copy di dalam box ini */}
+                <p className="text-xs text-gray-800 font-mono whitespace-pre-line leading-relaxed bg-gray-50 rounded p-2 border border-gray-100 select-all">
                   {item.receiver || "-"}
                 </p>
               </div>
@@ -514,6 +537,11 @@ export default function RequestTrackingPage() {
   const [iframeUrl] = useState("https://offline-tracking.vercel.app/");
   const [searchReceiver, setSearchReceiver] = useState("");
 
+  // ── Ref ke iframe Cek Resi ─────────────────────────────────────────────
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  // Simpan resi yang menunggu dikirim saat iframe selesai load
+  const pendingResiRef = useRef<string | null>(null);
+
   const itemsPerPage = 25;
   const uploadFileRef = useRef<HTMLInputElement>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -548,6 +576,33 @@ export default function RequestTrackingPage() {
     const interval = setInterval(fetchData, 30_000);
     return () => clearInterval(interval);
   }, [user]);
+
+  // ── Kirim postMessage saat iframe selesai load ─────────────────────────
+  const handleIframeLoad = useCallback(() => {
+    if (pendingResiRef.current && iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        { type: "CHECK_RESI", resi: pendingResiRef.current },
+        "https://offline-tracking.vercel.app"
+      );
+      pendingResiRef.current = null;
+    }
+  }, []);
+
+  // ── Klik ikon cek: pindah tab → kirim postMessage ─────────────────────
+  const handleCheckResi = useCallback((resi: string) => {
+    pendingResiRef.current = resi;
+    setActiveTab("tracking");
+    // Jika iframe sudah ada di DOM (sudah load sebelumnya), kirim langsung
+    setTimeout(() => {
+      if (iframeRef.current?.contentWindow) {
+        iframeRef.current.contentWindow.postMessage(
+          { type: "CHECK_RESI", resi },
+          "https://offline-tracking.vercel.app"
+        );
+        pendingResiRef.current = null;
+      }
+    }, 400);
+  }, []);
 
   const fetchData = async () => {
     try {
@@ -842,8 +897,8 @@ export default function RequestTrackingPage() {
                             <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[75px]">Ekspedisi</th>
                             <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[100px]">Pengirim</th>
                             <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[150px]">Penerima</th>
-                            {/* ── Kolom No. Resi ── */}
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[140px]">No. Resi</th>
+                            {/* Kolom No. Resi sedikit lebih lebar untuk akomodasi 2 ikon */}
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[155px]">No. Resi</th>
                             <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[50px]">Berat</th>
                             <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[110px]">Alasan</th>
                             {canUpload && <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[85px]">Request By</th>}
@@ -878,20 +933,29 @@ export default function RequestTrackingPage() {
                                   </div>
                                 </td>
 
-                                {/* ── Kolom No. Resi dengan Copy ── */}
+                                {/* ── Kolom No. Resi: ikon copy + ikon cek resi ── */}
                                 <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
                                   {item.tracking_number ? (
                                     <div className="flex items-center gap-1">
-                                      <span className="font-mono text-[10px] font-semibold text-blue-700 truncate flex-1" title={item.tracking_number}>
+                                      <span
+                                        className="font-mono text-[10px] font-semibold text-blue-700 truncate flex-1"
+                                        title={item.tracking_number}
+                                      >
                                         {hasActiveSearch
                                           ? highlightText(item.tracking_number, searchReceiver)
                                           : item.tracking_number}
                                       </span>
+                                      {/* Ikon copy */}
                                       <CopyButton
                                         text={item.tracking_number}
                                         id={`resi-${item.id}`}
                                         copiedId={copiedId}
                                         onCopy={handleCopyReceiver}
+                                      />
+                                      {/* Ikon cek resi → pindah ke tab Cek Resi + postMessage */}
+                                      <CheckResiButton
+                                        trackingNumber={item.tracking_number}
+                                        onCheck={handleCheckResi}
                                       />
                                     </div>
                                   ) : (
@@ -985,10 +1049,18 @@ export default function RequestTrackingPage() {
             </>
           )}
 
-          {/* Tab: Cek Resi */}
+          {/* Tab: Cek Resi — iframe dengan ref untuk postMessage */}
           {activeTab === "tracking" && (
             <div className="bg-white rounded-lg shadow overflow-hidden">
-              <iframe key={iframeUrl} src={iframeUrl} className="w-full" style={{ height: "100vh" }} title="Tracking Pengiriman" />
+              <iframe
+                ref={iframeRef}
+                key={iframeUrl}
+                src={iframeUrl}
+                className="w-full"
+                style={{ height: "100vh" }}
+                title="Tracking Pengiriman"
+                onLoad={handleIframeLoad}
+              />
             </div>
           )}
         </div>
@@ -1127,7 +1199,6 @@ export default function RequestTrackingPage() {
               {selectedItem.receiver}
             </div>
 
-            {/* Info OCR */}
             <div className="mb-3 flex items-start gap-1.5 p-2 bg-yellow-50 border border-yellow-200 rounded text-[10px] text-yellow-800">
               <svg className="w-3 h-3 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
