@@ -1050,19 +1050,32 @@ export default function RequestTrackingPage() {
           )}
 
           {/* Tab: Cek Resi — iframe dengan ref untuk postMessage */}
-          {activeTab === "tracking" && (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <iframe
-                ref={iframeRef}
-                key={iframeUrl}
-                src={iframeUrl}
-                className="w-full"
-                style={{ height: "100vh" }}
-                title="Tracking Pengiriman"
-                onLoad={handleIframeLoad}
-              />
-            </div>
-          )}
+{/* Tab: Cek Resi — iframe dengan ref untuk postMessage */}
+{activeTab === "tracking" && (
+  <div
+    className="bg-white rounded-lg shadow overflow-hidden"
+    style={{ height: "calc(100vh - 180px)" }}
+  >
+    <div
+      style={{
+        width: "142.86%",
+        height: "142.86%",
+        transform: "scale(0.7)",
+        transformOrigin: "top left",
+      }}
+    >
+      <iframe
+        ref={iframeRef}
+        key={iframeUrl}
+        src={iframeUrl}
+        className="w-full"
+        style={{ height: "calc((100vh - 180px) / 0.7)" }}
+        title="Tracking Pengiriman"
+        onLoad={handleIframeLoad}
+      />
+    </div>
+  </div>
+)}
         </div>
       </div>
 
