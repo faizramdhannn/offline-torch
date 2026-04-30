@@ -12,7 +12,6 @@ export async function POST(request: NextRequest) {
 
     const data = await getSheetData('system_config');
     const key = `${SUBSCRIPTION_KEY_PREFIX}${username}`;
-    const existingIdx = data.findIndex((row: any) => row.config_key === key);
 
     const now = new Date().toLocaleString('id-ID', {
       day: '2-digit', month: 'short', year: 'numeric',
@@ -21,10 +20,23 @@ export async function POST(request: NextRequest) {
 
     const subscriptionStr = JSON.stringify(subscription);
 
-    if (existingIdx !== -1) {
-      await updateSheetRow('system_config', existingIdx + 2, [key, subscriptionStr, username, now]);
-    } else {
+    // Cari SEMUA index yang punya key sama (termasuk duplikat)
+    const matchingIndices: number[] = [];
+    data.forEach((row: any, idx: number) => {
+      if (row.config_key === key) matchingIndices.push(idx);
+    });
+
+    if (matchingIndices.length === 0) {
+      // Belum ada, append baru
       await appendSheetData('system_config', [[key, subscriptionStr, username, now]]);
+    } else {
+      // Update row pertama dengan subscription terbaru
+      await updateSheetRow('system_config', matchingIndices[0] + 2, [key, subscriptionStr, username, now]);
+
+      // Clear duplikat jika ada
+      for (let i = 1; i < matchingIndices.length; i++) {
+        await updateSheetRow('system_config', matchingIndices[i] + 2, ['', '', '', '']);
+      }
     }
 
     return NextResponse.json({ success: true });
@@ -42,7 +54,9 @@ export async function GET(request: NextRequest) {
 
     const data = await getSheetData('system_config');
     const key = `${SUBSCRIPTION_KEY_PREFIX}${username}`;
-    const entry = data.find((row: any) => row.config_key === key);
+
+    // Ambil yang pertama dan punya config_value
+    const entry = data.find((row: any) => row.config_key === key && row.config_value);
 
     if (!entry?.config_value) return NextResponse.json({ subscription: null });
     return NextResponse.json({ subscription: JSON.parse(entry.config_value) });

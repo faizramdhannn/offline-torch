@@ -171,7 +171,7 @@ export default function RequestStorePage() {
         if (newStatus === "Completed") {
           await sendPushNotification({
             requesterUsername: item.created_by,
-            title: "✅ Request Selesai",
+            title: "Request Selesai",
             body: `Request "${item.reason_request}" sudah diselesaikan oleh ${user.user_name}`,
           });
         }
@@ -211,7 +211,7 @@ export default function RequestStorePage() {
       if (res.ok) {
         await sendPushNotification({
           assignedTo: form.assigned_to,
-          title: "📋 Request Baru Untukmu",
+          title: "Request Baru Untukmu",
           body: `${form.requester}: ${form.reason_request}`,
         });
         showMessage("Request berhasil dibuat", "success");
@@ -262,14 +262,14 @@ export default function RequestStorePage() {
         if (editForm.status === "Completed" && selectedItem.status !== "Completed") {
           await sendPushNotification({
             requesterUsername: selectedItem.created_by,
-            title: "✅ Request Selesai",
+            title: "Request Selesai",
             body: `Request "${selectedItem.reason_request}" sudah diselesaikan`,
           });
         }
         if (editForm.assigned_to !== selectedItem.assigned_to && editForm.status === "Pending") {
           await sendPushNotification({
             assignedTo: editForm.assigned_to,
-            title: "📋 Request Ditugaskan ke Kamu",
+            title: "Request Ditugaskan ke Kamu",
             body: `${editForm.requester}: ${editForm.reason_request}`,
           });
         }

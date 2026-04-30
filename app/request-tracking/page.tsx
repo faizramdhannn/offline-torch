@@ -675,7 +675,7 @@ export default function RequestTrackingPage() {
     setReceiverError("");
   };
 
-  const handleAdd = async () => {
+const handleAdd = async () => {
     if (!form.date || !form.assigned_to || !form.expedition || !form.sender || !form.receiver || !form.weight || !form.reason) {
       showMessage("Semua field wajib diisi", "error"); return;
     }
@@ -691,6 +691,19 @@ export default function RequestTrackingPage() {
       if (res.ok) {
         showMessage("Request berhasil dibuat", "success");
         setShowAddModal(false); resetAddForm();
+
+        try {
+          await fetch("/api/push-notify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              assignedTo: form.assigned_to,
+              title: "Request Shipment Baru",
+              body: `${user.user_name}: ${form.expedition} → ${form.receiver.split("\n")[0]}`,
+            }),
+          });
+        } catch {}
+
         await logActivity("POST", `Created shipment request: ${form.expedition} → ${form.assigned_to}`);
         fetchData();
       } else { showMessage("Gagal membuat request", "error"); }

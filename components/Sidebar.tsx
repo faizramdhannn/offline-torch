@@ -24,6 +24,7 @@ interface SidebarProps {
     stock_opname?: boolean;
     stock_opname_report?: boolean;
     request?: boolean;
+    edit_request?: boolean; 
     traffic_store?: boolean;
     report_store?: boolean;
     request_tracking?: boolean;
@@ -291,9 +292,12 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
 
   return (
     <>
-      {permissions?.request && (
-        <NotificationListener username={loginName} />
-      )}
+      {(permissions?.request || 
+      permissions?.edit_request || 
+      permissions?.request_tracking || 
+      permissions?.tracking_edit) && (
+      <NotificationListener username={loginName} />
+)}
 
       {isOpen && (
         <div

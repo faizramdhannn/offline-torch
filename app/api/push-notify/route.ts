@@ -4,10 +4,6 @@ import webpush from 'web-push';
 
 const SUBSCRIPTION_KEY_PREFIX = 'push_sub_';
 
-// ─── Setup web-push VAPID ─────────────────────────────────────────────────────
-// web-push library handle semua enkripsi dan format push secara otomatis,
-// kompatibel dengan Chrome, Firefox, dan semua browser modern.
-// Tidak perlu manual FCM v1 API lagi.
 webpush.setVapidDetails(
   'https://offline-torch.vercel.app',
   process.env.VAPID_PUBLIC_KEY || '',
@@ -40,14 +36,20 @@ export async function POST(request: NextRequest) {
 
     for (const username of recipients) {
       const key = `${SUBSCRIPTION_KEY_PREFIX}${username}`;
-      const entryIdx = data.findIndex((row: any) => row.config_key === key);
-      const entry = data[entryIdx];
 
-      if (!entry?.config_value) {
+      // Ambil semua row yang cocok, pilih yang punya config_value valid
+      const matchingRows = data
+        .map((row: any, idx: number) => ({ row, idx }))
+        .filter(({ row }: any) => row.config_key === key && row.config_value);
+
+      if (matchingRows.length === 0) {
         console.log(`No subscription found for ${username}`);
         results[username] = { success: false, message: 'No subscription found' };
         continue;
       }
+
+      // Pakai subscription terbaru (index terakhir yang valid)
+      const { row: entry, idx: entryIdx } = matchingRows[matchingRows.length - 1];
 
       let subscription: any;
       try {
