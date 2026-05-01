@@ -1,5 +1,6 @@
 "use client";
 
+import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -156,6 +157,7 @@ export default function PettyCashPage() {
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [updatingTransfer, setUpdatingTransfer] = useState<string | null>(null);
+  useSessionGuard();
 
   // Detail popup
   const [showDetailPopup, setShowDetailPopup] = useState(false);

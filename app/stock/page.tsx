@@ -1,5 +1,6 @@
 "use client";
 
+import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -294,6 +295,7 @@ export default function StockPage() {
   const [warehouses, setWarehouses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedView, setSelectedView] = useState<"store" | "pca" | "master">("store");
+  useSessionGuard(); 
 
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [gradeFilter, setGradeFilter] = useState<string[]>([]);

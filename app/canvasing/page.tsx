@@ -1,5 +1,6 @@
 "use client";
 
+import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -76,6 +77,7 @@ export default function CanvasingPage() {
   const [storeName, setStoreName] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "report">("list");
   const [exporting, setExporting] = useState(false);
+  useSessionGuard();
 
   const [showModal, setShowModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<Canvasing | null>(null);

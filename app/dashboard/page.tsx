@@ -1,5 +1,6 @@
 "use client";
 
+import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -101,6 +102,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  useSessionGuard();
 
   // Absensi hari ini (dari report)
   const [todayReport, setTodayReport] = useState<{

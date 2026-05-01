@@ -1,5 +1,6 @@
 "use client";
 
+import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -703,7 +704,8 @@ export default function AnalyticsOrderPage() {
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [activeTab, setActiveTab] = useState("store");
   const [chartView, setChartView] = useState<"all" | "daily">("all");
-
+  useSessionGuard();
+  
   // ─── Order detail popup ───────────────────────────────────────────────────
   const [popupGroup, setPopupGroup] = useState<{ label: string; orderNames: string[] } | null>(null);
 

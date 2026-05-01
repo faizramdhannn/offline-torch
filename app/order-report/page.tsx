@@ -1,5 +1,6 @@
 "use client";
 
+import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -47,6 +48,7 @@ export default function OrderReportPage() {
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showWarehouseDropdown, setShowWarehouseDropdown] = useState(false);
+  useSessionGuard();
 
   const [powerbizFile, setPowerbizFile] = useState<File | null>(null);
   const [deliveryFile, setDeliveryFile] = useState<File | null>(null);

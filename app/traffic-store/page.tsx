@@ -1,5 +1,6 @@
 "use client";
 
+import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -369,6 +370,7 @@ export default function TrafficStorePage() {
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
+  useSessionGuard();
 
   // Filters
   const [filterStore, setFilterStore] = useState("all");

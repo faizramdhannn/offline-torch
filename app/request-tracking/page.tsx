@@ -1,5 +1,6 @@
 "use client";
 
+import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -532,6 +533,7 @@ export default function RequestTrackingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  useSessionGuard(); 
 
   const [activeTab, setActiveTab] = useState<"table" | "tracking">("table");
   const [iframeUrl] = useState("https://offline-tracking.vercel.app/");

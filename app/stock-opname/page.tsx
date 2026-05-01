@@ -1,5 +1,6 @@
 "use client";
 
+import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -364,6 +365,7 @@ export default function StockOpnamePage() {
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [searchStore, setSearchStore] = useState("");
   const [searchReport, setSearchReport] = useState("");
+  useSessionGuard();
 
   useEffect(() => {
     const userData = localStorage.getItem("user");

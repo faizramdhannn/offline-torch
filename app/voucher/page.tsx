@@ -1,5 +1,6 @@
 "use client";
 
+import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -19,6 +20,7 @@ export default function VoucherPage() {
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  useSessionGuard();
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;

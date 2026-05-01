@@ -1,5 +1,6 @@
 "use client";
 
+import { useSessionGuard } from "@/hooks/useSessionGuard";
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -219,6 +220,7 @@ export default function AttendancePage() {
   const [isStoreUser, setIsStoreUser] = useState(false);
   const [myStoreName, setMyStoreName] = useState('');
   const [activeTab,   setActiveTab]   = useState<'weekly'|'monthly'|'report'>('weekly');
+  useSessionGuard();
 
   useEffect(() => {
     const userData = localStorage.getItem("user");

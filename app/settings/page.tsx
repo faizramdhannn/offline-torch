@@ -1,5 +1,6 @@
 "use client";
 
+import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -106,6 +107,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [permissions, setPermissions] = useState<Perms>({ ...EMPTY_PERMS });
   const [searchQuery, setSearchQuery] = useState("");
+  useSessionGuard();
 
   // Javelin Configuration
   const [showJavelinModal, setShowJavelinModal] = useState(false);

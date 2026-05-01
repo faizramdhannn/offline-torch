@@ -1,5 +1,6 @@
 "use client";
 
+import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -49,6 +50,7 @@ export default function CustomerPage() {
   );
   const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
+  useSessionGuard();
 
   const [followupChecked, setFollowupChecked] = useState(false);
   const [followupResult, setFollowupResult] = useState("");

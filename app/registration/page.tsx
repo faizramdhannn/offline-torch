@@ -1,5 +1,6 @@
 "use client";
 
+import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -52,6 +53,7 @@ export default function RegistrationPage() {
     registration_request: false,
     user_setting: false,
   });
+  useSessionGuard();
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
