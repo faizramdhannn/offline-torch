@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isRegistration, setIsRegistration] = useState(false);
@@ -40,10 +40,7 @@ export default function LoginPage() {
       }
 
       const user = await response.json();
-
-      // Simpan timestamp login untuk session expiry (6 jam)
       user._loginAt = Date.now();
-
       localStorage.setItem("user", JSON.stringify(user));
       router.push("/dashboard");
     } catch (err) {
@@ -95,7 +92,6 @@ export default function LoginPage() {
           Offline Torch
         </h1>
 
-        {/* Session expired banner */}
         {sessionExpired && (
           <div className="mb-4 px-4 py-3 bg-yellow-50 border border-yellow-300 rounded-md flex items-start gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-yellow-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -108,7 +104,6 @@ export default function LoginPage() {
         )}
 
         {!isRegistration ? (
-          // Login Form
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -177,7 +172,6 @@ export default function LoginPage() {
             </div>
           </form>
         ) : (
-          // Registration Form
           <form onSubmit={handleRegistration} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -263,5 +257,13 @@ export default function LoginPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
   );
 }
