@@ -98,7 +98,7 @@ function LoginPageContent() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <p className="text-xs text-yellow-800">
-              Sesi Anda telah berakhir setelah 6 jam. Silakan login kembali.
+              Your session has expired. Please log in again..
             </p>
           </div>
         )}
@@ -167,7 +167,7 @@ function LoginPageContent() {
                 }}
                 className="text-sm text-primary hover:underline"
               >
-                Belum punya akun? Daftar disini
+                Don’t have an account? Sign up here
               </button>
             </div>
           </form>
@@ -250,7 +250,7 @@ function LoginPageContent() {
                 }}
                 className="text-sm text-primary hover:underline"
               >
-                Sudah punya akun? Login disini
+                Already have an account? Log in here
               </button>
             </div>
           </form>
