@@ -91,8 +91,8 @@ function LoginPageContent() {
   };
 
   const getDodgeMessage = () => {
-    if (dodgeCount === 1) return "Eh, hampir kena...";
-    if (dodgeCount === 2) return "Wah nyaris!";
+    if (dodgeCount === 1) return "awkowkowk.";
+    if (dodgeCount === 2) return "mmmmmm";
     return null;
   };
 
