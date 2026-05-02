@@ -98,7 +98,7 @@ function LoginPageContent() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <p className="text-xs text-yellow-800">
-              Your session has expired. Please log in again..
+              Your session has expired. Please log in again.
             </p>
           </div>
         )}
@@ -175,7 +175,7 @@ function LoginPageContent() {
           <form onSubmit={handleRegistration} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nama Lengkap
+                Full Name
               </label>
               <input
                 type="text"
@@ -228,7 +228,7 @@ function LoginPageContent() {
                   )}
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-1">Minimal 6 karakter</p>
+              <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
             </div>
             {error && <p className="text-red-500 text-xs">{error}</p>}
             {success && <p className="text-green-500 text-xs">{success}</p>}
