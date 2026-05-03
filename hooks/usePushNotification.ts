@@ -18,91 +18,101 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
 }
 
 export function usePushNotification(username: string | null) {
-  const audioCtxRef     = useRef<AudioContext | null>(null);
-  const audioBufferRef  = useRef<AudioBuffer | null>(null);
-  const audioReadyRef   = useRef(false);
-  // Tandai ada suara tertunda saat tab sedang di background
+  const audioCtxRef    = useRef<AudioContext | null>(null);
+  const audioBufferRef = useRef<AudioBuffer | null>(null);
+  const audioReadyRef  = useRef(false);
   const pendingSoundRef = useRef(false);
-
-  // ── Init AudioContext + decode mp3 ────────────────────────────────
-  // Wajib dipanggil setelah ada gesture user (autoplay policy browser)
-  const initAudio = async () => {
-    if (audioReadyRef.current) return;
-    try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      audioCtxRef.current = ctx;
-      const res = await fetch('/notification.mp3');
-      const arrayBuffer = await res.arrayBuffer();
-      audioBufferRef.current = await ctx.decodeAudioData(arrayBuffer);
-      audioReadyRef.current = true;
-      console.log('[PushNotif] Audio ready');
-    } catch (e) {
-      console.warn('[PushNotif] Audio init gagal:', e);
-    }
-  };
-
-  // ── Putar suara lewat AudioContext ───────────────────────────────
-  const playSoundViaCtx = async (): Promise<boolean> => {
-    if (!audioReadyRef.current || !audioCtxRef.current || !audioBufferRef.current) return false;
-    const ctx = audioCtxRef.current;
-    if (ctx.state === 'suspended') await ctx.resume();
-    // Jika masih suspended setelah resume (Chrome blokir background audio)
-    if (ctx.state !== 'running') return false;
-    const source = ctx.createBufferSource();
-    source.buffer = audioBufferRef.current;
-    source.connect(ctx.destination);
-    source.start(0);
-    return true;
-  };
-
-  // ── Putar suara (dipanggil saat SW kirim postMessage) ────────────
-  const playSound = async () => {
-    try {
-      const ok = await playSoundViaCtx();
-      if (ok) {
-        pendingSoundRef.current = false;
-        return;
-      }
-      // Fallback HTMLAudio — bisa gagal jika tab background
-      const audio = new Audio('/notification.mp3');
-      audio.volume = 1;
-      await audio.play();
-      pendingSoundRef.current = false;
-    } catch (e) {
-      // Gagal (biasanya karena tab background) → simpan sebagai pending
-      console.warn('[PushNotif] playSound gagal, simpan pending:', e);
-      pendingSoundRef.current = true;
-    }
-  };
-
-  // ── Putar pending sound saat tab kembali visible ─────────────────
-  const flushPendingSound = async () => {
-    if (!pendingSoundRef.current) return;
-    pendingSoundRef.current = false;
-    console.log('[PushNotif] Tab aktif kembali, memutar pending sound');
-    try {
-      const ok = await playSoundViaCtx();
-      if (!ok) {
-        const audio = new Audio('/notification.mp3');
-        audio.volume = 1;
-        await audio.play();
-      }
-    } catch (e) {
-      console.warn('[PushNotif] flushPendingSound gagal:', e);
-    }
-  };
 
   useEffect(() => {
     if (!username || !VAPID_PUBLIC_KEY || typeof window === 'undefined') return;
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
+    // ── Semua fungsi di dalam useEffect agar tidak stale closure ─────
+
+    const initAudio = async () => {
+      if (audioReadyRef.current) return;
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        audioCtxRef.current = ctx;
+        const res = await fetch('/notification.mp3');
+        const arrayBuffer = await res.arrayBuffer();
+        audioBufferRef.current = await ctx.decodeAudioData(arrayBuffer);
+        audioReadyRef.current = true;
+        console.log('[PushNotif] Audio ready ✅');
+      } catch (e) {
+        console.warn('[PushNotif] initAudio gagal:', e);
+      }
+    };
+
+    const playSoundViaCtx = async (): Promise<boolean> => {
+      if (!audioReadyRef.current || !audioCtxRef.current || !audioBufferRef.current) {
+        console.warn('[PushNotif] AudioContext belum ready');
+        return false;
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+        console.log('[PushNotif] AudioContext resumed, state:', ctx.state);
+      }
+      if (ctx.state !== 'running') {
+        console.warn('[PushNotif] AudioContext state bukan running:', ctx.state);
+        return false;
+      }
+      const source = ctx.createBufferSource();
+      source.buffer = audioBufferRef.current;
+      source.connect(ctx.destination);
+      source.start(0);
+      console.log('[PushNotif] Sound played via AudioContext ✅');
+      return true;
+    };
+
+    const playSound = async () => {
+      console.log('[PushNotif] playSound dipanggil, audioReady:', audioReadyRef.current);
+      try {
+        const ok = await playSoundViaCtx();
+        if (ok) {
+          pendingSoundRef.current = false;
+          return;
+        }
+        // Fallback HTMLAudio
+        console.log('[PushNotif] Mencoba HTMLAudio fallback...');
+        const audio = new Audio('/notification.mp3');
+        audio.volume = 1;
+        await audio.play();
+        console.log('[PushNotif] Sound played via HTMLAudio ✅');
+        pendingSoundRef.current = false;
+      } catch (e) {
+        console.warn('[PushNotif] playSound gagal, set pending:', e);
+        pendingSoundRef.current = true;
+      }
+    };
+
+    const flushPendingSound = async () => {
+      if (!pendingSoundRef.current) return;
+      pendingSoundRef.current = false;
+      console.log('[PushNotif] Flushing pending sound...');
+      try {
+        const ok = await playSoundViaCtx();
+        if (!ok) {
+          const audio = new Audio('/notification.mp3');
+          audio.volume = 1;
+          await audio.play();
+        }
+      } catch (e) {
+        console.warn('[PushNotif] flushPendingSound gagal:', e);
+      }
+    };
+
     // ── Init audio setelah interaksi pertama ─────────────────────────
-    const handleFirstInteraction = () => { initAudio(); };
+    const handleFirstInteraction = () => {
+      console.log('[PushNotif] Interaksi pertama, init audio...');
+      initAudio();
+    };
     window.addEventListener('click',      handleFirstInteraction, { once: true });
     window.addEventListener('keydown',    handleFirstInteraction, { once: true });
     window.addEventListener('touchstart', handleFirstInteraction, { once: true });
 
-    // ── visibilitychange: putar pending sound saat tab kembali aktif ─
+    // ── visibilitychange: flush pending sound saat tab kembali aktif ─
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         flushPendingSound();
@@ -112,6 +122,7 @@ export function usePushNotification(username: string | null) {
 
     // ── Listener pesan dari Service Worker ───────────────────────────
     const handleSwMessage = (event: MessageEvent) => {
+      console.log('[PushNotif] SW message:', event.data);
       if (event.data?.type === 'PLAY_NOTIFICATION_SOUND') {
         playSound();
       }
@@ -163,6 +174,9 @@ export function usePushNotification(username: string | null) {
     return () => {
       navigator.serviceWorker.removeEventListener('message', handleSwMessage);
       document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('click',      handleFirstInteraction);
+      window.removeEventListener('keydown',    handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
     };
   }, [username]);
 }
