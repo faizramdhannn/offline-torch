@@ -1,5 +1,6 @@
 "use client";
 
+import { usePushNotification } from "@/hooks/usePushNotification";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -49,7 +50,8 @@ export default function RequestStorePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
-  useSessionGuard(); 
+  useSessionGuard();
+  usePushNotification(user?.user_name ?? null); 
 
   // ─── Filter state ──────────────────────────────────────────────────────────
   const [filterDateFrom, setFilterDateFrom] = useState("");

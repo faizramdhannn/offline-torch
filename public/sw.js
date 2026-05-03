@@ -1,4 +1,4 @@
-// public/sw.js — Pure Web Push service worker, tanpa Firebase SDK
+// public/sw.js — Web Push service worker
 
 self.addEventListener('install', (e) => {
   console.log('[SW] Installing sw.js');
@@ -7,75 +7,68 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   console.log('[SW] Activating sw.js');
-  e.waitUntil(
-    // Claim semua clients agar SW langsung aktif tanpa tunggu refresh
-    clients.claim()
-  );
+  e.waitUntil(clients.claim());
 });
 
 self.addEventListener('push', (event) => {
   console.log('[SW] Push received:', event.data ? event.data.text() : 'no data');
 
-  if (!event.data) {
-    console.log('[SW] No data in push event, showing default notification');
-    const tag = `request-${Date.now()}`;
-    event.waitUntil(
-      self.registration.showNotification('New Request', {
-        body: 'You have a new request.',
-        icon: '/logo_offline_torch.png',
-        badge: '/logo_offline_torch.png',
-        tag: tag,
-        requireInteraction: false,
-      }).then(() => {
-        console.log('[SW] Default notification shown, tag:', tag);
-      }).catch((err) => {
-        console.error('[SW] showNotification failed:', err.name, err.message);
-      })
-    );
-    return;
-  }
-
   let data = {};
-  try {
-    data = event.data.json();
-    console.log('[SW] Push data parsed as JSON:', JSON.stringify(data));
-  } catch {
-    console.log('[SW] Push data is not JSON, using as text');
-    data = { title: 'New Request', body: event.data.text() };
+  if (event.data) {
+    try {
+      data = event.data.json();
+      console.log('[SW] Push data parsed as JSON:', JSON.stringify(data));
+    } catch {
+      console.log('[SW] Push data is not JSON, using as text');
+      data = { title: 'New Request', body: event.data.text() };
+    }
   }
 
-  const notifTag = `request-${Date.now()}`;
-  console.log('[SW] Showing notification, tag:', notifTag);
+  const notifTag = 'offline-torch-notif';
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'New Request', {
-      body: data.body || 'You have a new request assigned.',
-      icon: '/logo_offline_torch.png',
-      badge: '/logo_offline_torch.png',
-      tag: notifTag,
-      requireInteraction: false,
-      vibrate: [200, 100, 200],
-      data: { url: data.url || '/request-store' },
-    }).then(() => {
-      console.log('[SW] Notification shown successfully, tag:', notifTag);
-    }).catch((err) => {
-      console.error('[SW] showNotification failed:', err.name, err.message);
-    })
+    (async () => {
+      // 1. Tampilkan notifikasi
+      await self.registration.showNotification(data.title || 'New Request', {
+        body: data.body || 'You have a new request assigned.',
+        icon: '/logo_offline_torch.png',
+        badge: '/logo_offline_torch.png',
+        tag: notifTag,
+        renotify: true,           // tetap muncul meski tag sama
+        requireInteraction: false, // boleh auto-dismiss
+        vibrate: [200, 100, 200],
+        data: { url: data.url || '/request-store' },
+      });
+      console.log('[SW] Notification shown, tag:', notifTag);
+
+      // 2. Kirim pesan ke semua tab agar memutar suara
+      const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of allClients) {
+        client.postMessage({ type: 'PLAY_NOTIFICATION_SOUND' });
+      }
+
+      // 3. Auto-close setelah 3 detik
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      const notifs = await self.registration.getNotifications({ tag: notifTag });
+      notifs.forEach((n) => n.close());
+      console.log('[SW] Notification auto-closed after 3s');
+    })()
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url)
-    ? event.notification.data.url
-    : '/request-store';
+  const targetUrl = event.notification.data?.url || '/request-store';
 
   event.waitUntil(
     clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((list) => {
         for (const c of list) {
-          if (c.url.includes('/request-store') && 'focus' in c) return c.focus();
+          if (c.url.includes(self.location.origin) && 'focus' in c) {
+            c.navigate(targetUrl);
+            return c.focus();
+          }
         }
         return clients.openWindow(targetUrl);
       })

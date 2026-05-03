@@ -1,5 +1,6 @@
 "use client";
 
+import { usePushNotification } from "@/hooks/usePushNotification";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -534,6 +535,7 @@ export default function RequestTrackingPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   useSessionGuard(); 
+  usePushNotification(user?.user_name ?? null); 
 
   const [activeTab, setActiveTab] = useState<"table" | "tracking">("table");
   const [iframeUrl] = useState("https://offline-tracking.vercel.app/");
@@ -784,6 +786,17 @@ const handleAdd = async () => {
             : "File berhasil diupload (nomor resi tidak terdeteksi)",
           "success"
         );
+          try {
+          await fetch("/api/push-notify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              requesterUsername: selectedItem.request_by,
+              title: "Resi Sudah Diupload",
+              body: `Resi ${result.tracking_number || "-"} sudah diinput oleh ${user.user_name}`,
+            }),
+          });
+        } catch {}
         setShowUploadModal(false); setSelectedItem(null); setUploadFile(null);
         await logActivity("PUT", `Uploaded tracking file for ID: ${selectedItem.id}`);
         fetchData();
