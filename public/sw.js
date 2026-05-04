@@ -47,11 +47,11 @@ self.addEventListener('push', (event) => {
         client.postMessage({ type: 'PLAY_NOTIFICATION_SOUND' });
       }
 
-      // 3. Auto-close setelah 3 detik
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+      // 3. Auto-close setelah 10 detik
+      await new Promise((resolve) => setTimeout(resolve, 10000));
       const notifs = await self.registration.getNotifications({ tag: notifTag });
       notifs.forEach((n) => n.close());
-      console.log('[SW] Notification auto-closed after 3s');
+      console.log('[SW] Notification auto-closed after 10s');
     })()
   );
 });
