@@ -39,6 +39,9 @@ interface StockItem {
   HPT?: string;
   hpj: string;
   HPJ?: string;
+  // Kolom discount baru (kolom K di result_stock, kolom J di pca_stock)
+  discount?: string;
+  Discount?: string;
   Artikel?: string;
 }
 
@@ -263,26 +266,180 @@ const CategoryTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
+// ── Helper: parse harga dari string seperti "Rp 1.000.000" atau "1000000" ──
+function parseHarga(val: string | undefined | null): number {
+  if (!val) return 0;
+  return parseInt(String(val).replace(/[^0-9]/g, "")) || 0;
+}
+
+// ── Helper: parse diskon dari string seperti "10" atau "10%" ─────────────
+function parseDiscount(val: string | undefined | null): number {
+  if (!val) return 0;
+  return parseFloat(String(val).replace(/[^0-9.]/g, "")) || 0;
+}
+
+// ── Helper: format rupiah ─────────────────────────────────────────────────
+function formatRupiah(val: number): string {
+  return "Rp " + val.toLocaleString("id-ID");
+}
+
+// ── QR Label Popup dengan gambar ──────────────────────────────────────────
 const QRLabelPopup = ({ item, onClose }: { item: StockItem; onClose: () => void }) => {
   const toProperCase = (str: string) => {
     if (!str) return "";
     return str.toLowerCase().split(" ").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
   };
+
+  const imageUrl = item.link_url || item.image_url || "";
+  const [imgError, setImgError] = useState(false);
+
+  const discountPct = parseDiscount(item.discount);
+  const hpjVal = parseHarga(item.hpj);
+  const hargaDiskon = discountPct > 0 && hpjVal > 0
+    ? Math.round(hpjVal * (1 - discountPct / 100))
+    : 0;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "500px", height: "200px", background: "#fff", border: "1px solid #d1d5db", borderRadius: "8px", display: "flex", alignItems: "stretch", overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}>
-        <div style={{ flex: 1, padding: "18px 16px", display: "flex", flexDirection: "column", justifyContent: "center", gap: "6px", borderRight: "1px solid #e5e7eb" }}>
-          <div style={{ fontSize: "13px", fontWeight: 700, color: "#111827", letterSpacing: "0.04em" }}>{item.sku}</div>
-          <div style={{ fontSize: "11px", color: "#374151", fontWeight: 500, lineHeight: 1.4, wordBreak: "break-word" }}>{toProperCase(item.item_name)}</div>
-          {item.hpj && <div style={{ fontSize: "12px", color: "#000000", fontWeight: 700, marginTop: "4px" }}>{item.hpj}</div>}
-        </div>
-        <div style={{ width: "200px", display: "flex", alignItems: "center", justifyContent: "center", background: "#f9fafb", padding: "12px" }}>
-          <QRCodeSVG value={item.sku} size={160} level="H" includeMargin={false} />
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "500px",
+          background: "#fff",
+          border: "1px solid #d1d5db",
+          borderRadius: "10px",
+          overflow: "hidden",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+        }}
+      >
+        {/* Gambar produk di atas */}
+        {imageUrl && !imgError ? (
+          <div style={{ width: "100%", height: "200px", background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", borderBottom: "1px solid #e5e7eb" }}>
+            <img
+              src={imageUrl}
+              alt={item.sku}
+              style={{ maxWidth: "100%", maxHeight: "200px", objectFit: "contain" }}
+              onError={() => setImgError(true)}
+            />
+          </div>
+        ) : (
+          <div style={{ width: "100%", height: "80px", background: "#f9fafb", display: "flex", alignItems: "center", justifyContent: "center", borderBottom: "1px solid #e5e7eb" }}>
+            <span style={{ fontSize: 11, color: "#9ca3af" }}>Tidak ada gambar</span>
+          </div>
+        )}
+
+        {/* Baris bawah: info + QR */}
+        <div style={{ display: "flex", alignItems: "stretch", minHeight: "160px" }}>
+          {/* Info */}
+          <div style={{ flex: 1, padding: "16px", display: "flex", flexDirection: "column", justifyContent: "center", gap: "6px", borderRight: "1px solid #e5e7eb" }}>
+            <div style={{ fontSize: "13px", fontWeight: 700, color: "#111827", letterSpacing: "0.04em" }}>{item.sku}</div>
+            <div style={{ fontSize: "11px", color: "#374151", fontWeight: 500, lineHeight: 1.4, wordBreak: "break-word" }}>{toProperCase(item.item_name)}</div>
+            {item.hpj && (
+              <div style={{ marginTop: "6px" }}>
+                {discountPct > 0 ? (
+                  <>
+                    {/* Harga coret */}
+                    <div style={{ fontSize: "10px", color: "#9ca3af", textDecoration: "line-through" }}>{item.hpj}</div>
+                    {/* Badge diskon + harga setelah diskon */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
+                      <span style={{ background: "#ef4444", color: "#fff", borderRadius: "4px", fontSize: "10px", fontWeight: 700, padding: "1px 5px" }}>
+                        -{discountPct}%
+                      </span>
+                      <span style={{ fontSize: "13px", color: "#111827", fontWeight: 700 }}>
+                        {formatRupiah(hargaDiskon)}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontSize: "13px", color: "#000000", fontWeight: 700 }}>{item.hpj}</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* QR Code */}
+          <div style={{ width: "180px", display: "flex", alignItems: "center", justifyContent: "center", background: "#f9fafb", padding: "12px", flexShrink: 0 }}>
+            <QRCodeSVG value={item.sku} size={140} level="H" includeMargin={false} />
+          </div>
         </div>
       </div>
     </div>
   );
 };
+
+// ── SKU Copy Button ───────────────────────────────────────────────────────
+function SkuCell({ sku }: { sku: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(sku).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  return (
+    <div className="flex items-center gap-1 group">
+      <span>{sku}</span>
+      <button
+        onClick={handleCopy}
+        title={copied ? "Copied!" : "Copy SKU"}
+        className="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 p-0.5 rounded hover:bg-gray-200"
+        style={{ lineHeight: 1 }}
+      >
+        {copied ? (
+          // Centang hijau saat berhasil copy
+          <svg className="w-3 h-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+          </svg>
+        ) : (
+          // Ikon copy
+          <svg className="w-3 h-3 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+}
+
+// ── HPJ Cell dengan diskon ────────────────────────────────────────────────
+function HpjCell({ item }: { item: StockItem }) {
+  const discountPct = parseDiscount(item.discount);
+  const hpjVal = parseHarga(item.hpj);
+  const hargaDiskon = discountPct > 0 && hpjVal > 0
+    ? Math.round(hpjVal * (1 - discountPct / 100))
+    : 0;
+
+  if (!item.hpj) return <td className="px-2 py-1">-</td>;
+
+  if (discountPct > 0 && hargaDiskon > 0) {
+    return (
+      <td className="px-2 py-1">
+        <div className="flex flex-col gap-0.5">
+          {/* Harga asli dicoret */}
+          <span className="line-through text-gray-400" style={{ fontSize: "10px" }}>{item.hpj}</span>
+          {/* Badge diskon + harga setelah diskon */}
+          <div className="flex items-center gap-1">
+            <span
+              className="text-white font-bold rounded"
+              style={{ background: "#ef4444", fontSize: "9px", padding: "1px 4px" }}
+            >
+              -{discountPct}%
+            </span>
+            <span className="font-semibold text-gray-800" style={{ fontSize: "10px" }}>
+              {formatRupiah(hargaDiskon)}
+            </span>
+          </div>
+        </div>
+      </td>
+    );
+  }
+
+  return <td className="px-2 py-1">{item.hpj}</td>;
+}
 
 export default function StockPage() {
   const router = useRouter();
@@ -320,7 +477,6 @@ export default function StockPage() {
   const [chartMode, setChartMode] = useState<"store" | "category">("store");
   const [pcaChartMode, setPcaChartMode] = useState<"category" | "grade">("category");
 
-  // collapse state — both open by default
   const [storeChartOpen, setStoreChartOpen] = useState(true);
   const [pcaChartOpen, setPcaChartOpen] = useState(true);
 
@@ -386,6 +542,8 @@ export default function StockPage() {
         hpp: item.hpp || item.HPP || "",
         hpt: item.hpt || item.HPT || "",
         hpj: item.hpj || item.HPJ || "",
+        // Normalisasi kolom discount (kolom K di result_stock, kolom J di pca_stock)
+        discount: item.discount || item.Discount || "",
       }));
       setData(normalizedData);
       setFilteredData(normalizedData);
@@ -557,7 +715,16 @@ export default function StockPage() {
       if (selectedView === "store") base["Warehouse"] = item.warehouse;
       if (user?.stock_view_hpp) base["HPP"] = item.hpp;
       if (user?.stock_view_hpt) base["HPT"] = item.hpt;
-      if (user?.stock_view_hpj) base["HPJ"] = item.hpj;
+      if (user?.stock_view_hpj) {
+        base["HPJ"] = item.hpj;
+        // Tambahkan kolom diskon dan harga setelah diskon di export
+        const discountPct = parseDiscount(item.discount);
+        const hpjVal = parseHarga(item.hpj);
+        base["Discount (%)"] = discountPct > 0 ? `${discountPct}%` : "";
+        base["Harga Diskon"] = discountPct > 0 && hpjVal > 0
+          ? Math.round(hpjVal * (1 - discountPct / 100))
+          : "";
+      }
       return base;
     });
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -966,6 +1133,7 @@ export default function StockPage() {
                         {selectedView === "store" && <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Warehouse</th>}
                         {user.stock_view_hpp && <th className="px-2 py-1.5 text-left font-semibold text-gray-700">HPP</th>}
                         {user.stock_view_hpt && <th className="px-2 py-1.5 text-left font-semibold text-gray-700">HPT</th>}
+                        {/* Kolom HPJ sekarang menampilkan diskon juga */}
                         {user.stock_view_hpj && <th className="px-2 py-1.5 text-left font-semibold text-gray-700">HPJ</th>}
                       </tr>
                     </thead>
@@ -984,7 +1152,10 @@ export default function StockPage() {
                               <div className="w-7 h-7 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-[7px]">No Img</div>
                             )}
                           </td>
-                          <td className="px-2 py-1">{item.sku}</td>
+                          {/* SKU dengan tombol copy */}
+                          <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                            <SkuCell sku={item.sku} />
+                          </td>
                           <td className="px-2 py-1">{toProperCase(item.item_name)}</td>
                           <td className="px-2 py-1">{toProperCase(item.category)}</td>
                           <td className="px-2 py-1">{toProperCase(item.grade)}</td>
@@ -992,7 +1163,8 @@ export default function StockPage() {
                           {selectedView === "store" && <td className="px-2 py-1">{item.warehouse}</td>}
                           {user.stock_view_hpp && <td className="px-2 py-1">{item.hpp}</td>}
                           {user.stock_view_hpt && <td className="px-2 py-1">{item.hpt}</td>}
-                          {user.stock_view_hpj && <td className="px-2 py-1">{item.hpj}</td>}
+                          {/* HPJ Cell — menampilkan diskon & harga setelah diskon jika ada */}
+                          {user.stock_view_hpj && <HpjCell item={item} />}
                         </tr>
                       ))}
                     </tbody>
