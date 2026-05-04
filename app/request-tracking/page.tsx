@@ -544,7 +544,9 @@ export default function RequestTrackingPage() {
   // ── Ref ke iframe Cek Resi ─────────────────────────────────────────────
   const iframeRef = useRef<HTMLIFrameElement>(null);
   // Simpan resi yang menunggu dikirim saat iframe selesai load
+  const [iframeReady, setIframeReady] = useState(false);
   const pendingResiRef = useRef<string | null>(null);
+
 
   const itemsPerPage = 25;
   const uploadFileRef = useRef<HTMLInputElement>(null);
@@ -582,31 +584,38 @@ export default function RequestTrackingPage() {
   }, [user]);
 
   // ── Kirim postMessage saat iframe selesai load ─────────────────────────
-  const handleIframeLoad = useCallback(() => {
-    if (pendingResiRef.current && iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage(
-        { type: "CHECK_RESI", resi: pendingResiRef.current },
+const handleIframeLoad = useCallback(() => {
+  setIframeReady(true);
+  if (pendingResiRef.current && iframeRef.current?.contentWindow) {
+    const resi = pendingResiRef.current;
+    pendingResiRef.current = null;
+    // Delay kecil agar app di dalam iframe selesai mount
+    setTimeout(() => {
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: "CHECK_RESI", resi },
         "https://offline-tracking.vercel.app"
       );
-      pendingResiRef.current = null;
-    }
-  }, []);
+    }, 800);
+  }
+}, []);
 
   // ── Klik ikon cek: pindah tab → kirim postMessage ─────────────────────
-  const handleCheckResi = useCallback((resi: string) => {
-    pendingResiRef.current = resi;
-    setActiveTab("tracking");
-    // Jika iframe sudah ada di DOM (sudah load sebelumnya), kirim langsung
+const handleCheckResi = useCallback((resi: string) => {
+  setActiveTab("tracking");
+
+  if (iframeReady && iframeRef.current?.contentWindow) {
+    // Iframe sudah siap → kirim langsung dengan delay kecil untuk render tab
     setTimeout(() => {
-      if (iframeRef.current?.contentWindow) {
-        iframeRef.current.contentWindow.postMessage(
-          { type: "CHECK_RESI", resi },
-          "https://offline-tracking.vercel.app"
-        );
-        pendingResiRef.current = null;
-      }
-    }, 400);
-  }, []);
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: "CHECK_RESI", resi },
+        "https://offline-tracking.vercel.app"
+      );
+    }, 150);
+  } else {
+    // Iframe belum siap → simpan, akan dikirim saat onLoad
+    pendingResiRef.current = resi;
+  }
+}, [iframeReady]);
 
   const fetchData = async () => {
     try {
