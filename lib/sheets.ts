@@ -130,7 +130,7 @@ export async function updateSheetDataWithHeader(
     const sheets = getSheetsClient();
     await sheets.spreadsheets.values.clear({
       spreadsheetId: getSpreadsheetId(sheetName),
-      range: `${sheetName}!A1:AZ`, // ✅ dari ZZ → AZ
+      range: `${sheetName}!A1:CZ`, // ✅ dari ZZ → AZ
     });
     if (data.length > 0) {
       await sheets.spreadsheets.values.update({
