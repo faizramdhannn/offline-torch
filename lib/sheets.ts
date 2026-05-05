@@ -55,7 +55,6 @@ function getSpreadsheetId(sheetName: string): string {
   return SPREADSHEET_MAP[sheetName] || "";
 }
 
-// Helper function to convert column number to letter(s)
 function getColumnLetter(columnNumber: number): string {
   let letter = "";
   while (columnNumber > 0) {
@@ -66,23 +65,53 @@ function getColumnLetter(columnNumber: number): string {
   return letter;
 }
 
+// ✅ Cached sheets client — auth hanya dibuat sekali, tidak ulang setiap request
+let _sheetsClient: any = null;
+
+function getSheetsClient() {
+  if (_sheetsClient) return _sheetsClient;
+  const auth = new google.auth.GoogleAuth({
+    credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || "{}"),
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+  });
+  _sheetsClient = google.sheets({ version: "v4", auth });
+  return _sheetsClient;
+}
+
+// ✅ Timeout helper — mencegah hang sampai 300 detik
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`Timeout after ${ms}ms: ${label}`)),
+        ms
+      )
+    ),
+  ]);
+}
+
 export async function getSheetData(sheetName: string) {
   try {
-    const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || "{}"),
-      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-    });
-    const sheets = google.sheets({ version: "v4", auth });
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: getSpreadsheetId(sheetName),
-      range: `${sheetName}!A1:ZZ`,
-    });
+    const sheets = getSheetsClient();
+    const response = await withTimeout(
+      sheets.spreadsheets.values.get({
+        spreadsheetId: getSpreadsheetId(sheetName),
+        range: `${sheetName}!A1:AZ`,
+      }),
+      15000,
+      `getSheetData(${sheetName})`
+    ) as { data: { values?: any[][] } }; // ✅ tambah type cast di sini
     const rows = response.data.values || [];
     if (rows.length === 0) return [];
     const headers = rows[0];
-    return rows.slice(1).map((row) => {
+    return rows.slice(1).map((row: any[]) => {
       const obj: any = {};
-      headers.forEach((header, index) => {
+      headers.forEach((header: string, index: number) => {
         obj[header] = row[index] || null;
       });
       return obj;
@@ -95,17 +124,13 @@ export async function getSheetData(sheetName: string) {
 
 export async function updateSheetDataWithHeader(
   sheetName: string,
-  data: any[][],
+  data: any[][]
 ) {
   try {
-    const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || "{}"),
-      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-    });
-    const sheets = google.sheets({ version: "v4", auth });
+    const sheets = getSheetsClient();
     await sheets.spreadsheets.values.clear({
       spreadsheetId: getSpreadsheetId(sheetName),
-      range: `${sheetName}!A1:ZZ`,
+      range: `${sheetName}!A1:AZ`, // ✅ dari ZZ → AZ
     });
     if (data.length > 0) {
       await sheets.spreadsheets.values.update({
@@ -124,11 +149,7 @@ export async function updateSheetDataWithHeader(
 
 export async function appendSheetData(sheetName: string, data: any[][]) {
   try {
-    const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || "{}"),
-      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-    });
-    const sheets = google.sheets({ version: "v4", auth });
+    const sheets = getSheetsClient();
     await sheets.spreadsheets.values.append({
       spreadsheetId: getSpreadsheetId(sheetName),
       range: `${sheetName}!A2`,
@@ -146,14 +167,10 @@ export async function appendSheetData(sheetName: string, data: any[][]) {
 export async function updateSheetRow(
   sheetName: string,
   rowIndex: number,
-  data: any[],
+  data: any[]
 ) {
   try {
-    const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || "{}"),
-      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-    });
-    const sheets = google.sheets({ version: "v4", auth });
+    const sheets = getSheetsClient();
     const numColumns = data.length;
     const endColumn = getColumnLetter(numColumns);
     const range = `${sheetName}!A${rowIndex}:${endColumn}${rowIndex}`;
@@ -171,36 +188,20 @@ export async function updateSheetRow(
   }
 }
 
-/**
- * Update a sheet row in 2 separate ranges, skipping columns in between.
- * Digunakan untuk master_bundling agar kolom torch_* yang berisi rumus tidak tertimpa.
- *
- * @param sheetName   - Nama sheet
- * @param rowIndex    - Nomor baris (1-based, termasuk header = baris 1, data mulai baris 2)
- * @param beforeData  - Data untuk kolom sebelum kolom yang di-skip (misal: A–R)
- * @param afterData   - Data untuk kolom setelah kolom yang di-skip (misal: AG–AI)
- * @param skipCount   - Jumlah kolom yang di-skip (misal: 14 untuk torch_cirebon s/d torch_tambun)
- */
 export async function updateSheetRowSkipColumns(
   sheetName: string,
   rowIndex: number,
   beforeData: any[],
   afterData: any[],
-  skipCount: number,
+  skipCount: number
 ) {
   try {
-    const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || "{}"),
-      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-    });
-    const sheets = google.sheets({ version: "v4", auth });
+    const sheets = getSheetsClient();
     const spreadsheetId = getSpreadsheetId(sheetName);
 
-    // Range 1: kolom A s/d kolom ke-beforeData.length
     const beforeEndCol = getColumnLetter(beforeData.length);
     const range1 = `${sheetName}!A${rowIndex}:${beforeEndCol}${rowIndex}`;
 
-    // Range 2: kolom setelah skip s/d akhir afterData
     const afterStartColNum = beforeData.length + skipCount + 1;
     const afterEndColNum = afterStartColNum + afterData.length - 1;
     const afterStartCol = getColumnLetter(afterStartColNum);
@@ -209,7 +210,6 @@ export async function updateSheetRowSkipColumns(
 
     console.log(`Updating range1: ${range1}, range2: ${range2}`);
 
-    // Gunakan batchUpdate untuk 2 range sekaligus
     await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId,
       requestBody: {
