@@ -101,7 +101,7 @@ export async function getSheetData(sheetName: string) {
     const response = await withTimeout(
       sheets.spreadsheets.values.get({
         spreadsheetId: getSpreadsheetId(sheetName),
-        range: `${sheetName}!A1:AZ`,
+        range: `${sheetName}!A1:CZ`,
       }),
       15000,
       `getSheetData(${sheetName})`
