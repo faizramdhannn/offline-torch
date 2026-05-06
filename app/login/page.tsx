@@ -1,27 +1,29 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [isRegistration, setIsRegistration] = useState(false);
+  const [mode, setMode] = useState<"login" | "register">("login");
+
+  // Login state
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
 
-  // Dodge state
-  const [dodgeCount, setDodgeCount] = useState(0);
-  const [cardStyle, setCardStyle] = useState<React.CSSProperties>({});
-  const cardRef = useRef<HTMLDivElement>(null);
-  const offsetRef = useRef({ x: 0, y: 0 });
-  const MAX_DODGE = 3;
+  // Register state
+  const [regName, setRegName] = useState("");
+  const [regUsername, setRegUsername] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regShowPassword, setRegShowPassword] = useState(false);
+  const [regError, setRegError] = useState("");
+  const [regLoading, setRegLoading] = useState(false);
+  const [regSuccess, setRegSuccess] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("reason") === "session_expired") {
@@ -29,386 +31,590 @@ function LoginPageContent() {
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    setDodgeCount(0);
-    setCardStyle({});
-    offsetRef.current = { x: 0, y: 0 };
-  }, [isRegistration]);
-
-  const handleDodge = (e: React.MouseEvent) => {
-    if (dodgeCount >= MAX_DODGE) return;
-
-    const card = cardRef.current;
-    if (!card) return;
-
-    const mouseX = e.clientX;
-    const mouseY = e.clientY;
-    const cardRect = card.getBoundingClientRect();
-    const cardCX = cardRect.left + cardRect.width / 2;
-    const cardCY = cardRect.top + cardRect.height / 2;
-
-    // Vector away from mouse
-    const dx = cardCX - mouseX;
-    const dy = cardCY - mouseY;
-    const len = Math.sqrt(dx * dx + dy * dy) || 1;
-
-    const dist = 200 + Math.random() * 80;
-    const moveX = (dx / len) * dist;
-    const moveY = (dy / len) * dist;
-
-    // Clamp within viewport
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const halfW = cardRect.width / 2;
-    const halfH = cardRect.height / 2;
-    const margin = 16;
-
-    const newCX = Math.max(halfW + margin, Math.min(vw - halfW - margin, cardCX + moveX));
-    const newCY = Math.max(halfH + margin, Math.min(vh - halfH - margin, cardCY + moveY));
-
-    // Accumulate offset from original center position
-    const newOffsetX = offsetRef.current.x + (newCX - cardCX);
-    const newOffsetY = offsetRef.current.y + (newCY - cardCY);
-    offsetRef.current = { x: newOffsetX, y: newOffsetY };
-
-    setCardStyle({
-      transform: `translate(${newOffsetX}px, ${newOffsetY}px)`,
-      transition: "transform 0.2s cubic-bezier(.22,.68,0,1.3)",
-    });
-
-    const newCount = dodgeCount + 1;
-    setDodgeCount(newCount);
-
-    if (newCount >= MAX_DODGE) {
-      setTimeout(() => {
-        offsetRef.current = { x: 0, y: 0 };
-        setCardStyle({
-          transform: "translate(0px, 0px)",
-          transition: "transform 0.4s cubic-bezier(.22,.68,0,1.2)",
-        });
-      }, 400);
-    }
-  };
-
-  const getDodgeMessage = () => {
-    if (dodgeCount === 1) return "awkowkowk.";
-    if (dodgeCount === 2) return "mmmmmm";
-    return null;
+  // Reset state saat ganti mode
+  const switchMode = (m: "login" | "register") => {
+    setMode(m);
+    setError(""); setRegError(""); setRegSuccess(false);
+    setUsername(""); setPassword("");
+    setRegName(""); setRegUsername(""); setRegPassword("");
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (dodgeCount < MAX_DODGE) return;
-    setError("");
-    setSessionExpired(false);
-    setLoading(true);
-
+    setError(""); setSessionExpired(false); setLoading(true);
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
-
-      if (!response.ok) {
-        throw new Error("Invalid credentials");
-      }
-
+      if (!response.ok) throw new Error("Invalid credentials");
       const user = await response.json();
       user._loginAt = Date.now();
       localStorage.setItem("user", JSON.stringify(user));
       router.push("/dashboard");
-    } catch (err) {
-      setError("Username atau password salah");
+    } catch {
+      setError("Username or password is incorrect");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRegistration = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setSuccess("");
-    setLoading(true);
-
+    setRegError(""); setRegLoading(true);
     try {
       const response = await fetch("/api/registration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, username, password }),
+        body: JSON.stringify({ name: regName, user_name: regUsername, password: regPassword }),
       });
-
       if (!response.ok) {
-        throw new Error("Registration failed");
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || "Gagal mengirim permintaan");
       }
-
-      setSuccess(
-        "Permintaan registrasi berhasil dikirim. Tunggu approval dari admin.",
-      );
-      setName("");
-      setUsername("");
-      setPassword("");
-
-      setTimeout(() => {
-        setIsRegistration(false);
-        setSuccess("");
-      }, 2000);
-    } catch (err) {
-      setError("Registrasi gagal. Silakan coba lagi.");
+      setRegSuccess(true);
+    } catch (err: any) {
+      setRegError(err.message || "Failed to submit registration request");
     } finally {
-      setLoading(false);
+      setRegLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center overflow-hidden">
-      <div
-        ref={cardRef}
-        style={cardStyle}
-        className="bg-white p-8 rounded-lg shadow-md w-full max-w-md"
-      >
-        <h1 className="text-2xl font-bold text-primary mb-6 text-center">
-          Offline Torch
-        </h1>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        {sessionExpired && (
-          <div className="mb-4 px-4 py-3 bg-yellow-50 border border-yellow-300 rounded-md flex items-start gap-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-4 h-4 text-yellow-600 mt-0.5 shrink-0"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <p className="text-xs text-yellow-800">
-              Your session has expired. Please log in again.
-            </p>
-          </div>
-        )}
+        .sl-root {
+          min-height: 100vh;
+          display: flex;
+          font-family: 'IBM Plex Sans', sans-serif;
+          background: #f9fafb;
+        }
 
-        {!isRegistration ? (
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Username
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary pr-10"
-                  required
+        .sl-left {
+          width: 100%;
+          max-width: 480px;
+          flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          padding: 2.5rem 3rem;
+          background: #ffffff;
+          border-right: 1px solid #e5e7eb;
+          position: relative;
+          z-index: 1;
+        }
+
+        .sl-brand { display: flex; align-items: center; gap: 0.6rem; }
+        .sl-logo-box {
+          width: 30px; height: 30px;
+          background: #2563eb;
+          border-radius: 7px;
+          display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
+        }
+        .sl-logo-box svg { width: 16px; height: 16px; }
+        .sl-brand-name {
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 0.75rem; font-weight: 500;
+          color: #2563eb;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
+
+        .sl-form-area {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          max-width: 360px;
+          padding: 3rem 0;
+        }
+
+        .sl-heading {
+          font-size: 1.8rem; font-weight: 600;
+          color: #111827;
+          letter-spacing: -0.025em; line-height: 1.2;
+          margin-bottom: 0.4rem;
+        }
+        .sl-subheading {
+          font-size: 0.82rem; color: #6b7280;
+          font-weight: 300; margin-bottom: 2rem;
+        }
+
+        .sl-alert {
+          display: flex; align-items: flex-start; gap: 0.55rem;
+          padding: 0.7rem 0.85rem;
+          border-radius: 8px; margin-bottom: 1.25rem;
+          font-size: 0.775rem; line-height: 1.5;
+        }
+        .sl-alert-warn {
+          background: rgba(251,191,36,0.08);
+          border: 1px solid rgba(251,191,36,0.3);
+          color: #92400e;
+        }
+        .sl-alert-success {
+          background: #f0fdf4;
+          border: 1px solid #bbf7d0;
+          color: #166534;
+        }
+
+        .sl-field { margin-bottom: 1.1rem; }
+        .sl-label {
+          display: block; font-size: 0.7rem; font-weight: 500;
+          color: #6b7280; letter-spacing: 0.07em;
+          text-transform: uppercase; margin-bottom: 0.4rem;
+        }
+        .sl-iw { position: relative; }
+        .sl-input {
+          width: 100%; padding: 0.7rem 0.95rem;
+          background: #f9fafb; border: 1px solid #e5e7eb;
+          border-radius: 8px; color: #111827;
+          font-family: 'IBM Plex Sans', sans-serif;
+          font-size: 0.875rem; outline: none;
+          transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+          -webkit-appearance: none;
+        }
+        .sl-input::placeholder { color: #9ca3af; font-weight: 300; }
+        .sl-input:focus {
+          border-color: #2563eb; background: #ffffff;
+        }
+        .sl-input.pw { padding-right: 2.8rem; }
+
+        .sl-eye {
+          position: absolute; right: 0.8rem; top: 50%;
+          transform: translateY(-50%);
+          background: none; border: none; cursor: pointer;
+          color: #9ca3af;
+          display: flex; align-items: center; padding: 0.2rem;
+          transition: color 0.15s; line-height: 1;
+        }
+        .sl-eye:hover { color: #374151; }
+
+        .sl-error {
+          display: flex; align-items: center; gap: 0.4rem;
+          font-size: 0.75rem; color: #dc2626;
+          padding: 0.55rem 0.75rem; margin-bottom: 1rem;
+          background: #fef2f2; border: 1px solid #fecaca;
+          border-radius: 7px;
+        }
+
+        .sl-btn {
+          width: 100%; padding: 0.75rem;
+          background: #2563eb; border: none; border-radius: 8px;
+          color: #ffffff; font-family: 'IBM Plex Sans', sans-serif;
+          font-size: 0.875rem; font-weight: 600; cursor: pointer;
+          transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+          display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+          margin-top: 0.25rem;
+        }
+        .sl-btn:hover:not(:disabled) {
+          background: #1d4ed8; transform: translateY(-1px);
+        }
+        .sl-btn:active:not(:disabled) { transform: translateY(0); }
+        .sl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .sl-spin {
+          width: 14px; height: 14px;
+          border: 2px solid rgba(255,255,255,0.3);
+          border-top-color: #ffffff; border-radius: 50%;
+          animation: spin 0.65s linear infinite; flex-shrink: 0;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .sl-divider {
+          height: 1px; background: #e5e7eb;
+          margin: 1.5rem 0; position: relative;
+        }
+        .sl-divider span {
+          position: absolute; left: 50%; top: 50%;
+          transform: translate(-50%, -50%);
+          background: #ffffff; padding: 0 0.75rem;
+          font-size: 0.7rem; color: #9ca3af;
+          letter-spacing: 0.05em;
+          font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .sl-switch-link {
+          text-align: center; font-size: 0.8rem; color: #6b7280;
+        }
+        .sl-switch-link button {
+          background: none; border: none; cursor: pointer;
+          color: #2563eb; font-weight: 500; font-size: 0.8rem;
+          border-bottom: 1px solid rgba(37,99,235,0.25);
+          padding: 0; transition: color 0.15s, border-color 0.15s;
+        }
+        .sl-switch-link button:hover {
+          color: #1d4ed8; border-color: rgba(29,78,216,0.5);
+        }
+
+        .sl-footer {
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 0.62rem; color: #9ca3af; letter-spacing: 0.05em;
+        }
+
+        .sl-right {
+          flex: 1; position: relative; overflow: hidden;
+          display: flex; align-items: flex-end; background: #eff6ff;
+        }
+        .sl-right img {
+          position: absolute; inset: 0;
+          width: 100%; height: 100%;
+          object-fit: cover; object-position: center;
+        }
+          .sl-right::before {
+          display: none;
+          }
+        .sl-right::after {
+          content: ''; position: absolute; inset: 0;
+          background: rgba(37,99,235,0.25);
+          z-index: 1; pointer-events: none;
+        }
+        .sl-right-content {
+          position: relative; z-index: 2; padding: 2.5rem; width: 100%;
+        }
+        .sl-right-tag {
+          display: inline-flex; align-items: center; gap: 0.4rem;
+          background: rgba(255,255,255,0.8); backdrop-filter: blur(8px);
+          border: 1px solid rgba(37,99,235,0.2); border-radius: 100px;
+          padding: 0.3rem 0.9rem; font-family: 'IBM Plex Mono', monospace;
+          font-size: 0.65rem; color: #2563eb;
+          letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 0.75rem;
+        }
+        .sl-right-dot {
+          width: 5px; height: 5px; border-radius: 50%; background: #10b981;
+          box-shadow: 0 0 5px #10b981;
+          animation: pulse 2.5s ease-in-out infinite;
+        }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+        .sl-right-title {
+          font-size: 1.5rem; font-weight: 600; color: #ffffff;
+          letter-spacing: -0.02em; line-height: 1.3;
+          text-shadow: 0 2px 12px rgba(0,0,0,0.2);
+        }
+
+        @media (max-width: 768px) {
+          .sl-right { display: none; }
+          .sl-left { max-width: 100%; padding: 2rem 1.75rem; }
+        }
+        .sl-left { animation: fadeUp 0.5s cubic-bezier(.22,1,.36,1) both; }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+
+      <div className="sl-root">
+        <div className="sl-left">
+          {/* Brand */}
+          <div className="sl-brand">
+            <div className="sl-logo-box">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M12 3L4 9v12h16V9L12 3z" fill="white" />
+                <path
+                  d="M12 7l-5 3.5V19h10v-8.5L12 7z"
+                  fill="#2563eb"
+                  opacity="0.2"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
-                  tabIndex={-1}
-                >
-                  {showPassword ? (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="w-5 h-5"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
-                      />
-                    </svg>
-                  ) : (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="w-5 h-5"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                  )}
-                </button>
-              </div>
+                <rect x="9" y="14" width="6" height="5" rx="1" fill="#2563eb" />
+              </svg>
             </div>
-            {error && <p className="text-red-500 text-xs">{error}</p>}
+            <span className="sl-brand-name">Welcome Back</span>
+          </div>
 
-            {getDodgeMessage() && (
-              <p className="text-amber-500 text-xs text-center">
-                {getDodgeMessage()}
-              </p>
+          <div className="sl-form-area">
+            {/* ── LOGIN MODE ── */}
+            {mode === "login" && (
+              <>
+                <h1 className="sl-heading">Login</h1>
+
+                {sessionExpired && (
+                  <div className="sl-alert sl-alert-warn">
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ flexShrink: 0, marginTop: 1 }}
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    Your session has expired. Please log in again.
+                  </div>
+                )}
+
+                <form onSubmit={handleLogin}>
+                  <div className="sl-field">
+                    <label className="sl-label">Username</label>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="Enter username"
+                      className="sl-input"
+                      required
+                      autoComplete="username"
+                    />
+                  </div>
+                  <div className="sl-field">
+                    <label className="sl-label">Password</label>
+                    <div className="sl-iw">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="sl-input pw"
+                        required
+                        autoComplete="current-password"
+                      />
+                      <button
+                        type="button"
+                        className="sl-eye"
+                        onClick={() => setShowPassword(!showPassword)}
+                        tabIndex={-1}
+                      >
+                        {showPassword ? (
+                          <svg
+                            width="15"
+                            height="15"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
+                            <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
+                            <line x1="1" y1="1" x2="23" y2="23" />
+                          </svg>
+                        ) : (
+                          <svg
+                            width="15"
+                            height="15"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {error && (
+                    <div className="sl-error">
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ flexShrink: 0 }}
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      {error}
+                    </div>
+                  )}
+
+                  <button type="submit" className="sl-btn" disabled={loading}>
+                    {loading && <div className="sl-spin" />}
+                    {loading ? "Processing..." : "Login"}
+                  </button>
+                </form>
+
+                <div className="sl-divider">
+                  <span>or</span>
+                </div>
+                <p className="sl-switch-link">
+                  Don't have an account?&nbsp;
+                  <button onClick={() => switchMode("register")}>
+                    Register here
+                  </button>
+                </p>
+              </>
             )}
 
-            <button
-              type={dodgeCount >= MAX_DODGE ? "submit" : "button"}
-              disabled={loading}
-              onMouseEnter={dodgeCount < MAX_DODGE ? handleDodge : undefined}
-              onClick={dodgeCount < MAX_DODGE ? handleDodge : undefined}
-              className="w-full bg-primary text-white py-2 rounded-md hover:bg-primary/90 transition-colors text-sm disabled:opacity-50"
-            >
-              {loading ? "Loading..." : "Login"}
-            </button>
+            {/* ── REGISTER MODE ── */}
+            {mode === "register" && (
+              <>
+                <h1 className="sl-heading">Registration</h1>
+                <p className="sl-subheading">
+                  The request will be approved by the admin
+                </p>
 
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsRegistration(true);
-                  setError("");
-                  setSessionExpired(false);
-                  setShowPassword(false);
-                }}
-                className="text-sm text-primary hover:underline"
-              >
-                Don&apos;t have an account? Sign up here
-              </button>
-            </div>
-          </form>
-        ) : (
-          <form onSubmit={handleRegistration} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Full Name
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Username
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary pr-10"
-                  required
-                  minLength={6}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
-                  tabIndex={-1}
-                >
-                  {showPassword ? (
+                {regSuccess ? (
+                  <div className="sl-alert sl-alert-success">
                     <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
+                      width="13"
+                      height="13"
                       viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="w-5 h-5"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                  ) : (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
                       fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
                       stroke="currentColor"
-                      className="w-5 h-5"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ flexShrink: 0, marginTop: 1 }}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
-                      />
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                      <polyline points="22 4 12 14.01 9 11.01" />
                     </svg>
-                  )}
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
-            </div>
-            {error && <p className="text-red-500 text-xs">{error}</p>}
-            {success && <p className="text-green-500 text-xs">{success}</p>}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary text-white py-2 rounded-md hover:bg-primary/90 transition-colors text-sm disabled:opacity-50"
-            >
-              {loading ? "Loading..." : "Daftar"}
-            </button>
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsRegistration(false);
-                  setError("");
-                  setSuccess("");
-                  setShowPassword(false);
-                }}
-                className="text-sm text-primary hover:underline"
-              >
-                Already have an account? Log in here
-              </button>
-            </div>
-          </form>
-        )}
+                    Registration request successfully submitted. Please wait for admin approval.
+                  </div>
+                ) : (
+                  <form onSubmit={handleRegister}>
+                    <div className="sl-field">
+                      <label className="sl-label">Full Name</label>
+                      <input
+                        type="text"
+                        value={regName}
+                        onChange={(e) => setRegName(e.target.value)}
+                        placeholder="Enter full name"
+                        className="sl-input"
+                        required
+                      />
+                    </div>
+                    <div className="sl-field">
+                      <label className="sl-label">Username</label>
+                      <input
+                        type="text"
+                        value={regUsername}
+                        onChange={(e) => setRegUsername(e.target.value)}
+                        placeholder="Buat username"
+                        className="sl-input"
+                        required
+                      />
+                    </div>
+                    <div className="sl-field">
+                      <label className="sl-label">Password</label>
+                      <div className="sl-iw">
+                        <input
+                          type={regShowPassword ? "text" : "password"}
+                          value={regPassword}
+                          onChange={(e) => setRegPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="sl-input pw"
+                          required
+                        />
+                        <button
+                          type="button"
+                          className="sl-eye"
+                          onClick={() => setRegShowPassword(!regShowPassword)}
+                          tabIndex={-1}
+                        >
+                          {regShowPassword ? (
+                            <svg
+                              width="15"
+                              height="15"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
+                              <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
+                              <line x1="1" y1="1" x2="23" y2="23" />
+                            </svg>
+                          ) : (
+                            <svg
+                              width="15"
+                              height="15"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                              <circle cx="12" cy="12" r="3" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {regError && (
+                      <div className="sl-error">
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          style={{ flexShrink: 0 }}
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="8" x2="12" y2="12" />
+                          <line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                        {regError}
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      className="sl-btn"
+                      disabled={regLoading}
+                    >
+                      {regLoading && <div className="sl-spin" />}
+                      {regLoading ? "Sending..." : "Send Request"}
+                    </button>
+                  </form>
+                )}
+
+                <div className="sl-divider">
+                  <span>or</span>
+                </div>
+                <p className="sl-switch-link">
+                  Already have an account?&nbsp;
+                  <button onClick={() => switchMode("login")}>
+                    Log in here
+                  </button>
+                </p>
+              </>
+            )}
+          </div>
+
+          <div className="sl-footer">© 2026 OFFLINE TORCH</div>
+        </div>
+
+        {/* RIGHT PANEL */}
+        <div className="sl-right">
+          <img src="/cover_login.png" alt="Offline Torch" />
+          <div className="sl-right-content"></div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
