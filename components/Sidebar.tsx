@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
-import { useState, ReactNode, useRef, useEffect } from "react";
+import { useState, ReactNode, useRef, useEffect, useCallback } from "react";
 import { useSidebar } from "@/context/SidebarContext";
 import { useTheme } from "@/context/ThemeContext";
 import NotificationListener from "@/components/NotificationListener";
@@ -46,6 +46,8 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
   const [generatingCatalog, setGeneratingCatalog] = useState(false);
   const [requestOpen, setRequestOpen] = useState(false);
   const [collapseAnim, setCollapseAnim] = useState<"idle" | "jelly">("idle");
+  // Track which button is currently doing jelly animation
+  const [jellyKey, setJellyKey] = useState<string | null>(null);
   const { isOpen, isCollapsed, toggleOpen, toggleCollapsed } = useSidebar();
   const { isDark, toggleTheme } = useTheme();
   const submenuRef = useRef<HTMLDivElement>(null);
@@ -70,7 +72,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         })()
       : userName;
 
-  // Auto-open submenu if on a request page
   useEffect(() => {
     if (pathname === "/request-store" || pathname === "/request-tracking") {
       setRequestOpen(true);
@@ -81,6 +82,19 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     localStorage.removeItem("user");
     router.push("/login");
   };
+
+  // ── Jelly navigate ──────────────────────────────────────────────────────────
+  const jellyNavigate = useCallback(
+    (path: string) => {
+      setJellyKey(path);
+      setTimeout(() => {
+        setJellyKey(null);
+        router.push(path);
+        if (window.innerWidth < 768) toggleOpen();
+      }, 160);
+    },
+    [router, toggleOpen],
+  );
 
   const handleGenerateCatalog = async () => {
     setGeneratingCatalog(true);
@@ -101,7 +115,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       } else {
         alert("Failed to generate e-catalog");
       }
-    } catch (error) {
+    } catch {
       alert("Failed to generate e-catalog");
     } finally {
       setGeneratingCatalog(false);
@@ -109,9 +123,10 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
   };
 
   const hasRequestAccess = !!(permissions.request || permissions.edit_request);
-  const hasTrackingAccess = !!(permissions.request_tracking || permissions.tracking_edit);
+  const hasTrackingAccess = !!(
+    permissions.request_tracking || permissions.tracking_edit
+  );
   const showRequestGroup = hasRequestAccess || hasTrackingAccess;
-
   const isRequestActive =
     pathname === "/request-store" || pathname === "/request-tracking";
 
@@ -121,9 +136,18 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       path: "/dashboard",
       permission: "dashboard",
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+          />
         </svg>
       ),
     },
@@ -132,9 +156,18 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       path: "/analytics-order",
       permission: "analytics_order",
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+          />
         </svg>
       ),
     },
@@ -143,9 +176,18 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       path: "/attendance",
       permission: "attendance",
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
         </svg>
       ),
     },
@@ -154,9 +196,18 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       path: "/bundling",
       permission: "bundling",
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+          />
         </svg>
       ),
     },
@@ -165,9 +216,18 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       path: "/canvasing",
       permission: "canvasing",
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-            d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+          />
         </svg>
       ),
     },
@@ -176,9 +236,18 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       path: "/customer",
       permission: "customer",
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+          />
         </svg>
       ),
     },
@@ -187,9 +256,18 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       path: "/order-report",
       permission: "order_report",
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-            d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+          />
         </svg>
       ),
     },
@@ -198,21 +276,38 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       path: "/petty-cash",
       permission: "petty_cash",
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
         </svg>
       ),
     },
-    // REQUEST GROUP handled separately below
     {
       name: "Stock",
       path: "/stock",
       permission: "stock",
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+          />
         </svg>
       ),
     },
@@ -221,9 +316,18 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       path: "/stock-opname",
       permission: "stock_opname",
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+          />
         </svg>
       ),
     },
@@ -232,9 +336,18 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       path: "/traffic-store",
       permission: "traffic_store",
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-            d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+          />
         </svg>
       ),
     },
@@ -243,9 +356,18 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       path: "/voucher",
       permission: "voucher",
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-            d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"
+          />
         </svg>
       ),
     },
@@ -254,9 +376,18 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       path: "/registration",
       permission: "registration_request",
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-            d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+          />
         </svg>
       ),
     },
@@ -265,66 +396,144 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       path: "/settings",
       permission: "user_setting",
       icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.8}
+            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+          />
         </svg>
       ),
     },
   ];
 
-  // Icon for the request group
   const requestGroupIcon = (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.8}
+        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+      />
     </svg>
   );
 
-  const navigate = (path: string) => {
-    router.push(path);
-    if (window.innerWidth < 768) {
-      toggleOpen();
-    }
-  };
-
   const checkPermission = (item: MenuItem): boolean => {
-    if (item.permission === "traffic_store") {
+    if (item.permission === "traffic_store")
       return !!(permissions.traffic_store || permissions.report_store);
-    }
     return !!permissions[item.permission as keyof typeof permissions];
   };
 
-  // Split menu: before "Request" and after
-  const beforePettyCash = menuItems.filter((_, i) => i < 8); // up to petty cash
-  const afterPettyCash = menuItems.filter((_, i) => i >= 8); // stock onwards
+  const beforePettyCash = menuItems.filter((_, i) => i < 8);
+  const afterPettyCash = menuItems.filter((_, i) => i >= 8);
+
+  const MenuButton = ({ item }: { item: MenuItem }) => {
+    const isActive = pathname === item.path;
+    const isJelly = jellyKey === item.path;
+    return (
+      <button
+        key={item.path}
+        onClick={() => jellyNavigate(item.path)}
+        title={isCollapsed ? item.name : undefined}
+        className={`
+          menu-btn w-full flex items-center gap-3
+          ${isCollapsed ? "justify-center px-0 py-2" : "px-3 py-2"}
+          ${isActive ? "active text-white" : "text-white/55"}
+          ${isJelly ? "menu-item-jelly" : ""}
+        `}
+      >
+        <span
+          className={`shrink-0 transition-opacity duration-150 ${isActive ? "opacity-100" : "opacity-60"}`}
+        >
+          {item.icon}
+        </span>
+        {!isCollapsed && (
+          <span className="text-[11px] tracking-wide truncate font-normal">
+            {item.name}
+          </span>
+        )}
+        {!isCollapsed && isActive && (
+          <span className="ml-auto w-1 h-1 rounded-full bg-white/70 shrink-0" />
+        )}
+      </button>
+    );
+  };
 
   return (
     <>
       <style>{`
+        /* ── Menu item click jelly ── */
+        @keyframes menuJelly {
+          0%   { transform: scale(1); }
+          20%  { transform: scaleX(0.92) scaleY(1.06); }
+          40%  { transform: scaleX(1.06) scaleY(0.95); }
+          60%  { transform: scaleX(0.97) scaleY(1.02); }
+          80%  { transform: scaleX(1.01) scaleY(0.99); }
+          100% { transform: scale(1); }
+        }
+        .menu-item-jelly {
+          animation: menuJelly 0.32s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+        }
+
+        /* ── Menu item hover glow ── */
+        .menu-btn {
+          position: relative;
+          transition: color 0.18s ease, background-color 0.18s ease;
+        }
+        .menu-btn::before {
+          content: '';
+          position: absolute;
+          inset: 2px 4px;
+          border-radius: 8px;
+          background: rgba(255,255,255,0);
+          transition: background 0.18s ease;
+          pointer-events: none;
+        }
+        .menu-btn:hover::before {
+          background: rgba(255,255,255,0.08);
+        }
+        .menu-btn:hover {
+          color: white;
+        }
+        .menu-btn.active::before {
+          background: rgba(255,255,255,0.12);
+        }
+        .menu-btn.active {
+          color: white;
+          border-right: 2px solid rgba(255,255,255,0.8);
+        }
+
+        /* ── Submenu jelly ── */
         @keyframes jellyIn {
           0%   { transform: scaleY(0) scaleX(0.85); opacity: 0; transform-origin: top; }
           40%  { transform: scaleY(1.08) scaleX(0.97); opacity: 1; transform-origin: top; }
           65%  { transform: scaleY(0.97) scaleX(1.02); transform-origin: top; }
           80%  { transform: scaleY(1.02) scaleX(0.99); transform-origin: top; }
           90%  { transform: scaleY(0.99) scaleX(1.01); transform-origin: top; }
-          100% { transform: scaleY(1)    scaleX(1);    opacity: 1; transform-origin: top; }
-        }
-        @keyframes jellyOut {
-          0%   { transform: scaleY(1) scaleX(1);    opacity: 1; transform-origin: top; }
-          30%  { transform: scaleY(1.04) scaleX(0.98); opacity: 0.7; transform-origin: top; }
-          100% { transform: scaleY(0) scaleX(0.85); opacity: 0; transform-origin: top; }
+          100% { transform: scaleY(1) scaleX(1); opacity: 1; transform-origin: top; }
         }
         .submenu-enter {
           animation: jellyIn 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
         }
-        .submenu-exit {
-          animation: jellyOut 0.28s ease-in forwards;
-        }
 
-        /* collapse/expand arrow button jelly */
+        /* ── Collapse button jelly ── */
         @keyframes jellyBtn {
           0%   { transform: scale(1); }
           15%  { transform: scale(0.72, 1.35) rotate(-4deg); }
@@ -339,23 +548,15 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           animation: jellyBtn 0.55s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
         }
 
-        /* collapsed tooltip submenu */
+        /* ── Collapsed flyout pop ── */
         @keyframes popIn {
           0%   { transform: translateX(-6px) scale(0.92); opacity: 0; }
-          60%  { transform: translateX(3px)  scale(1.03); opacity: 1; }
+          60%  { transform: translateX(3px) scale(1.03); opacity: 1; }
           80%  { transform: translateX(-1px) scale(0.99); }
-          100% { transform: translateX(0)    scale(1);    opacity: 1; }
+          100% { transform: translateX(0) scale(1); opacity: 1; }
         }
         .submenu-pop {
           animation: popIn 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
-        }
-
-        .request-btn-active {
-          background: rgba(255,255,255,0.15);
-          border-right: 2px solid white;
-        }
-        .request-btn-active .request-dot {
-          background: white;
         }
       `}</style>
 
@@ -375,33 +576,36 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
 
       <button
         onClick={toggleOpen}
-        className={`
-          fixed top-3 left-3 z-50 md:hidden
-          w-9 h-9 flex items-center justify-center rounded-lg
-          bg-primary text-white shadow-lg
-          transition-all duration-200
-          ${isOpen ? "opacity-0 pointer-events-none" : "opacity-100"}
-        `}
+        className={`fixed top-3 left-3 z-50 md:hidden w-9 h-9 flex items-center justify-center rounded-lg bg-primary text-white shadow-lg transition-all duration-200 ${isOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}
         aria-label="Open menu"
       >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 6h16M4 12h16M4 18h16"
+          />
         </svg>
       </button>
 
       <aside
         className={`
-          fixed md:relative z-40
-          flex flex-col h-screen
-          bg-primary text-white
-          transition-all duration-300 ease-in-out
-          ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-          ${isCollapsed ? "md:w-14" : "w-48"}
-          shrink-0
-        `}
+        fixed md:relative z-40 flex flex-col h-screen bg-primary text-white
+        transition-all duration-300 ease-in-out
+        ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+        ${isCollapsed ? "md:w-14" : "w-48"} shrink-0
+      `}
       >
         {/* Header */}
-        <div className={`border-b border-white/10 ${isCollapsed ? "p-2" : "p-3"} flex items-center justify-between`}>
+        <div
+          className={`border-b border-white/10 ${isCollapsed ? "p-2" : "p-3"} flex items-center justify-between`}
+        >
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
               <Image
@@ -416,96 +620,76 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
               </p>
             </div>
           )}
-
           {isCollapsed && (
             <div className="w-full flex justify-center py-1">
-              <span className="text-xs font-bold text-white/50 tracking-widest">OT</span>
+              <span className="text-xs font-bold text-white/50 tracking-widest">
+                OT
+              </span>
             </div>
           )}
-
           <button
             onClick={handleToggleCollapsed}
-            className={`
-              hidden md:flex items-center justify-center
-              w-6 h-6 rounded-md hover:bg-white/10
-              transition-colors shrink-0
-              ${isCollapsed ? "w-full mt-1" : "ml-1"}
-              ${collapseAnim === "jelly" ? "jelly-btn" : ""}
-            `}
+            className={`hidden md:flex items-center justify-center w-6 h-6 rounded-md hover:bg-white/10 transition-colors shrink-0 ${isCollapsed ? "w-full mt-1" : "ml-1"} ${collapseAnim === "jelly" ? "jelly-btn" : ""}`}
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             <svg
               className={`w-3.5 h-3.5 text-white/50 transition-transform duration-300 ${isCollapsed ? "rotate-180" : ""}`}
-              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 19l-7-7 7-7M18 19l-7-7 7-7"
+              />
             </svg>
           </button>
-
           <button
             onClick={toggleOpen}
             className="md:hidden flex items-center justify-center w-7 h-7 rounded-md hover:bg-white/10 ml-1 shrink-0"
             aria-label="Close menu"
           >
-            <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-4 h-4 text-white/70"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
 
         {/* Nav */}
         <nav className="flex-1 py-1.5 overflow-y-auto overflow-x-hidden">
+          {beforePettyCash.map((item) =>
+            checkPermission(item) ? (
+              <MenuButton key={item.path} item={item} />
+            ) : null,
+          )}
 
-          {/* Menu items BEFORE request group (dashboard → petty cash) */}
-          {beforePettyCash.map((item) => {
-            if (!checkPermission(item)) return null;
-            const isActive = pathname === item.path;
-            return (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                title={isCollapsed ? item.name : undefined}
-                className={`
-                  w-full flex items-center gap-3 transition-colors
-                  ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}
-                  ${isActive
-                    ? "bg-white/15 text-white border-r-2 border-white"
-                    : "text-white/60 hover:text-white hover:bg-white/8"
-                  }
-                `}
-              >
-                <span className={`shrink-0 ${isActive ? "opacity-100" : "opacity-70"}`}>
-                  {item.icon}
-                </span>
-                {!isCollapsed && (
-                  <span className="text-xs truncate font-normal">{item.name}</span>
-                )}
-              </button>
-            );
-          })}
-
-          {/* ── REQUEST GROUP ── */}
+          {/* ── Request Group ── */}
           {showRequestGroup && (
             <div className="relative">
-              {/* Collapsed mode: show as tooltip flyout */}
               {isCollapsed ? (
                 <div className="relative group">
                   <button
                     title="Request"
-                    className={`
-                      w-full flex items-center justify-center px-0 py-2.5 transition-colors
-                      ${isRequestActive
-                        ? "bg-white/15 text-white border-r-2 border-white"
-                        : "text-white/60 hover:text-white hover:bg-white/8"
-                      }
-                    `}
+                    className={`menu-btn w-full flex items-center justify-center px-0 py-2 transition-colors ${isRequestActive ? "active text-white" : "text-white/55"}`}
                   >
-                    <span className={`shrink-0 ${isRequestActive ? "opacity-100" : "opacity-70"}`}>
+                    <span
+                      className={`shrink-0 ${isRequestActive ? "opacity-100" : "opacity-70"}`}
+                    >
                       {requestGroupIcon}
                     </span>
                   </button>
-
-                  {/* Flyout submenu on hover (collapsed) */}
                   <div
                     className="absolute left-full top-0 ml-1.5 z-50 hidden group-hover:block submenu-pop"
                     style={{ minWidth: "160px" }}
@@ -516,32 +700,42 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
                       </p>
                       {hasRequestAccess && (
                         <button
-                          onClick={() => navigate("/request-store")}
-                          className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors
-                            ${pathname === "/request-store"
-                              ? "bg-white/15 text-white"
-                              : "text-white/70 hover:bg-white/10 hover:text-white"
-                            }`}
+                          onClick={() => jellyNavigate("/request-store")}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${pathname === "/request-store" ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"}`}
                         >
-                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                          <svg
+                            className="w-3.5 h-3.5 shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.8}
+                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                            />
                           </svg>
                           Cancel Order
                         </button>
                       )}
                       {hasTrackingAccess && (
                         <button
-                          onClick={() => navigate("/request-tracking")}
-                          className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors
-                            ${pathname === "/request-tracking"
-                              ? "bg-white/15 text-white"
-                              : "text-white/70 hover:bg-white/10 hover:text-white"
-                            }`}
+                          onClick={() => jellyNavigate("/request-tracking")}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${pathname === "/request-tracking" ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"}`}
                         >
-                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                              d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
+                          <svg
+                            className="w-3.5 h-3.5 shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.8}
+                              d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"
+                            />
                           </svg>
                           Shipment
                         </button>
@@ -550,41 +744,38 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
                   </div>
                 </div>
               ) : (
-                /* Expanded mode: inline accordion with jelly */
                 <div>
-                  {/* Group header button */}
                   <button
                     onClick={() => setRequestOpen((prev) => !prev)}
-                    className={`
-                      w-full flex items-center gap-3 px-4 py-2.5 transition-colors
-                      ${isRequestActive || requestOpen
-                        ? "text-white"
-                        : "text-white/60 hover:text-white hover:bg-white/8"
-                      }
-                      ${isRequestActive ? "bg-white/15 border-r-2 border-white" : ""}
-                    `}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors ${isRequestActive || requestOpen ? "text-white" : "text-white/60 hover:text-white hover:bg-white/15 hover:border-r-2 hover:border-white/30"} ${isRequestActive ? "bg-white/15 border-r-2 border-white" : ""}`}
                   >
-                    <span className={`shrink-0 ${isRequestActive ? "opacity-100" : "opacity-70"}`}>
+                    <span
+                      className={`shrink-0 ${isRequestActive ? "opacity-100" : "opacity-70"}`}
+                    >
                       {requestGroupIcon}
                     </span>
                     <span className="text-xs truncate font-normal flex-1 text-left">
                       Request
                     </span>
-                    {/* Arrow + dot indicator */}
                     <span className="flex items-center gap-1 shrink-0">
                       {isRequestActive && (
-                        <span className="request-dot w-1.5 h-1.5 rounded-full bg-white/70" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-white/70" />
                       )}
                       <svg
                         className={`w-3 h-3 text-white/50 transition-transform duration-300 ${requestOpen ? "rotate-180" : ""}`}
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
                       </svg>
                     </span>
                   </button>
-
-                  {/* Jelly submenu */}
                   {requestOpen && (
                     <div
                       ref={submenuRef}
@@ -593,18 +784,21 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
                       <div className="bg-black/15 border-l-2 border-white/20 ml-4 mr-2 rounded-r-lg mb-0.5">
                         {hasRequestAccess && (
                           <button
-                            onClick={() => navigate("/request-store")}
-                            className={`
-                              w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors rounded-r-lg
-                              ${pathname === "/request-store"
-                                ? "bg-white/15 text-white font-medium"
-                                : "text-white/60 hover:bg-white/10 hover:text-white"
-                              }
-                            `}
+                            onClick={() => jellyNavigate("/request-store")}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors rounded-r-lg ${jellyKey === "/request-store" ? "menu-item-jelly" : ""} ${pathname === "/request-store" ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/15 hover:text-white"}`}
                           >
-                            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                            <svg
+                              className="w-3.5 h-3.5 shrink-0"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={1.8}
+                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+                              />
                             </svg>
                             Cancel Order
                             {pathname === "/request-store" && (
@@ -614,18 +808,21 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
                         )}
                         {hasTrackingAccess && (
                           <button
-                            onClick={() => navigate("/request-tracking")}
-                            className={`
-                              w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors rounded-r-lg
-                              ${pathname === "/request-tracking"
-                                ? "bg-white/15 text-white font-medium"
-                                : "text-white/60 hover:bg-white/10 hover:text-white"
-                              }
-                            `}
+                            onClick={() => jellyNavigate("/request-tracking")}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors rounded-r-lg ${jellyKey === "/request-tracking" ? "menu-item-jelly" : ""} ${pathname === "/request-tracking" ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/15 hover:text-white"}`}
                           >
-                            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                                d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
+                            <svg
+                              className="w-3.5 h-3.5 shrink-0"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={1.8}
+                                d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"
+                              />
                             </svg>
                             Shipment
                             {pathname === "/request-tracking" && (
@@ -641,51 +838,33 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
             </div>
           )}
 
-          {/* Menu items AFTER request group (stock onwards) */}
-          {afterPettyCash.map((item) => {
-            if (!checkPermission(item)) return null;
-            const isActive = pathname === item.path;
-            return (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                title={isCollapsed ? item.name : undefined}
-                className={`
-                  w-full flex items-center gap-3 transition-colors
-                  ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}
-                  ${isActive
-                    ? "bg-white/15 text-white border-r-2 border-white"
-                    : "text-white/60 hover:text-white hover:bg-white/8"
-                  }
-                `}
-              >
-                <span className={`shrink-0 ${isActive ? "opacity-100" : "opacity-70"}`}>
-                  {item.icon}
-                </span>
-                {!isCollapsed && (
-                  <span className="text-xs truncate font-normal">{item.name}</span>
-                )}
-              </button>
-            );
-          })}
+          {afterPettyCash.map((item) =>
+            checkPermission(item) ? (
+              <MenuButton key={item.path} item={item} />
+            ) : null,
+          )}
 
-          {/* E-catalog button (canvasing page only) */}
+          {/* E-catalog */}
           {permissions?.canvasing && pathname === "/canvasing" && (
             <button
               onClick={handleGenerateCatalog}
               disabled={generatingCatalog}
               title={isCollapsed ? "E-Catalog" : undefined}
-              className={`
-                w-full flex items-center gap-3 transition-colors mt-1
-                text-white/60 hover:text-white hover:bg-white/8
-                disabled:opacity-40 disabled:cursor-not-allowed
-                ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}
-              `}
+              className={`w-full flex items-center gap-3 transition-colors mt-1 text-white/60 hover:text-white hover:bg-white/8 disabled:opacity-40 disabled:cursor-not-allowed ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}`}
             >
               <span className="shrink-0 opacity-70">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.8}
+                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                  />
                 </svg>
               </span>
               {!isCollapsed && (
@@ -698,39 +877,61 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         </nav>
 
         {/* Footer */}
-        <div className={`border-t border-white/10 ${isCollapsed ? "p-2 flex flex-col gap-2" : "p-3 flex items-center gap-2"}`}>
+        <div
+          className={`border-t border-white/10 ${isCollapsed ? "p-2 flex flex-col gap-2" : "p-3 flex items-center gap-2"}`}
+        >
           <button
             onClick={toggleTheme}
             title={isDark ? "Light mode" : "Dark mode"}
-            className={`
-              flex items-center justify-center rounded-lg
-              text-white/60 hover:text-white
-              bg-white/8 hover:bg-white/15
-              transition-all duration-200
-              ${isCollapsed ? "w-full h-8" : "w-8 h-8 shrink-0"}
-            `}
+            className={`flex items-center justify-center rounded-lg text-white/60 hover:text-white bg-white/8 hover:bg-white/15 transition-all duration-200 ${isCollapsed ? "w-full h-8" : "w-8 h-8 shrink-0"}`}
           >
             {isDark ? (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.8}
+                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                />
               </svg>
             ) : (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                  d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.8}
+                  d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                />
               </svg>
             )}
           </button>
-
           {!isCollapsed ? (
             <button
               onClick={handleLogout}
               className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-white/10 hover:bg-red-500/80 text-white/70 hover:text-white rounded text-xs transition-colors"
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
               </svg>
               Logout
             </button>
@@ -740,9 +941,18 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
               title="Logout"
               className="w-full h-8 flex items-center justify-center text-white/60 hover:text-white bg-white/8 hover:bg-red-500/80 rounded-lg transition-colors"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
               </svg>
             </button>
           )}
