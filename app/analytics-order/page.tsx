@@ -1162,15 +1162,15 @@ export default function AnalyticsOrderPage() {
   const totalDiscountUsed = new Set(fr.filter(r => r["Discount Code"]?.trim()).map(r => r.Name).filter(Boolean)).size;
 
   const handleExport = () => {
-    if (fr.length === 0) { showMessage("Tidak ada data untuk diexport", "error"); return; }
-    switch (activeTab) {
-      case "store":    exportStoreTab(fr);    break;
-      case "traffic":  exportTrafficTab(fr);  break;
-      case "discount": exportDiscountTab(fr); break;
-      case "product":  exportProductTab(fr);  break;
-      case "employee": exportEmployeeTab(fr); break;
-    }
-  };
+  if (fr.length === 0) { showMessage("Tidak ada data untuk diexport", "error"); return; }
+  switch (activeTab) {
+    case "store":    exportStoreTab(fr, trafficMap);    break;
+    case "traffic":  exportTrafficTab(fr, trafficMap);  break;
+    case "discount": exportDiscountTab(fr, trafficMap); break;
+    case "product":  exportProductTab(fr, trafficMap);  break;
+    case "employee": exportEmployeeTab(fr, trafficMap); break;
+  }
+};
 
   const handleResetFilter = () => {
     setDateFrom(getFirstOfMonthStr());
