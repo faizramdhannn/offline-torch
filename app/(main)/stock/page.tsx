@@ -55,8 +55,6 @@ const WAREHOUSES = [
   { name: "Jogja",      key: "Torch Jogja - T" },
   { name: "Medan",      key: "Torch Store Medan - T" },
   { name: "Makassar",   key: "Torch Makassar - T" },
-  { name: "Tambun",     key: "Torch Tambun - T" },
-  { name: "Malang",     key: "Torch Malang - T" },
   { name: "Lampung",    key: "Torch Lampung - T" },
   { name: "Surabaya",   key: "Torch Surabaya - T" },
   { name: "Lembong",    key: "Torch Store Lembong - T" },
