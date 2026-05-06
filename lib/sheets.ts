@@ -122,23 +122,28 @@ export async function getSheetData(sheetName: string) {
   }
 }
 
-export async function updateSheetDataWithHeader(
-  sheetName: string,
-  data: any[][]
-) {
+export async function updateSheetDataWithHeader(sheetName: string, data: any[][]) {
   try {
     const sheets = getSheetsClient();
-    await sheets.spreadsheets.values.clear({
-      spreadsheetId: getSpreadsheetId(sheetName),
-      range: `${sheetName}!A1:CZ`, // ✅ dari ZZ → AZ
-    });
-    if (data.length > 0) {
-      await sheets.spreadsheets.values.update({
+    await withTimeout(
+      sheets.spreadsheets.values.clear({
         spreadsheetId: getSpreadsheetId(sheetName),
-        range: `${sheetName}!A1`,
-        valueInputOption: "RAW",
-        requestBody: { values: data },
-      });
+        range: `${sheetName}!A1:CZ`,
+      }),
+      15000,
+      `clear(${sheetName})`
+    );
+    if (data.length > 0) {
+      await withTimeout(
+        sheets.spreadsheets.values.update({
+          spreadsheetId: getSpreadsheetId(sheetName),
+          range: `${sheetName}!A1`,
+          valueInputOption: "RAW",
+          requestBody: { values: data },
+        }),
+        30000,   // lebih lama untuk data besar
+        `update(${sheetName})`
+      );
     }
     return { success: true };
   } catch (error) {

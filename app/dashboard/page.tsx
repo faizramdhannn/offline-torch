@@ -389,14 +389,14 @@ export default function DashboardPage() {
                     <div className="flex gap-1">
                       <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-3 py-1 text-xs border rounded disabled:opacity-50 hover:bg-gray-50">Previous</button>
                       {[...Array(totalPages)].map((_, i) => {
-                        const page = i + 1;
-                        if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
-                          return <button key={page} onClick={() => setCurrentPage(page)} className={`px-3 py-1 text-xs border rounded ${currentPage === page ? "bg-primary text-white" : "hover:bg-gray-50"}`}>{page}</button>;
-                        } else if (page === currentPage - 2 || page === currentPage + 2) {
-                          return <span key={page} className="px-2 text-xs">...</span>;
-                        }
-                        return null;
-                      })}
+  const page = i + 1;
+  if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+    return <button key={page} onClick={() => setCurrentPage(page)} className={`px-3 py-1 text-xs border rounded ${currentPage === page ? "bg-primary text-white" : "hover:bg-gray-50"}`}>{page}</button>;
+  } else if (page === currentPage - 2 || page === currentPage + 2) {
+    return <span key={page} className="px-2 text-xs">...</span>;
+  }
+  return <span key={page} />;  // ← pastikan baris ini ada
+})}
                       <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-3 py-1 text-xs border rounded disabled:opacity-50 hover:bg-gray-50">Next</button>
                     </div>
                   </div>

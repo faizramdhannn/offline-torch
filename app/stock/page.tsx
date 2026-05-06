@@ -558,12 +558,15 @@ export default function StockPage() {
     }
   };
 
-  const fetchLastUpdate = async () => {
-    try {
-      const response = await fetch("/api/stock/last-update");
-      setLastUpdate(await response.json());
-    } catch {}
-  };
+const fetchLastUpdate = async () => {
+  try {
+    const response = await fetch("/api/stock/last-update");
+    const data = await response.json();
+    setLastUpdate(Array.isArray(data) ? data : []);
+  } catch {
+    setLastUpdate([]);
+  }
+};
 
   const handleRefreshJavelin = async () => {
     if (!confirm("Refresh Javelin data? This may take a few minutes.")) return;

@@ -26,46 +26,46 @@ export async function POST(request: NextRequest) {
     await updateSheetDataWithHeader(sheetName, cleanedData);
 
     // Update last_update sheet with correct timezone
-    const now = new Date();
-    
-    // Format with Jakarta timezone
-    const jakartaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
-    
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 
-                    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-    
-    const day = jakartaTime.getDate().toString().padStart(2, '0');
-    const month = months[jakartaTime.getMonth()];
-    const year = jakartaTime.getFullYear();
-    const hours = jakartaTime.getHours().toString().padStart(2, '0');
-    const minutes = jakartaTime.getMinutes().toString().padStart(2, '0');
-    
-    const dateStr = `${day} ${month} ${year}, ${hours}:${minutes}`;
-    
-    const sheetType = sheetName === 'erp_stock_balance' ? 'ERP' : 'Javelin';
-    
-    // Get existing last_update data
-    const existingData = await getSheetData('last_update');
-    
-    // Create updated data array
-    const updatedData: any[][] = [['type', 'last_update']];
-    
-    // Keep other types and update the current one
-    const types = ['ERP', 'Javelin'];
-    types.forEach(type => {
-      if (type === sheetType) {
-        updatedData.push([type, dateStr]);
-      } else {
-        const existing = existingData.find((row: any) => row.type === type);
-        if (existing) {
-          updatedData.push([type, existing.last_update]);
+    try {
+      const now = new Date();
+      
+      const jakartaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+      
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 
+                      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      
+      const day = jakartaTime.getDate().toString().padStart(2, '0');
+      const month = months[jakartaTime.getMonth()];
+      const year = jakartaTime.getFullYear();
+      const hours = jakartaTime.getHours().toString().padStart(2, '0');
+      const minutes = jakartaTime.getMinutes().toString().padStart(2, '0');
+      
+      const dateStr = `${day} ${month} ${year}, ${hours}:${minutes}`;
+      
+      const sheetType = sheetName === 'erp_stock_balance' ? 'ERP' : 'Javelin';
+      
+      const existingData = await getSheetData('last_update');
+      
+      const updatedData: any[][] = [['type', 'last_update']];
+      
+      const types = ['ERP', 'Javelin'];
+      types.forEach(type => {
+        if (type === sheetType) {
+          updatedData.push([type, dateStr]);
         } else {
-          updatedData.push([type, '-']);
+          const existing = existingData.find((row: any) => row.type === type);
+          if (existing) {
+            updatedData.push([type, existing.last_update]);
+          } else {
+            updatedData.push([type, '-']);
+          }
         }
-      }
-    });
-    
-    await updateSheetDataWithHeader('last_update', updatedData);
+      });
+      
+      await updateSheetDataWithHeader('last_update', updatedData);
+    } catch (err) {
+      console.warn('Skipping last_update timestamp, non-critical:', err);
+    }
 
     return NextResponse.json({ 
       success: true, 
