@@ -39,6 +39,8 @@ export default function OrderReportPage() {
   const [warehouseFilter, setWarehouseFilter] = useState<string[]>([]);
   const [warehouses, setWarehouses] = useState<string[]>([]);
   const [lockedWarehouse, setLockedWarehouse] = useState<string | null>(null);
+  const [channelNameFilter, setChannelNameFilter] = useState<string[]>([]);
+  const [channelNames, setChannelNames] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [showImportModal, setShowImportModal] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -47,6 +49,7 @@ export default function OrderReportPage() {
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showWarehouseDropdown, setShowWarehouseDropdown] = useState(false);
+  const [showChannelNameDropdown, setShowChannelNameDropdown] = useState(false);
   useSessionGuard();
 
   const [powerbizFile, setPowerbizFile] = useState<File | null>(null);
@@ -59,6 +62,7 @@ export default function OrderReportPage() {
   // Refs for dropdowns
   const statusDropdownRef = useRef<HTMLDivElement>(null);
   const warehouseDropdownRef = useRef<HTMLDivElement>(null);
+  const channelNameDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -68,6 +72,9 @@ export default function OrderReportPage() {
       }
       if (warehouseDropdownRef.current && !warehouseDropdownRef.current.contains(event.target as Node)) {
         setShowWarehouseDropdown(false);
+      }
+      if (channelNameDropdownRef.current && !channelNameDropdownRef.current.contains(event.target as Node)) {
+        setShowChannelNameDropdown(false);
       }
     };
 
@@ -98,7 +105,7 @@ export default function OrderReportPage() {
 
   useEffect(() => {
     applyFilters();
-  }, [dateFrom, dateTo, statusFilter, warehouseFilter, searchQuery, data]);
+  }, [dateFrom, dateTo, statusFilter, warehouseFilter, channelNameFilter, searchQuery, data]);
 
   const fetchData = async () => {
     try {
@@ -116,6 +123,11 @@ export default function OrderReportPage() {
         ...new Set(result.map((item: OrderReport) => item.warehouse)),
       ].filter(Boolean);
       setWarehouses(uniqueWarehouses as string[]);
+
+      const uniqueChannelNames = [
+        ...new Set(result.map((item: OrderReport) => item.channel_name)),
+      ].filter(Boolean).sort() as string[];
+      setChannelNames(uniqueChannelNames);
     } catch (error) {
       showMessage("Failed to fetch data", "error");
     } finally {
@@ -146,17 +158,14 @@ export default function OrderReportPage() {
   };
 
   // ─── Date Helpers ──────────────────────────────────────────────────────────
-  // Handles both "DD-MM-YYYY HH:mm:ss" and "YYYY-MM-DD HH:mm:ss"
   const parseOrderDate = (dateString: string): Date => {
     if (!dateString) return new Date(0);
     const datePart = dateString.split(" ")[0];
     const parts = datePart.split("-");
 
     if (parts[0].length === 4) {
-      // Format: YYYY-MM-DD
       return new Date(`${parts[0]}-${parts[1]}-${parts[2]}`);
     } else {
-      // Format: DD-MM-YYYY
       return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
     }
   };
@@ -220,7 +229,12 @@ export default function OrderReportPage() {
       filtered = filtered.filter((item) => statusFilter.includes(item.status));
     }
 
-    // STEP 4: Apply search filter
+    // STEP 4: Apply channel name filter
+    if (channelNameFilter.length > 0) {
+      filtered = filtered.filter((item) => channelNameFilter.includes(item.channel_name || ""));
+    }
+
+    // STEP 5: Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((item) =>
@@ -228,7 +242,7 @@ export default function OrderReportPage() {
       );
     }
 
-    // STEP 5: Sort by empty fields
+    // STEP 6: Sort by empty fields
     const sorted = sortByEmptyFields(filtered);
 
     setFilteredData(sorted);
@@ -239,6 +253,7 @@ export default function OrderReportPage() {
     setDateFrom("");
     setDateTo("");
     setStatusFilter([]);
+    setChannelNameFilter([]);
     setSearchQuery("");
     if (user?.order_report_import) {
       setWarehouseFilter([]);
@@ -263,6 +278,12 @@ export default function OrderReportPage() {
   const toggleWarehouse = (warehouse: string) => {
     setWarehouseFilter((prev) =>
       prev.includes(warehouse) ? prev.filter((w) => w !== warehouse) : [...prev, warehouse]
+    );
+  };
+
+  const toggleChannelName = (channelName: string) => {
+    setChannelNameFilter((prev) =>
+      prev.includes(channelName) ? prev.filter((c) => c !== channelName) : [...prev, channelName]
     );
   };
 
@@ -399,6 +420,7 @@ export default function OrderReportPage() {
     }
   };
 
+  // Export menggunakan filteredData — otomatis sesuai semua filter aktif
   const exportToExcel = () => {
     const exportData = filteredData.map((item) => ({
       "Order Date": formatDate(item.order_date),
@@ -426,105 +448,107 @@ export default function OrderReportPage() {
 
   if (!user) return null;
 
-return (
-  <div className="flex-1 overflow-auto">
-    <div className="p-6">
+  return (
+    <div className="flex-1 overflow-auto">
+      <div className="p-6">
+        <div className="flex-1 overflow-auto">
+          <div className="p-6">
+            <h1 className="text-2xl font-bold text-primary mb-6">Order Report</h1>
 
-      <div className="flex-1 overflow-auto">
-        <div className="p-6">
-          <h1 className="text-2xl font-bold text-primary mb-6">Order Report</h1>
-
-          <div className="bg-white rounded-lg shadow p-4 mb-4">
-            <div className="grid grid-cols-6 gap-3 mb-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Date From
-                </label>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Date To
-                </label>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              {/* Warehouse Filter */}
-              <div className="relative" ref={warehouseDropdownRef}>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Warehouse
-                  {lockedWarehouse && !user?.order_report_import && (
-                    <span className="ml-1 text-red-500">🔒</span>
-                  )}
-                </label>
-                {lockedWarehouse && !user?.order_report_import ? (
+            <div className="bg-white rounded-lg shadow p-4 mb-4">
+              {/* Row 1: Date From, Date To, Warehouse, Status, Channel Name, Search */}
+              <div className="grid grid-cols-6 gap-2 mb-3">
+                {/* Date From */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Date From
+                  </label>
                   <input
-                    type="text"
-                    value={lockedWarehouse}
-                    disabled
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-gray-100 cursor-not-allowed"
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   />
-                ) : (
-                  <>
-                    <button
-                      onClick={() => setShowWarehouseDropdown(!showWarehouseDropdown)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
-                    >
-                      <span className="text-gray-500">
-                        {warehouseFilter.length === 0
-                          ? "All warehouses..."
-                          : `${warehouseFilter.length} selected`}
-                      </span>
-                      <span className="text-gray-400">▼</span>
-                    </button>
-                    {showWarehouseDropdown && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
-                        {warehouses.map((warehouse) => (
-                          <label
-                            key={warehouse}
-                            className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={warehouseFilter.includes(warehouse)}
-                              onChange={() => toggleWarehouse(warehouse)}
-                              className="mr-2"
-                            />
-                            {warehouse}
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
+                </div>
 
-              {/* Status Filter */}
-              <div className="relative" ref={statusDropdownRef}>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Status
-                </label>
-                <div className="relative">
+                {/* Date To */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Date To
+                  </label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                {/* Warehouse Filter */}
+                <div className="relative" ref={warehouseDropdownRef}>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Warehouse
+                    {lockedWarehouse && !user?.order_report_import && (
+                      <span className="ml-1 text-red-500">🔒</span>
+                    )}
+                  </label>
+                  {lockedWarehouse && !user?.order_report_import ? (
+                    <input
+                      type="text"
+                      value={lockedWarehouse}
+                      disabled
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-gray-100 cursor-not-allowed"
+                    />
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setShowWarehouseDropdown(!showWarehouseDropdown)}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
+                      >
+                        <span className="text-gray-500 truncate">
+                          {warehouseFilter.length === 0
+                            ? "All warehouses..."
+                            : `${warehouseFilter.length} selected`}
+                        </span>
+                        <span className="text-gray-400 ml-1">▼</span>
+                      </button>
+                      {showWarehouseDropdown && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                          {warehouses.map((warehouse) => (
+                            <label
+                              key={warehouse}
+                              className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={warehouseFilter.includes(warehouse)}
+                                onChange={() => toggleWarehouse(warehouse)}
+                                className="mr-2"
+                              />
+                              {warehouse}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Status Filter */}
+                <div className="relative" ref={statusDropdownRef}>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
                   <button
                     onClick={() => setShowStatusDropdown(!showStatusDropdown)}
                     className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
                   >
-                    <span className="text-gray-500">
+                    <span className="text-gray-500 truncate">
                       {statusFilter.length === 0
                         ? "Select status..."
                         : `${statusFilter.length} selected`}
                     </span>
-                    <span className="text-gray-400">▼</span>
+                    <span className="text-gray-400 ml-1">▼</span>
                   </button>
                   {showStatusDropdown && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
@@ -545,339 +569,368 @@ return (
                     </div>
                   )}
                 </div>
-              </div>
 
-              {/* Search */}
-              <div className="col-span-2">
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Search
-                </label>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by Sales Order..."
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={resetFilters}
-                className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"
-              >
-                Reset
-              </button>
-              {user.order_report_import && (
-                <button
-                  onClick={() => setShowImportModal(true)}
-                  className="px-4 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
-                >
-                  Import
-                </button>
-              )}
-              {user.order_report_export && (
-                <button
-                  onClick={exportToExcel}
-                  className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-secondary/90 ml-auto"
-                >
-                  Export to Excel
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Summary Statistics */}
-          <div className="bg-white rounded-lg shadow p-4 mb-4">
-            <div className="grid grid-cols-4 gap-4">
-              <div className="border-r border-gray-200 pr-4">
-                <div className="text-xs text-gray-600 mb-1">Period</div>
-                <div className="text-sm font-semibold text-gray-800">
-                  {(() => {
-                    if (filteredData.length === 0) return "-";
-
-                    const dates = filteredData
-                      .map((item) => parseOrderDate(item.order_date))
-                      .filter((d) => !isNaN(d.getTime()))
-                      .sort((a, b) => a.getTime() - b.getTime());
-
-                    if (dates.length === 0) return "-";
-
-                    const minDate = dates[0];
-                    const maxDate = dates[dates.length - 1];
-
-                    const fmt = (date: Date) => {
-                      const months = [
-                        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-                      ];
-                      return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
-                    };
-
-                    if (minDate.getTime() === maxDate.getTime()) return fmt(minDate);
-                    return `${fmt(minDate)} - ${fmt(maxDate)}`;
-                  })()}
-                </div>
-              </div>
-
-              <div className="border-r border-gray-200 pr-4">
-                <div className="text-xs text-gray-600 mb-1">Total Orders</div>
-                <div className="text-sm font-semibold text-gray-800">
-                  {filteredData.length.toLocaleString()}
-                </div>
-              </div>
-
-              <div className="border-r border-gray-200 pr-4">
-                <div className="text-xs text-gray-600 mb-1">Delivery Note Null</div>
-                <div className="text-sm font-semibold text-red-600">
-                  {filteredData
-                    .filter(
-                      (item) =>
-                        !item.delivery_note ||
-                        item.delivery_note === "" ||
-                        item.delivery_note === "null"
-                    )
-                    .length.toLocaleString()}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-xs text-gray-600 mb-1">Sales Invoice Null</div>
-                <div className="text-sm font-semibold text-red-600">
-                  {filteredData
-                    .filter(
-                      (item) =>
-                        !item.sales_invoice ||
-                        item.sales_invoice === "" ||
-                        item.sales_invoice === "null"
-                    )
-                    .length.toLocaleString()}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            {loading ? (
-              <div className="p-8 text-center">Loading...</div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-gray-100 border-b">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Order Date</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Sales Order</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Warehouse</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Status</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Sales Channel</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Channel Name</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Payment Method</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Value Amount</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Delivery Note</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Sales Invoice</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentItems.map((item, index) => (
-                        <tr key={index} className="border-b hover:bg-gray-50">
-                          <td className="px-3 py-2">{formatDate(item.order_date)}</td>
-                          <td className="px-3 py-2">{item.sales_order}</td>
-                          <td className="px-3 py-2">{item.warehouse}</td>
-                          <td className="px-3 py-2">{item.status}</td>
-                          <td className="px-3 py-2">{item.sales_channel}</td>
-                          <td className="px-3 py-2">{item.channel_name || "-"}</td>
-                          <td className="px-3 py-2">{item.payment_method}</td>
-                          <td className="px-3 py-2">{item.value_amount}</td>
-                          <td className="px-3 py-2">
-                            {item.delivery_note && item.delivery_note !== "null" ? (
-                              item.delivery_note
-                            ) : (
-                              <span className="text-red-500">-</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2">
-                            {item.sales_invoice && item.sales_invoice !== "null" ? (
-                              item.sales_invoice
-                            ) : (
-                              <span className="text-red-500">-</span>
-                            )}
-                          </td>
-                        </tr>
+                {/* Channel Name Filter */}
+                <div className="relative" ref={channelNameDropdownRef}>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Channel Name
+                  </label>
+                  <button
+                    onClick={() => setShowChannelNameDropdown(!showChannelNameDropdown)}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
+                  >
+                    <span className="text-gray-500 truncate">
+                      {channelNameFilter.length === 0
+                        ? "All channels..."
+                        : `${channelNameFilter.length} selected`}
+                    </span>
+                    <span className="text-gray-400 ml-1">▼</span>
+                  </button>
+                  {showChannelNameDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                      {channelNames.map((name) => (
+                        <label
+                          key={name}
+                          className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={channelNameFilter.includes(name)}
+                            onChange={() => toggleChannelName(name)}
+                            className="mr-2"
+                          />
+                          {name}
+                        </label>
                       ))}
-                    </tbody>
-                  </table>
-                  {filteredData.length === 0 && (
-                    <div className="p-8 text-center text-gray-500">No data available</div>
+                    </div>
                   )}
                 </div>
 
-                {totalPages > 1 && (
-                  <div className="flex justify-between items-center px-4 py-3 border-t">
-                    <div className="text-xs text-gray-600">
-                      Showing {indexOfFirstItem + 1} to{" "}
-                      {Math.min(indexOfLastItem, filteredData.length)} of{" "}
-                      {filteredData.length} entries
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                        className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                      >
-                        Previous
-                      </button>
-                      {[...Array(totalPages)].map((_, i) => {
-                        const page = i + 1;
-                        if (
-                          page === 1 ||
-                          page === totalPages ||
-                          (page >= currentPage - 1 && page <= currentPage + 1)
-                        ) {
-                          return (
-                            <button
-                              key={page}
-                              onClick={() => setCurrentPage(page)}
-                              className={`px-3 py-1 text-xs border rounded ${
-                                currentPage === page
-                                  ? "bg-primary text-white"
-                                  : "hover:bg-gray-50"
-                              }`}
-                            >
-                              {page}
-                            </button>
-                          );
-                        } else if (page === currentPage - 2 || page === currentPage + 2) {
-                          return (
-                            <span key={page} className="px-2">
-                              ...
-                            </span>
-                          );
-                        }
-                        return null;
-                      })}
-                      <button
-                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {showImportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-bold text-primary mb-4">Import Data</h2>
-
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600 mb-4">
-                Upload files for PowerBiz Sales Order, Delivery Note, and/or Sales Invoice.
-                You can upload one, two, or all three files at once.
-              </p>
-
-              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  1. PowerBiz Sales Order
-                </label>
-                <input
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  onChange={(e) => setPowerbizFile(e.target.files?.[0] || null)}
-                  disabled={importing}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90 disabled:opacity-50"
-                />
-                {powerbizFile && (
-                  <p className="text-xs text-green-600 mt-2">✓ Selected: {powerbizFile.name}</p>
-                )}
-              </div>
-
-              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  2. Delivery Note
-                </label>
-                <input
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  onChange={(e) => setDeliveryFile(e.target.files?.[0] || null)}
-                  disabled={importing}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90 disabled:opacity-50"
-                />
-                {deliveryFile && (
-                  <p className="text-xs text-green-600 mt-2">✓ Selected: {deliveryFile.name}</p>
-                )}
-              </div>
-
-              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  3. Sales Invoice
-                </label>
-                <input
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  onChange={(e) => setInvoiceFile(e.target.files?.[0] || null)}
-                  disabled={importing}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90 disabled:opacity-50"
-                />
-                {invoiceFile && (
-                  <p className="text-xs text-green-600 mt-2">✓ Selected: {invoiceFile.name}</p>
-                )}
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded p-3 mt-4">
-                <p className="text-xs text-blue-800">
-                  <strong>Note:</strong> Files should be CSV or Excel format.
-                  All data including headers will be replaced.
-                </p>
-              </div>
-
-              {importing && (
-                <div className="text-sm text-gray-600 text-center py-3">
-                  <div className="animate-pulse">Importing files... Please wait.</div>
+                {/* Search */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Search
+                  </label>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by Sales Order..."
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
                 </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={resetFilters}
+                  className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"
+                >
+                  Reset
+                </button>
+                {user.order_report_import && (
+                  <button
+                    onClick={() => setShowImportModal(true)}
+                    className="px-4 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                  >
+                    Import
+                  </button>
+                )}
+                {user.order_report_export && (
+                  <button
+                    onClick={exportToExcel}
+                    className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-secondary/90 ml-auto"
+                  >
+                    Export to Excel
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Summary Statistics */}
+            <div className="bg-white rounded-lg shadow p-4 mb-4">
+              <div className="grid grid-cols-4 gap-4">
+                <div className="border-r border-gray-200 pr-4">
+                  <div className="text-xs text-gray-600 mb-1">Period</div>
+                  <div className="text-sm font-semibold text-gray-800">
+                    {(() => {
+                      if (filteredData.length === 0) return "-";
+                      const dates = filteredData
+                        .map((item) => parseOrderDate(item.order_date))
+                        .filter((d) => !isNaN(d.getTime()))
+                        .sort((a, b) => a.getTime() - b.getTime());
+                      if (dates.length === 0) return "-";
+                      const minDate = dates[0];
+                      const maxDate = dates[dates.length - 1];
+                      const fmt = (date: Date) => {
+                        const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                        return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+                      };
+                      if (minDate.getTime() === maxDate.getTime()) return fmt(minDate);
+                      return `${fmt(minDate)} - ${fmt(maxDate)}`;
+                    })()}
+                  </div>
+                </div>
+
+                <div className="border-r border-gray-200 pr-4">
+                  <div className="text-xs text-gray-600 mb-1">Total Orders</div>
+                  <div className="text-sm font-semibold text-gray-800">
+                    {filteredData.length.toLocaleString()}
+                  </div>
+                </div>
+
+                <div className="border-r border-gray-200 pr-4">
+                  <div className="text-xs text-gray-600 mb-1">Delivery Note Null</div>
+                  <div className="text-sm font-semibold text-red-600">
+                    {filteredData
+                      .filter(
+                        (item) =>
+                          !item.delivery_note ||
+                          item.delivery_note === "" ||
+                          item.delivery_note === "null"
+                      )
+                      .length.toLocaleString()}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-600 mb-1">Sales Invoice Null</div>
+                  <div className="text-sm font-semibold text-red-600">
+                    {filteredData
+                      .filter(
+                        (item) =>
+                          !item.sales_invoice ||
+                          item.sales_invoice === "" ||
+                          item.sales_invoice === "null"
+                      )
+                      .length.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              {loading ? (
+                <div className="p-8 text-center">Loading...</div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full" style={{ fontSize: "11px" }}>
+                      <thead className="bg-gray-100 border-b">
+                        <tr>
+                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Order Date</th>
+                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Sales Order</th>
+                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Warehouse</th>
+                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Status</th>
+                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Sales Channel</th>
+                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Channel Name</th>
+                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Payment Method</th>
+                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Value Amount</th>
+                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Delivery Note</th>
+                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Sales Invoice</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {currentItems.map((item, index) => (
+                          <tr key={index} className="border-b hover:bg-gray-50">
+                            <td className="px-2 py-1.5 whitespace-nowrap">{formatDate(item.order_date)}</td>
+                            <td className="px-2 py-1.5 whitespace-nowrap">{item.sales_order}</td>
+                            <td className="px-2 py-1.5 whitespace-nowrap">{item.warehouse}</td>
+                            <td className="px-2 py-1.5 whitespace-nowrap">{item.status}</td>
+                            <td className="px-2 py-1.5 whitespace-nowrap">{item.sales_channel}</td>
+                            <td className="px-2 py-1.5 whitespace-nowrap">{item.channel_name || "-"}</td>
+                            <td className="px-2 py-1.5 whitespace-nowrap">{item.payment_method}</td>
+                            <td className="px-2 py-1.5 whitespace-nowrap">{item.value_amount}</td>
+                            <td className="px-2 py-1.5 whitespace-nowrap">
+                              {item.delivery_note && item.delivery_note !== "null" ? (
+                                item.delivery_note
+                              ) : (
+                                <span className="text-red-500">-</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-1.5 whitespace-nowrap">
+                              {item.sales_invoice && item.sales_invoice !== "null" ? (
+                                item.sales_invoice
+                              ) : (
+                                <span className="text-red-500">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {filteredData.length === 0 && (
+                      <div className="p-8 text-center text-gray-500">No data available</div>
+                    )}
+                  </div>
+
+                  {totalPages > 1 && (
+                    <div className="flex justify-between items-center px-4 py-3 border-t">
+                      <div className="text-xs text-gray-600">
+                        Showing {indexOfFirstItem + 1} to{" "}
+                        {Math.min(indexOfLastItem, filteredData.length)} of{" "}
+                        {filteredData.length} entries
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                          className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                        >
+                          Previous
+                        </button>
+                        {[...Array(totalPages)].map((_, i) => {
+                          const page = i + 1;
+                          if (
+                            page === 1 ||
+                            page === totalPages ||
+                            (page >= currentPage - 1 && page <= currentPage + 1)
+                          ) {
+                            return (
+                              <button
+                                key={page}
+                                onClick={() => setCurrentPage(page)}
+                                className={`px-3 py-1 text-xs border rounded ${
+                                  currentPage === page
+                                    ? "bg-primary text-white"
+                                    : "hover:bg-gray-50"
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            );
+                          } else if (page === currentPage - 2 || page === currentPage + 2) {
+                            return (
+                              <span key={page} className="px-2">
+                                ...
+                              </span>
+                            );
+                          }
+                          return null;
+                        })}
+                        <button
+                          onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                          className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
-
-            <div className="flex gap-2 mt-6">
-              <button
-                onClick={() => {
-                  setShowImportModal(false);
-                  setPowerbizFile(null);
-                  setDeliveryFile(null);
-                  setInvoiceFile(null);
-                }}
-                disabled={importing}
-                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleImportAll}
-                disabled={importing || (!powerbizFile && !deliveryFile && !invoiceFile)}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
-              >
-                {importing ? "Importing..." : "Import Selected Files"}
-              </button>
-            </div>
           </div>
         </div>
-      )}
 
-      <Popup
-        show={showPopup}
-        message={popupMessage}
-        type={popupType}
-        onClose={() => setShowPopup(false)}
-      />
+        {/* Import Modal */}
+        {showImportModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <h2 className="text-lg font-bold text-primary mb-4">Import Data</h2>
+
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600 mb-4">
+                  Upload files for PowerBiz Sales Order, Delivery Note, and/or Sales Invoice.
+                  You can upload one, two, or all three files at once.
+                </p>
+
+                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    1. PowerBiz Sales Order
+                  </label>
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    onChange={(e) => setPowerbizFile(e.target.files?.[0] || null)}
+                    disabled={importing}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90 disabled:opacity-50"
+                  />
+                  {powerbizFile && (
+                    <p className="text-xs text-green-600 mt-2">✓ Selected: {powerbizFile.name}</p>
+                  )}
+                </div>
+
+                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    2. Delivery Note
+                  </label>
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    onChange={(e) => setDeliveryFile(e.target.files?.[0] || null)}
+                    disabled={importing}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90 disabled:opacity-50"
+                  />
+                  {deliveryFile && (
+                    <p className="text-xs text-green-600 mt-2">✓ Selected: {deliveryFile.name}</p>
+                  )}
+                </div>
+
+                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    3. Sales Invoice
+                  </label>
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    onChange={(e) => setInvoiceFile(e.target.files?.[0] || null)}
+                    disabled={importing}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-primary/90 disabled:opacity-50"
+                  />
+                  {invoiceFile && (
+                    <p className="text-xs text-green-600 mt-2">✓ Selected: {invoiceFile.name}</p>
+                  )}
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded p-3 mt-4">
+                  <p className="text-xs text-blue-800">
+                    <strong>Note:</strong> Files should be CSV or Excel format.
+                    All data including headers will be replaced.
+                  </p>
+                </div>
+
+                {importing && (
+                  <div className="text-sm text-gray-600 text-center py-3">
+                    <div className="animate-pulse">Importing files... Please wait.</div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 mt-6">
+                <button
+                  onClick={() => {
+                    setShowImportModal(false);
+                    setPowerbizFile(null);
+                    setDeliveryFile(null);
+                    setInvoiceFile(null);
+                  }}
+                  disabled={importing}
+                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleImportAll}
+                  disabled={importing || (!powerbizFile && !deliveryFile && !invoiceFile)}
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {importing ? "Importing..." : "Import Selected Files"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <Popup
+          show={showPopup}
+          message={popupMessage}
+          type={popupType}
+          onClose={() => setShowPopup(false)}
+        />
+      </div>
     </div>
-  </div>
   );
 }
