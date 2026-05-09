@@ -64,12 +64,16 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const {
-      customer_name, customer_address, invoice_date,
-      items, // array of { product_name, variant, qty, unit_price }
+      customer_name,
+      customer_address,
+      invoice_date,
+      items,                        // array of { product_name, variant, qty, unit_price }
       tax_percent = 0,
       created_by,
-      doc_type = 'invoice',           // 'invoice' | 'quotation'
-      manual_invoice_number = null,   // string | null — diisi manual oleh user
+      doc_type = 'invoice',         // 'invoice' | 'quotation'
+      manual_invoice_number = null, // string | null — diisi manual oleh user
+      signature_store = '',         // nama toko penerima untuk tanda tangan kanan bawah
+      signature_pic = '',           // nama PIC penerima untuk tanda tangan kanan bawah
     } = body;
 
     if (!customer_name || !invoice_date || !items?.length) {
@@ -101,7 +105,8 @@ export async function POST(request: NextRequest) {
 
     // Save invoice row
     // Kolom: invoice_id, invoice_number, invoice_date, customer_name, customer_address,
-    //        subtotal, tax_percent, tax_amount, grand_total, amount_in_words, status, created_at, doc_type
+    //        subtotal, tax_percent, tax_amount, grand_total, amount_in_words,
+    //        status, created_at, doc_type, signature_store, signature_pic
     const invoiceRow = [
       invoice_id,
       invoiceNumber,
@@ -116,6 +121,8 @@ export async function POST(request: NextRequest) {
       'draft',
       now,
       doc_type,
+      signature_store || '',
+      signature_pic || '',
     ];
     await appendSheetData('invoices', [invoiceRow]);
 
@@ -135,8 +142,6 @@ export async function POST(request: NextRequest) {
     });
     await appendSheetData('invoice_items', itemRows);
 
-    // Catatan: tidak increment next_invoice_number karena nomor diisi manual
-
     return NextResponse.json({ success: true, invoice_id, invoice_number: invoiceNumber });
   } catch (error) {
     console.error('Error creating invoice:', error);
@@ -148,8 +153,10 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { invoice_id, status, customer_name, customer_address, invoice_date,
-      items, tax_percent, updated_by } = body;
+    const {
+      invoice_id, status, customer_name, customer_address, invoice_date,
+      items, tax_percent, updated_by,
+    } = body;
 
     const invoices = await getSheetData('invoices');
     const idx = invoices.findIndex((r: any) => r.invoice_id === invoice_id);
@@ -197,6 +204,7 @@ export async function PUT(request: NextRequest) {
       await appendSheetData('invoice_items', newItemRows);
     }
 
+    // Preserve existing signature fields — PUT hanya update status/items, bukan signature
     const updatedRow = [
       invoice_id,
       existing.invoice_number,
@@ -211,6 +219,8 @@ export async function PUT(request: NextRequest) {
       status ?? existing.status,
       existing.created_at,
       existing.doc_type || 'invoice',
+      existing.signature_store || '',
+      existing.signature_pic || '',
     ];
 
     await updateSheetRow('invoices', idx + 2, updatedRow);
@@ -238,6 +248,8 @@ export async function DELETE(request: NextRequest) {
       e.customer_address, e.subtotal, e.tax_percent, e.tax_amount,
       e.grand_total, e.amount_in_words, 'deleted', e.created_at,
       e.doc_type || 'invoice',
+      e.signature_store || '',
+      e.signature_pic || '',
     ];
     await updateSheetRow('invoices', idx + 2, updatedRow);
     return NextResponse.json({ success: true });

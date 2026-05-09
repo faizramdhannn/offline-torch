@@ -90,8 +90,7 @@ async function tryFetch(url: string): Promise<string | null> {
   }
 }
 
-// ── Font helper: jsPDF built-in fonts with Times Roman ───────────────────────
-// jsPDF built-in Times variants: 'times' normal/bold/italic/bolditalic
+// ── Font helper ───────────────────────────────────────────────────────────────
 function setFont(doc: jsPDF, style: 'normal' | 'bold' | 'italic' | 'bolditalic' = 'normal') {
   doc.setFont('times', style);
 }
@@ -133,13 +132,11 @@ export async function POST(request: NextRequest) {
     let y        = 14;
 
     // ── HEADER ────────────────────────────────────────────────────────────────
-    // Logo lebih kecil agar tidak terpotong
     const logoW = 26;
     const logoH = 18;
 
     if (headerImg) {
       try {
-        // Geser sedikit ke kiri agar sisi kiri logo tidak terpotong
         doc.addImage(headerImg, 'PNG', margin - 2, y - 1, logoW, logoH);
       } catch {}
     } else {
@@ -153,7 +150,7 @@ export async function POST(request: NextRequest) {
       doc.text('LOGO', margin + logoW / 2, y + logoH / 2 + 2, { align: 'center' });
     }
 
-    // Company name + address (center-left)
+    // Company name + address
     const companyX    = margin + logoW + 5;
     const companyMaxW = W - margin - companyX - 44;
 
@@ -173,14 +170,13 @@ export async function POST(request: NextRequest) {
       doc.text(`Phone: ${master.company_phone}`, companyX, y + 15);
     }
 
-    // Document type label top-right: "Invoice" or "Quotation"
+    // Document type label top-right
     const docLabel = isQuotation ? 'Quotation' : 'Invoice';
     setTextCol(doc, NAVY);
     setFont(doc, 'bolditalic');
     doc.setFontSize(22);
     doc.text(docLabel, W - margin, y + 8, { align: 'right' });
 
-    // Invoice number (only shown if not quotation / if there's a number)
     if (invoice.invoice_number) {
       setFont(doc, 'bold');
       doc.setFontSize(11);
@@ -249,8 +245,8 @@ export async function POST(request: NextRequest) {
 
     y += headH;
 
-    // Item rows — semua baris warna sama (LIGHT_ROW)
-    items.forEach((item: any, idx: number) => {
+    // Item rows
+    items.forEach((item: any) => {
       setFill(doc, LIGHT_ROW);
       doc.rect(margin, y, cW, rowH, 'F');
 
@@ -337,10 +333,10 @@ export async function POST(request: NextRequest) {
     }
 
     // ── SIGNATURE ─────────────────────────────────────────────────────────────
-    const sigY    = y;
-    const rightX  = W - margin; // right edge, text right-aligned
+    const sigY   = y;
+    const rightX = W - margin; // right edge, text right-aligned
 
-    // LEFT — "Mengetahui,"
+    // ── LEFT: "Mengetahui," + tanda tangan perusahaan ────────────────────────
     setTextCol(doc, TEXT_DARK);
     setFont(doc, 'bold');
     doc.setFontSize(8.5);
@@ -366,19 +362,38 @@ export async function POST(request: NextRequest) {
     doc.setFontSize(8);
     doc.text('O2O Koordinator Operasional', margin, sigY + imgOffset + 9);
 
-    // RIGHT — "Bandung, [tanggal]" rata kanan, lalu nama customer + perusahaan
+    // ── RIGHT: "Bandung, [tanggal]" + nama toko + nama PIC ───────────────────
+    // Tanggal
     setFont(doc, 'bold');
     doc.setFontSize(8.5);
+    setTextCol(doc, TEXT_DARK);
     doc.text(`Bandung, ${formatDate(invoice.invoice_date)}`, rightX, sigY, { align: 'right' });
 
-    setFont(doc, 'bold');
-    doc.setFontSize(8.5);
-    doc.text(invoice.customer_name || '', rightX, sigY + imgOffset + 4, { align: 'right' });
+    // Spasi untuk area tanda tangan (sama panjang dengan kiri)
+    // Nama toko penerima (signature_store) — bold, warna NAVY_MID
+    const sigStoreName = invoice.signature_store || '';
+    if (sigStoreName) {
+      setFont(doc, 'bold');
+      doc.setFontSize(8.5);
+      setTextCol(doc, NAVY_MID);
+      doc.text(sigStoreName, rightX, sigY + imgOffset + 4, { align: 'right' });
+    }
 
-    if (master.company_name) {
+    // Nama PIC (signature_pic) — normal, warna TEXT_DARK
+    const sigPicName = invoice.signature_pic || '';
+    if (sigPicName) {
       setFont(doc, 'normal');
       doc.setFontSize(8);
-      doc.text(master.company_name, rightX, sigY + imgOffset + 9, { align: 'right' });
+      setTextCol(doc, TEXT_DARK);
+      doc.text(sigPicName, rightX, sigY + imgOffset + 9, { align: 'right' });
+    }
+
+    // Jika keduanya kosong, fallback ke customer_name (backward compatibility)
+    if (!sigStoreName && !sigPicName && invoice.customer_name) {
+      setFont(doc, 'bold');
+      doc.setFontSize(8.5);
+      setTextCol(doc, NAVY_MID);
+      doc.text(invoice.customer_name, rightX, sigY + imgOffset + 4, { align: 'right' });
     }
 
     // ── Output ────────────────────────────────────────────────────────────────

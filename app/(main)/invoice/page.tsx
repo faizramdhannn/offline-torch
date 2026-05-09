@@ -44,6 +44,8 @@ interface Invoice {
   status: string;
   doc_type?: string;
   created_at: string;
+  signature_store?: string;
+  signature_pic?: string;
 }
 
 interface MasterItem {
@@ -141,8 +143,13 @@ export default function InvoicePage() {
     tax_percent: "0",
   });
   const [formItems, setFormItems] = useState<InvoiceItem[]>([emptyItem()]);
-  const [productSearch, setProductSearch] = useState<string[]>([""]);
+  const [productSearch, setProductSearch] = useState<string[]>([""]); // teks tampil di input
+  const [productQuery, setProductQuery] = useState<string[]>([""]);   // teks untuk filter dropdown
   const [productDropdowns, setProductDropdowns] = useState<boolean[]>([false]);
+
+  // ── Signature / Tanda Tangan Kanan Bawah ──────────────────────────────────
+  const [signatureStore, setSignatureStore] = useState("");
+  const [signaturePic, setSignaturePic] = useState("");
 
   // Master form
   const [masterForm, setMasterForm] = useState<MasterInvoice>({});
@@ -211,8 +218,8 @@ export default function InvoicePage() {
 
   // ── Create Invoice ─────────────────────────────────────────────────────────
   const handleCreate = async () => {
-    const customerName = selectedStore || manualCustomerName.trim();
-    if (!customerName) { showMessage("Pilih toko atau isi nama customer", "error"); return; }
+    const customerName = manualCustomerName.trim();
+    if (!customerName) { showMessage("Nama customer wajib diisi", "error"); return; }
     if (docType === "invoice" && !manualInvoiceNumber.trim()) { showMessage("Nomor invoice wajib diisi", "error"); return; }
     if (formItems.some(it => !it.product_name)) { showMessage("Nama produk wajib diisi", "error"); return; }
 
@@ -229,6 +236,8 @@ export default function InvoicePage() {
           created_by: user?.user_name,
           doc_type: docType,
           manual_invoice_number: docType === "invoice" ? manualInvoiceNumber.trim() : null,
+          signature_store: signatureStore,
+          signature_pic: signaturePic,
         }),
       });
       const data = await res.json();
@@ -250,9 +259,12 @@ export default function InvoicePage() {
     setManualInvoiceNumber("");
     setSelectedStore("");
     setManualCustomerName("");
+    setSignatureStore("");
+    setSignaturePic("");
     setFormData({ customer_address: "", invoice_date: new Date().toISOString().split("T")[0], tax_percent: "0" });
     setFormItems([emptyItem()]);
     setProductSearch([""]);
+    setProductQuery([""]);
     setProductDropdowns([false]);
   };
 
@@ -260,12 +272,14 @@ export default function InvoicePage() {
   const addItem = () => {
     setFormItems(p => [...p, emptyItem()]);
     setProductSearch(p => [...p, ""]);
+    setProductQuery(p => [...p, ""]);
     setProductDropdowns(p => [...p, false]);
   };
 
   const removeItem = (i: number) => {
     setFormItems(p => p.filter((_, idx) => idx !== i));
     setProductSearch(p => p.filter((_, idx) => idx !== i));
+    setProductQuery(p => p.filter((_, idx) => idx !== i));
     setProductDropdowns(p => p.filter((_, idx) => idx !== i));
   };
 
@@ -281,10 +295,11 @@ export default function InvoicePage() {
       : it
     ));
     setProductSearch(p => p.map((v, idx) => idx === i ? name : v));
+    // Jangan reset productQuery — biarkan user bisa lihat hasil lain setelah pilih
     setProductDropdowns(p => p.map(() => false));
   };
 
-  // ── Close dropdown on blur (with delay for mousedown to fire first) ────────
+  // ── Close dropdown on blur ────────────────────────────────────────────────
   const handleProductBlur = (i: number) => {
     setTimeout(() => {
       setProductDropdowns(p => p.map((_, idx) => idx === i ? false : _));
@@ -374,13 +389,11 @@ export default function InvoicePage() {
   // ── Filtered items for dropdown ────────────────────────────────────────────
   const getFilteredItems = (searchVal: string) => {
     const q = (searchVal || "").toLowerCase().trim();
-    if (!q) return masterItems.slice(0, 30);
-    return masterItems
-      .filter(m =>
-        (m.Product_name || "").toLowerCase().includes(q) ||
-        (m.SKU || "").toLowerCase().includes(q)
-      )
-      .slice(0, 30);
+    if (!q) return masterItems.slice(0, 50);
+    return masterItems.filter(m =>
+      (m.Product_name || "").toLowerCase().includes(q) ||
+      (m.SKU || "").toLowerCase().includes(q)
+    );
   };
 
   if (!user) return null;
@@ -584,38 +597,18 @@ export default function InvoicePage() {
                 </div>
               )}
 
-              {/* Customer / Toko */}
+              {/* ── Customer / Kepada ── */}
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-2">
                     Kepada <span className="text-red-500">*</span>
                   </label>
-                  {/* Dropdown toko */}
-                  <div className="grid grid-cols-3 gap-1.5 mb-2">
-                    {TORCH_STORES.map((store) => (
-                      <button
-                        key={store}
-                        type="button"
-                        onClick={() => { setSelectedStore(store); setManualCustomerName(""); }}
-                        className={`px-2 py-1.5 rounded text-[11px] font-medium border text-left truncate transition-all ${
-                          selectedStore === store
-                            ? "bg-primary text-white border-primary"
-                            : "bg-white text-gray-600 border-gray-200 hover:border-primary/50 hover:text-primary"
-                        }`}
-                      >
-                        {store}
-                      </button>
-                    ))}
-                  </div>
-                  {/* Nama manual */}
                   <div className="relative">
                     <input
                       value={manualCustomerName}
-                      onChange={e => { setManualCustomerName(e.target.value); setSelectedStore(""); }}
-                      className={`w-full px-3 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary transition-all ${
-                        manualCustomerName ? "border-primary bg-primary/5" : "border-gray-300"
-                      }`}
-                      placeholder="Atau ketik nama customer manual..."
+                      onChange={e => setManualCustomerName(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                      placeholder="Nama customer / toko..."
                     />
                     {manualCustomerName && (
                       <button
@@ -628,12 +621,6 @@ export default function InvoicePage() {
                       </button>
                     )}
                   </div>
-                  {/* Preview pilihan aktif */}
-                  {(selectedStore || manualCustomerName) && (
-                    <p className="mt-1.5 text-[10px] text-primary font-medium">
-                      ✓ Customer: <span className="font-bold">{selectedStore || manualCustomerName}</span>
-                    </p>
-                  )}
                 </div>
 
                 {/* Tanggal + Alamat */}
@@ -660,7 +647,7 @@ export default function InvoicePage() {
                 </div>
               </div>
 
-              {/* Items */}
+              {/* ── Items ── */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-semibold text-gray-700">Item Produk</label>
@@ -695,6 +682,7 @@ export default function InvoicePage() {
                               onChange={e => {
                                 const v = e.target.value;
                                 setProductSearch(p => p.map((s, idx) => idx === i ? v : s));
+                                setProductQuery(p => p.map((s, idx) => idx === i ? v : s));
                                 setProductDropdowns(p => p.map((_, idx) => idx === i ? true : _));
                                 updateItem(i, "product_name", v);
                               }}
@@ -705,13 +693,13 @@ export default function InvoicePage() {
                               placeholder="Cari produk..."
                             />
                             {productDropdowns[i] && (
-                              <div className="absolute left-0 top-full mt-0.5 z-[200] bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto w-72">
-                                {getFilteredItems(productSearch[i]).length === 0 ? (
+                              <div className="absolute left-0 top-full mt-0.5 z-[200] bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto w-80">
+                                {getFilteredItems(productQuery[i]).length === 0 ? (
                                   <div className="px-3 py-2 text-gray-400 text-center text-[11px]">Tidak ditemukan</div>
                                 ) : (
-                                  getFilteredItems(productSearch[i]).map((m, j) => (
+                                  getFilteredItems(productQuery[i]).map((m, j) => (
                                     <div
-                                      key={j}
+                                      key={`${j}-${m.SKU}-${m.Product_name}`}
                                       className="px-3 py-2 hover:bg-primary/10 cursor-pointer text-[11px] border-b last:border-0"
                                       onMouseDown={() => selectProduct(i, m)}
                                     >
@@ -765,7 +753,7 @@ export default function InvoicePage() {
                 </div>
               </div>
 
-              {/* Totals + Tax */}
+              {/* ── Totals + Tax ── */}
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-3">
                   <label className="text-xs font-medium text-gray-700">PPN (%)</label>
@@ -787,6 +775,70 @@ export default function InvoicePage() {
                   <div className="text-sm font-bold text-primary">Total: {formatRupiah(calcTotal)}</div>
                 </div>
               </div>
+
+              {/* ── Tanda Tangan Kanan Bawah ── */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  {/* Icon tanda tangan */}
+                  <svg className="w-3.5 h-3.5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                  <label className="text-xs font-semibold text-gray-700">
+                    Tanda Tangan Penerima (Kanan Bawah PDF)
+                  </label>
+                </div>
+
+                {/* Pilih toko */}
+                <div>
+                  <p className="text-[10px] text-gray-500 mb-1.5">Pilih Toko Penerima</p>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {TORCH_STORES.map((store) => (
+                      <button
+                        key={store}
+                        type="button"
+                        onClick={() => setSignatureStore(prev => prev === store ? "" : store)}
+                        className={`px-2 py-1.5 rounded text-[11px] font-medium border text-left truncate transition-all ${
+                          signatureStore === store
+                            ? "bg-primary text-white border-primary"
+                            : "bg-white text-gray-600 border-gray-200 hover:border-primary/50 hover:text-primary"
+                        }`}
+                      >
+                        {store}
+                      </button>
+                    ))}
+                  </div>
+                  {signatureStore && (
+                    <button
+                      onClick={() => setSignatureStore("")}
+                      className="mt-1.5 text-[10px] text-gray-400 hover:text-red-500 underline"
+                    >
+                      Hapus pilihan toko
+                    </button>
+                  )}
+                </div>
+
+                {/* Nama PIC */}
+                <div>
+                  <label className="block text-[10px] text-gray-500 mb-1">Nama PIC / Penerima</label>
+                  <input
+                    value={signaturePic}
+                    onChange={e => setSignaturePic(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-white"
+                    placeholder="Nama lengkap PIC penerima..."
+                  />
+                </div>
+
+                {/* Preview */}
+                {(signatureStore || signaturePic) && (
+                  <div className="bg-white border border-primary/20 rounded px-3 py-2">
+                    <p className="text-[10px] text-gray-400 mb-0.5">Preview tanda tangan kanan:</p>
+                    <p className="text-xs font-bold text-primary">{signatureStore || "—"}</p>
+                    {signaturePic && <p className="text-[11px] text-gray-600">{signaturePic}</p>}
+                  </div>
+                )}
+              </div>
+
             </div>
 
             <div className="flex gap-2 px-6 pb-5">
@@ -866,6 +918,19 @@ export default function InvoicePage() {
                 <div className="text-xs">
                   <p className="text-gray-400 mb-0.5">Alamat</p>
                   <p className="text-gray-700">{selectedInvoice.customer_address}</p>
+                </div>
+              )}
+
+              {/* Signature info */}
+              {(selectedInvoice.signature_store || selectedInvoice.signature_pic) && (
+                <div className="text-xs bg-gray-50 border border-gray-200 rounded p-3">
+                  <p className="text-gray-400 mb-1">Tanda Tangan Penerima</p>
+                  {selectedInvoice.signature_store && (
+                    <p className="font-semibold text-primary">{selectedInvoice.signature_store}</p>
+                  )}
+                  {selectedInvoice.signature_pic && (
+                    <p className="text-gray-600">{selectedInvoice.signature_pic}</p>
+                  )}
                 </div>
               )}
 
