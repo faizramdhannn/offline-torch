@@ -59,6 +59,11 @@ export async function POST(request: NextRequest) {
       // Traffic Store permissions
       traffic_store: user.traffic_store === 'TRUE',
       report_store: user.report_store === 'TRUE',
+      invoice: user.invoice === 'TRUE',
+      invoice_create: user.invoice_create === 'TRUE',
+      invoice_edit: user.invoice_edit === 'TRUE',
+      invoice_delete: user.invoice_delete === 'TRUE',
+      invoice_master: user.invoice_master === 'TRUE',
     });
   } catch (error) {
     return NextResponse.json({ error: 'Authentication failed' }, { status: 500 });

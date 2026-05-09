@@ -40,6 +40,11 @@ export interface User {
   stock_view_hpt: boolean;
   stock_view_hpj: boolean;
   stock_refresh_javelin: boolean;
+  invoice: boolean;
+  invoice_create: boolean;
+  invoice_edit: boolean;
+  invoice_delete: boolean;
+  invoice_master: boolean;
   last_activity: string;
 }
 

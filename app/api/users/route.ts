@@ -121,6 +121,11 @@ export async function PUT(request: NextRequest) {
       permissions.stock_opname_report ? "TRUE" : "FALSE", // AL ← baru
       permissions.attendance ? "TRUE" : "FALSE", // AN ← baru
       permissions.attendance_report ? "TRUE" : "FALSE", // AM ← baru
+      permissions.invoice ? "TRUE" : "FALSE",          // invoice
+      permissions.invoice_create ? "TRUE" : "FALSE",   // invoice_create
+      permissions.invoice_edit ? "TRUE" : "FALSE",      // invoice_edit
+      permissions.invoice_delete ? "TRUE" : "FALSE",    // invoice_delete
+      permissions.invoice_master ? "TRUE" : "FALSE",    // invoice_master
       timestamp, // AM
     ];
 

@@ -80,6 +80,11 @@ export async function PUT(request: NextRequest) {
         permissions.stock_view_hpt ? 'TRUE' : 'FALSE',
         permissions.stock_view_hpj ? 'TRUE' : 'FALSE',
         permissions.stock_refresh_javelin ? 'TRUE' : 'FALSE',
+        permissions.invoice ? 'TRUE' : 'FALSE',
+        permissions.invoice_create ? 'TRUE' : 'FALSE',
+        permissions.invoice_edit ? 'TRUE' : 'FALSE',
+        permissions.invoice_delete ? 'TRUE' : 'FALSE',
+        permissions.invoice_master ? 'TRUE' : 'FALSE',
         '', // last_activity (empty on creation)
         permissions.traffic_store ? 'TRUE' : 'FALSE',
         permissions.report_store ? 'TRUE' : 'FALSE',

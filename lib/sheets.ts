@@ -18,6 +18,9 @@ const SPREADSHEET_MAP: Record<string, string> = {
   pca_stock: process.env.SPREADSHEET_STOCK || "",
   last_update: process.env.SPREADSHEET_STOCK || "",
   system_config: process.env.SPREADSHEET_STOCK || "",
+  invoice: process.env.SPREADSHEET_STOCK || "",    // ← TAMBAH INI
+  invoice_items:  process.env.SPREADSHEET_STOCK || "",    // ← TAMBAH INI
+  master_invoice: process.env.SPREADSHEET_STOCK || "",
   activity_log: process.env.SPREADSHEET_STORE || "",
   shopify_import: process.env.SPREADSHEET_ORDER || "",
   master_traffic: process.env.SPREADSHEET_ORDER || "",
