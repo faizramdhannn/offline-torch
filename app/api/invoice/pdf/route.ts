@@ -49,15 +49,10 @@ function formatDate(dateStr: string): string {
 async function downloadImageAsBase64(url: string): Promise<string | null> {
   if (!url) return null;
   try {
-    // Fix common URL typos (ibb.co.com → ibb.co)
     let fetchUrl = url.replace('ibb.co.com', 'ibb.co');
 
-    // ibb.co share pages → try to get direct image via i.ibb.co
-    // e.g. https://ibb.co/GQQJffVc → https://i.ibb.co/GQQJffVc/image.jpg
-    // We'll try i.ibb.co/{code} pattern
     const ibbMatch = fetchUrl.match(/(?:https?:\/\/)?(?:www\.)?ibb\.co\/([A-Za-z0-9]+)\/?$/);
     if (ibbMatch) {
-      // Try common direct image patterns on i.ibb.co
       const code = ibbMatch[1];
       const candidates = [
         `https://i.ibb.co/${code}/image.png`,
@@ -95,6 +90,12 @@ async function tryFetch(url: string): Promise<string | null> {
   }
 }
 
+// ── Font helper: jsPDF built-in fonts with Times Roman ───────────────────────
+// jsPDF built-in Times variants: 'times' normal/bold/italic/bolditalic
+function setFont(doc: jsPDF, style: 'normal' | 'bold' | 'italic' | 'bolditalic' = 'normal') {
+  doc.setFont('times', style);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { invoice_id } = await request.json();
@@ -115,6 +116,10 @@ export async function POST(request: NextRequest) {
     const usePPN  = master.default_use_ppn === 'TRUE';
     const useSign = master.default_use_signature === 'TRUE';
 
+    // doc_type: 'invoice' (default) or 'quotation'
+    const docType = (invoice.doc_type || 'invoice').toLowerCase();
+    const isQuotation = docType === 'quotation';
+
     const [headerImg, signImg] = await Promise.all([
       downloadImageAsBase64(master.header_image_url || ''),
       downloadImageAsBase64(master.signature_image_url || ''),
@@ -128,52 +133,59 @@ export async function POST(request: NextRequest) {
     let y        = 14;
 
     // ── HEADER ────────────────────────────────────────────────────────────────
-    const logoW = 36;
-    const logoH = 20;
+    // Logo lebih kecil agar tidak terpotong
+    const logoW = 26;
+    const logoH = 18;
 
     if (headerImg) {
-      try { doc.addImage(headerImg, 'PNG', margin, y, logoW, logoH); } catch {}
+      try {
+        // Geser sedikit ke kiri agar sisi kiri logo tidak terpotong
+        doc.addImage(headerImg, 'PNG', margin - 2, y - 1, logoW, logoH);
+      } catch {}
     } else {
-      // Fallback: draw placeholder box
       setFill(doc, '#e8eef8');
       setDrawCol(doc, NAVY_MID);
       doc.setLineWidth(0.3);
       doc.roundedRect(margin, y, logoW, logoH, 2, 2, 'FD');
       setTextCol(doc, NAVY);
-      doc.setFont('helvetica', 'bold');
+      setFont(doc, 'bold');
       doc.setFontSize(7);
       doc.text('LOGO', margin + logoW / 2, y + logoH / 2 + 2, { align: 'center' });
     }
 
     // Company name + address (center-left)
-    const companyX = margin + logoW + 5;
-    const companyMaxW = W - margin - companyX - 42;
+    const companyX    = margin + logoW + 5;
+    const companyMaxW = W - margin - companyX - 44;
 
     setTextCol(doc, NAVY);
-    doc.setFont('helvetica', 'bold');
+    setFont(doc, 'bold');
     doc.setFontSize(11);
-    doc.text(master.company_name || 'MAHA NAGARI NUSANTARA', companyX, y + 6);
+    doc.text(master.company_name || 'MAHA NAGARI NUSANTARA', companyX, y + 5);
 
     setTextCol(doc, TEXT_GRAY);
-    doc.setFont('helvetica', 'normal');
+    setFont(doc, 'normal');
     doc.setFontSize(7.5);
     if (master.company_address) {
       const addrLines = doc.splitTextToSize(master.company_address, companyMaxW);
-      doc.text(addrLines, companyX, y + 11.5);
+      doc.text(addrLines, companyX, y + 10);
     }
     if (master.company_phone) {
-      doc.text(`Phone: ${master.company_phone}`, companyX, y + 16);
+      doc.text(`Phone: ${master.company_phone}`, companyX, y + 15);
     }
 
-    // "Invoice" italic right
+    // Document type label top-right: "Invoice" or "Quotation"
+    const docLabel = isQuotation ? 'Quotation' : 'Invoice';
     setTextCol(doc, NAVY);
-    doc.setFont('helvetica', 'bolditalic');
-    doc.setFontSize(24);
-    doc.text('Invoice', W - margin, y + 9, { align: 'right' });
+    setFont(doc, 'bolditalic');
+    doc.setFontSize(22);
+    doc.text(docLabel, W - margin, y + 8, { align: 'right' });
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.text(`#${invoice.invoice_number}`, W - margin, y + 17, { align: 'right' });
+    // Invoice number (only shown if not quotation / if there's a number)
+    if (invoice.invoice_number) {
+      setFont(doc, 'bold');
+      doc.setFontSize(11);
+      doc.text(`#${invoice.invoice_number}`, W - margin, y + 16, { align: 'right' });
+    }
 
     y += logoH + 7;
 
@@ -185,20 +197,20 @@ export async function POST(request: NextRequest) {
 
     // ── KEPADA YTH ────────────────────────────────────────────────────────────
     setTextCol(doc, TEXT_DARK);
-    doc.setFont('helvetica', 'bold');
+    setFont(doc, 'bold');
     doc.setFontSize(9);
     doc.text('Kepada Yth :', margin, y);
     y += 5;
 
     setTextCol(doc, NAVY_MID);
-    doc.setFont('helvetica', 'bold');
+    setFont(doc, 'bold');
     doc.setFontSize(9.5);
     doc.text(invoice.customer_name || '', margin, y);
     y += 5;
 
     if (invoice.customer_address) {
       setTextCol(doc, TEXT_GRAY);
-      doc.setFont('helvetica', 'normal');
+      setFont(doc, 'normal');
       doc.setFontSize(8);
       const addrLines = doc.splitTextToSize(invoice.customer_address, cW * 0.65);
       doc.text(addrLines, margin, y);
@@ -208,7 +220,6 @@ export async function POST(request: NextRequest) {
     y += 6;
 
     // ── ITEMS TABLE ───────────────────────────────────────────────────────────
-    // Columns: Qty | Deskripsi | Harga Satuan | Total
     const qtyW  = 16;
     const hrgW  = 34;
     const totW  = 30;
@@ -229,33 +240,29 @@ export async function POST(request: NextRequest) {
     doc.rect(margin, y, cW, headH, 'F');
 
     setTextCol(doc, WHITE);
-    doc.setFont('helvetica', 'bold');
+    setFont(doc, 'bold');
     doc.setFontSize(8.5);
-    doc.text('Qty',          colX.qty  + qtyW  / 2,   y + 6, { align: 'center' });
-    doc.text('Deskripsi',    colX.desk + deskW  / 2,   y + 6, { align: 'center' });
-    doc.text('Harga Satuan', colX.hrg  + hrgW  / 2,   y + 6, { align: 'center' });
-    doc.text('Total',        colX.tot  + totW  / 2,   y + 6, { align: 'center' });
+    doc.text('Qty',           colX.qty  + qtyW  / 2,  y + 6, { align: 'center' });
+    doc.text('Nama Produk',   colX.desk + deskW  / 2,  y + 6, { align: 'center' });
+    doc.text('Harga Satuan',  colX.hrg  + hrgW  / 2,  y + 6, { align: 'center' });
+    doc.text('Total',         colX.tot  + totW  / 2,  y + 6, { align: 'center' });
 
     y += headH;
 
-    // Item rows
+    // Item rows — semua baris warna sama (LIGHT_ROW)
     items.forEach((item: any, idx: number) => {
-      const isAlt = idx % 2 === 0;
-      setFill(doc, isAlt ? LIGHT_ROW : WHITE);
+      setFill(doc, LIGHT_ROW);
       doc.rect(margin, y, cW, rowH, 'F');
 
       setTextCol(doc, NAVY);
-      doc.setFont('helvetica', 'bold');
+      setFont(doc, 'bold');
       doc.setFontSize(8);
 
-      // Qty
       doc.text(String(item.qty || 0), colX.qty + qtyW / 2, y + 5.2, { align: 'center' });
 
-      // Description (clamp to 1 line)
       const descLines = doc.splitTextToSize(item.product_name || '', deskW - 4);
       doc.text(descLines[0], colX.desk + 2, y + 5.2);
 
-      // Harga satuan
       doc.text(
         formatRupiahFull(item.unit_price),
         colX.hrg + hrgW - 2,
@@ -263,7 +270,6 @@ export async function POST(request: NextRequest) {
         { align: 'right' }
       );
 
-      // Total
       const lineTotal = item.total_price || (Number(item.qty) * Number(item.unit_price));
       doc.text(
         formatRupiah(lineTotal),
@@ -272,7 +278,6 @@ export async function POST(request: NextRequest) {
         { align: 'right' }
       );
 
-      // Row bottom divider
       setDrawCol(doc, '#b8cce4');
       doc.setLineWidth(0.15);
       doc.line(margin, y + rowH, W - margin, y + rowH);
@@ -285,26 +290,24 @@ export async function POST(request: NextRequest) {
     // ── TOTALS ────────────────────────────────────────────────────────────────
     const totBlockW = 82;
     const totBlockX = W - margin - totBlockW;
-    const totLblEnd = totBlockX + 44;  // where label text right-aligns to
-    const totValEnd = W - margin - 2;  // where value text right-aligns to
+    const totLblEnd = totBlockX + 44;
+    const totValEnd = W - margin - 2;
     const tRowH = 7;
 
-    // SubTotal
     setFill(doc, LIGHT_ROW);
     doc.rect(totBlockX, y, totBlockW, tRowH, 'F');
     setTextCol(doc, NAVY);
-    doc.setFont('helvetica', 'bold');
+    setFont(doc, 'bold');
     doc.setFontSize(8.5);
     doc.text('SubTotal', totLblEnd, y + 5, { align: 'right' });
     doc.text(formatRupiah(invoice.subtotal), totValEnd, y + 5, { align: 'right' });
     y += tRowH;
 
-    // PPN
     if (usePPN && Number(invoice.tax_percent) > 0) {
       setFill(doc, LIGHT_ROW);
       doc.rect(totBlockX, y, totBlockW, tRowH, 'F');
       setTextCol(doc, NAVY);
-      doc.setFont('helvetica', 'bold');
+      setFont(doc, 'bold');
       doc.setFontSize(8.5);
       doc.text(`PPN ${invoice.tax_percent}%`, totLblEnd, y + 5, { align: 'right' });
       doc.text(formatRupiah(invoice.tax_amount), totValEnd, y + 5, { align: 'right' });
@@ -313,22 +316,19 @@ export async function POST(request: NextRequest) {
 
     y += 2;
 
-    // Total Pembayaran — full-width band
     setFill(doc, NAVY_MID);
     doc.rect(margin, y, cW, tRowH + 2, 'F');
     setTextCol(doc, WHITE);
-    doc.setFont('helvetica', 'bold');
+    setFont(doc, 'bold');
     doc.setFontSize(9);
-    // Label centered in the left ~60% portion
     doc.text('Total Pembayaran', margin + cW * 0.35, y + 6, { align: 'center' });
-    // Value right
     doc.text(formatRupiah(invoice.grand_total), W - margin - 2, y + 6, { align: 'right' });
     y += tRowH + 2 + 8;
 
     // ── TERBILANG ─────────────────────────────────────────────────────────────
     if (invoice.amount_in_words) {
       setTextCol(doc, TEXT_DARK);
-      doc.setFont('helvetica', 'bolditalic');
+      setFont(doc, 'bolditalic');
       doc.setFontSize(8.5);
       const terbilangText = `Terbilang: ${invoice.amount_in_words}`;
       const tLines = doc.splitTextToSize(terbilangText, cW);
@@ -338,16 +338,14 @@ export async function POST(request: NextRequest) {
 
     // ── SIGNATURE ─────────────────────────────────────────────────────────────
     const sigY    = y;
-    const sigColW = cW / 2;
-    const rightX  = margin + sigColW + 4;
+    const rightX  = W - margin; // right edge, text right-aligned
 
     // LEFT — "Mengetahui,"
     setTextCol(doc, TEXT_DARK);
-    doc.setFont('helvetica', 'bold');
+    setFont(doc, 'bold');
     doc.setFontSize(8.5);
     doc.text('Mengetahui,', margin, sigY);
 
-    // Signature image
     let imgOffset = 0;
     if (useSign && signImg) {
       try {
@@ -361,43 +359,38 @@ export async function POST(request: NextRequest) {
     }
 
     setTextCol(doc, TEXT_DARK);
-    doc.setFont('helvetica', 'bold');
+    setFont(doc, 'bold');
     doc.setFontSize(8.5);
     doc.text('Achmad Odi Primandana', margin, sigY + imgOffset + 4);
-    doc.setFont('helvetica', 'normal');
+    setFont(doc, 'normal');
     doc.setFontSize(8);
     doc.text('O2O Koordinator Operasional', margin, sigY + imgOffset + 9);
 
-    // RIGHT — city + date, then customer/store
-    // Derive city: take last word of first address segment or first word
-    let cityName = 'Bandung';
-    if (master.company_address) {
-      // e.g. "Jl. Lembong No. 30 Braga, Kec. Sumur Bandung - Bandung"
-      const parts = master.company_address.split(/[-,]/);
-      const last = (parts[parts.length - 1] || '').trim();
-      if (last) cityName = last.split(' ').filter(Boolean).pop() || cityName;
-    }
-
-    doc.setFont('helvetica', 'bold');
+    // RIGHT — "Bandung, [tanggal]" rata kanan, lalu nama customer + perusahaan
+    setFont(doc, 'bold');
     doc.setFontSize(8.5);
-    doc.text(`${cityName}, ${formatDate(invoice.invoice_date)}`, rightX, sigY);
+    doc.text(`Bandung, ${formatDate(invoice.invoice_date)}`, rightX, sigY, { align: 'right' });
 
-    doc.setFont('helvetica', 'bold');
+    setFont(doc, 'bold');
     doc.setFontSize(8.5);
-    doc.text(invoice.customer_name || '', rightX, sigY + imgOffset + 4);
+    doc.text(invoice.customer_name || '', rightX, sigY + imgOffset + 4, { align: 'right' });
 
     if (master.company_name) {
-      doc.setFont('helvetica', 'normal');
+      setFont(doc, 'normal');
       doc.setFontSize(8);
-      doc.text(master.company_name, rightX, sigY + imgOffset + 9);
+      doc.text(master.company_name, rightX, sigY + imgOffset + 9, { align: 'right' });
     }
 
     // ── Output ────────────────────────────────────────────────────────────────
     const pdfBytes = doc.output('arraybuffer');
+    const filename = isQuotation
+      ? `Quotation_${invoice.customer_name || invoice_id}.pdf`
+      : `Invoice_${invoice.invoice_number || invoice_id}.pdf`;
+
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="Invoice_${invoice.invoice_number}.pdf"`,
+        'Content-Disposition': `attachment; filename="${filename}"`,
       },
     });
   } catch (error) {

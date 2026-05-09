@@ -42,6 +42,7 @@ interface Invoice {
   grand_total: string | number;
   amount_in_words: string;
   status: string;
+  doc_type?: string;
   created_at: string;
 }
 
@@ -81,6 +82,22 @@ function statusBadge(status: string) {
   return map[s] || "bg-gray-100 text-gray-500";
 }
 
+// ── Torch Store List ──────────────────────────────────────────────────────────
+const TORCH_STORES = [
+  "Torch Lembong",
+  "Torch Margonda",
+  "Torch Karawaci",
+  "Torch Jogja",
+  "Torch Makassar",
+  "Torch Cirebon",
+  "Torch Purwokerto",
+  "Torch Karawang",
+  "Torch Pekalongan",
+  "Torch Lampung",
+  "Torch Surabaya",
+  "Torch Malang",
+];
+
 // ── Empty Item ────────────────────────────────────────────────────────────────
 const emptyItem = (): InvoiceItem => ({ product_name: "", qty: 1, unit_price: 0, total_price: 0 });
 
@@ -114,8 +131,11 @@ export default function InvoicePage() {
   const [saving, setSaving] = useState(false);
 
   // Create form state
+  const [docType, setDocType] = useState<"invoice" | "quotation">("invoice");
+  const [manualInvoiceNumber, setManualInvoiceNumber] = useState("");
+  const [selectedStore, setSelectedStore] = useState("");
+  const [manualCustomerName, setManualCustomerName] = useState("");
   const [formData, setFormData] = useState({
-    customer_name: "",
     customer_address: "",
     invoice_date: new Date().toISOString().split("T")[0],
     tax_percent: "0",
@@ -191,7 +211,9 @@ export default function InvoicePage() {
 
   // ── Create Invoice ─────────────────────────────────────────────────────────
   const handleCreate = async () => {
-    if (!formData.customer_name.trim()) { showMessage("Nama customer wajib diisi", "error"); return; }
+    const customerName = selectedStore || manualCustomerName.trim();
+    if (!customerName) { showMessage("Pilih toko atau isi nama customer", "error"); return; }
+    if (docType === "invoice" && !manualInvoiceNumber.trim()) { showMessage("Nomor invoice wajib diisi", "error"); return; }
     if (formItems.some(it => !it.product_name)) { showMessage("Nama produk wajib diisi", "error"); return; }
 
     setSaving(true);
@@ -201,26 +223,34 @@ export default function InvoicePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
+          customer_name: customerName,
           tax_percent: parseFloat(formData.tax_percent) || 0,
           items: formItems,
           created_by: user?.user_name,
+          doc_type: docType,
+          manual_invoice_number: docType === "invoice" ? manualInvoiceNumber.trim() : null,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      showMessage(`Invoice ${data.invoice_number} berhasil dibuat!`, "success");
+      const label = docType === "quotation" ? "Quotation" : `Invoice ${data.invoice_number}`;
+      showMessage(`${label} berhasil dibuat!`, "success");
       setShowCreateModal(false);
       resetCreateForm();
       fetchAll();
     } catch (e: any) {
-      showMessage(e.message || "Gagal membuat invoice", "error");
+      showMessage(e.message || "Gagal membuat dokumen", "error");
     } finally {
       setSaving(false);
     }
   };
 
   const resetCreateForm = () => {
-    setFormData({ customer_name: "", customer_address: "", invoice_date: new Date().toISOString().split("T")[0], tax_percent: "0" });
+    setDocType("invoice");
+    setManualInvoiceNumber("");
+    setSelectedStore("");
+    setManualCustomerName("");
+    setFormData({ customer_address: "", invoice_date: new Date().toISOString().split("T")[0], tax_percent: "0" });
     setFormItems([emptyItem()]);
     setProductSearch([""]);
     setProductDropdowns([false]);
@@ -385,7 +415,7 @@ export default function InvoicePage() {
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Buat Invoice
+                Buat Dokumen
               </button>
             )}
           </div>
@@ -443,6 +473,7 @@ export default function InvoicePage() {
                   <thead className="bg-gray-100 border-b">
                     <tr>
                       <th className="px-3 py-2 text-left font-semibold text-gray-700">No. Invoice</th>
+                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Tipe</th>
                       <th className="px-3 py-2 text-left font-semibold text-gray-700">Tanggal</th>
                       <th className="px-3 py-2 text-left font-semibold text-gray-700">Customer</th>
                       <th className="px-3 py-2 text-left font-semibold text-gray-700">Subtotal</th>
@@ -458,7 +489,16 @@ export default function InvoicePage() {
                         className="border-b hover:bg-gray-50 cursor-pointer"
                         onClick={() => openDetail(inv)}
                       >
-                        <td className="px-3 py-2 font-semibold text-primary">{inv.invoice_number}</td>
+                        <td className="px-3 py-2 font-semibold text-primary">{inv.invoice_number || "—"}</td>
+                        <td className="px-3 py-2">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                            (inv.doc_type || "invoice") === "quotation"
+                              ? "bg-purple-100 text-purple-700"
+                              : "bg-blue-100 text-blue-700"
+                          }`}>
+                            {(inv.doc_type || "invoice") === "quotation" ? "Quotation" : "Invoice"}
+                          </span>
+                        </td>
                         <td className="px-3 py-2 text-gray-600">{inv.invoice_date}</td>
                         <td className="px-3 py-2 font-medium">{inv.customer_name}</td>
                         <td className="px-3 py-2">{formatRupiah(inv.subtotal)}</td>
@@ -496,7 +536,7 @@ export default function InvoicePage() {
           <div className="bg-white rounded-xl w-full max-w-3xl mx-4 shadow-2xl">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b">
-              <h2 className="text-base font-bold text-primary">Buat Invoice Baru</h2>
+              <h2 className="text-base font-bold text-primary">Buat Dokumen Baru</h2>
               <button onClick={() => { setShowCreateModal(false); resetCreateForm(); }}
                 className="w-7 h-7 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -506,35 +546,117 @@ export default function InvoicePage() {
             </div>
 
             <div className="p-6 space-y-5">
-              {/* Customer Info */}
-              <div className="grid grid-cols-2 gap-4">
+
+              {/* ── Tipe Dokumen ── */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-2">Tipe Dokumen</label>
+                <div className="flex gap-2">
+                  {(["invoice", "quotation"] as const).map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => setDocType(type)}
+                      className={`flex-1 py-2 rounded-lg text-xs font-semibold border-2 transition-all ${
+                        docType === type
+                          ? type === "invoice"
+                            ? "border-primary bg-primary text-white"
+                            : "border-purple-600 bg-purple-600 text-white"
+                          : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                      }`}
+                    >
+                      {type === "invoice" ? "📄 Invoice" : "📋 Quotation"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── Nomor Invoice (hanya saat Invoice) ── */}
+              {docType === "invoice" && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Nama Customer <span className="text-red-500">*</span></label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Nomor Invoice <span className="text-red-500">*</span>
+                  </label>
                   <input
-                    value={formData.customer_name}
-                    onChange={e => setFormData(p => ({ ...p, customer_name: e.target.value }))}
-                    className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                    placeholder="Nama perusahaan / perorangan"
+                    value={manualInvoiceNumber}
+                    onChange={e => setManualInvoiceNumber(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                    placeholder="Contoh: INV/00002"
                   />
                 </div>
+              )}
+
+              {/* Customer / Toko */}
+              <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Tanggal Invoice <span className="text-red-500">*</span></label>
-                  <input
-                    type="date"
-                    value={formData.invoice_date}
-                    onChange={e => setFormData(p => ({ ...p, invoice_date: e.target.value }))}
-                    className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
+                  <label className="block text-xs font-semibold text-gray-700 mb-2">
+                    Kepada <span className="text-red-500">*</span>
+                  </label>
+                  {/* Dropdown toko */}
+                  <div className="grid grid-cols-3 gap-1.5 mb-2">
+                    {TORCH_STORES.map((store) => (
+                      <button
+                        key={store}
+                        type="button"
+                        onClick={() => { setSelectedStore(store); setManualCustomerName(""); }}
+                        className={`px-2 py-1.5 rounded text-[11px] font-medium border text-left truncate transition-all ${
+                          selectedStore === store
+                            ? "bg-primary text-white border-primary"
+                            : "bg-white text-gray-600 border-gray-200 hover:border-primary/50 hover:text-primary"
+                        }`}
+                      >
+                        {store}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Nama manual */}
+                  <div className="relative">
+                    <input
+                      value={manualCustomerName}
+                      onChange={e => { setManualCustomerName(e.target.value); setSelectedStore(""); }}
+                      className={`w-full px-3 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary transition-all ${
+                        manualCustomerName ? "border-primary bg-primary/5" : "border-gray-300"
+                      }`}
+                      placeholder="Atau ketik nama customer manual..."
+                    />
+                    {manualCustomerName && (
+                      <button
+                        onClick={() => setManualCustomerName("")}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  {/* Preview pilihan aktif */}
+                  {(selectedStore || manualCustomerName) && (
+                    <p className="mt-1.5 text-[10px] text-primary font-medium">
+                      ✓ Customer: <span className="font-bold">{selectedStore || manualCustomerName}</span>
+                    </p>
+                  )}
                 </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Alamat Customer</label>
-                  <textarea
-                    value={formData.customer_address}
-                    onChange={e => setFormData(p => ({ ...p, customer_address: e.target.value }))}
-                    rows={2}
-                    className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-                    placeholder="Alamat lengkap customer"
-                  />
+
+                {/* Tanggal + Alamat */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Tanggal <span className="text-red-500">*</span></label>
+                    <input
+                      type="date"
+                      value={formData.invoice_date}
+                      onChange={e => setFormData(p => ({ ...p, invoice_date: e.target.value }))}
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Alamat Customer</label>
+                    <textarea
+                      value={formData.customer_address}
+                      onChange={e => setFormData(p => ({ ...p, customer_address: e.target.value }))}
+                      rows={1}
+                      className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                      placeholder="Alamat lengkap customer"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -674,7 +796,7 @@ export default function InvoicePage() {
               </button>
               <button onClick={handleCreate} disabled={saving}
                 className="flex-1 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">
-                {saving ? "Menyimpan..." : "Buat Invoice"}
+                {saving ? "Menyimpan..." : docType === "quotation" ? "Buat Quotation" : "Buat Invoice"}
               </button>
             </div>
           </div>
@@ -687,7 +809,18 @@ export default function InvoicePage() {
           <div className="bg-white rounded-xl w-full max-w-2xl mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white flex items-center justify-between px-6 py-4 border-b z-10">
               <div>
-                <h2 className="text-base font-bold text-primary">{selectedInvoice.invoice_number}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-bold text-primary">
+                    {selectedInvoice.invoice_number || "—"}
+                  </h2>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                    (selectedInvoice.doc_type || "invoice") === "quotation"
+                      ? "bg-purple-100 text-purple-700"
+                      : "bg-blue-100 text-blue-700"
+                  }`}>
+                    {(selectedInvoice.doc_type || "invoice") === "quotation" ? "Quotation" : "Invoice"}
+                  </span>
+                </div>
                 <p className="text-xs text-gray-500">{selectedInvoice.customer_name}</p>
               </div>
               <div className="flex items-center gap-2">

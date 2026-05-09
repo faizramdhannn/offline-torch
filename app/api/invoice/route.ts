@@ -68,18 +68,27 @@ export async function POST(request: NextRequest) {
       items, // array of { product_name, variant, qty, unit_price }
       tax_percent = 0,
       created_by,
+      doc_type = 'invoice',           // 'invoice' | 'quotation'
+      manual_invoice_number = null,   // string | null — diisi manual oleh user
     } = body;
 
     if (!customer_name || !invoice_date || !items?.length) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Get master config for invoice numbering
-    const masterData = await getSheetData('master_invoice');
-    const master = masterData[0] || {};
-    const prefix = master.invoice_prefix || 'INV';
-    const nextNum = parseInt(master.next_invoice_number || '1');
-    const invoiceNumber = `${prefix}/${String(nextNum).padStart(5, '0')}`;
+    // ── Tentukan nomor dokumen ──────────────────────────────────────────────
+    let invoiceNumber: string;
+
+    if (doc_type === 'quotation') {
+      // Quotation tidak pakai nomor
+      invoiceNumber = '';
+    } else {
+      // Invoice: wajib isi manual
+      if (!manual_invoice_number || !manual_invoice_number.trim()) {
+        return NextResponse.json({ error: 'Nomor invoice wajib diisi' }, { status: 400 });
+      }
+      invoiceNumber = manual_invoice_number.trim();
+    }
 
     const invoice_id = Date.now().toString();
     const now = new Date().toISOString();
@@ -91,6 +100,8 @@ export async function POST(request: NextRequest) {
     const amount_in_words = terbilang(grand_total);
 
     // Save invoice row
+    // Kolom: invoice_id, invoice_number, invoice_date, customer_name, customer_address,
+    //        subtotal, tax_percent, tax_amount, grand_total, amount_in_words, status, created_at, doc_type
     const invoiceRow = [
       invoice_id,
       invoiceNumber,
@@ -104,6 +115,7 @@ export async function POST(request: NextRequest) {
       amount_in_words,
       'draft',
       now,
+      doc_type,
     ];
     await appendSheetData('invoices', [invoiceRow]);
 
@@ -123,19 +135,7 @@ export async function POST(request: NextRequest) {
     });
     await appendSheetData('invoice_items', itemRows);
 
-    // Increment next_invoice_number in master
-    if (masterData.length > 0) {
-      const masterItems = await getSheetData('master_invoice');
-      const mIdx = 0;
-      const m = masterItems[mIdx];
-      const mRow = [
-        m.id, m.header_image_url, m.company_name, m.company_address,
-        m.company_phone, m.company_email, m.signature_image_url,
-        m.default_use_signature, m.default_use_ppn, m.ppn_percentage,
-        m.invoice_prefix, nextNum + 1, created_by, now,
-      ];
-      await updateSheetRow('master_invoice', mIdx + 2, mRow);
-    }
+    // Catatan: tidak increment next_invoice_number karena nomor diisi manual
 
     return NextResponse.json({ success: true, invoice_id, invoice_number: invoiceNumber });
   } catch (error) {
@@ -210,6 +210,7 @@ export async function PUT(request: NextRequest) {
       amount_in_words,
       status ?? existing.status,
       existing.created_at,
+      existing.doc_type || 'invoice',
     ];
 
     await updateSheetRow('invoices', idx + 2, updatedRow);
@@ -236,6 +237,7 @@ export async function DELETE(request: NextRequest) {
       e.invoice_id, e.invoice_number, e.invoice_date, e.customer_name,
       e.customer_address, e.subtotal, e.tax_percent, e.tax_amount,
       e.grand_total, e.amount_in_words, 'deleted', e.created_at,
+      e.doc_type || 'invoice',
     ];
     await updateSheetRow('invoices', idx + 2, updatedRow);
     return NextResponse.json({ success: true });
