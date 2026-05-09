@@ -25,7 +25,6 @@ interface MasterInvoice {
 
 interface InvoiceItem {
   product_name: string;
-  variant: string;
   qty: number;
   unit_price: number;
   total_price?: number;
@@ -47,9 +46,16 @@ interface Invoice {
 }
 
 interface MasterItem {
-  Artikel: string;
-  HPJ: string;
+  SKU: string;
+  image_url: string;
   Product_name: string;
+  Stock: string;
+  Artikel: string;
+  Category: string;
+  Grade: string;
+  HPP: string;
+  HPT: string;
+  HPJ: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -76,7 +82,7 @@ function statusBadge(status: string) {
 }
 
 // ── Empty Item ────────────────────────────────────────────────────────────────
-const emptyItem = (): InvoiceItem => ({ product_name: "", variant: "", qty: 1, unit_price: 0 });
+const emptyItem = (): InvoiceItem => ({ product_name: "", qty: 1, unit_price: 0, total_price: 0 });
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function InvoicePage() {
@@ -109,7 +115,9 @@ export default function InvoicePage() {
 
   // Create form state
   const [formData, setFormData] = useState({
-    customer_name: "", customer_address: "", invoice_date: new Date().toISOString().split("T")[0],
+    customer_name: "",
+    customer_address: "",
+    invoice_date: new Date().toISOString().split("T")[0],
     tax_percent: "0",
   });
   const [formItems, setFormItems] = useState<InvoiceItem[]>([emptyItem()]);
@@ -237,12 +245,20 @@ export default function InvoicePage() {
 
   const selectProduct = (i: number, item: MasterItem) => {
     const hpj = parseNum(item.HPJ);
+    const name = item.Product_name || item.SKU || "";
     setFormItems(p => p.map((it, idx) => idx === i
-      ? { ...it, product_name: item.Product_name || item.Artikel, unit_price: hpj }
+      ? { ...it, product_name: name, unit_price: hpj }
       : it
     ));
-    setProductSearch(p => p.map((v, idx) => idx === i ? item.Product_name || item.Artikel : v));
-    setProductDropdowns(p => p.map((_, idx) => idx === i ? false : _));
+    setProductSearch(p => p.map((v, idx) => idx === i ? name : v));
+    setProductDropdowns(p => p.map(() => false));
+  };
+
+  // ── Close dropdown on blur (with delay for mousedown to fire first) ────────
+  const handleProductBlur = (i: number) => {
+    setTimeout(() => {
+      setProductDropdowns(p => p.map((_, idx) => idx === i ? false : _));
+    }, 150);
   };
 
   // ── Status update ──────────────────────────────────────────────────────────
@@ -324,6 +340,18 @@ export default function InvoicePage() {
   const calcTax = Math.round(calcSubtotal * (parseFloat(formData.tax_percent || "0") / 100));
   const calcTotal = calcSubtotal + calcTax;
   const usePPN = master.default_use_ppn === true || master.default_use_ppn === "TRUE";
+
+  // ── Filtered items for dropdown ────────────────────────────────────────────
+  const getFilteredItems = (searchVal: string) => {
+    const q = (searchVal || "").toLowerCase().trim();
+    if (!q) return masterItems.slice(0, 30);
+    return masterItems
+      .filter(m =>
+        (m.Product_name || "").toLowerCase().includes(q) ||
+        (m.SKU || "").toLowerCase().includes(q)
+      )
+      .slice(0, 30);
+  };
 
   if (!user) return null;
 
@@ -522,13 +550,12 @@ export default function InvoicePage() {
                   </button>
                 </div>
 
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="border border-gray-200 rounded-lg overflow-visible">
                   <table className="w-full text-[11px]">
                     <thead className="bg-gray-50 border-b">
                       <tr>
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-600 w-8">#</th>
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-600">Produk</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-600 w-28">Variant</th>
                         <th className="px-2 py-1.5 text-center font-semibold text-gray-600 w-16">Qty</th>
                         <th className="px-2 py-1.5 text-right font-semibold text-gray-600 w-32">Harga Satuan</th>
                         <th className="px-2 py-1.5 text-right font-semibold text-gray-600 w-28">Total</th>
@@ -539,9 +566,10 @@ export default function InvoicePage() {
                       {formItems.map((item, i) => (
                         <tr key={i} className="border-b last:border-0">
                           <td className="px-2 py-1.5 text-gray-400">{i + 1}</td>
+                          {/* ── Product cell ── */}
                           <td className="px-2 py-1.5 relative">
                             <input
-                              value={productSearch[i]}
+                              value={productSearch[i] ?? ""}
                               onChange={e => {
                                 const v = e.target.value;
                                 setProductSearch(p => p.map((s, idx) => idx === i ? v : s));
@@ -549,50 +577,40 @@ export default function InvoicePage() {
                                 updateItem(i, "product_name", v);
                               }}
                               onFocus={() => setProductDropdowns(p => p.map((_, idx) => idx === i ? true : _))}
+                              onClick={() => setProductDropdowns(p => p.map((_, idx) => idx === i ? true : _))}
+                              onBlur={() => handleProductBlur(i)}
                               className="w-full px-2 py-1 border border-gray-200 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
                               placeholder="Cari produk..."
                             />
                             {productDropdowns[i] && (
-                              <div className="absolute left-2 top-full mt-0.5 z-50 bg-white border border-gray-200 rounded shadow-lg max-h-40 overflow-y-auto w-64">
-                                {masterItems
-                                  .filter(m => {
-                                    const q = (productSearch[i] || "").toLowerCase();
-                                    return !q || (m.Product_name || m.Artikel || "").toLowerCase().includes(q);
-                                  })
-                                  .slice(0, 30)
-                                  .map((m, j) => (
+                              <div className="absolute left-0 top-full mt-0.5 z-[200] bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto w-72">
+                                {getFilteredItems(productSearch[i]).length === 0 ? (
+                                  <div className="px-3 py-2 text-gray-400 text-center text-[11px]">Tidak ditemukan</div>
+                                ) : (
+                                  getFilteredItems(productSearch[i]).map((m, j) => (
                                     <div
                                       key={j}
-                                      className="px-3 py-1.5 hover:bg-primary/10 cursor-pointer text-[11px]"
+                                      className="px-3 py-2 hover:bg-primary/10 cursor-pointer text-[11px] border-b last:border-0"
                                       onMouseDown={() => selectProduct(i, m)}
                                     >
-                                      <div className="font-medium">{m.Product_name || m.Artikel}</div>
-                                      {m.HPJ && <div className="text-gray-400 text-[10px]">{formatRupiah(m.HPJ)}</div>}
+                                      <div className="font-medium text-gray-800">
+                                        {m.Product_name || "(no name)"}
+                                      </div>
+                                      <div className="text-gray-400 text-[10px] mt-0.5 flex gap-2">
+                                        {m.SKU && <span>{m.SKU}</span>}
+                                        {m.HPJ && <span>{formatRupiah(m.HPJ)}</span>}
+                                      </div>
                                     </div>
                                   ))
-                                }
-                                {masterItems.filter(m => {
-                                  const q = (productSearch[i] || "").toLowerCase();
-                                  return !q || (m.Product_name || m.Artikel || "").toLowerCase().includes(q);
-                                }).length === 0 && (
-                                  <div className="px-3 py-2 text-gray-400 text-center">Tidak ditemukan</div>
                                 )}
                               </div>
                             )}
                           </td>
                           <td className="px-2 py-1.5">
                             <input
-                              value={item.variant}
-                              onChange={e => updateItem(i, "variant", e.target.value)}
-                              className="w-full px-2 py-1 border border-gray-200 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
-                              placeholder="Warna/ukuran"
-                            />
-                          </td>
-                          <td className="px-2 py-1.5">
-                            <input
                               type="number"
                               min="1"
-                              value={item.qty}
+                              value={item.qty ?? 1}
                               onChange={e => updateItem(i, "qty", parseInt(e.target.value) || 1)}
                               className="w-full px-2 py-1 border border-gray-200 rounded text-[11px] text-center focus:outline-none focus:ring-1 focus:ring-primary"
                             />
@@ -601,7 +619,7 @@ export default function InvoicePage() {
                             <input
                               type="number"
                               min="0"
-                              value={item.unit_price}
+                              value={item.unit_price ?? 0}
                               onChange={e => updateItem(i, "unit_price", parseFloat(e.target.value) || 0)}
                               className="w-full px-2 py-1 border border-gray-200 rounded text-[11px] text-right focus:outline-none focus:ring-1 focus:ring-primary"
                             />
@@ -727,7 +745,6 @@ export default function InvoicePage() {
                     <thead className="bg-gray-50 border-b">
                       <tr>
                         <th className="px-3 py-2 text-left font-semibold text-gray-600">Produk</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-600">Variant</th>
                         <th className="px-3 py-2 text-center font-semibold text-gray-600">Qty</th>
                         <th className="px-3 py-2 text-right font-semibold text-gray-600">Harga</th>
                         <th className="px-3 py-2 text-right font-semibold text-gray-600">Total</th>
@@ -737,7 +754,6 @@ export default function InvoicePage() {
                       {selectedItems.map((it, i) => (
                         <tr key={i} className={`border-b last:border-0 ${i % 2 === 0 ? "bg-gray-50/50" : ""}`}>
                           <td className="px-3 py-2">{it.product_name}</td>
-                          <td className="px-3 py-2 text-gray-500">{it.variant || "-"}</td>
                           <td className="px-3 py-2 text-center">{it.qty}</td>
                           <td className="px-3 py-2 text-right">{formatRupiah(it.unit_price)}</td>
                           <td className="px-3 py-2 text-right font-semibold">{formatRupiah(it.total_price || 0)}</td>
@@ -882,11 +898,6 @@ export default function InvoicePage() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Click outside to close product dropdowns */}
-      {productDropdowns.some(Boolean) && (
-        <div className="fixed inset-0 z-40" onClick={() => setProductDropdowns(p => p.map(() => false))} />
       )}
 
       <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
