@@ -2,64 +2,97 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData } from '@/lib/sheets';
 import jsPDF from 'jspdf';
 
-// ── Colours matching the Maha Nagari invoice style ─────────────────────────────
-const NAVY = '#1a2b4a';
-const NAVY_LIGHT = '#2d4a7a';
-const ACCENT = '#c8a96e';   // gold accent
-const GRAY_BG = '#f5f7fa';
-const GRAY_LINE = '#e2e8f0';
-const TEXT_MAIN = '#1a2b4a';
-const TEXT_MUTED = '#6b7280';
-const WHITE = '#ffffff';
+// ── Colours ───────────────────────────────────────────────────────────────────
+const NAVY      = '#1a3a6b';
+const NAVY_MID  = '#2d5a9e';
+const WHITE     = '#ffffff';
+const TEXT_DARK = '#1a1a2e';
+const TEXT_GRAY = '#555555';
+const LIGHT_ROW = '#dce8f5';
 
 function hexToRgb(hex: string) {
   const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)!;
   return { r: parseInt(r[1], 16), g: parseInt(r[2], 16), b: parseInt(r[3], 16) };
 }
-
 function setFill(doc: jsPDF, hex: string) {
   const { r, g, b } = hexToRgb(hex);
   doc.setFillColor(r, g, b);
 }
-
 function setTextCol(doc: jsPDF, hex: string) {
   const { r, g, b } = hexToRgb(hex);
   doc.setTextColor(r, g, b);
 }
-
 function setDrawCol(doc: jsPDF, hex: string) {
   const { r, g, b } = hexToRgb(hex);
   doc.setDrawColor(r, g, b);
 }
 
 function formatRupiah(val: number | string): string {
-  const n = typeof val === 'string' ? parseInt(val.replace(/[^0-9]/g, '')) || 0 : val;
+  const n = typeof val === 'string' ? parseInt(val.replace(/[^0-9]/g, '')) || 0 : Number(val) || 0;
   return 'Rp' + n.toLocaleString('id-ID');
 }
 
+function formatRupiahFull(val: number | string): string {
+  const n = typeof val === 'string' ? parseInt(val.replace(/[^0-9]/g, '')) || 0 : Number(val) || 0;
+  return 'Rp' + n.toLocaleString('id-ID') + ',00';
+}
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const months = ['Januari','Februari','Maret','April','Mei','Juni',
+    'Juli','Agustus','September','Oktober','November','Desember'];
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 async function downloadImageAsBase64(url: string): Promise<string | null> {
+  if (!url) return null;
+  try {
+    // Fix common URL typos (ibb.co.com → ibb.co)
+    let fetchUrl = url.replace('ibb.co.com', 'ibb.co');
+
+    // ibb.co share pages → try to get direct image via i.ibb.co
+    // e.g. https://ibb.co/GQQJffVc → https://i.ibb.co/GQQJffVc/image.jpg
+    // We'll try i.ibb.co/{code} pattern
+    const ibbMatch = fetchUrl.match(/(?:https?:\/\/)?(?:www\.)?ibb\.co\/([A-Za-z0-9]+)\/?$/);
+    if (ibbMatch) {
+      // Try common direct image patterns on i.ibb.co
+      const code = ibbMatch[1];
+      const candidates = [
+        `https://i.ibb.co/${code}/image.png`,
+        `https://i.ibb.co/${code}/image.jpg`,
+        `https://i.ibb.co/${code}/header.png`,
+        `https://i.ibb.co/${code}/header.jpg`,
+      ];
+      for (const candidate of candidates) {
+        const img = await tryFetch(candidate);
+        if (img) return img;
+      }
+      return null;
+    }
+
+    return await tryFetch(fetchUrl);
+  } catch {
+    return null;
+  }
+}
+
+async function tryFetch(url: string): Promise<string | null> {
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0' },
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) return null;
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.startsWith('image/')) return null;
     const buf = await res.arrayBuffer();
     const b64 = Buffer.from(buf).toString('base64');
-    const ct = res.headers.get('content-type') || 'image/png';
     return `data:${ct};base64,${b64}`;
   } catch {
     return null;
   }
-}
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return '';
-  const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -67,7 +100,6 @@ export async function POST(request: NextRequest) {
     const { invoice_id } = await request.json();
     if (!invoice_id) return NextResponse.json({ error: 'invoice_id required' }, { status: 400 });
 
-    // Fetch data
     const [invoices, allItems, masterArr] = await Promise.all([
       getSheetData('invoices'),
       getSheetData('invoice_items'),
@@ -80,284 +112,287 @@ export async function POST(request: NextRequest) {
     const items = allItems.filter((r: any) => r.invoice_id === invoice_id);
     const master = masterArr[0] || {};
 
-    const usePPN = master.default_use_ppn === 'TRUE';
+    const usePPN  = master.default_use_ppn === 'TRUE';
     const useSign = master.default_use_signature === 'TRUE';
-    const headerUrl = master.header_image_url || 'https://ibb.co.com/GQQJffVc';
-    const signUrl = master.signature_image_url || '';
 
-    // Fetch images concurrently
     const [headerImg, signImg] = await Promise.all([
-      downloadImageAsBase64(headerUrl),
-      signUrl ? downloadImageAsBase64(signUrl) : Promise.resolve(null),
+      downloadImageAsBase64(master.header_image_url || ''),
+      downloadImageAsBase64(master.signature_image_url || ''),
     ]);
 
-    // ── Build PDF ────────────────────────────────────────────────────────────
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
-    const W = 210;
-    const margin = 18;
-    const contentW = W - margin * 2;
-    let y = 0;
+    // ── PDF setup ─────────────────────────────────────────────────────────────
+    const doc    = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+    const W      = 210;
+    const margin = 14;
+    const cW     = W - margin * 2;
+    let y        = 14;
 
-    // ── Header band ──────────────────────────────────────────────────────────
-    setFill(doc, NAVY);
-    doc.rect(0, 0, W, 36, 'F');
+    // ── HEADER ────────────────────────────────────────────────────────────────
+    const logoW = 36;
+    const logoH = 20;
 
-    // Accent stripe
-    setFill(doc, ACCENT);
-    doc.rect(0, 36, W, 2.5, 'F');
-
-    // Header image
     if (headerImg) {
-      try { doc.addImage(headerImg, 'PNG', margin, 4, 70, 28); } catch {}
+      try { doc.addImage(headerImg, 'PNG', margin, y, logoW, logoH); } catch {}
     } else {
-      // Fallback: company name text
-      setTextCol(doc, WHITE);
+      // Fallback: draw placeholder box
+      setFill(doc, '#e8eef8');
+      setDrawCol(doc, NAVY_MID);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(margin, y, logoW, logoH, 2, 2, 'FD');
+      setTextCol(doc, NAVY);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(16);
-      doc.text(master.company_name || 'MAHA NAGARI NUSANTARA', margin, 20);
+      doc.setFontSize(7);
+      doc.text('LOGO', margin + logoW / 2, y + logoH / 2 + 2, { align: 'center' });
     }
 
-    // "INVOICE" label top-right
-    setTextCol(doc, ACCENT);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(26);
-    doc.text('INVOICE', W - margin, 18, { align: 'right' });
+    // Company name + address (center-left)
+    const companyX = margin + logoW + 5;
+    const companyMaxW = W - margin - companyX - 42;
 
-    setTextCol(doc, '#d4c5a0');
+    setTextCol(doc, NAVY);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text(master.company_name || 'MAHA NAGARI NUSANTARA', companyX, y + 6);
+
+    setTextCol(doc, TEXT_GRAY);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text(`#${invoice.invoice_number}`, W - margin, 27, { align: 'right' });
-
-    y = 46;
-
-    // ── Info section ─────────────────────────────────────────────────────────
-    // Left: Kepada (customer info)
-    setTextCol(doc, TEXT_MUTED);
-    doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
-    doc.text('KEPADA YTH:', margin, y);
+    if (master.company_address) {
+      const addrLines = doc.splitTextToSize(master.company_address, companyMaxW);
+      doc.text(addrLines, companyX, y + 11.5);
+    }
+    if (master.company_phone) {
+      doc.text(`Phone: ${master.company_phone}`, companyX, y + 16);
+    }
 
-    setTextCol(doc, TEXT_MAIN);
+    // "Invoice" italic right
+    setTextCol(doc, NAVY);
+    doc.setFont('helvetica', 'bolditalic');
+    doc.setFontSize(24);
+    doc.text('Invoice', W - margin, y + 9, { align: 'right' });
+
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text(invoice.customer_name || '', margin, y + 5);
+    doc.setFontSize(12);
+    doc.text(`#${invoice.invoice_number}`, W - margin, y + 17, { align: 'right' });
+
+    y += logoH + 7;
+
+    // Separator line
+    setDrawCol(doc, NAVY_MID);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, W - margin, y);
+    y += 7;
+
+    // ── KEPADA YTH ────────────────────────────────────────────────────────────
+    setTextCol(doc, TEXT_DARK);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('Kepada Yth :', margin, y);
+    y += 5;
+
+    setTextCol(doc, NAVY_MID);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.text(invoice.customer_name || '', margin, y);
+    y += 5;
 
     if (invoice.customer_address) {
-      setTextCol(doc, TEXT_MUTED);
+      setTextCol(doc, TEXT_GRAY);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8.5);
-      const addrLines = doc.splitTextToSize(invoice.customer_address, 80);
-      doc.text(addrLines, margin, y + 11);
+      doc.setFontSize(8);
+      const addrLines = doc.splitTextToSize(invoice.customer_address, cW * 0.65);
+      doc.text(addrLines, margin, y);
+      y += addrLines.length * 4.5;
     }
 
-    // Right: Invoice meta box
-    const boxX = W - margin - 70;
-    const boxW = 70;
-    setFill(doc, GRAY_BG);
-    setDrawCol(doc, GRAY_LINE);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(boxX, y - 2, boxW, 28, 2, 2, 'FD');
-
-    const metaRows = [
-      ['No. Invoice', invoice.invoice_number],
-      ['Tanggal', formatDate(invoice.invoice_date)],
-      ['Status', (invoice.status || 'draft').toUpperCase()],
-    ];
-    metaRows.forEach(([label, val], i) => {
-      const ry = y + 2 + i * 8;
-      setTextCol(doc, TEXT_MUTED);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.5);
-      doc.text(label, boxX + 4, ry);
-      setTextCol(doc, TEXT_MAIN);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
-      doc.text(val || '-', boxX + boxW - 4, ry, { align: 'right' });
-      if (i < metaRows.length - 1) {
-        setDrawCol(doc, GRAY_LINE);
-        doc.setLineWidth(0.2);
-        doc.line(boxX + 4, ry + 3, boxX + boxW - 4, ry + 3);
-      }
-    });
-
-    // Company info (right side under box)
-    if (master.company_address || master.company_phone) {
-      setTextCol(doc, TEXT_MUTED);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.5);
-      let cy = y + 30;
-      if (master.company_address) {
-        const lines = doc.splitTextToSize(master.company_address, 70);
-        doc.text(lines, boxX, cy, { align: 'left' });
-        cy += lines.length * 4;
-      }
-      if (master.company_phone) {
-        doc.text(`Phone: ${master.company_phone}`, boxX, cy);
-        cy += 4;
-      }
-      if (master.company_email) {
-        doc.text(master.company_email, boxX, cy);
-      }
-    }
-
-    y += 34;
-
-    // ── Divider ───────────────────────────────────────────────────────────────
-    setDrawCol(doc, GRAY_LINE);
-    doc.setLineWidth(0.4);
-    doc.line(margin, y, W - margin, y);
     y += 6;
 
-    // ── Items table header ────────────────────────────────────────────────────
-    setFill(doc, NAVY);
-    doc.roundedRect(margin, y, contentW, 8, 1, 1, 'F');
+    // ── ITEMS TABLE ───────────────────────────────────────────────────────────
+    // Columns: Qty | Deskripsi | Harga Satuan | Total
+    const qtyW  = 16;
+    const hrgW  = 34;
+    const totW  = 30;
+    const deskW = cW - qtyW - hrgW - totW;
 
-    const cols = {
-      no:    { x: margin + 2,              w: 8 },
-      name:  { x: margin + 11,             w: usePPN ? 70 : 76 },
-      variant:{ x: margin + 11 + (usePPN ? 70 : 76), w: 24 },
-      qty:   { x: margin + 11 + (usePPN ? 70 : 76) + 24, w: 14 },
-      price: { x: margin + 11 + (usePPN ? 70 : 76) + 38, w: 30 },
-      total: { x: margin + 11 + (usePPN ? 70 : 76) + 68, w: contentW - 11 - (usePPN ? 70 : 76) - 68 },
+    const colX = {
+      qty:  margin,
+      desk: margin + qtyW,
+      hrg:  margin + qtyW + deskW,
+      tot:  margin + qtyW + deskW + hrgW,
     };
+
+    const headH = 9;
+    const rowH  = 8;
+
+    // Header row
+    setFill(doc, NAVY_MID);
+    doc.rect(margin, y, cW, headH, 'F');
 
     setTextCol(doc, WHITE);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
-    doc.text('No', cols.no.x, y + 5.5);
-    doc.text('Deskripsi', cols.name.x, y + 5.5);
-    doc.text('Variant', cols.variant.x, y + 5.5);
-    doc.text('Qty', cols.qty.x + cols.qty.w / 2, y + 5.5, { align: 'center' });
-    doc.text('Harga Satuan', cols.price.x + cols.price.w, y + 5.5, { align: 'right' });
-    doc.text('Total', W - margin - 2, y + 5.5, { align: 'right' });
+    doc.setFontSize(8.5);
+    doc.text('Qty',          colX.qty  + qtyW  / 2,   y + 6, { align: 'center' });
+    doc.text('Deskripsi',    colX.desk + deskW  / 2,   y + 6, { align: 'center' });
+    doc.text('Harga Satuan', colX.hrg  + hrgW  / 2,   y + 6, { align: 'center' });
+    doc.text('Total',        colX.tot  + totW  / 2,   y + 6, { align: 'center' });
 
-    y += 10;
+    y += headH;
 
-    // ── Item rows ─────────────────────────────────────────────────────────────
+    // Item rows
     items.forEach((item: any, idx: number) => {
-      const rowH = 9;
-      if (idx % 2 === 0) {
-        setFill(doc, '#f9fafb');
-        doc.rect(margin, y - 1, contentW, rowH, 'F');
-      }
+      const isAlt = idx % 2 === 0;
+      setFill(doc, isAlt ? LIGHT_ROW : WHITE);
+      doc.rect(margin, y, cW, rowH, 'F');
 
-      setTextCol(doc, TEXT_MAIN);
-      doc.setFont('helvetica', 'normal');
+      setTextCol(doc, NAVY);
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
 
-      doc.text(String(idx + 1), cols.no.x, y + 5);
+      // Qty
+      doc.text(String(item.qty || 0), colX.qty + qtyW / 2, y + 5.2, { align: 'center' });
 
-      const nameLines = doc.splitTextToSize(item.product_name || '', cols.name.w - 2);
-      doc.text(nameLines[0], cols.name.x, y + 5);
-      doc.text(item.variant || '-', cols.variant.x, y + 5);
+      // Description (clamp to 1 line)
+      const descLines = doc.splitTextToSize(item.product_name || '', deskW - 4);
+      doc.text(descLines[0], colX.desk + 2, y + 5.2);
 
-      doc.text(String(item.qty || 0), cols.qty.x + cols.qty.w / 2, y + 5, { align: 'center' });
-      doc.text(formatRupiah(item.unit_price), cols.price.x + cols.price.w, y + 5, { align: 'right' });
+      // Harga satuan
+      doc.text(
+        formatRupiahFull(item.unit_price),
+        colX.hrg + hrgW - 2,
+        y + 5.2,
+        { align: 'right' }
+      );
 
-      doc.setFont('helvetica', 'bold');
-      doc.text(formatRupiah(item.total_price), W - margin - 2, y + 5, { align: 'right' });
+      // Total
+      const lineTotal = item.total_price || (Number(item.qty) * Number(item.unit_price));
+      doc.text(
+        formatRupiah(lineTotal),
+        colX.tot + totW - 2,
+        y + 5.2,
+        { align: 'right' }
+      );
 
-      // Row bottom line
-      setDrawCol(doc, GRAY_LINE);
+      // Row bottom divider
+      setDrawCol(doc, '#b8cce4');
       doc.setLineWidth(0.15);
-      doc.line(margin, y + rowH - 1, W - margin, y + rowH - 1);
+      doc.line(margin, y + rowH, W - margin, y + rowH);
 
       y += rowH;
     });
 
-    y += 4;
+    y += 3;
 
-    // ── Totals box ────────────────────────────────────────────────────────────
-    const totalsX = W - margin - 68;
-    const totalsW = 68;
+    // ── TOTALS ────────────────────────────────────────────────────────────────
+    const totBlockW = 82;
+    const totBlockX = W - margin - totBlockW;
+    const totLblEnd = totBlockX + 44;  // where label text right-aligns to
+    const totValEnd = W - margin - 2;  // where value text right-aligns to
+    const tRowH = 7;
 
-    setFill(doc, GRAY_BG);
-    setDrawCol(doc, GRAY_LINE);
-    doc.setLineWidth(0.3);
+    // SubTotal
+    setFill(doc, LIGHT_ROW);
+    doc.rect(totBlockX, y, totBlockW, tRowH, 'F');
+    setTextCol(doc, NAVY);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.text('SubTotal', totLblEnd, y + 5, { align: 'right' });
+    doc.text(formatRupiah(invoice.subtotal), totValEnd, y + 5, { align: 'right' });
+    y += tRowH;
 
-    const rows: [string, string][] = [
-      ['Sub Total', formatRupiah(invoice.subtotal)],
-    ];
-    if (usePPN) {
-      rows.push([`PPN ${invoice.tax_percent}%`, formatRupiah(invoice.tax_amount)]);
+    // PPN
+    if (usePPN && Number(invoice.tax_percent) > 0) {
+      setFill(doc, LIGHT_ROW);
+      doc.rect(totBlockX, y, totBlockW, tRowH, 'F');
+      setTextCol(doc, NAVY);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.text(`PPN ${invoice.tax_percent}%`, totLblEnd, y + 5, { align: 'right' });
+      doc.text(formatRupiah(invoice.tax_amount), totValEnd, y + 5, { align: 'right' });
+      y += tRowH;
     }
 
-    const totalBlockH = rows.length * 8 + 12;
-    doc.roundedRect(totalsX, y, totalsW, totalBlockH, 2, 2, 'FD');
+    y += 2;
 
-    rows.forEach(([label, val], i) => {
-      const ry = y + 5 + i * 8;
-      setTextCol(doc, TEXT_MUTED);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.text(label, totalsX + 4, ry);
-      setTextCol(doc, TEXT_MAIN);
-      doc.setFont('helvetica', 'bold');
-      doc.text(val, totalsX + totalsW - 4, ry, { align: 'right' });
-    });
-
-    // Grand total band
-    const grandY = y + totalBlockH - 10;
-    setFill(doc, NAVY);
-    doc.roundedRect(totalsX, grandY, totalsW, 10, 2, 2, 'F');
+    // Total Pembayaran — full-width band
+    setFill(doc, NAVY_MID);
+    doc.rect(margin, y, cW, tRowH + 2, 'F');
     setTextCol(doc, WHITE);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.text('TOTAL PEMBAYARAN', totalsX + 4, grandY + 6.5);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.text(formatRupiah(invoice.grand_total), totalsX + totalsW - 4, grandY + 6.5, { align: 'right' });
+    // Label centered in the left ~60% portion
+    doc.text('Total Pembayaran', margin + cW * 0.35, y + 6, { align: 'center' });
+    // Value right
+    doc.text(formatRupiah(invoice.grand_total), W - margin - 2, y + 6, { align: 'right' });
+    y += tRowH + 2 + 8;
 
-    // Terbilang
-    y += totalBlockH + 4;
-    setFill(doc, '#fffbf0');
-    setDrawCol(doc, ACCENT);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(margin, y, contentW, 10, 2, 2, 'FD');
+    // ── TERBILANG ─────────────────────────────────────────────────────────────
+    if (invoice.amount_in_words) {
+      setTextCol(doc, TEXT_DARK);
+      doc.setFont('helvetica', 'bolditalic');
+      doc.setFontSize(8.5);
+      const terbilangText = `Terbilang: ${invoice.amount_in_words}`;
+      const tLines = doc.splitTextToSize(terbilangText, cW);
+      doc.text(tLines, margin, y);
+      y += tLines.length * 5 + 12;
+    }
 
-    setTextCol(doc, TEXT_MUTED);
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(7.5);
-    doc.text('Terbilang:', margin + 4, y + 6.5);
-    setTextCol(doc, TEXT_MAIN);
-    doc.setFont('helvetica', 'bold-italic');
-    const terbilangText = doc.splitTextToSize(invoice.amount_in_words || '', contentW - 30);
-    doc.text(terbilangText[0], margin + 23, y + 6.5);
+    // ── SIGNATURE ─────────────────────────────────────────────────────────────
+    const sigY    = y;
+    const sigColW = cW / 2;
+    const rightX  = margin + sigColW + 4;
 
-    y += 16;
+    // LEFT — "Mengetahui,"
+    setTextCol(doc, TEXT_DARK);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.text('Mengetahui,', margin, sigY);
 
-    // ── Signature ─────────────────────────────────────────────────────────────
+    // Signature image
+    let imgOffset = 0;
     if (useSign && signImg) {
       try {
-        doc.addImage(signImg, 'PNG', W - margin - 45, y, 40, 20);
-        y += 22;
-        setDrawCol(doc, TEXT_MAIN);
-        doc.setLineWidth(0.4);
-        doc.line(W - margin - 45, y, W - margin, y);
-        setTextCol(doc, TEXT_MUTED);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7.5);
-        doc.text(master.company_name || '', W - margin - 22, y + 5, { align: 'center' });
-      } catch {}
+        doc.addImage(signImg, 'PNG', margin, sigY + 3, 32, 20);
+        imgOffset = 25;
+      } catch {
+        imgOffset = 25;
+      }
+    } else {
+      imgOffset = 25;
     }
 
-    // ── Footer band ───────────────────────────────────────────────────────────
-    setFill(doc, NAVY);
-    doc.rect(0, 285, W, 12, 'F');
-    setFill(doc, ACCENT);
-    doc.rect(0, 283, W, 2, 'F');
-
-    setTextCol(doc, '#a0aec0');
+    setTextCol(doc, TEXT_DARK);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.text('Achmad Odi Primandana', margin, sigY + imgOffset + 4);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
-    doc.text(
-      master.company_address ? `${master.company_name} | ${master.company_address}` : (master.company_name || ''),
-      W / 2, 290, { align: 'center' }
-    );
-    if (master.company_phone) {
-      doc.text(`Phone: ${master.company_phone}`, W / 2, 294, { align: 'center' });
+    doc.setFontSize(8);
+    doc.text('O2O Koordinator Operasional', margin, sigY + imgOffset + 9);
+
+    // RIGHT — city + date, then customer/store
+    // Derive city: take last word of first address segment or first word
+    let cityName = 'Bandung';
+    if (master.company_address) {
+      // e.g. "Jl. Lembong No. 30 Braga, Kec. Sumur Bandung - Bandung"
+      const parts = master.company_address.split(/[-,]/);
+      const last = (parts[parts.length - 1] || '').trim();
+      if (last) cityName = last.split(' ').filter(Boolean).pop() || cityName;
     }
 
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.text(`${cityName}, ${formatDate(invoice.invoice_date)}`, rightX, sigY);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.text(invoice.customer_name || '', rightX, sigY + imgOffset + 4);
+
+    if (master.company_name) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text(master.company_name, rightX, sigY + imgOffset + 9);
+    }
+
+    // ── Output ────────────────────────────────────────────────────────────────
     const pdfBytes = doc.output('arraybuffer');
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
