@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
         return true;
       })
       .map((item: any) => ({
+        SKU: item.SKU,
+        Product_name: item.Product_name,
         Artikel: item.Artikel,
         HPJ: item.HPJ,
       }))
