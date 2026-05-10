@@ -384,7 +384,7 @@ export async function POST(request: NextRequest) {
 
     const sigStoreName = invoice.signature_store || '';
     const sigPicName   = invoice.signature_pic || '';
-    const sigOffset    = useSign ? 29 : 10;
+    const sigOffset    = useSign ? 28 : 18;
 
     if (sigStoreName) {
       setFont(doc, 'bold');
