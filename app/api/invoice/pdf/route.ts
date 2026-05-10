@@ -94,8 +94,6 @@ function setFont(doc: jsPDF, style: 'normal' | 'bold' | 'italic' | 'bolditalic' 
   doc.setFont('times', style);
 }
 
-// ── Helper: normalise use_signature dari Google Sheets ────────────────────────
-// Google Sheets bisa mengembalikan boolean true/false atau string 'TRUE'/'FALSE'
 function parseBoolField(val: any): boolean {
   if (typeof val === 'boolean') return val;
   if (typeof val === 'string') return val.toUpperCase() === 'TRUE';
@@ -116,7 +114,6 @@ export async function POST(request: NextRequest) {
     const invoice = invoices.find((r: any) => r.invoice_id === invoice_id);
     if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
 
-    // Hanya bisa generate PDF jika status = submitted
     if (invoice.status !== 'submitted') {
       return NextResponse.json({ error: 'PDF hanya tersedia untuk invoice dengan status submitted' }, { status: 403 });
     }
@@ -124,7 +121,6 @@ export async function POST(request: NextRequest) {
     const items = allItems.filter((r: any) => r.invoice_id === invoice_id);
     const master = masterArr[0] || {};
 
-    // FIX: gunakan parseBoolField agar handle boolean true & string 'TRUE' dari Sheets
     const useSign = parseBoolField(invoice.use_signature);
     const hasPPN  = Number(invoice.tax_percent) > 0;
 
@@ -133,7 +129,7 @@ export async function POST(request: NextRequest) {
 
     const [headerImg, signImg] = await Promise.all([
       downloadImageAsBase64(master.header_image_url || ''),
-      useSign ? downloadImageAsBase64(master.signature_image_url || '') : Promise.resolve(null),
+      downloadImageAsBase64(master.signature_image_url || ''),
     ]);
 
     // ── PDF setup ─────────────────────────────────────────────────────────────
@@ -162,7 +158,7 @@ export async function POST(request: NextRequest) {
       doc.text('LOGO', margin + logoW / 2, y + logoH / 2 + 2, { align: 'center' });
     }
 
-    const companyX    = margin + logoW + 5;
+    const companyX    = margin + logoW + 3;
     const companyMaxW = W - margin - companyX - 44;
 
     setTextCol(doc, NAVY);
@@ -207,7 +203,7 @@ export async function POST(request: NextRequest) {
     doc.text('Kepada Yth :', margin, y);
     y += 5;
 
-    setTextCol(doc, NAVY_MID);
+    setTextCol(doc, TEXT_DARK);
     setFont(doc, 'bold');
     doc.setFontSize(9.5);
     doc.text(invoice.customer_name || '', margin, y);
@@ -237,8 +233,9 @@ export async function POST(request: NextRequest) {
       tot:  margin + qtyW + deskW + hrgW,
     };
 
-    const headH = 9;
-    const rowH  = 8;
+    const headH    = 9;
+    const rowH     = 8;
+    const tableTopY = y;
 
     // Header row
     setFill(doc, NAVY_MID);
@@ -283,12 +280,29 @@ export async function POST(request: NextRequest) {
         { align: 'right' }
       );
 
-      setDrawCol(doc, '#b8cce4');
+      // Border hitam tipis per baris
+      setDrawCol(doc, '#000000');
       doc.setLineWidth(0.15);
-      doc.line(margin, y + rowH, W - margin, y + rowH);
+      doc.rect(margin, y, cW, rowH, 'S');
+
+      // Garis vertikal pemisah kolom
+      doc.line(colX.desk, y, colX.desk, y + rowH);
+      doc.line(colX.hrg,  y, colX.hrg,  y + rowH);
+      doc.line(colX.tot,  y, colX.tot,  y + rowH);
 
       y += rowH;
     });
+
+    // Border luar keseluruhan tabel (header + semua baris) hitam
+    setDrawCol(doc, '#000000');
+    doc.setLineWidth(0.3);
+    doc.rect(margin, tableTopY, cW, headH + (items.length * rowH), 'S');
+
+    // Garis vertikal pada header
+    doc.setLineWidth(0.15);
+    doc.line(colX.desk, tableTopY, colX.desk, tableTopY + headH + (items.length * rowH));
+    doc.line(colX.hrg,  tableTopY, colX.hrg,  tableTopY + headH + (items.length * rowH));
+    doc.line(colX.tot,  tableTopY, colX.tot,  tableTopY + headH + (items.length * rowH));
 
     y += 3;
 
@@ -309,7 +323,7 @@ export async function POST(request: NextRequest) {
     doc.text(formatRupiah(invoice.subtotal), totValEnd, y + 5, { align: 'right' });
     y += tRowH;
 
-    // Baris PPN — hanya info (warna redup)
+    // Baris PPN
     if (hasPPN) {
       setFill(doc, '#f0f4fa');
       doc.rect(totBlockX, y, totBlockW, tRowH, 'F');
@@ -323,7 +337,7 @@ export async function POST(request: NextRequest) {
 
     y += 2;
 
-    // Total Pembayaran = grand_total = subtotal
+    // Total Pembayaran
     setFill(doc, NAVY_MID);
     doc.rect(margin, y, cW, tRowH + 2, 'F');
     setTextCol(doc, WHITE);
@@ -348,64 +362,66 @@ export async function POST(request: NextRequest) {
     const sigY   = y;
     const rightX = W - margin;
 
-    // LEFT: Mengetahui — hanya tampil jika use_signature = TRUE
-    if (useSign) {
-      setTextCol(doc, TEXT_DARK);
-      setFont(doc, 'bold');
-      doc.setFontSize(8.5);
-      doc.text('Mengetahui,', margin, sigY);
-
-      let imgOffset = 0;
-      if (signImg) {
-        try {
-          doc.addImage(signImg, 'PNG', margin, sigY + 3, 32, 20);
-          imgOffset = 25;
-        } catch {
-          imgOffset = 25;
-        }
-      } else {
-        imgOffset = 25;
-      }
-
-      setTextCol(doc, TEXT_DARK);
-      setFont(doc, 'bold');
-      doc.setFontSize(8.5);
-      doc.text('Achmad Odi Primandana', margin, sigY + imgOffset + 4);
-      setFont(doc, 'normal');
-      doc.setFontSize(8);
-      doc.text('O2O Koordinator Operasional', margin, sigY + imgOffset + 9);
-    }
-
-    // RIGHT: Kota + tanggal, nama toko, nama PIC
-    setFont(doc, 'bold');
-    doc.setFontSize(8.5);
-    setTextCol(doc, TEXT_DARK);
-    doc.text(`Bandung, ${formatDate(invoice.invoice_date)}`, rightX, sigY, { align: 'right' });
-
     const sigStoreName = invoice.signature_store || '';
     const sigPicName   = invoice.signature_pic || '';
-    const sigOffset    = useSign ? 28 : 18;
+
+    // Baris 1: "Mengetahui," dan "Bandung, tanggal" sejajar
+    setTextCol(doc, TEXT_DARK);
+    setFont(doc, 'bold');
+    doc.setFontSize(8.5);
+    doc.text('Mengetahui,', margin, sigY);
+    doc.text(`Bandung, ${formatDate(invoice.invoice_date)}`, rightX, sigY, { align: 'right' });
+
+    // Gambar tanda tangan — hanya jika useSign = true
+    let imgH = 0;
+    if (useSign && signImg) {
+      try {
+        const ratio = 437 / 236;
+        const h = 22;
+        const w = (h * ratio) - 3;
+        const format = signImg.includes('data:image/png') ? 'PNG' : 'JPEG';
+        doc.addImage(signImg, format, margin, sigY + 1, w, h, undefined, 'FAST');
+        imgH = h + 2;
+      } catch {
+        imgH = 24;
+      }
+    } else if (useSign && !signImg) {
+      imgH = 24;
+    } else {
+      imgH = 8;
+    }
+
+    // Baris 2: nama kiri & nama toko kanan sejajar
+    const namY = sigY + imgH;
+
+    setTextCol(doc, TEXT_DARK);
+    setFont(doc, 'bold');
+    doc.setFontSize(8.5);
+    doc.text('Achmad Odi Primandana', margin, namY);
 
     if (sigStoreName) {
       setFont(doc, 'bold');
       doc.setFontSize(8.5);
-      setTextCol(doc, NAVY_MID);
-      doc.text(sigStoreName, rightX, sigY + sigOffset, { align: 'right' });
+      setTextCol(doc, TEXT_DARK);
+      doc.text(sigStoreName, rightX, namY, { align: 'right' });
+    } else if (invoice.customer_name) {
+      setFont(doc, 'bold');
+      doc.setFontSize(8.5);
+      setTextCol(doc, TEXT_DARK);
+      doc.text(invoice.customer_name, rightX, namY, { align: 'right' });
     }
+
+    // Baris 3: jabatan kiri & nama PIC kanan sejajar
+    setFont(doc, 'normal');
+    doc.setFontSize(8);
+    setTextCol(doc, TEXT_DARK);
+    doc.text('O2O Koordinator Operasional', margin, namY + 5);
 
     if (sigPicName) {
       setFont(doc, 'normal');
       doc.setFontSize(8);
       setTextCol(doc, TEXT_DARK);
-      doc.text(sigPicName, rightX, sigY + sigOffset + 5, { align: 'right' });
-    }
-
-    // Fallback jika keduanya kosong
-    if (!sigStoreName && !sigPicName && invoice.customer_name) {
-      setFont(doc, 'bold');
-      doc.setFontSize(8.5);
-      setTextCol(doc, NAVY_MID);
-      doc.text(invoice.customer_name, rightX, sigY + sigOffset, { align: 'right' });
+      doc.text(sigPicName, rightX, namY + 5, { align: 'right' });
     }
 
     // ── Output ────────────────────────────────────────────────────────────────
