@@ -68,7 +68,8 @@ export async function POST(request: NextRequest) {
       customer_address,
       invoice_date,
       items,
-      tax_percent = 0,   // 11 jika PPN aktif, 0 jika tidak
+      tax_percent = 0,
+      use_signature = false,
       created_by,
       doc_type = 'invoice',
       manual_invoice_number = null,
@@ -96,18 +97,17 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
 
     // ── Kalkulasi ──────────────────────────────────────────────────────────
-    // grand_total = subtotal + tax_amount (jika PPN aktif)
-    // grand_total = subtotal              (jika PPN tidak aktif)
+    // grand_total = subtotal (PPN hanya info, tidak masuk ke grand total)
     const subtotal = items.reduce((s: number, it: any) => s + (Number(it.qty) * Number(it.unit_price)), 0);
     const tax_amount = Number(tax_percent) > 0
       ? Math.round(subtotal * (Number(tax_percent) / 100))
       : 0;
-    const grand_total = subtotal + tax_amount;
+    const grand_total = subtotal;
     const amount_in_words = terbilang(grand_total);
 
     // Kolom: invoice_id, invoice_number, invoice_date, customer_name, customer_address,
     //        subtotal, tax_percent, tax_amount, grand_total, amount_in_words,
-    //        status, created_at, doc_type, signature_store, signature_pic, created_by
+    //        status, created_at, doc_type, signature_store, signature_pic, created_by, use_signature
     const invoiceRow = [
       invoice_id,
       invoiceNumber,
@@ -125,6 +125,7 @@ export async function POST(request: NextRequest) {
       signature_store || '',
       signature_pic || '',
       created_by || '',
+      use_signature ? 'TRUE' : 'FALSE',
     ];
     await appendSheetData('invoices', [invoiceRow]);
 
@@ -156,8 +157,18 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
     const {
-      invoice_id, status, customer_name, customer_address, invoice_date,
-      items, tax_percent, updated_by,
+      invoice_id,
+      status,
+      customer_name,
+      customer_address,
+      invoice_date,
+      items,
+      tax_percent,
+      updated_by,
+      // Kolom signature — bisa diupdate saat edit
+      use_signature,
+      signature_store,
+      signature_pic,
     } = body;
 
     const invoices = await getSheetData('invoices');
@@ -177,7 +188,7 @@ export async function PUT(request: NextRequest) {
     if (items && items.length > 0) {
       subtotal = items.reduce((s: number, it: any) => s + Number(it.qty) * Number(it.unit_price), 0);
       tax_amount = effectiveTax > 0 ? Math.round(subtotal * (effectiveTax / 100)) : 0;
-      grand_total = subtotal + tax_amount; // grand_total = subtotal + tax_amount
+      grand_total = subtotal; // grand_total = subtotal
       amount_in_words = terbilang(grand_total);
 
       const allItems = await getSheetData('invoice_items');
@@ -205,23 +216,38 @@ export async function PUT(request: NextRequest) {
       await appendSheetData('invoice_items', newItemRows);
     }
 
+    // Resolve nilai use_signature:
+    // - Jika dikirim dari body (edit), gunakan nilai baru
+    // - Jika tidak dikirim (hanya update status), pertahankan nilai existing
+    let resolvedUseSignature: string;
+    if (use_signature !== undefined) {
+      resolvedUseSignature = use_signature ? 'TRUE' : 'FALSE';
+    } else {
+      resolvedUseSignature = existing.use_signature || 'FALSE';
+    }
+
+    // Resolve signature_store & signature_pic
+    const resolvedSignatureStore = signature_store !== undefined ? (signature_store || '') : (existing.signature_store || '');
+    const resolvedSignaturePic   = signature_pic   !== undefined ? (signature_pic   || '') : (existing.signature_pic   || '');
+
     const updatedRow = [
       invoice_id,
       existing.invoice_number,
-      invoice_date ?? existing.invoice_date,
-      customer_name ?? existing.customer_name,
+      invoice_date    ?? existing.invoice_date,
+      customer_name   ?? existing.customer_name,
       customer_address ?? existing.customer_address,
       subtotal,
       effectiveTax,
       tax_amount,
       grand_total,
       amount_in_words,
-      status ?? existing.status,
+      status          ?? existing.status,
       existing.created_at,
       existing.doc_type || 'invoice',
-      existing.signature_store || '',
-      existing.signature_pic || '',
+      resolvedSignatureStore,
+      resolvedSignaturePic,
       existing.created_by || '',
+      resolvedUseSignature,
     ];
 
     await updateSheetRow('invoices', idx + 2, updatedRow);
@@ -252,6 +278,7 @@ export async function DELETE(request: NextRequest) {
       e.signature_store || '',
       e.signature_pic || '',
       e.created_by || '',
+      e.use_signature || 'FALSE',
     ];
     await updateSheetRow('invoices', idx + 2, updatedRow);
     return NextResponse.json({ success: true });

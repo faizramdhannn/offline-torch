@@ -94,6 +94,14 @@ function setFont(doc: jsPDF, style: 'normal' | 'bold' | 'italic' | 'bolditalic' 
   doc.setFont('times', style);
 }
 
+// ── Helper: normalise use_signature dari Google Sheets ────────────────────────
+// Google Sheets bisa mengembalikan boolean true/false atau string 'TRUE'/'FALSE'
+function parseBoolField(val: any): boolean {
+  if (typeof val === 'boolean') return val;
+  if (typeof val === 'string') return val.toUpperCase() === 'TRUE';
+  return false;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { invoice_id } = await request.json();
@@ -108,18 +116,24 @@ export async function POST(request: NextRequest) {
     const invoice = invoices.find((r: any) => r.invoice_id === invoice_id);
     if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
 
+    // Hanya bisa generate PDF jika status = submitted
+    if (invoice.status !== 'submitted') {
+      return NextResponse.json({ error: 'PDF hanya tersedia untuk invoice dengan status submitted' }, { status: 403 });
+    }
+
     const items = allItems.filter((r: any) => r.invoice_id === invoice_id);
     const master = masterArr[0] || {};
 
-    const useSign   = master.default_use_signature === 'TRUE';
-    const hasPPN    = Number(invoice.tax_percent) > 0; // ← tampil baris PPN hanya jika aktif
+    // FIX: gunakan parseBoolField agar handle boolean true & string 'TRUE' dari Sheets
+    const useSign = parseBoolField(invoice.use_signature);
+    const hasPPN  = Number(invoice.tax_percent) > 0;
 
-    const docType   = (invoice.doc_type || 'invoice').toLowerCase();
+    const docType     = (invoice.doc_type || 'invoice').toLowerCase();
     const isQuotation = docType === 'quotation';
 
     const [headerImg, signImg] = await Promise.all([
       downloadImageAsBase64(master.header_image_url || ''),
-      downloadImageAsBase64(master.signature_image_url || ''),
+      useSign ? downloadImageAsBase64(master.signature_image_url || '') : Promise.resolve(null),
     ]);
 
     // ── PDF setup ─────────────────────────────────────────────────────────────
@@ -295,13 +309,13 @@ export async function POST(request: NextRequest) {
     doc.text(formatRupiah(invoice.subtotal), totValEnd, y + 5, { align: 'right' });
     y += tRowH;
 
-    // Baris PPN — HANYA tampil jika tax_percent > 0 (PPN diaktifkan)
+    // Baris PPN — hanya info (warna redup)
     if (hasPPN) {
-      setFill(doc, LIGHT_ROW);
+      setFill(doc, '#f0f4fa');
       doc.rect(totBlockX, y, totBlockW, tRowH, 'F');
-      setTextCol(doc, NAVY);
-      setFont(doc, 'bold');
-      doc.setFontSize(8.5);
+      setTextCol(doc, TEXT_GRAY);
+      setFont(doc, 'normal');
+      doc.setFontSize(8);
       doc.text(`PPN ${invoice.tax_percent}%`, totLblEnd, y + 5, { align: 'right' });
       doc.text(formatRupiah(invoice.tax_amount), totValEnd, y + 5, { align: 'right' });
       y += tRowH;
@@ -309,7 +323,7 @@ export async function POST(request: NextRequest) {
 
     y += 2;
 
-    // Total Pembayaran = grand_total (subtotal + tax_amount jika PPN aktif, atau subtotal saja)
+    // Total Pembayaran = grand_total = subtotal
     setFill(doc, NAVY_MID);
     doc.rect(margin, y, cW, tRowH + 2, 'F');
     setTextCol(doc, WHITE);
@@ -334,31 +348,33 @@ export async function POST(request: NextRequest) {
     const sigY   = y;
     const rightX = W - margin;
 
-    // LEFT: Mengetahui
-    setTextCol(doc, TEXT_DARK);
-    setFont(doc, 'bold');
-    doc.setFontSize(8.5);
-    doc.text('Mengetahui,', margin, sigY);
+    // LEFT: Mengetahui — hanya tampil jika use_signature = TRUE
+    if (useSign) {
+      setTextCol(doc, TEXT_DARK);
+      setFont(doc, 'bold');
+      doc.setFontSize(8.5);
+      doc.text('Mengetahui,', margin, sigY);
 
-    let imgOffset = 0;
-    if (useSign && signImg) {
-      try {
-        doc.addImage(signImg, 'PNG', margin, sigY + 3, 32, 20);
-        imgOffset = 25;
-      } catch {
+      let imgOffset = 0;
+      if (signImg) {
+        try {
+          doc.addImage(signImg, 'PNG', margin, sigY + 3, 32, 20);
+          imgOffset = 25;
+        } catch {
+          imgOffset = 25;
+        }
+      } else {
         imgOffset = 25;
       }
-    } else {
-      imgOffset = 25;
-    }
 
-    setTextCol(doc, TEXT_DARK);
-    setFont(doc, 'bold');
-    doc.setFontSize(8.5);
-    doc.text('Achmad Odi Primandana', margin, sigY + imgOffset + 4);
-    setFont(doc, 'normal');
-    doc.setFontSize(8);
-    doc.text('O2O Koordinator Operasional', margin, sigY + imgOffset + 9);
+      setTextCol(doc, TEXT_DARK);
+      setFont(doc, 'bold');
+      doc.setFontSize(8.5);
+      doc.text('Achmad Odi Primandana', margin, sigY + imgOffset + 4);
+      setFont(doc, 'normal');
+      doc.setFontSize(8);
+      doc.text('O2O Koordinator Operasional', margin, sigY + imgOffset + 9);
+    }
 
     // RIGHT: Kota + tanggal, nama toko, nama PIC
     setFont(doc, 'bold');
@@ -368,19 +384,20 @@ export async function POST(request: NextRequest) {
 
     const sigStoreName = invoice.signature_store || '';
     const sigPicName   = invoice.signature_pic || '';
+    const sigOffset    = useSign ? 29 : 10;
 
     if (sigStoreName) {
       setFont(doc, 'bold');
       doc.setFontSize(8.5);
       setTextCol(doc, NAVY_MID);
-      doc.text(sigStoreName, rightX, sigY + imgOffset + 4, { align: 'right' });
+      doc.text(sigStoreName, rightX, sigY + sigOffset, { align: 'right' });
     }
 
     if (sigPicName) {
       setFont(doc, 'normal');
       doc.setFontSize(8);
       setTextCol(doc, TEXT_DARK);
-      doc.text(sigPicName, rightX, sigY + imgOffset + 9, { align: 'right' });
+      doc.text(sigPicName, rightX, sigY + sigOffset + 5, { align: 'right' });
     }
 
     // Fallback jika keduanya kosong
@@ -388,7 +405,7 @@ export async function POST(request: NextRequest) {
       setFont(doc, 'bold');
       doc.setFontSize(8.5);
       setTextCol(doc, NAVY_MID);
-      doc.text(invoice.customer_name, rightX, sigY + imgOffset + 4, { align: 'right' });
+      doc.text(invoice.customer_name, rightX, sigY + sigOffset, { align: 'right' });
     }
 
     // ── Output ────────────────────────────────────────────────────────────────
