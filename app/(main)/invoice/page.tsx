@@ -176,7 +176,7 @@ export default function InvoicePage() {
       const [invRes, masterRes, itemsRes] = await Promise.all([
         fetch("/api/invoice"),
         fetch("/api/invoice/master"),
-        fetch("/api/master-item"),
+        fetch("/api/master-item?mode=invoice"),
       ]);
       const [invData, masterData, itemsData] = await Promise.all([
         invRes.json(), masterRes.json(), itemsRes.json(),

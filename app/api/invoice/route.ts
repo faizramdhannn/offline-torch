@@ -67,13 +67,13 @@ export async function POST(request: NextRequest) {
       customer_name,
       customer_address,
       invoice_date,
-      items,                        // array of { product_name, variant, qty, unit_price }
+      items,
       tax_percent = 0,
       created_by,
-      doc_type = 'invoice',         // 'invoice' | 'quotation'
-      manual_invoice_number = null, // string | null — diisi manual oleh user
-      signature_store = '',         // nama toko penerima untuk tanda tangan kanan bawah
-      signature_pic = '',           // nama PIC penerima untuk tanda tangan kanan bawah
+      doc_type = 'invoice',
+      manual_invoice_number = null,
+      signature_store = '',
+      signature_pic = '',
     } = body;
 
     if (!customer_name || !invoice_date || !items?.length) {
@@ -84,10 +84,8 @@ export async function POST(request: NextRequest) {
     let invoiceNumber: string;
 
     if (doc_type === 'quotation') {
-      // Quotation tidak pakai nomor
       invoiceNumber = '';
     } else {
-      // Invoice: wajib isi manual
       if (!manual_invoice_number || !manual_invoice_number.trim()) {
         return NextResponse.json({ error: 'Nomor invoice wajib diisi' }, { status: 400 });
       }
@@ -97,13 +95,12 @@ export async function POST(request: NextRequest) {
     const invoice_id = Date.now().toString();
     const now = new Date().toISOString();
 
-    // Calculate totals
+    // ── Kalkulasi: grand_total = subtotal (PPN hanya info) ──────────────────
     const subtotal = items.reduce((s: number, it: any) => s + (Number(it.qty) * Number(it.unit_price)), 0);
     const tax_amount = Math.round(subtotal * (Number(tax_percent) / 100));
-    const grand_total = subtotal + tax_amount;
+    const grand_total = subtotal; // grand_total = subtotal, PPN hanya info
     const amount_in_words = terbilang(grand_total);
 
-    // Save invoice row
     // Kolom: invoice_id, invoice_number, invoice_date, customer_name, customer_address,
     //        subtotal, tax_percent, tax_amount, grand_total, amount_in_words,
     //        status, created_at, doc_type, signature_store, signature_pic
@@ -175,10 +172,9 @@ export async function PUT(request: NextRequest) {
     if (items && items.length > 0) {
       subtotal = items.reduce((s: number, it: any) => s + Number(it.qty) * Number(it.unit_price), 0);
       tax_amount = Math.round(subtotal * (effectiveTax / 100));
-      grand_total = subtotal + tax_amount;
+      grand_total = subtotal; // grand_total = subtotal
       amount_in_words = terbilang(grand_total);
 
-      // Rebuild items (clear old + append new)
       const allItems = await getSheetData('invoice_items');
       const oldItemIndexes = allItems
         .map((r: any, i: number) => ({ r, i }))
@@ -204,7 +200,6 @@ export async function PUT(request: NextRequest) {
       await appendSheetData('invoice_items', newItemRows);
     }
 
-    // Preserve existing signature fields — PUT hanya update status/items, bukan signature
     const updatedRow = [
       invoice_id,
       existing.invoice_number,

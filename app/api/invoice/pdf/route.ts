@@ -90,7 +90,6 @@ async function tryFetch(url: string): Promise<string | null> {
   }
 }
 
-// ── Font helper ───────────────────────────────────────────────────────────────
 function setFont(doc: jsPDF, style: 'normal' | 'bold' | 'italic' | 'bolditalic' = 'normal') {
   doc.setFont('times', style);
 }
@@ -112,10 +111,8 @@ export async function POST(request: NextRequest) {
     const items = allItems.filter((r: any) => r.invoice_id === invoice_id);
     const master = masterArr[0] || {};
 
-    const usePPN  = master.default_use_ppn === 'TRUE';
     const useSign = master.default_use_signature === 'TRUE';
 
-    // doc_type: 'invoice' (default) or 'quotation'
     const docType = (invoice.doc_type || 'invoice').toLowerCase();
     const isQuotation = docType === 'quotation';
 
@@ -150,7 +147,6 @@ export async function POST(request: NextRequest) {
       doc.text('LOGO', margin + logoW / 2, y + logoH / 2 + 2, { align: 'center' });
     }
 
-    // Company name + address
     const companyX    = margin + logoW + 5;
     const companyMaxW = W - margin - companyX - 44;
 
@@ -170,7 +166,6 @@ export async function POST(request: NextRequest) {
       doc.text(`Phone: ${master.company_phone}`, companyX, y + 15);
     }
 
-    // Document type label top-right
     const docLabel = isQuotation ? 'Quotation' : 'Invoice';
     setTextCol(doc, NAVY);
     setFont(doc, 'bolditalic');
@@ -185,7 +180,6 @@ export async function POST(request: NextRequest) {
 
     y += logoH + 7;
 
-    // Separator line
     setDrawCol(doc, NAVY_MID);
     doc.setLineWidth(0.5);
     doc.line(margin, y, W - margin, y);
@@ -238,10 +232,10 @@ export async function POST(request: NextRequest) {
     setTextCol(doc, WHITE);
     setFont(doc, 'bold');
     doc.setFontSize(8.5);
-    doc.text('Qty',           colX.qty  + qtyW  / 2,  y + 6, { align: 'center' });
-    doc.text('Nama Produk',   colX.desk + deskW  / 2,  y + 6, { align: 'center' });
-    doc.text('Harga Satuan',  colX.hrg  + hrgW  / 2,  y + 6, { align: 'center' });
-    doc.text('Total',         colX.tot  + totW  / 2,  y + 6, { align: 'center' });
+    doc.text('Qty',           colX.qty  + qtyW  / 2, y + 6, { align: 'center' });
+    doc.text('Nama Produk',   colX.desk + deskW  / 2, y + 6, { align: 'center' });
+    doc.text('Harga Satuan',  colX.hrg  + hrgW  / 2, y + 6, { align: 'center' });
+    doc.text('Total',         colX.tot  + totW  / 2, y + 6, { align: 'center' });
 
     y += headH;
 
@@ -284,12 +278,14 @@ export async function POST(request: NextRequest) {
     y += 3;
 
     // ── TOTALS ────────────────────────────────────────────────────────────────
+    // SubTotal dan PPN ditampilkan di kanan, Total Pembayaran = SubTotal (full width)
     const totBlockW = 82;
     const totBlockX = W - margin - totBlockW;
     const totLblEnd = totBlockX + 44;
     const totValEnd = W - margin - 2;
     const tRowH = 7;
 
+    // Baris SubTotal
     setFill(doc, LIGHT_ROW);
     doc.rect(totBlockX, y, totBlockW, tRowH, 'F');
     setTextCol(doc, NAVY);
@@ -299,7 +295,8 @@ export async function POST(request: NextRequest) {
     doc.text(formatRupiah(invoice.subtotal), totValEnd, y + 5, { align: 'right' });
     y += tRowH;
 
-    if (usePPN && Number(invoice.tax_percent) > 0) {
+    // Baris PPN — selalu tampil jika tax_percent > 0 (informasi saja)
+    if (Number(invoice.tax_percent) > 0) {
       setFill(doc, LIGHT_ROW);
       doc.rect(totBlockX, y, totBlockW, tRowH, 'F');
       setTextCol(doc, NAVY);
@@ -312,13 +309,14 @@ export async function POST(request: NextRequest) {
 
     y += 2;
 
+    // Total Pembayaran = SubTotal (grand_total sudah = subtotal dari DB)
     setFill(doc, NAVY_MID);
     doc.rect(margin, y, cW, tRowH + 2, 'F');
     setTextCol(doc, WHITE);
     setFont(doc, 'bold');
     doc.setFontSize(9);
     doc.text('Total Pembayaran', margin + cW * 0.35, y + 6, { align: 'center' });
-    doc.text(formatRupiah(invoice.grand_total), W - margin - 2, y + 6, { align: 'right' });
+    doc.text(formatRupiah(invoice.subtotal), W - margin - 2, y + 6, { align: 'right' });
     y += tRowH + 2 + 8;
 
     // ── TERBILANG ─────────────────────────────────────────────────────────────
@@ -334,9 +332,9 @@ export async function POST(request: NextRequest) {
 
     // ── SIGNATURE ─────────────────────────────────────────────────────────────
     const sigY   = y;
-    const rightX = W - margin; // right edge, text right-aligned
+    const rightX = W - margin;
 
-    // ── LEFT: "Mengetahui," + tanda tangan perusahaan ────────────────────────
+    // LEFT: Mengetahui
     setTextCol(doc, TEXT_DARK);
     setFont(doc, 'bold');
     doc.setFontSize(8.5);
@@ -362,16 +360,15 @@ export async function POST(request: NextRequest) {
     doc.setFontSize(8);
     doc.text('O2O Koordinator Operasional', margin, sigY + imgOffset + 9);
 
-    // ── RIGHT: "Bandung, [tanggal]" + nama toko + nama PIC ───────────────────
-    // Tanggal
+    // RIGHT: Kota + tanggal, nama toko (signature_store), nama PIC (signature_pic)
     setFont(doc, 'bold');
     doc.setFontSize(8.5);
     setTextCol(doc, TEXT_DARK);
     doc.text(`Bandung, ${formatDate(invoice.invoice_date)}`, rightX, sigY, { align: 'right' });
 
-    // Spasi untuk area tanda tangan (sama panjang dengan kiri)
-    // Nama toko penerima (signature_store) — bold, warna NAVY_MID
     const sigStoreName = invoice.signature_store || '';
+    const sigPicName   = invoice.signature_pic || '';
+
     if (sigStoreName) {
       setFont(doc, 'bold');
       doc.setFontSize(8.5);
@@ -379,8 +376,6 @@ export async function POST(request: NextRequest) {
       doc.text(sigStoreName, rightX, sigY + imgOffset + 4, { align: 'right' });
     }
 
-    // Nama PIC (signature_pic) — normal, warna TEXT_DARK
-    const sigPicName = invoice.signature_pic || '';
     if (sigPicName) {
       setFont(doc, 'normal');
       doc.setFontSize(8);
@@ -388,7 +383,7 @@ export async function POST(request: NextRequest) {
       doc.text(sigPicName, rightX, sigY + imgOffset + 9, { align: 'right' });
     }
 
-    // Jika keduanya kosong, fallback ke customer_name (backward compatibility)
+    // Fallback jika keduanya kosong
     if (!sigStoreName && !sigPicName && invoice.customer_name) {
       setFont(doc, 'bold');
       doc.setFontSize(8.5);
