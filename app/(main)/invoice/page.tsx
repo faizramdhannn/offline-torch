@@ -137,22 +137,24 @@ export default function InvoicePage() {
   const [manualInvoiceNumber, setManualInvoiceNumber] = useState("");
   const [selectedStore, setSelectedStore] = useState("");
   const [manualCustomerName, setManualCustomerName] = useState("");
+  const [usePPN, setUsePPN] = useState(false); // ← PPN toggle
   const [formData, setFormData] = useState({
     customer_address: "",
     invoice_date: new Date().toISOString().split("T")[0],
-    tax_percent: "0",
   });
   const [formItems, setFormItems] = useState<InvoiceItem[]>([emptyItem()]);
-  const [productSearch, setProductSearch] = useState<string[]>([""]); // teks tampil di input
-  const [productQuery, setProductQuery] = useState<string[]>([""]);   // teks untuk filter dropdown
+  const [productSearch, setProductSearch] = useState<string[]>([""]);
+  const [productQuery, setProductQuery] = useState<string[]>([""]);
   const [productDropdowns, setProductDropdowns] = useState<boolean[]>([false]);
 
-  // ── Signature / Tanda Tangan Kanan Bawah ──────────────────────────────────
+  // ── Signature ──────────────────────────────────────────────────────────────
   const [signatureStore, setSignatureStore] = useState("");
   const [signaturePic, setSignaturePic] = useState("");
 
   // Master form
   const [masterForm, setMasterForm] = useState<MasterInvoice>({});
+
+  const PPN_RATE = 11; // fixed 11%
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);
@@ -231,7 +233,7 @@ export default function InvoicePage() {
         body: JSON.stringify({
           ...formData,
           customer_name: customerName,
-          tax_percent: parseFloat(formData.tax_percent) || 0,
+          tax_percent: usePPN ? PPN_RATE : 0, // kirim 11 atau 0
           items: formItems,
           created_by: user?.user_name,
           doc_type: docType,
@@ -259,9 +261,10 @@ export default function InvoicePage() {
     setManualInvoiceNumber("");
     setSelectedStore("");
     setManualCustomerName("");
+    setUsePPN(false);
     setSignatureStore("");
     setSignaturePic("");
-    setFormData({ customer_address: "", invoice_date: new Date().toISOString().split("T")[0], tax_percent: "0" });
+    setFormData({ customer_address: "", invoice_date: new Date().toISOString().split("T")[0] });
     setFormItems([emptyItem()]);
     setProductSearch([""]);
     setProductQuery([""]);
@@ -295,11 +298,9 @@ export default function InvoicePage() {
       : it
     ));
     setProductSearch(p => p.map((v, idx) => idx === i ? name : v));
-    // Jangan reset productQuery — biarkan user bisa lihat hasil lain setelah pilih
     setProductDropdowns(p => p.map(() => false));
   };
 
-  // ── Close dropdown on blur ────────────────────────────────────────────────
   const handleProductBlur = (i: number) => {
     setTimeout(() => {
       setProductDropdowns(p => p.map((_, idx) => idx === i ? false : _));
@@ -380,11 +381,10 @@ export default function InvoicePage() {
     }
   };
 
-  // ── Calculated totals for create form ─────────────────────────────────────
+  // ── Calculated totals ──────────────────────────────────────────────────────
   const calcSubtotal = formItems.reduce((s, it) => s + (Number(it.qty) * Number(it.unit_price)), 0);
-  const calcTax = Math.round(calcSubtotal * (parseFloat(formData.tax_percent || "0") / 100));
+  const calcTax = usePPN ? Math.round(calcSubtotal * (PPN_RATE / 100)) : 0;
   const calcTotal = calcSubtotal + calcTax;
-  const usePPN = master.default_use_ppn === true || master.default_use_ppn === "TRUE";
 
   // ── Filtered items for dropdown ────────────────────────────────────────────
   const getFilteredItems = (searchVal: string) => {
@@ -753,33 +753,40 @@ export default function InvoicePage() {
                 </div>
               </div>
 
-              {/* ── Totals + Tax ── */}
+              {/* ── Totals + PPN Toggle ── */}
               <div className="flex justify-between items-start">
-                <div className="flex items-center gap-3">
-                  <label className="text-xs font-medium text-gray-700">PPN (%)</label>
+                {/* PPN Checkbox */}
+                <label className="flex items-center gap-2 cursor-pointer select-none mt-1">
                   <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={formData.tax_percent}
-                    onChange={e => setFormData(p => ({ ...p, tax_percent: e.target.value }))}
-                    className="w-20 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                    placeholder={String(master.ppn_percentage || 0)}
+                    type="checkbox"
+                    checked={usePPN}
+                    onChange={e => setUsePPN(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
                   />
-                </div>
+                  <span className="text-xs font-medium text-gray-700">
+                    Gunakan PPN <span className="font-bold text-primary">11%</span>
+                  </span>
+                </label>
+
+                {/* Summary */}
                 <div className="text-right space-y-1">
-                  <div className="text-xs text-gray-500">Sub Total: <span className="font-semibold text-gray-800">{formatRupiah(calcSubtotal)}</span></div>
-                  {parseFloat(formData.tax_percent) > 0 && (
-                    <div className="text-xs text-gray-500">PPN {formData.tax_percent}%: <span className="font-semibold text-gray-800">{formatRupiah(calcTax)}</span></div>
+                  <div className="text-xs text-gray-500">
+                    Sub Total: <span className="font-semibold text-gray-800">{formatRupiah(calcSubtotal)}</span>
+                  </div>
+                  {usePPN && (
+                    <div className="text-xs text-gray-500">
+                      PPN 11%: <span className="font-semibold text-gray-800">{formatRupiah(calcTax)}</span>
+                    </div>
                   )}
-                  <div className="text-sm font-bold text-primary">Total: {formatRupiah(calcTotal)}</div>
+                  <div className="text-sm font-bold text-primary">
+                    Total: {formatRupiah(calcTotal)}
+                  </div>
                 </div>
               </div>
 
               {/* ── Tanda Tangan Kanan Bawah ── */}
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
                 <div className="flex items-center gap-2 mb-1">
-                  {/* Icon tanda tangan */}
                   <svg className="w-3.5 h-3.5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -1040,7 +1047,6 @@ export default function InvoicePage() {
                 { key: "signature_image_url", label: "URL Gambar Tanda Tangan", type: "text" },
                 { key: "invoice_prefix", label: "Prefix Nomor Invoice", type: "text" },
                 { key: "next_invoice_number", label: "Nomor Invoice Berikutnya", type: "number" },
-                { key: "ppn_percentage", label: "Default PPN (%)", type: "number" },
               ].map(({ key, label, type }) => (
                 <div key={key}>
                   <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>
@@ -1063,15 +1069,6 @@ export default function InvoicePage() {
               ))}
 
               <div className="grid grid-cols-2 gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={masterForm.default_use_ppn === true || masterForm.default_use_ppn === "TRUE"}
-                    onChange={e => setMasterForm(p => ({ ...p, default_use_ppn: e.target.checked }))}
-                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
-                  />
-                  <span className="text-xs text-gray-700">Aktifkan PPN default</span>
-                </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"

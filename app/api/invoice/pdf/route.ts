@@ -111,9 +111,10 @@ export async function POST(request: NextRequest) {
     const items = allItems.filter((r: any) => r.invoice_id === invoice_id);
     const master = masterArr[0] || {};
 
-    const useSign = master.default_use_signature === 'TRUE';
+    const useSign   = master.default_use_signature === 'TRUE';
+    const hasPPN    = Number(invoice.tax_percent) > 0; // ← tampil baris PPN hanya jika aktif
 
-    const docType = (invoice.doc_type || 'invoice').toLowerCase();
+    const docType   = (invoice.doc_type || 'invoice').toLowerCase();
     const isQuotation = docType === 'quotation';
 
     const [headerImg, signImg] = await Promise.all([
@@ -278,7 +279,6 @@ export async function POST(request: NextRequest) {
     y += 3;
 
     // ── TOTALS ────────────────────────────────────────────────────────────────
-    // SubTotal dan PPN ditampilkan di kanan, Total Pembayaran = SubTotal (full width)
     const totBlockW = 82;
     const totBlockX = W - margin - totBlockW;
     const totLblEnd = totBlockX + 44;
@@ -295,8 +295,8 @@ export async function POST(request: NextRequest) {
     doc.text(formatRupiah(invoice.subtotal), totValEnd, y + 5, { align: 'right' });
     y += tRowH;
 
-    // Baris PPN — selalu tampil jika tax_percent > 0 (informasi saja)
-    if (Number(invoice.tax_percent) > 0) {
+    // Baris PPN — HANYA tampil jika tax_percent > 0 (PPN diaktifkan)
+    if (hasPPN) {
       setFill(doc, LIGHT_ROW);
       doc.rect(totBlockX, y, totBlockW, tRowH, 'F');
       setTextCol(doc, NAVY);
@@ -309,14 +309,14 @@ export async function POST(request: NextRequest) {
 
     y += 2;
 
-    // Total Pembayaran = SubTotal (grand_total sudah = subtotal dari DB)
+    // Total Pembayaran = grand_total (subtotal + tax_amount jika PPN aktif, atau subtotal saja)
     setFill(doc, NAVY_MID);
     doc.rect(margin, y, cW, tRowH + 2, 'F');
     setTextCol(doc, WHITE);
     setFont(doc, 'bold');
     doc.setFontSize(9);
     doc.text('Total Pembayaran', margin + cW * 0.35, y + 6, { align: 'center' });
-    doc.text(formatRupiah(invoice.subtotal), W - margin - 2, y + 6, { align: 'right' });
+    doc.text(formatRupiah(invoice.grand_total), W - margin - 2, y + 6, { align: 'right' });
     y += tRowH + 2 + 8;
 
     // ── TERBILANG ─────────────────────────────────────────────────────────────
@@ -360,7 +360,7 @@ export async function POST(request: NextRequest) {
     doc.setFontSize(8);
     doc.text('O2O Koordinator Operasional', margin, sigY + imgOffset + 9);
 
-    // RIGHT: Kota + tanggal, nama toko (signature_store), nama PIC (signature_pic)
+    // RIGHT: Kota + tanggal, nama toko, nama PIC
     setFont(doc, 'bold');
     doc.setFontSize(8.5);
     setTextCol(doc, TEXT_DARK);

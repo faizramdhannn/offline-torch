@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       customer_address,
       invoice_date,
       items,
-      tax_percent = 0,
+      tax_percent = 0,   // 11 jika PPN aktif, 0 jika tidak
       created_by,
       doc_type = 'invoice',
       manual_invoice_number = null,
@@ -95,15 +95,19 @@ export async function POST(request: NextRequest) {
     const invoice_id = Date.now().toString();
     const now = new Date().toISOString();
 
-    // ── Kalkulasi: grand_total = subtotal (PPN hanya info) ──────────────────
+    // ── Kalkulasi ──────────────────────────────────────────────────────────
+    // grand_total = subtotal + tax_amount (jika PPN aktif)
+    // grand_total = subtotal              (jika PPN tidak aktif)
     const subtotal = items.reduce((s: number, it: any) => s + (Number(it.qty) * Number(it.unit_price)), 0);
-    const tax_amount = Math.round(subtotal * (Number(tax_percent) / 100));
-    const grand_total = subtotal; // grand_total = subtotal, PPN hanya info
+    const tax_amount = Number(tax_percent) > 0
+      ? Math.round(subtotal * (Number(tax_percent) / 100))
+      : 0;
+    const grand_total = subtotal + tax_amount;
     const amount_in_words = terbilang(grand_total);
 
     // Kolom: invoice_id, invoice_number, invoice_date, customer_name, customer_address,
     //        subtotal, tax_percent, tax_amount, grand_total, amount_in_words,
-    //        status, created_at, doc_type, signature_store, signature_pic
+    //        status, created_at, doc_type, signature_store, signature_pic, created_by
     const invoiceRow = [
       invoice_id,
       invoiceNumber,
@@ -120,6 +124,7 @@ export async function POST(request: NextRequest) {
       doc_type,
       signature_store || '',
       signature_pic || '',
+      created_by || '',
     ];
     await appendSheetData('invoices', [invoiceRow]);
 
@@ -171,8 +176,8 @@ export async function PUT(request: NextRequest) {
     // Recalculate if items provided
     if (items && items.length > 0) {
       subtotal = items.reduce((s: number, it: any) => s + Number(it.qty) * Number(it.unit_price), 0);
-      tax_amount = Math.round(subtotal * (effectiveTax / 100));
-      grand_total = subtotal; // grand_total = subtotal
+      tax_amount = effectiveTax > 0 ? Math.round(subtotal * (effectiveTax / 100)) : 0;
+      grand_total = subtotal + tax_amount; // grand_total = subtotal + tax_amount
       amount_in_words = terbilang(grand_total);
 
       const allItems = await getSheetData('invoice_items');
@@ -216,6 +221,7 @@ export async function PUT(request: NextRequest) {
       existing.doc_type || 'invoice',
       existing.signature_store || '',
       existing.signature_pic || '',
+      existing.created_by || '',
     ];
 
     await updateSheetRow('invoices', idx + 2, updatedRow);
@@ -245,6 +251,7 @@ export async function DELETE(request: NextRequest) {
       e.doc_type || 'invoice',
       e.signature_store || '',
       e.signature_pic || '',
+      e.created_by || '',
     ];
     await updateSheetRow('invoices', idx + 2, updatedRow);
     return NextResponse.json({ success: true });
