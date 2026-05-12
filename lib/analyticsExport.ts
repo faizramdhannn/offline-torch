@@ -89,7 +89,6 @@ export function exportStoreTab(
   const orderSeen = new Set<string>();
   const revenueMap: Record<string, number> = {};
   const orderMap: Record<string, Set<string>> = {};
-  // NEW: discount tracking per store
   const discountOrderMap: Record<string, Set<string>> = {};
   const discountAmountMap: Record<string, number> = {};
 
@@ -103,7 +102,6 @@ export function exportStoreTab(
       orderSeen.add(r.Name || "");
       revenueMap[store] = (revenueMap[store] || 0) + parseSubtotal(r.Subtotal);
 
-      // track discount per store
       if (r["Discount Code"]?.trim() && r.Name) {
         discountOrderMap[store].add(r.Name);
         discountAmountMap[store] =
@@ -116,7 +114,6 @@ export function exportStoreTab(
     (a, b) => revenueMap[b] - revenueMap[a]
   );
 
-  // Sheet 1: Summary per store — matches frontend table columns + discount cols
   const summaryData = [
     [
       "Store",
@@ -153,7 +150,6 @@ export function exportStoreTab(
     }),
   ];
 
-  // Sheet 2: Daily revenue per store
   const dailyMap: Record<string, Record<string, number>> = {};
   const allDates = new Set<string>();
   const dailySeen = new Set<string>();
@@ -213,7 +209,6 @@ export function exportTrafficTab(
     const store = cleanLocationName(r.Location);
     allStores.add(store);
     const code = extractTrafficCode(r.Notes, trafficMap);
-    // Use trafficMap from frontend (not hardcoded)
     const label = code ? trafficMap[code] || code : "Tidak Diketahui";
     allTraffics.add(label);
     if (!storeTrafficMap[store]) storeTrafficMap[store] = {};
@@ -227,7 +222,6 @@ export function exportTrafficTab(
   const traffics = [...allTraffics].sort((a, b) => {
     if (a === "Tidak Diketahui") return 1;
     if (b === "Tidak Diketahui") return -1;
-    // sort by total order count descending — matches frontend table order
     const totalA = stores.reduce(
       (s, st) => s + (storeTrafficMap[st]?.[a]?.count || 0),
       0
@@ -241,7 +235,6 @@ export function exportTrafficTab(
 
   const totalAllOrders = [...orderSeen].length;
 
-  // Sheet 1: Traffic summary — matches frontend: Jumlah Order, Total Revenue, Avg/Order, Persentase
   const summaryData = [
     [
       "Traffic Source",
@@ -281,7 +274,6 @@ export function exportTrafficTab(
         ...perStoreCounts,
       ];
     }),
-    // TOTAL row
     [
       "TOTAL",
       totalAllOrders,
@@ -299,7 +291,6 @@ export function exportTrafficTab(
     ],
   ];
 
-  // Sheet 2: Daily traffic trend
   const dailyTrafficMap: Record<string, Record<string, number>> = {};
   const allDates = new Set<string>();
   const dailySeen = new Set<string>();
@@ -346,43 +337,88 @@ export function exportDiscountTab(
   trafficMap: Record<string, string> = {}
 ) {
   const orderSeen = new Set<string>();
-  // Now track count, discount amount, AND subtotal/revenue — matches frontend
   const discountSummary: Record<
     string,
     { count: number; discountTotal: number; subtotal: number }
   > = {};
-  // Per-store breakdown
   const storeDiscountMap: Record<
     string,
-    Record<
-      string,
-      { count: number; discountTotal: number; subtotal: number }
-    >
+    Record<string, { count: number; discountTotal: number; subtotal: number }>
   > = {};
   const allStores = new Set<string>();
   const allCodes = new Set<string>();
+  let noDiscountCount = 0;
+  let noDiscountSubtotal = 0;
+
+  // Kumpulkan detail per order untuk Sheet 4
+  // key = order Name, value = akumulasi data order tsb
+  const orderDetailMap: Record<string, {
+    name: string;
+    date: string;
+    store: string;
+    employee: string;
+    discountCode: string;
+    discountAmount: number;
+    subtotal: number;
+    trafficLabel: string;
+    notes: string;
+    items: string;
+  }> = {};
 
   filteredRows.forEach((r) => {
     const key = r.Name || "";
+    const store = cleanLocationName(r.Location);
+    const code = r["Discount Code"]?.trim() || "";
+    const date = (r["Paid at"] || r["Created at"] || "").split(" ")[0];
+    const trafficCode = extractTrafficCode(r.Notes, trafficMap);
+    const trafficLabel = trafficCode
+      ? trafficMap[trafficCode] || trafficCode
+      : "";
+
+    // ── Akumulasi line items (tiap baris CSV bisa = 1 produk berbeda) ──
+    if (r["Lineitem name"]?.trim()) {
+      const qty = parseInt(r["Lineitem quantity"] || "1") || 1;
+      const itemStr = `${qty}x ${r["Lineitem name"]?.trim()}`;
+      if (!orderDetailMap[key]) {
+        orderDetailMap[key] = {
+          name: key,
+          date,
+          store,
+          employee: r.Employee?.trim() || "",
+          discountCode: code,
+          discountAmount: parseSubtotal(r["Discount Amount"]),
+          subtotal: parseSubtotal(r.Subtotal),
+          trafficLabel,
+          notes: r.Notes || "",
+          items: itemStr,
+        };
+      } else {
+        // Append item; data lain (subtotal, discount, dll) sudah tercatat di baris pertama
+        orderDetailMap[key].items += `, ${itemStr}`;
+      }
+    }
+
+    // ── Summary aggregation — dedup per order name ──────────────────────
     if (orderSeen.has(key)) return;
     orderSeen.add(key);
-    const store = cleanLocationName(r.Location);
-    const code = r["Discount Code"]?.trim();
-    if (!code) return;
+
+    if (!code) {
+      noDiscountCount++;
+      noDiscountSubtotal += parseSubtotal(r.Subtotal);
+      return;
+    }
+
     allStores.add(store);
     allCodes.add(code);
-
     const discAmt = parseSubtotal(r["Discount Amount"]);
     const sub = parseSubtotal(r.Subtotal);
 
-    // global summary
     if (!discountSummary[code])
       discountSummary[code] = { count: 0, discountTotal: 0, subtotal: 0 };
     discountSummary[code].count += 1;
     discountSummary[code].discountTotal += discAmt;
     discountSummary[code].subtotal += sub;
 
-    // per-store
     if (!storeDiscountMap[store]) storeDiscountMap[store] = {};
     if (!storeDiscountMap[store][code])
       storeDiscountMap[store][code] = {
@@ -396,15 +432,13 @@ export function exportDiscountTab(
   });
 
   const stores = [...allStores].sort();
-  // sort by count descending — matches frontend
   const codes = [...allCodes].sort(
     (a, b) =>
       (discountSummary[b]?.count || 0) - (discountSummary[a]?.count || 0)
   );
 
-  // Sheet 1: Summary — matches frontend columns exactly
-  // Frontend: Discount Code | Dipakai (Order) | Total Revenue | Total Potongan | Avg Revenue/Order
-  const summaryData = [
+  // ── Sheet 1: Summary Discount ─────────────────────────────────────────────
+  const summaryData: any[][] = [
     [
       "Discount Code",
       "Dipakai (Order)",
@@ -433,9 +467,24 @@ export function exportDiscountTab(
         d.count > 0 ? formatRupiahRaw(avg) : "-",
       ];
     }),
+    // Baris Tanpa Discount di paling bawah summary
+    ...(noDiscountCount > 0
+      ? [
+          [
+            "Tanpa Discount",
+            noDiscountCount,
+            noDiscountSubtotal,
+            formatRupiahRaw(noDiscountSubtotal),
+            0,
+            "-",
+            Math.round(noDiscountSubtotal / noDiscountCount),
+            formatRupiahRaw(Math.round(noDiscountSubtotal / noDiscountCount)),
+          ],
+        ]
+      : []),
   ];
 
-  // Sheet 2: Per-store breakdown
+  // ── Sheet 2: Discount per Store ───────────────────────────────────────────
   const storeHeaders = stores.flatMap((s) => [
     `${s} - Pakai`,
     `${s} - Revenue (IDR)`,
@@ -460,7 +509,7 @@ export function exportDiscountTab(
     }),
   ];
 
-  // Sheet 3: Daily discount usage trend
+  // ── Sheet 3: Daily Discount Trend ─────────────────────────────────────────
   const dailyTotalMap: Record<string, number> = {};
   const dailyDiscountMap: Record<string, Record<string, number>> = {};
   const allDates = new Set<string>();
@@ -494,6 +543,43 @@ export function exportDiscountTab(
     }),
   ];
 
+  // ── Sheet 4: Detail Order ─────────────────────────────────────────────────
+  // Semua order diurutkan berdasarkan tanggal, mirip isi popup tabel di frontend
+  const allOrderDetails = Object.values(orderDetailMap).sort((a, b) =>
+    a.date.localeCompare(b.date)
+  );
+
+  const detailData: any[][] = [
+    [
+      "Order Name",
+      "Tanggal",
+      "Store",
+      "Employee",
+      "Discount Code",
+      "Total Potongan (IDR)",
+      "Total Potongan (Rp)",
+      "Subtotal (IDR)",
+      "Subtotal (Rp)",
+      "Traffic Source",
+      "Notes",
+      "Items",
+    ],
+    ...allOrderDetails.map((o) => [
+      o.name,
+      o.date,
+      o.store,
+      o.employee,
+      o.discountCode || "Tanpa Discount",
+      o.discountAmount,
+      o.discountAmount > 0 ? formatRupiahRaw(o.discountAmount) : "-",
+      o.subtotal,
+      formatRupiahRaw(o.subtotal),
+      o.trafficLabel || "Tidak Diketahui",
+      o.notes,
+      o.items,
+    ]),
+  ];
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(
     wb,
@@ -509,6 +595,11 @@ export function exportDiscountTab(
     wb,
     XLSX.utils.aoa_to_sheet(dailyData),
     "Daily Discount Trend"
+  );
+  XLSX.utils.book_append_sheet(
+    wb,
+    XLSX.utils.aoa_to_sheet(detailData),
+    "Detail Order"
   );
   downloadXlsx(wb, `Analytics_Discount_Code_${Date.now()}.xlsx`);
 }
@@ -553,7 +644,6 @@ export function exportProductTab(
     return totalB - totalA;
   });
 
-  // Sheet 1: Summary — matches frontend: Produk | Qty Terjual | Total Revenue
   const globalSummaryData = [
     [
       "Produk",
@@ -574,7 +664,6 @@ export function exportProductTab(
     }),
   ];
 
-  // Sheet 2: Per-store breakdown
   const storeHeaders = stores.flatMap((s) => [
     `${s} - Qty`,
     `${s} - Revenue (IDR)`,
@@ -598,7 +687,6 @@ export function exportProductTab(
     }),
   ];
 
-  // Sheet 3: Daily product sales (top 10)
   const dailyProductMap: Record<string, Record<string, number>> = {};
   const allDates = new Set<string>();
   filteredRows.forEach((r) => {
@@ -684,7 +772,6 @@ export function exportEmployeeTab(
     return totalB - totalA;
   });
 
-  // Sheet 1: Summary — matches frontend: Karyawan | Jumlah Order | Total Revenue | Avg/Order
   const globalSummaryData = [
     [
       "Karyawan",
@@ -715,7 +802,6 @@ export function exportEmployeeTab(
     }),
   ];
 
-  // Sheet 2: Per-store breakdown
   const storeHeaders = stores.flatMap((s) => [
     `${s} - Orders`,
     `${s} - Revenue (IDR)`,
@@ -739,7 +825,6 @@ export function exportEmployeeTab(
     }),
   ];
 
-  // Sheet 3: Daily employee revenue
   const dailyEmpMap: Record<
     string,
     Record<string, { orders: Set<string>; revenue: number }>

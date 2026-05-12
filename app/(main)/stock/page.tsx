@@ -613,11 +613,12 @@ const fetchLastUpdate = async () => {
       filtered = filtered.filter((i) => parseInt(i.hpj?.replace(/[^0-9]/g, "") || "0") <= hpjValue);
     }
     if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter((i) =>
-        (i.sku && i.sku.toLowerCase().includes(q)) || (i.item_name && i.item_name.toLowerCase().includes(q))
-      );
-    }
+  const words = searchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  filtered = filtered.filter((i) => {
+    const haystack = `${i.sku} ${i.item_name}`.toLowerCase();
+    return words.every((word) => haystack.includes(word));
+  });
+}
     if (selectedView === "pca") {
       filtered.sort((a, b) => {
         const sa = parseInt(a.stock?.replace(/[^0-9-]/g, "") || "0");
