@@ -730,6 +730,69 @@ export function exportProductTab(
   downloadXlsx(wb, `Analytics_Product_Sales_${Date.now()}.xlsx`);
 }
 
+export function exportOnlineTab(filteredRows: Row[]) {
+  function isOnlineOrder(notes: string | null | undefined): boolean {
+    if (!notes) return false;
+    return /^\d{6}/.test(notes.trim());
+  }
+
+  const orderMap: Record<string, {
+    name: string; date: string; store: string; employee: string;
+    notes: string; subtotal: number; items: string;
+  }> = {};
+
+  filteredRows.forEach((r) => {
+    const key = r.Name || "";
+    if (!key || !isOnlineOrder(r.Notes)) return;
+    if (!orderMap[key]) {
+      orderMap[key] = {
+        name: key,
+        date: (r["Paid at"] || r["Created at"] || "").split(" ")[0],
+        store: cleanLocationName(r.Location),
+        employee: r.Employee?.trim() || "",
+        notes: r.Notes || "",
+        subtotal: parseSubtotal(r.Subtotal),
+        items: "",
+      };
+    }
+    if (r["Lineitem name"]?.trim()) {
+      const qty = parseInt(r["Lineitem quantity"] || "1") || 1;
+      const item = `${qty}x ${r["Lineitem name"]!.trim()}`;
+      orderMap[key].items = orderMap[key].items ? `${orderMap[key].items}, ${item}` : item;
+    }
+  });
+
+  const orders = Object.values(orderMap).sort((a, b) => b.date.localeCompare(a.date));
+
+  const detailData: any[][] = [
+    ["Order Name", "Tanggal", "Store", "Karyawan", "Notes (Order ID)", "Subtotal (IDR)", "Subtotal (Rp)", "Items"],
+    ...orders.map(o => [
+      o.name, o.date, o.store, o.employee, o.notes,
+      o.subtotal, formatRupiahRaw(o.subtotal), o.items,
+    ]),
+  ];
+
+  // Daily summary
+  const dailyMap: Record<string, { count: number; revenue: number }> = {};
+  orders.forEach(o => {
+    if (!o.date) return;
+    if (!dailyMap[o.date]) dailyMap[o.date] = { count: 0, revenue: 0 };
+    dailyMap[o.date].count++;
+    dailyMap[o.date].revenue += o.subtotal;
+  });
+  const dailyData: any[][] = [
+    ["Tanggal", "Jumlah Order", "Revenue (IDR)", "Revenue (Rp)"],
+    ...Object.entries(dailyMap).sort(([a],[b]) => a.localeCompare(b)).map(([date, d]) => [
+      date, d.count, d.revenue, formatRupiahRaw(d.revenue),
+    ]),
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detailData), "Detail Order Online");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dailyData), "Daily Online Trend");
+  downloadXlsx(wb, `Analytics_Online_Orders_${Date.now()}.xlsx`);
+}
+
 // ─── TAB 5: Employee ──────────────────────────────────────────────────────────
 export function exportEmployeeTab(
   filteredRows: Row[],
@@ -772,6 +835,7 @@ export function exportEmployeeTab(
     return totalB - totalA;
   });
 
+  
   const globalSummaryData = [
     [
       "Karyawan",
