@@ -1030,20 +1030,30 @@ export default function AnalyticsOrderPage() {
   const discountData = (() => {
     const map: Record<string, { count: number; total: number; subtotal: number }> = {};
     const orderSeen = new Set<string>();
+    let noDiscountCount = 0;
+    let noDiscountSubtotal = 0;
     fr.forEach((r) => {
       const key = r.Name || "";
       if (orderSeen.has(key)) return;
       orderSeen.add(key);
       const code = r["Discount Code"]?.trim();
-      if (!code) return;
+      if (!code) {
+        noDiscountCount++;
+        noDiscountSubtotal += parseSubtotal(r.Subtotal);
+        return;
+      }
       if (!map[code]) map[code] = { count: 0, total: 0, subtotal: 0 };
       map[code].count++;
       map[code].total += parseSubtotal(r["Discount Amount"]);
       map[code].subtotal += parseSubtotal(r.Subtotal);
     });
-    return Object.entries(map)
+    const result = Object.entries(map)
       .map(([name, d]) => ({ name, count: d.count, total: d.total, subtotal: d.subtotal }))
       .sort((a, b) => b.count - a.count).slice(0, 20);
+    if (noDiscountCount > 0) {
+      result.push({ name: "Tanpa Discount", count: noDiscountCount, total: 0, subtotal: noDiscountSubtotal });
+    }
+    return result;
   })();
 
   const dailyDiscountData = (() => {
@@ -1751,21 +1761,64 @@ const trafficOrders = [...new Set(fr.filter((r) => {
                               {discountData.slice((pageDiscount - 1) * PAGE_SIZE, pageDiscount * PAGE_SIZE).map((d, i) => {
                                 const discountOrders = [...new Set(fr.filter(r => r["Discount Code"]?.trim() === d.name && r.Name).map(r => r.Name!))]
                                 return (
-                                  <tr key={i} className={clickableRowClass}
-                                    onClick={() => discountOrders.length > 0 && setPopupGroup({ label: `Discount: ${d.name}`, orderNames: discountOrders })}
+                                  <tr
+                                    key={i}
+                                    className={clickableRowClass}
+                                    onClick={() =>
+                                      discountOrders.length > 0 &&
+                                      setPopupGroup({
+                                        label: `Discount: ${d.name}`,
+                                        orderNames: discountOrders,
+                                      })
+                                    }
                                   >
                                     <td className="px-3 py-2 flex items-center gap-1.5">
-                                      <span className="font-mono">{d.name}</span>
-                                      <svg className="w-3 h-3 text-gray-300 group-hover:text-primary transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                      </svg>
+                                      {d.name === "Tanpa Discount" ? (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px] font-medium border border-gray-200 italic">
+                                          Tanpa Discount
+                                        </span>
+                                      ) : (
+                                        <>
+                                          <span className="font-mono">
+                                            {d.name}
+                                          </span>
+                                          <svg
+                                            className="w-3 h-3 text-gray-300 group-hover:text-primary transition-colors flex-shrink-0"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={2}
+                                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                            />
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={2}
+                                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                            />
+                                          </svg>
+                                        </>
+                                      )}
                                     </td>
-                                    <td className="px-3 py-2 text-right">{d.count}</td>
-                                    <td className="px-3 py-2 text-right text-green-700 font-medium">{formatRupiah(d.subtotal)}</td>
-                                    <td className="px-3 py-2 text-right text-red-600">{formatRupiah(d.total)}</td>
+                                    <td className="px-3 py-2 text-right">
+                                      {d.count}
+                                    </td>
+                                    <td className="px-3 py-2 text-right text-green-700 font-medium">
+                                      {formatRupiah(d.subtotal)}
+                                    </td>
+                                    <td className="px-3 py-2 text-right text-red-600">
+                                      {formatRupiah(d.total)}
+                                    </td>
                                     <td className="px-3 py-2 text-right text-gray-500">
-                                      {d.count ? formatRupiah(Math.round(d.subtotal / d.count)) : "-"}
+                                      {d.count
+                                        ? formatRupiah(
+                                            Math.round(d.subtotal / d.count),
+                                          )
+                                        : "-"}
                                     </td>
                                   </tr>
                                 );
