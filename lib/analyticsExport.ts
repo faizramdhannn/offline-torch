@@ -720,7 +720,6 @@ export function exportProductTab(
       "Harga Satuan (Rp)",
       "Total Harga (IDR)",
       "Total Harga (Rp)",
-      "Notes",                  // ← kolom baru
     ],
     ...paidRows
       .filter((r) => r["Lineitem name"]?.trim())
@@ -748,7 +747,6 @@ export function exportProductTab(
           formatRupiahRaw(unitPrice),
           totalPrice,
           formatRupiahRaw(totalPrice),
-          r.Notes || "",        // ← nilai Notes
         ];
       }),
   ];
