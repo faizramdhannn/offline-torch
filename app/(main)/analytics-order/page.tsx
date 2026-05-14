@@ -687,9 +687,15 @@ export default function AnalyticsOrderPage() {
   const PAGE_SIZE = 10;
   const [hideUnknownTraffic, setHideUnknownTraffic] = useState(false);
 
+  // ─── Traffic filter ───────────────────────────────────────────────────────
   const [trafficFilter, setTrafficFilter] = useState<string[]>([]);
   const [showTrafficDropdown, setShowTrafficDropdown] = useState(false);
   const trafficDropdownRef = useRef<HTMLDivElement>(null);
+
+  // ─── Store filter (multi-select) ──────────────────────────────────────────
+  const [storeFilter, setStoreFilter] = useState<string[]>([]);
+  const [showStoreDropdown, setShowStoreDropdown] = useState(false);
+  const storeDropdownRef = useRef<HTMLDivElement>(null);
 
   const toLocalDateStr = (d: Date) => {
     const y = d.getFullYear();
@@ -705,15 +711,26 @@ export default function AnalyticsOrderPage() {
 
   const [dateFrom, setDateFrom] = useState(getFirstOfMonthStr);
   const [dateTo, setDateTo] = useState(getTodayStr);
-  const [storeFilter, setStoreFilter] = useState("all");
   const [stores, setStores] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Close traffic dropdown on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (trafficDropdownRef.current && !trafficDropdownRef.current.contains(e.target as Node)) {
         setShowTrafficDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  // Close store dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (storeDropdownRef.current && !storeDropdownRef.current.contains(e.target as Node)) {
+        setShowStoreDropdown(false);
       }
     }
     document.addEventListener("mousedown", handleClick);
@@ -797,6 +814,7 @@ export default function AnalyticsOrderPage() {
   };
 
   const isTrafficActive = trafficFilter.length > 0;
+  const isStoreActive = storeFilter.length > 0;
 
   const trafficFilterLabel = (() => {
     if (!isTrafficActive) return "Semua Traffic";
@@ -808,6 +826,12 @@ export default function AnalyticsOrderPage() {
     return `${trafficFilter.length} traffic dipilih`;
   })();
 
+  const storeFilterLabel = (() => {
+    if (!isStoreActive) return "All Stores";
+    if (storeFilter.length === 1) return storeFilter[0];
+    return `${storeFilter.length} store dipilih`;
+  })();
+
   const toggleTrafficCode = (code: string) => {
     setTrafficFilter((prev) => prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]);
     resetPages();
@@ -815,7 +839,14 @@ export default function AnalyticsOrderPage() {
 
   const clearTrafficFilter = () => { setTrafficFilter([]); resetPages(); };
 
-  // ─── filteredRows: online tab = only online, other tabs = exclude online ──
+  const toggleStoreCode = (store: string) => {
+    setStoreFilter((prev) => prev.includes(store) ? prev.filter((s) => s !== store) : [...prev, store]);
+    resetPages();
+  };
+
+  const clearStoreFilter = () => { setStoreFilter([]); resetPages(); };
+
+  // ─── filteredRows ─────────────────────────────────────────────────────────
   const filteredRows = useCallback(() => {
     return rows.filter((r) => {
       const rawDate = r["Created at"] || "";
@@ -823,9 +854,10 @@ export default function AnalyticsOrderPage() {
       if (dateFrom && dateStr < dateFrom) return false;
       if (dateTo && dateStr > dateTo) return false;
 
-      if (storeFilter !== "all") {
+      // Multi-select store filter
+      if (isStoreActive) {
         const loc = cleanLocationName(r.Location);
-        if (loc !== storeFilter) return false;
+        if (!storeFilter.includes(loc)) return false;
       }
 
       // Online tab: only show online orders
@@ -847,7 +879,7 @@ export default function AnalyticsOrderPage() {
 
       return true;
     });
-  }, [rows, dateFrom, dateTo, storeFilter, trafficFilter, trafficMap, isTrafficActive, activeTab]);
+  }, [rows, dateFrom, dateTo, storeFilter, trafficFilter, trafficMap, isTrafficActive, isStoreActive, activeTab]);
 
   const fr = filteredRows();
 
@@ -860,7 +892,7 @@ export default function AnalyticsOrderPage() {
     return { min: dates[0], max: dates[dates.length - 1] };
   })();
 
-  // ─── Count online orders in current date range (for the info banner) ──────
+  // ─── Count online orders in current date range ────────────────────────────
   const onlineCountInRange = (() => {
     return new Set(
       rows.filter((r) => {
@@ -1142,7 +1174,6 @@ export default function AnalyticsOrderPage() {
     const orders = Object.values(orderMap).sort((a, b) => b.date.localeCompare(a.date));
     const totalRevenue = orders.reduce((s, o) => s + o.subtotal, 0);
 
-    // Daily data
     const dailyMap: Record<string, { revenue: number; orders: number }> = {};
     orders.forEach((o) => {
       if (!o.date) return;
@@ -1154,7 +1185,6 @@ export default function AnalyticsOrderPage() {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, d]) => ({ date: formatShortDate(date), fullDate: date, revenue: d.revenue, orders: d.orders }));
 
-    // Revenue by store
     const storeMap: Record<string, { value: number; count: number }> = {};
     orders.forEach((o) => {
       if (!storeMap[o.store]) storeMap[o.store] = { value: 0, count: 0 };
@@ -1193,7 +1223,10 @@ export default function AnalyticsOrderPage() {
   };
 
   const handleResetFilter = () => {
-    setDateFrom(getFirstOfMonthStr()); setDateTo(getTodayStr()); setStoreFilter("all"); setTrafficFilter([]);
+    setDateFrom(getFirstOfMonthStr());
+    setDateTo(getTodayStr());
+    setStoreFilter([]);
+    setTrafficFilter([]);
     setPageStore(1); setPageTraffic(1); setPageDiscount(1); setPageProduct(1); setPageEmployee(1); setPageOnline(1);
   };
 
@@ -1287,23 +1320,68 @@ export default function AnalyticsOrderPage() {
             {/* Filters */}
             <div className="bg-white rounded-lg shadow p-4 mb-4">
               <div className="grid grid-cols-5 gap-3 items-end">
+                {/* Date From */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Date From</label>
                   <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); resetPages(); }}
                     className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
                 </div>
+
+                {/* Date To */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Date To</label>
                   <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); resetPages(); }}
                     className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
                 </div>
+
+                {/* Store — Multi-select dropdown */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
-                  <select value={storeFilter} onChange={(e) => { setStoreFilter(e.target.value); resetPages(); }}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-white">
-                    <option value="all">All Stores</option>
-                    {stores.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                  <div className="relative" ref={storeDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowStoreDropdown(v => !v)}
+                      className={`w-full px-2 py-1.5 border rounded text-xs text-left flex items-center justify-between gap-1 focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${
+                        isStoreActive
+                          ? "border-primary bg-primary/5 text-primary font-medium"
+                          : "border-gray-300 bg-white text-gray-700"
+                      }`}
+                    >
+                      <span className="truncate flex items-center gap-1.5">
+                        {isStoreActive && storeFilter.length > 1 ? (
+                          <>
+                            <span className="inline-flex items-center justify-center w-4 h-4 bg-primary text-white rounded-full text-[9px] font-bold flex-shrink-0">
+                              {storeFilter.length}
+                            </span>
+                            {storeFilterLabel}
+                          </>
+                        ) : storeFilterLabel}
+                      </span>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {isStoreActive && (
+                          <span
+                            onClick={(e) => { e.stopPropagation(); clearStoreFilter(); }}
+                            className="text-primary/60 hover:text-red-500 cursor-pointer text-sm leading-none"
+                            title="Hapus semua filter store"
+                          >×</span>
+                        )}
+                        <svg className={`w-3 h-3 transition-transform ${showStoreDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </button>
+
+                    {showStoreDropdown && (
+                      <div className="absolute z-50 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden">
+                        <StoreMultiSelect
+                          storeFilter={storeFilter}
+                          stores={stores}
+                          onToggle={toggleStoreCode}
+                          onClearAll={clearStoreFilter}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Traffic filter — sembunyikan di tab online */}
@@ -1361,6 +1439,7 @@ export default function AnalyticsOrderPage() {
                   </div>
                 )}
 
+                {/* Reset */}
                 <div>
                   <button onClick={handleResetFilter}
                     className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600 w-full">
@@ -1369,6 +1448,7 @@ export default function AnalyticsOrderPage() {
                 </div>
               </div>
 
+              {/* Active filter info & chips */}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {dataDateRange && (
                   <>
@@ -1382,6 +1462,31 @@ export default function AnalyticsOrderPage() {
                   </>
                 )}
 
+                {/* Store chips */}
+                {isStoreActive && (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1 w-full">
+                    <span className="text-[10px] text-gray-400 flex items-center gap-1">
+                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      Store:
+                    </span>
+                    {storeFilter.map((s) => (
+                      <span key={s}
+                        className="inline-flex items-center gap-1 text-[10px] font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
+                        {s}
+                        <button onClick={() => { toggleStoreCode(s); }} className="ml-0.5 hover:text-red-500 leading-none">×</button>
+                      </span>
+                    ))}
+                    {storeFilter.length > 1 && (
+                      <button onClick={clearStoreFilter} className="text-[10px] text-red-500 hover:text-red-700 underline">
+                        Hapus semua
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Traffic chips */}
                 {isTrafficActive && activeTab !== "online" && (
                   <div className="flex flex-wrap items-center gap-1.5 mt-1 w-full">
                     <span className="text-[10px] text-gray-400 flex items-center gap-1">
@@ -1448,11 +1553,11 @@ export default function AnalyticsOrderPage() {
                     <p className="text-sm mt-1">
                       {activeTab === "online"
                         ? "Tidak ada order online di periode ini"
-                        : isTrafficActive || storeFilter !== "all"
+                        : isTrafficActive || isStoreActive
                           ? "Tidak ada data untuk filter yang dipilih"
                           : "Import CSV Shopify untuk mulai analitik"}
                     </p>
-                    {(isTrafficActive || storeFilter !== "all") && activeTab !== "online" && (
+                    {(isTrafficActive || isStoreActive) && activeTab !== "online" && (
                       <button onClick={handleResetFilter} className="mt-3 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90">
                         Reset Filter
                       </button>
@@ -2008,7 +2113,6 @@ export default function AnalyticsOrderPage() {
                     {/* ── Tab 6: Online Orders ─────────────────────────────── */}
                     {activeTab === "online" && (
                       <div className="space-y-8">
-                        {/* Chart: Daily Revenue */}
                         {onlineOrderData.dailyData.length > 0 && (
                           <div className="grid grid-cols-2 gap-8">
                             <div>
@@ -2040,7 +2144,6 @@ export default function AnalyticsOrderPage() {
                           </div>
                         )}
 
-                        {/* Revenue by Store (online) */}
                         {onlineOrderData.revenueByStore.length > 0 && (
                           <div>
                             <h3 className="text-sm font-semibold text-gray-700 mb-4">Revenue Online per Store</h3>
@@ -2058,7 +2161,6 @@ export default function AnalyticsOrderPage() {
                           </div>
                         )}
 
-                        {/* Table */}
                         <div>
                           <h3 className="text-sm font-semibold text-gray-700 mb-3">Daftar Order Online</h3>
                           <p className="text-[10px] text-gray-400 mb-2">Klik baris untuk melihat detail order</p>
@@ -2167,6 +2269,72 @@ export default function AnalyticsOrderPage() {
   );
 }
 
+// ─── StoreMultiSelect ─────────────────────────────────────────────────────────
+function StoreMultiSelect({
+  storeFilter, stores, onToggle, onClearAll,
+}: {
+  storeFilter: string[]; stores: string[];
+  onToggle: (store: string) => void; onClearAll: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const filtered = search.trim()
+    ? stores.filter(s => s.toLowerCase().includes(search.toLowerCase()))
+    : stores;
+
+  const selectedCount = storeFilter.length;
+
+  return (
+    <>
+      <div className="p-2 border-b">
+        <input
+          ref={inputRef}
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Cari store..."
+          className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+        {selectedCount > 0 && (
+          <div className="flex items-center justify-between mt-1.5 px-1">
+            <span className="text-[10px] text-primary font-medium">{selectedCount} dipilih</span>
+            <button onClick={onClearAll} className="text-[10px] text-red-500 hover:text-red-700 font-medium">Hapus semua</button>
+          </div>
+        )}
+      </div>
+      <div className="max-h-56 overflow-y-auto">
+        {filtered.length === 0 ? (
+          <p className="text-xs text-gray-400 text-center py-3">Tidak ditemukan</p>
+        ) : (
+          filtered.map((s) => {
+            const isChecked = storeFilter.includes(s);
+            return (
+              <button
+                key={s}
+                onClick={() => onToggle(s)}
+                className={`w-full text-left px-3 py-2 text-xs hover:bg-primary/5 transition-colors flex items-center gap-2.5 ${isChecked ? "bg-primary/5" : ""}`}
+              >
+                <span className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${isChecked ? "bg-primary border-primary" : "border-gray-300 bg-white"}`}>
+                  {isChecked && (
+                    <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </span>
+                <span className={`${isChecked ? "text-primary font-medium" : "text-gray-700"}`}>{s}</span>
+              </button>
+            );
+          })
+        )}
+      </div>
+    </>
+  );
+}
+
+// ─── TrafficMultiSelect ───────────────────────────────────────────────────────
 function TrafficMultiSelect({
   trafficFilter, trafficMap, onToggle, onClearAll,
 }: {

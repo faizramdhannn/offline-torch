@@ -69,6 +69,7 @@ interface Row {
   Name?: string;
   "Created at"?: string;
   "Paid at"?: string;
+  "Financial Status"?: string;
   Subtotal?: string;
   Notes?: string;
   "Discount Code"?: string;
@@ -76,6 +77,7 @@ interface Row {
   "Lineitem name"?: string;
   "Lineitem quantity"?: string;
   "Lineitem price"?: string;
+  "Lineitem sku"?: string;
   Employee?: string;
   Location?: string;
   [key: string]: string | null | undefined;
@@ -350,8 +352,6 @@ export function exportDiscountTab(
   let noDiscountCount = 0;
   let noDiscountSubtotal = 0;
 
-  // Kumpulkan detail per order untuk Sheet 4
-  // key = order Name, value = akumulasi data order tsb
   const orderDetailMap: Record<string, {
     name: string;
     date: string;
@@ -375,7 +375,6 @@ export function exportDiscountTab(
       ? trafficMap[trafficCode] || trafficCode
       : "";
 
-    // ── Akumulasi line items (tiap baris CSV bisa = 1 produk berbeda) ──
     if (r["Lineitem name"]?.trim()) {
       const qty = parseInt(r["Lineitem quantity"] || "1") || 1;
       const itemStr = `${qty}x ${r["Lineitem name"]?.trim()}`;
@@ -393,12 +392,10 @@ export function exportDiscountTab(
           items: itemStr,
         };
       } else {
-        // Append item; data lain (subtotal, discount, dll) sudah tercatat di baris pertama
         orderDetailMap[key].items += `, ${itemStr}`;
       }
     }
 
-    // ── Summary aggregation — dedup per order name ──────────────────────
     if (orderSeen.has(key)) return;
     orderSeen.add(key);
 
@@ -437,7 +434,6 @@ export function exportDiscountTab(
       (discountSummary[b]?.count || 0) - (discountSummary[a]?.count || 0)
   );
 
-  // ── Sheet 1: Summary Discount ─────────────────────────────────────────────
   const summaryData: any[][] = [
     [
       "Discount Code",
@@ -467,7 +463,6 @@ export function exportDiscountTab(
         d.count > 0 ? formatRupiahRaw(avg) : "-",
       ];
     }),
-    // Baris Tanpa Discount di paling bawah summary
     ...(noDiscountCount > 0
       ? [
           [
@@ -484,7 +479,6 @@ export function exportDiscountTab(
       : []),
   ];
 
-  // ── Sheet 2: Discount per Store ───────────────────────────────────────────
   const storeHeaders = stores.flatMap((s) => [
     `${s} - Pakai`,
     `${s} - Revenue (IDR)`,
@@ -509,7 +503,6 @@ export function exportDiscountTab(
     }),
   ];
 
-  // ── Sheet 3: Daily Discount Trend ─────────────────────────────────────────
   const dailyTotalMap: Record<string, number> = {};
   const dailyDiscountMap: Record<string, Record<string, number>> = {};
   const allDates = new Set<string>();
@@ -543,8 +536,6 @@ export function exportDiscountTab(
     }),
   ];
 
-  // ── Sheet 4: Detail Order ─────────────────────────────────────────────────
-  // Semua order diurutkan berdasarkan tanggal, mirip isi popup tabel di frontend
   const allOrderDetails = Object.values(orderDetailMap).sort((a, b) =>
     a.date.localeCompare(b.date)
   );
@@ -711,6 +702,55 @@ export function exportProductTab(
     }),
   ];
 
+  // ── Sheet 4: Detail Produk (per line item, Financial Status = paid) ────────
+  // Hanya baris dengan Financial Status = "paid" (case-insensitive)
+  const paidRows = filteredRows.filter(
+    (r) => (r["Financial Status"] || "").toLowerCase() === "paid"
+  );
+
+  const detailProductData: any[][] = [
+    [
+      "Order Name",
+      "Date (Paid at)",
+      "Store",
+      "Lineitem Name",
+      "SKU",
+      "Qty",
+      "Harga Satuan (IDR)",
+      "Harga Satuan (Rp)",
+      "Total Harga (IDR)",
+      "Total Harga (Rp)",
+    ],
+    ...paidRows
+      .filter((r) => r["Lineitem name"]?.trim())
+      .sort((a, b) => {
+        const dateA = (a["Paid at"] || a["Created at"] || "").split(" ")[0];
+        const dateB = (b["Paid at"] || b["Created at"] || "").split(" ")[0];
+        return dateA.localeCompare(dateB);
+      })
+      .map((r) => {
+        const paidDate = (r["Paid at"] || r["Created at"] || "").split(" ")[0];
+        const store = cleanLocationName(r.Location);
+        const itemName = r["Lineitem name"]?.trim() || "";
+        const sku = r["Lineitem sku"]?.trim() || "";
+        const qty = parseInt(r["Lineitem quantity"] || "1") || 1;
+        const unitPrice = parseSubtotal(r["Lineitem price"]);
+        const totalPrice = unitPrice * qty;
+        return [
+          r.Name || "",
+          paidDate,
+          store,
+          itemName,
+          sku,
+          qty,
+          unitPrice,
+          formatRupiahRaw(unitPrice),
+          totalPrice,
+          formatRupiahRaw(totalPrice),
+        ];
+      }),
+  ];
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(
     wb,
@@ -726,6 +766,11 @@ export function exportProductTab(
     wb,
     XLSX.utils.aoa_to_sheet(dailyData),
     "Daily Product Trend"
+  );
+  XLSX.utils.book_append_sheet(
+    wb,
+    XLSX.utils.aoa_to_sheet(detailProductData),
+    "Detail Produk"
   );
   downloadXlsx(wb, `Analytics_Product_Sales_${Date.now()}.xlsx`);
 }
@@ -772,7 +817,6 @@ export function exportOnlineTab(filteredRows: Row[]) {
     ]),
   ];
 
-  // Daily summary
   const dailyMap: Record<string, { count: number; revenue: number }> = {};
   orders.forEach(o => {
     if (!o.date) return;
@@ -835,7 +879,6 @@ export function exportEmployeeTab(
     return totalB - totalA;
   });
 
-  
   const globalSummaryData = [
     [
       "Karyawan",
