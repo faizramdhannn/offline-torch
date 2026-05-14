@@ -720,6 +720,7 @@ export function exportProductTab(
       "Harga Satuan (Rp)",
       "Total Harga (IDR)",
       "Total Harga (Rp)",
+      "Notes",
     ],
     ...paidRows
       .filter((r) => r["Lineitem name"]?.trim())
@@ -734,7 +735,7 @@ export function exportProductTab(
         const itemName = r["Lineitem name"]?.trim() || "";
         const sku = r["Lineitem sku"]?.trim() || "";
         const qty = parseInt(r["Lineitem quantity"] || "1") || 1;
-        const unitPrice = parseSubtotal(r["Lineitem price"]);
+        const unitPrice = parseSubtotal(r["Subtotal"]);
         const totalPrice = unitPrice * qty;
         return [
           r.Name || "",
@@ -747,6 +748,7 @@ export function exportProductTab(
           formatRupiahRaw(unitPrice),
           totalPrice,
           formatRupiahRaw(totalPrice),
+          r.Notes || "",
         ];
       }),
   ];
