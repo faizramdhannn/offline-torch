@@ -614,7 +614,7 @@ export function exportProductTab(
     allStores.add(store);
     allProducts.add(name);
     const qty = parseInt(r["Lineitem quantity"] || "1") || 1;
-    const price = parseSubtotal(r["Lineitem price"]);
+    const price = parseSubtotal(r["Subtotal"]);
     if (!storeProductMap[store]) storeProductMap[store] = {};
     if (!storeProductMap[store][name])
       storeProductMap[store][name] = { qty: 0, revenue: 0 };
