@@ -46,6 +46,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
   const pathname = usePathname();
   const [generatingCatalog, setGeneratingCatalog] = useState(false);
   const [requestOpen, setRequestOpen] = useState(false);
+  const [orderOpen, setOrderOpen] = useState(false);
   const [collapseAnim, setCollapseAnim] = useState<"idle" | "jelly">("idle");
   // Track which button is currently doing jelly animation
   const [jellyKey, setJellyKey] = useState<string | null>(null);
@@ -74,8 +75,11 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       : userName;
 
   useEffect(() => {
-    if (pathname === "/request-store" || pathname === "/request-tracking") {
+    if (pathname === "/request-store" || pathname === "/request-tracking" || pathname === "/invoice") {
       setRequestOpen(true);
+    }
+    if (pathname === "/analytics-order" || pathname === "/order-report") {
+      setOrderOpen(true);
     }
   }, [pathname]);
 
@@ -127,9 +131,16 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
   const hasTrackingAccess = !!(
     permissions.request_tracking || permissions.tracking_edit
   );
-  const showRequestGroup = hasRequestAccess || hasTrackingAccess;
+  const hasInvoiceAccess = !!permissions.invoice;
+  const showRequestGroup = hasRequestAccess || hasTrackingAccess || hasInvoiceAccess;
   const isRequestActive =
-    pathname === "/request-store" || pathname === "/request-tracking";
+    pathname === "/request-store" || pathname === "/request-tracking" || pathname === "/invoice";
+
+  const hasAnalyticsAccess = !!permissions.analytics_order;
+  const hasOrderReportAccess = !!permissions.order_report;
+  const showOrderGroup = hasAnalyticsAccess || hasOrderReportAccess;
+  const isOrderActive =
+    pathname === "/analytics-order" || pathname === "/order-report";
 
   const menuItems: MenuItem[] = [
     {
@@ -148,26 +159,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
             strokeLinejoin="round"
             strokeWidth={1.8}
             d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-          />
-        </svg>
-      ),
-    },
-    {
-      name: "Analytics Order",
-      path: "/analytics-order",
-      permission: "analytics_order",
-      icon: (
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={1.8}
-            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
           />
         </svg>
       ),
@@ -248,46 +239,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
             strokeLinejoin="round"
             strokeWidth={1.8}
             d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
-          />
-        </svg>
-      ),
-    },
-      {
-    name: "Invoice",
-    path: "/invoice",
-    permission: "invoice",
-    icon: (
-      <svg
-        className="w-4 h-4"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.8}
-          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-        />
-      </svg>
-    ),
-  },
-    {
-      name: "Order Report",
-      path: "/order-report",
-      permission: "order_report",
-      icon: (
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={1.8}
-            d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
           />
         </svg>
       ),
@@ -456,14 +407,27 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     </svg>
   );
 
+  const orderGroupIcon = (
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.8}
+        d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+      />
+    </svg>
+  );
+
   const checkPermission = (item: MenuItem): boolean => {
     if (item.permission === "traffic_store")
       return !!(permissions.traffic_store || permissions.report_store);
     return !!permissions[item.permission as keyof typeof permissions];
   };
-
-  const beforePettyCash = menuItems.filter((_, i) => i < 8);
-  const afterPettyCash = menuItems.filter((_, i) => i >= 8);
 
   const MenuButton = ({ item }: { item: MenuItem }) => {
     const isActive = pathname === item.path;
@@ -496,6 +460,163 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       </button>
     );
   };
+
+  // ── Reusable collapsed flyout submenu ────────────────────────────────────────
+  const CollapsedFlyout = ({
+    groupIcon,
+    label,
+    items,
+  }: {
+    groupIcon: ReactNode;
+    label: string;
+    items: { path: string; label: string; icon: ReactNode; show: boolean }[];
+  }) => {
+    const isActive = items.some((i) => i.show && pathname === i.path);
+    return (
+      <div className="relative group">
+        <button
+          title={label}
+          className={`menu-btn w-full flex items-center justify-center px-0 py-2 transition-colors ${isActive ? "active text-white" : "text-white/55"}`}
+        >
+          <span className={`shrink-0 ${isActive ? "opacity-100" : "opacity-70"}`}>
+            {groupIcon}
+          </span>
+        </button>
+        <div
+          className="absolute left-full top-0 ml-1.5 z-50 hidden group-hover:block submenu-pop"
+          style={{ minWidth: "160px" }}
+        >
+          <div className="bg-primary border border-white/20 rounded-lg shadow-xl overflow-hidden py-1">
+            <p className="px-3 py-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+              {label}
+            </p>
+            {items.map(
+              (sub) =>
+                sub.show && (
+                  <button
+                    key={sub.path}
+                    onClick={() => jellyNavigate(sub.path)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${pathname === sub.path ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"}`}
+                  >
+                    {sub.icon}
+                    {sub.label}
+                  </button>
+                ),
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Reusable expanded group with submenu ─────────────────────────────────────
+  const ExpandedGroup = ({
+    groupIcon,
+    label,
+    isActive,
+    isOpen: open,
+    onToggle,
+    items,
+  }: {
+    groupIcon: ReactNode;
+    label: string;
+    isActive: boolean;
+    isOpen: boolean;
+    onToggle: () => void;
+    items: { path: string; label: string; icon: ReactNode; show: boolean }[];
+  }) => (
+    <div>
+      <button
+        onClick={onToggle}
+        className={`menu-btn w-full flex items-center gap-3 px-3 py-2 transition-colors ${isActive || open ? "text-white" : "text-white/55 hover:text-white"} ${isActive ? "active" : ""}`}
+      >
+        <span className={`shrink-0 transition-opacity duration-150 ${isActive ? "opacity-100" : "opacity-60"}`}>
+          {groupIcon}
+        </span>
+        <span className="text-[11px] tracking-wide truncate font-normal flex-1 text-left">
+          {label}
+        </span>
+        <span className="flex items-center gap-1 shrink-0">
+          {isActive && (
+            <span className="w-1 h-1 rounded-full bg-white/70" />
+          )}
+          <svg
+            className={`w-3 h-3 text-white/50 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </span>
+      </button>
+      {open && (
+        <div className="submenu-enter overflow-hidden">
+          <div className="bg-black/15 border-l-2 border-white/20 ml-4 mr-2 rounded-r-lg mb-0.5">
+            {items.map(
+              (sub) =>
+                sub.show && (
+                  <button
+                    key={sub.path}
+                    onClick={() => jellyNavigate(sub.path)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors rounded-r-lg ${jellyKey === sub.path ? "menu-item-jelly" : ""} ${pathname === sub.path ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/15 hover:text-white"}`}
+                  >
+                    {sub.icon}
+                    {sub.label}
+                    {pathname === sub.path && (
+                      <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white shrink-0" />
+                    )}
+                  </button>
+                ),
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // Sub-item icon helpers
+  const cancelOrderIcon = (
+    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+    </svg>
+  );
+  const invoiceIcon = (
+    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  );
+  const shipmentIcon = (
+    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
+    </svg>
+  );
+  const analyticsIcon = (
+    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  );
+  const reportIcon = (
+    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  );
+
+  const requestItems = [
+    { path: "/request-store", label: "Cancel Order", icon: cancelOrderIcon, show: hasRequestAccess },
+    { path: "/invoice", label: "Invoice", icon: invoiceIcon, show: hasInvoiceAccess },
+    { path: "/request-tracking", label: "Shipment", icon: shipmentIcon, show: hasTrackingAccess },
+  ];
+
+  const orderItems = [
+    { path: "/analytics-order", label: "Analytics", icon: analyticsIcon, show: hasAnalyticsAccess },
+    { path: "/order-report", label: "Report", icon: reportIcon, show: hasOrderReportAccess },
+  ];
 
   return (
     <>
@@ -690,179 +811,57 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
 
         {/* Nav */}
         <nav className="flex-1 py-1.5 overflow-y-auto overflow-x-hidden">
-          {beforePettyCash.map((item) =>
-            checkPermission(item) ? (
-              <MenuButton key={item.path} item={item} />
-            ) : null,
+          {/* Dashboard */}
+          {checkPermission(menuItems[0]) && <MenuButton item={menuItems[0]} />}
+
+          {/* Attendance, Bundling, Canvasing, Customer */}
+          {menuItems.slice(1, 5).map((item) =>
+            checkPermission(item) ? <MenuButton key={item.path} item={item} /> : null,
           )}
 
-          {/* ── Request Group ── */}
+          {/* ── Order Group (after Customer) ── */}
+          {showOrderGroup && (
+            isCollapsed ? (
+              <CollapsedFlyout
+                groupIcon={orderGroupIcon}
+                label="Order"
+                items={orderItems}
+              />
+            ) : (
+              <ExpandedGroup
+                groupIcon={orderGroupIcon}
+                label="Order"
+                isActive={isOrderActive}
+                isOpen={orderOpen}
+                onToggle={() => setOrderOpen((prev) => !prev)}
+                items={orderItems}
+              />
+            )
+          )}
+
+          {/* ── Request Group (after Order) ── */}
           {showRequestGroup && (
-            <div className="relative">
-              {isCollapsed ? (
-                <div className="relative group">
-                  <button
-                    title="Request"
-                    className={`menu-btn w-full flex items-center justify-center px-0 py-2 transition-colors ${isRequestActive ? "active text-white" : "text-white/55"}`}
-                  >
-                    <span
-                      className={`shrink-0 ${isRequestActive ? "opacity-100" : "opacity-70"}`}
-                    >
-                      {requestGroupIcon}
-                    </span>
-                  </button>
-                  <div
-                    className="absolute left-full top-0 ml-1.5 z-50 hidden group-hover:block submenu-pop"
-                    style={{ minWidth: "160px" }}
-                  >
-                    <div className="bg-primary border border-white/20 rounded-lg shadow-xl overflow-hidden py-1">
-                      <p className="px-3 py-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">
-                        Request
-                      </p>
-                      {hasRequestAccess && (
-                        <button
-                          onClick={() => jellyNavigate("/request-store")}
-                          className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${pathname === "/request-store" ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"}`}
-                        >
-                          <svg
-                            className="w-3.5 h-3.5 shrink-0"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={1.8}
-                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
-                            />
-                          </svg>
-                          Cancel Order
-                        </button>
-                      )}
-                      {hasTrackingAccess && (
-                        <button
-                          onClick={() => jellyNavigate("/request-tracking")}
-                          className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${pathname === "/request-tracking" ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"}`}
-                        >
-                          <svg
-                            className="w-3.5 h-3.5 shrink-0"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={1.8}
-                              d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"
-                            />
-                          </svg>
-                          Shipment
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <button
-                    onClick={() => setRequestOpen((prev) => !prev)}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors ${isRequestActive || requestOpen ? "text-white" : "text-white/60 hover:text-white hover:bg-white/15 hover:border-r-2 hover:border-white/30"} ${isRequestActive ? "bg-white/15 border-r-2 border-white" : ""}`}
-                  >
-                    <span
-                      className={`shrink-0 ${isRequestActive ? "opacity-100" : "opacity-70"}`}
-                    >
-                      {requestGroupIcon}
-                    </span>
-                    <span className="text-xs truncate font-normal flex-1 text-left">
-                      Request
-                    </span>
-                    <span className="flex items-center gap-1 shrink-0">
-                      {isRequestActive && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-white/70" />
-                      )}
-                      <svg
-                        className={`w-3 h-3 text-white/50 transition-transform duration-300 ${requestOpen ? "rotate-180" : ""}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </span>
-                  </button>
-                  {requestOpen && (
-                    <div
-                      ref={submenuRef}
-                      className="submenu-enter overflow-hidden"
-                    >
-                      <div className="bg-black/15 border-l-2 border-white/20 ml-4 mr-2 rounded-r-lg mb-0.5">
-                        {hasRequestAccess && (
-                          <button
-                            onClick={() => jellyNavigate("/request-store")}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors rounded-r-lg ${jellyKey === "/request-store" ? "menu-item-jelly" : ""} ${pathname === "/request-store" ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/15 hover:text-white"}`}
-                          >
-                            <svg
-                              className="w-3.5 h-3.5 shrink-0"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={1.8}
-                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
-                              />
-                            </svg>
-                            Cancel Order
-                            {pathname === "/request-store" && (
-                              <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white shrink-0" />
-                            )}
-                          </button>
-                        )}
-                        {hasTrackingAccess && (
-                          <button
-                            onClick={() => jellyNavigate("/request-tracking")}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors rounded-r-lg ${jellyKey === "/request-tracking" ? "menu-item-jelly" : ""} ${pathname === "/request-tracking" ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/15 hover:text-white"}`}
-                          >
-                            <svg
-                              className="w-3.5 h-3.5 shrink-0"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={1.8}
-                                d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"
-                              />
-                            </svg>
-                            Shipment
-                            {pathname === "/request-tracking" && (
-                              <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white shrink-0" />
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            isCollapsed ? (
+              <CollapsedFlyout
+                groupIcon={requestGroupIcon}
+                label="Request"
+                items={requestItems}
+              />
+            ) : (
+              <ExpandedGroup
+                groupIcon={requestGroupIcon}
+                label="Request"
+                isActive={isRequestActive}
+                isOpen={requestOpen}
+                onToggle={() => setRequestOpen((prev) => !prev)}
+                items={requestItems}
+              />
+            )
           )}
 
-          {afterPettyCash.map((item) =>
-            checkPermission(item) ? (
-              <MenuButton key={item.path} item={item} />
-            ) : null,
+          {/* Petty Cash, Stock, Stock Opname, Survey Store, Voucher, Registration, Settings */}
+          {menuItems.slice(5).map((item) =>
+            checkPermission(item) ? <MenuButton key={item.path} item={item} /> : null,
           )}
 
           {/* E-catalog */}

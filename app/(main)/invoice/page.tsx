@@ -135,6 +135,11 @@ export default function InvoicePage() {
   const [showMasterModal, setShowMasterModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
 
+  // PDF Preview
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [previewInvoiceNumber, setPreviewInvoiceNumber] = useState("");
+
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [selectedItems, setSelectedItems] = useState<InvoiceItem[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -250,7 +255,6 @@ export default function InvoicePage() {
     setEditCustomerAddress(inv.customer_address || "");
     setEditDate(inv.invoice_date);
     setEditUsePPN(parseNum(inv.tax_percent) > 0);
-    // Handle both boolean true and string 'TRUE' from Google Sheets
     const useSign = inv.use_signature === true || inv.use_signature === "TRUE";
     setEditUseSignature(useSign);
     setEditSignatureStore(inv.signature_store || "");
@@ -441,10 +445,10 @@ export default function InvoicePage() {
     }
   };
 
-  // ── PDF ────────────────────────────────────────────────────────────────────
+  // ── PDF Preview & Download ─────────────────────────────────────────────────
   const canDownloadPdf = (inv: Invoice) => inv.status === "submitted";
 
-  const downloadPdf = async (invoice_id: string, invoice_number: string) => {
+  const previewPdf = async (invoice_id: string, invoice_number: string) => {
     setGeneratingPdf(true);
     try {
       const res = await fetch("/api/invoice/pdf", {
@@ -455,16 +459,28 @@ export default function InvoicePage() {
       if (!res.ok) throw new Error();
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Invoice_${invoice_number}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      setPdfPreviewUrl(url);
+      setPreviewInvoiceNumber(invoice_number);
+      setShowPdfPreview(true);
     } catch {
       showMessage("Gagal generate PDF", "error");
     } finally {
       setGeneratingPdf(false);
     }
+  };
+
+  const downloadPdf = () => {
+    if (!pdfPreviewUrl) return;
+    const a = document.createElement("a");
+    a.href = pdfPreviewUrl;
+    a.download = `Invoice_${previewInvoiceNumber}.pdf`;
+    a.click();
+  };
+
+  const closePdfPreview = () => {
+    if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
+    setPdfPreviewUrl(null);
+    setShowPdfPreview(false);
   };
 
   // ── Save Master ────────────────────────────────────────────────────────────
@@ -629,11 +645,11 @@ export default function InvoicePage() {
                         <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
                           {canDownloadPdf(inv) && user?.invoice_create ? (
                             <button
-                              onClick={() => downloadPdf(inv.invoice_id, inv.invoice_number)}
+                              onClick={() => previewPdf(inv.invoice_id, inv.invoice_number)}
                               disabled={generatingPdf}
                               className="px-2 py-1 bg-primary text-white rounded text-[10px] hover:bg-primary/90 disabled:opacity-50"
                             >
-                              PDF
+                              {generatingPdf ? "..." : "PDF"}
                             </button>
                           ) : (
                             <span className="px-2 py-1 text-gray-300 text-[10px]">
@@ -906,7 +922,7 @@ export default function InvoicePage() {
                 </div>
               </div>
 
-              {/* ── Tanda Tangan Kanan Bawah — hanya tampil jika useSignature dicentang ── */}
+              {/* ── Tanda Tangan Kanan Bawah ── */}
               {useSignature && (
                 <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
                   <div className="flex items-center gap-2 mb-1">
@@ -1006,7 +1022,7 @@ export default function InvoicePage() {
               <div className="flex items-center gap-2">
                 {canDownloadPdf(selectedInvoice) && user?.invoice_create && (
                   <button
-                    onClick={() => downloadPdf(selectedInvoice.invoice_id, selectedInvoice.invoice_number)}
+                    onClick={() => previewPdf(selectedInvoice.invoice_id, selectedInvoice.invoice_number)}
                     disabled={generatingPdf}
                     className="px-3 py-1.5 bg-primary text-white rounded text-xs hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1"
                   >
@@ -1132,7 +1148,6 @@ export default function InvoicePage() {
               {/* Status actions */}
               {user?.invoice_edit && selectedInvoice.status !== "deleted" && (
                 <div className="flex gap-2 flex-wrap">
-                  {/* Tombol Edit — hanya untuk status draft */}
                   {selectedInvoice.status === "draft" && (
                     <button
                       onClick={() => openEdit(selectedInvoice, selectedItems)}
@@ -1181,9 +1196,7 @@ export default function InvoicePage() {
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <div>
-                <h2 className="text-base font-bold text-primary">
-                  Edit Dokumen
-                </h2>
+                <h2 className="text-base font-bold text-primary">Edit Dokumen</h2>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {editInvoice.invoice_number || "Quotation"} · {editInvoice.customer_name}
                 </p>
@@ -1384,7 +1397,7 @@ export default function InvoicePage() {
                 </div>
               </div>
 
-              {/* ── Tanda Tangan — hanya tampil jika dicentang ── */}
+              {/* ── Tanda Tangan Edit ── */}
               {editUseSignature && (
                 <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
                   <div className="flex items-center gap-2 mb-1">
@@ -1517,6 +1530,53 @@ export default function InvoicePage() {
                 {saving ? "Menyimpan..." : "Simpan"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── PDF Preview Modal ─────────────────────────────────────────────────── */}
+      {showPdfPreview && pdfPreviewUrl && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70]">
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 flex flex-col"
+            style={{ height: "90vh" }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
+              <div>
+                <h2 className="text-sm font-bold text-primary">Preview PDF</h2>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Invoice #{previewInvoiceNumber} · Periksa sebelum download
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={downloadPdf}
+                  className="px-4 py-1.5 bg-primary text-white rounded text-xs font-semibold hover:bg-primary/90 flex items-center gap-1.5 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download PDF
+                </button>
+                <button
+                  onClick={closePdfPreview}
+                  className="w-7 h-7 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* iframe */}
+            <iframe
+              src={pdfPreviewUrl}
+              className="flex-1 w-full rounded-b-xl"
+              title="PDF Preview"
+            />
           </div>
         </div>
       )}

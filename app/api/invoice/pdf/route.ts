@@ -376,9 +376,8 @@ export async function POST(request: NextRequest) {
     let imgH = 0;
     if (useSign && signImg) {
       try {
-        const ratio = 437 / 236;
-        const h = 22;
-        const w = (h * ratio) - 3;
+        const w = 40;
+        const h = 35;
         const format = signImg.includes('data:image/png') ? 'PNG' : 'JPEG';
         doc.addImage(signImg, format, margin, sigY + 1, w, h, undefined, 'FAST');
         imgH = h + 2;
@@ -388,7 +387,7 @@ export async function POST(request: NextRequest) {
     } else if (useSign && !signImg) {
       imgH = 24;
     } else {
-      imgH = 8;
+      imgH = 4;
     }
 
     // Baris 2: nama kiri & nama toko kanan sejajar
