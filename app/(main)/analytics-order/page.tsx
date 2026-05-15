@@ -54,9 +54,39 @@ function extractTrafficCode(notes: string | null | undefined, trafficMap: Record
   return null;
 }
 
+/**
+ * Detects online marketplace orders based on notes patterns:
+ * - 6+ leading digits (original rule): "583526" etc
+ * - Long numeric strings ≥10 digits: "583526744306451860" (Shopee/TikTok)
+ * - INV/... format: "INV/20250615/MPL/27372265185" (Tokopedia invoice)
+ * - Alphanumeric compact strings ≥8 chars with no spaces, mix of letters+digits:
+ *   "251020H6UARYS0" (Tokopedia order code)
+ */
 function isOnlineOrder(notes: string | null | undefined): boolean {
   if (!notes) return false;
-  return /^\d{6}/.test(notes.trim());
+  const trimmed = notes.trim();
+  // INV/... format (Tokopedia, etc.)
+  if (/^INV\//i.test(trimmed)) return true;
+  // Pure long numeric (≥10 digits) — Shopee, TikTok, Lazada order IDs
+  if (/^\d{10,}$/.test(trimmed)) return true;
+  // Original: starts with 6 digits (may have trailing content)
+  if (/^\d{6}/.test(trimmed)) return true;
+  // Compact alphanumeric ≥8 chars, no spaces, contains both letters and digits
+  // e.g. "251020H6UARYS0"
+  if (/^[A-Z0-9]{8,}$/i.test(trimmed) && /[A-Z]/i.test(trimmed) && /[0-9]/.test(trimmed)) return true;
+  return false;
+}
+
+/**
+ * Returns true only for orders that should be counted in sales.
+ * Canceled, refunded, voided, etc. are excluded.
+ */
+function isPaidOrder(row: Row): boolean {
+  const status = (row["Financial Status"] || "").toLowerCase().trim();
+  // Only count "paid" status; empty string is allowed through for backward compat
+  // if the column doesn't exist in older imports
+  if (status === "") return true; // no status column → don't break old data
+  return status === "paid";
 }
 
 function cleanLocationName(loc: string | null | undefined): string {
@@ -85,6 +115,7 @@ interface Row {
   Name?: string;
   "Created at"?: string;
   "Paid at"?: string;
+  "Financial Status"?: string;
   Subtotal?: string;
   Notes?: string;
   "Discount Code"?: string;
@@ -847,8 +878,12 @@ export default function AnalyticsOrderPage() {
   const clearStoreFilter = () => { setStoreFilter([]); resetPages(); };
 
   // ─── filteredRows ─────────────────────────────────────────────────────────
+  // Only include rows with Financial Status = "paid" (or empty for backward compat)
   const filteredRows = useCallback(() => {
     return rows.filter((r) => {
+      // ── Financial Status filter: skip canceled/refunded/voided etc. ──────
+      if (!isPaidOrder(r)) return false;
+
       const rawDate = r["Created at"] || "";
       const dateStr = rawDate.split(" ")[0];
       if (dateFrom && dateStr < dateFrom) return false;
@@ -884,7 +919,9 @@ export default function AnalyticsOrderPage() {
   const fr = filteredRows();
 
   const dataDateRange = (() => {
+    // Use only paid rows for date range display
     const dates = rows
+      .filter(isPaidOrder)
       .map((r) => (r["Created at"] || "").split(" ")[0])
       .filter((d) => d && d.length === 10)
       .sort();
@@ -892,10 +929,11 @@ export default function AnalyticsOrderPage() {
     return { min: dates[0], max: dates[dates.length - 1] };
   })();
 
-  // ─── Count online orders in current date range ────────────────────────────
+  // ─── Count online orders in current date range (paid only) ───────────────
   const onlineCountInRange = (() => {
     return new Set(
       rows.filter((r) => {
+        if (!isPaidOrder(r)) return false;
         const d = (r["Created at"] || "").split(" ")[0];
         if (dateFrom && d < dateFrom) return false;
         if (dateTo && d > dateTo) return false;

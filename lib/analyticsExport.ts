@@ -48,6 +48,36 @@ function extractTrafficCode(
   return null;
 }
 
+/**
+ * Detects online marketplace orders based on notes patterns:
+ * - INV/... format (Tokopedia, etc.)
+ * - Pure long numeric ≥10 digits (Shopee, TikTok, Lazada order IDs)
+ * - Starts with 6+ digits (original rule, may have trailing content)
+ * - Compact alphanumeric ≥8 chars, no spaces, mix of letters+digits
+ *   e.g. "251020H6UARYS0" (Tokopedia order code)
+ */
+function isOnlineOrder(notes: string | null | undefined): boolean {
+  if (!notes) return false;
+  const trimmed = notes.trim();
+  if (/^INV\//i.test(trimmed)) return true;
+  if (/^\d{10,}$/.test(trimmed)) return true;
+  if (/^\d{6}/.test(trimmed)) return true;
+  if (/^[A-Z0-9]{8,}$/i.test(trimmed) && /[A-Z]/i.test(trimmed) && /[0-9]/.test(trimmed)) return true;
+  return false;
+}
+
+/**
+ * Returns true only for rows that should be counted in sales.
+ * Rows with Financial Status = canceled / refunded / voided / etc. are excluded.
+ * Rows with no Financial Status column (empty string) are passed through
+ * for backward compatibility with older imports.
+ */
+function isPaidOrder(row: Row): boolean {
+  const status = (row["Financial Status"] || "").toLowerCase().trim();
+  if (status === "") return true; // no status column → don't break old data
+  return status === "paid";
+}
+
 // ─── XLSX download helper ─────────────────────────────────────────────────────
 function downloadXlsx(wb: XLSX.WorkBook, filename: string) {
   const wbOut = XLSX.write(wb, { bookType: "xlsx", type: "array" });
@@ -88,6 +118,8 @@ export function exportStoreTab(
   filteredRows: Row[],
   trafficMap: Record<string, string> = {}
 ) {
+  // filteredRows already had isPaidOrder + isOnlineOrder exclusion applied
+  // by the caller (page.tsx filteredRows), so no double-filtering needed here.
   const orderSeen = new Set<string>();
   const revenueMap: Record<string, number> = {};
   const orderMap: Record<string, Set<string>> = {};
@@ -702,8 +734,7 @@ export function exportProductTab(
     }),
   ];
 
-  // ── Sheet 4: Detail Produk (per line item, Financial Status = paid) ────────
-  // Hanya baris dengan Financial Status = "paid" (case-insensitive)
+  // ── Sheet 4: Detail Produk — hanya Financial Status = "paid" ─────────────
   const paidRows = filteredRows.filter(
     (r) => (r["Financial Status"] || "").toLowerCase() === "paid"
   );
@@ -775,68 +806,6 @@ export function exportProductTab(
     "Detail Produk"
   );
   downloadXlsx(wb, `Analytics_Product_Sales_${Date.now()}.xlsx`);
-}
-
-export function exportOnlineTab(filteredRows: Row[]) {
-  function isOnlineOrder(notes: string | null | undefined): boolean {
-    if (!notes) return false;
-    return /^\d{6}/.test(notes.trim());
-  }
-
-  const orderMap: Record<string, {
-    name: string; date: string; store: string; employee: string;
-    notes: string; subtotal: number; items: string;
-  }> = {};
-
-  filteredRows.forEach((r) => {
-    const key = r.Name || "";
-    if (!key || !isOnlineOrder(r.Notes)) return;
-    if (!orderMap[key]) {
-      orderMap[key] = {
-        name: key,
-        date: (r["Paid at"] || r["Created at"] || "").split(" ")[0],
-        store: cleanLocationName(r.Location),
-        employee: r.Employee?.trim() || "",
-        notes: r.Notes || "",
-        subtotal: parseSubtotal(r.Subtotal),
-        items: "",
-      };
-    }
-    if (r["Lineitem name"]?.trim()) {
-      const qty = parseInt(r["Lineitem quantity"] || "1") || 1;
-      const item = `${qty}x ${r["Lineitem name"]!.trim()}`;
-      orderMap[key].items = orderMap[key].items ? `${orderMap[key].items}, ${item}` : item;
-    }
-  });
-
-  const orders = Object.values(orderMap).sort((a, b) => b.date.localeCompare(a.date));
-
-  const detailData: any[][] = [
-    ["Order Name", "Tanggal", "Store", "Karyawan", "Notes (Order ID)", "Subtotal (IDR)", "Subtotal (Rp)", "Items"],
-    ...orders.map(o => [
-      o.name, o.date, o.store, o.employee, o.notes,
-      o.subtotal, formatRupiahRaw(o.subtotal), o.items,
-    ]),
-  ];
-
-  const dailyMap: Record<string, { count: number; revenue: number }> = {};
-  orders.forEach(o => {
-    if (!o.date) return;
-    if (!dailyMap[o.date]) dailyMap[o.date] = { count: 0, revenue: 0 };
-    dailyMap[o.date].count++;
-    dailyMap[o.date].revenue += o.subtotal;
-  });
-  const dailyData: any[][] = [
-    ["Tanggal", "Jumlah Order", "Revenue (IDR)", "Revenue (Rp)"],
-    ...Object.entries(dailyMap).sort(([a],[b]) => a.localeCompare(b)).map(([date, d]) => [
-      date, d.count, d.revenue, formatRupiahRaw(d.revenue),
-    ]),
-  ];
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detailData), "Detail Order Online");
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dailyData), "Daily Online Trend");
-  downloadXlsx(wb, `Analytics_Online_Orders_${Date.now()}.xlsx`);
 }
 
 // ─── TAB 5: Employee ──────────────────────────────────────────────────────────
@@ -987,4 +956,63 @@ export function exportEmployeeTab(
     "Daily Employee Trend"
   );
   downloadXlsx(wb, `Analytics_Employee_${Date.now()}.xlsx`);
+}
+
+// ─── TAB 6: Online Orders ─────────────────────────────────────────────────────
+export function exportOnlineTab(filteredRows: Row[]) {
+  // filteredRows already contains only online + paid rows (filtered by caller)
+  const orderMap: Record<string, {
+    name: string; date: string; store: string; employee: string;
+    notes: string; subtotal: number; items: string;
+  }> = {};
+
+  filteredRows.forEach((r) => {
+    const key = r.Name || "";
+    if (!key || !isOnlineOrder(r.Notes)) return;
+    if (!orderMap[key]) {
+      orderMap[key] = {
+        name: key,
+        date: (r["Paid at"] || r["Created at"] || "").split(" ")[0],
+        store: cleanLocationName(r.Location),
+        employee: r.Employee?.trim() || "",
+        notes: r.Notes || "",
+        subtotal: parseSubtotal(r.Subtotal),
+        items: "",
+      };
+    }
+    if (r["Lineitem name"]?.trim()) {
+      const qty = parseInt(r["Lineitem quantity"] || "1") || 1;
+      const item = `${qty}x ${r["Lineitem name"]!.trim()}`;
+      orderMap[key].items = orderMap[key].items ? `${orderMap[key].items}, ${item}` : item;
+    }
+  });
+
+  const orders = Object.values(orderMap).sort((a, b) => b.date.localeCompare(a.date));
+
+  const detailData: any[][] = [
+    ["Order Name", "Tanggal", "Store", "Karyawan", "Notes (Order ID)", "Subtotal (IDR)", "Subtotal (Rp)", "Items"],
+    ...orders.map(o => [
+      o.name, o.date, o.store, o.employee, o.notes,
+      o.subtotal, formatRupiahRaw(o.subtotal), o.items,
+    ]),
+  ];
+
+  const dailyMap: Record<string, { count: number; revenue: number }> = {};
+  orders.forEach(o => {
+    if (!o.date) return;
+    if (!dailyMap[o.date]) dailyMap[o.date] = { count: 0, revenue: 0 };
+    dailyMap[o.date].count++;
+    dailyMap[o.date].revenue += o.subtotal;
+  });
+  const dailyData: any[][] = [
+    ["Tanggal", "Jumlah Order", "Revenue (IDR)", "Revenue (Rp)"],
+    ...Object.entries(dailyMap).sort(([a],[b]) => a.localeCompare(b)).map(([date, d]) => [
+      date, d.count, d.revenue, formatRupiahRaw(d.revenue),
+    ]),
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detailData), "Detail Order Online");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dailyData), "Daily Online Trend");
+  downloadXlsx(wb, `Analytics_Online_Orders_${Date.now()}.xlsx`);
 }
