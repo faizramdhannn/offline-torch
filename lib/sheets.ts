@@ -16,6 +16,7 @@ const SPREADSHEET_MAP: Record<string, string> = {
   javelin: process.env.SPREADSHEET_STOCK || "",
   result_stock: process.env.SPREADSHEET_STOCK || "",
   pca_stock: process.env.SPREADSHEET_STOCK || "",
+  powerbi_threshold: process.env.SPREADSHEET_STOCK || "",
   last_update: process.env.SPREADSHEET_STOCK || "",
   system_config: process.env.SPREADSHEET_STOCK || "",
   invoices: process.env.SPREADSHEET_STOCK || "",    // ← TAMBAH INI
