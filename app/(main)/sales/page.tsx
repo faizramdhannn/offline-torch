@@ -103,26 +103,57 @@ function getMonth(dateStr: string): number { const d = parseDate(dateStr); retur
 function getDay(dateStr: string): number { const d = parseDate(dateStr); return d ? d.getDate() : 0; }
 
 // ─── Donut Progress Card ───────────────────────────────────────────────────────
-// Full-circle donut with stroke-dashoffset — always pixel-perfect.
-function GaugeChart({ pct, value, label, color = "#0ea5e9" }: {
+function GaugeChart({ pct, value, label, color = "#0ea5e9", targetValue, actualValue, gaugeTrack = "#e2e8f0", labelColor = "#1e3a5f", valueColor: valueTxtColor = "#64748b" }: {
   pct: number; value: string; label: string; color?: string;
+  targetValue?: string; actualValue?: string;
+  gaugeTrack?: string; labelColor?: string; valueColor?: string;
 }) {
+  const [hovered, setHovered] = React.useState(false);
   const clamped = Math.min(Math.max(pct, 0), 100);
-  const size   = 116;
+  const size    = 116;
   const strokeW = 12;
-  const r      = (size - strokeW) / 2;
-  const circ   = 2 * Math.PI * r;
-  const dash   = (clamped / 100) * circ;
-  const gap    = circ - dash;
+  const r       = (size - strokeW) / 2;
+  const circ    = 2 * Math.PI * r;
+  const dash    = (clamped / 100) * circ;
+  const gap     = circ - dash;
   return (
-    <div style={{
-      display: "flex", flexDirection: "column", alignItems: "center",
-      flex: 1, minWidth: 0, padding: "14px 8px 8px",
-    }}>
+    <div
+      style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, minWidth: 0, padding: "14px 8px 8px", position: "relative" }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* Hover tooltip */}
+      {hovered && (
+        <div style={{
+          position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)",
+          background: "#0f172a", border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: 8, padding: "8px 12px", fontSize: 10,
+          zIndex: 999, boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+          whiteSpace: "nowrap", pointerEvents: "none",
+        }}>
+          <div style={{ color: "#93c5fd", fontWeight: 700, marginBottom: 4, fontSize: 10 }}>{label}</div>
+          {actualValue && (
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 2 }}>
+              <span style={{ color: "#94a3b8" }}>Aktual</span>
+              <span style={{ color: "#f1f5f9", fontWeight: 700 }}>{actualValue}</span>
+            </div>
+          )}
+          {targetValue && (
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 2 }}>
+              <span style={{ color: "#94a3b8" }}>Target</span>
+              <span style={{ color: "#f1f5f9", fontWeight: 700 }}>{targetValue}</span>
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+            <span style={{ color: "#94a3b8" }}>Pencapaian</span>
+            <span style={{ color: pct >= 100 ? "#4ade80" : color, fontWeight: 700 }}>{pct.toFixed(2)}%</span>
+          </div>
+        </div>
+      )}
       <div style={{ position: "relative", width: size, height: size }}>
         <svg width={size} height={size} style={{ display: "block" }}>
           <circle cx={size/2} cy={size/2} r={r}
-            fill="none" stroke="#e2e8f0" strokeWidth={strokeW} />
+            fill="none" stroke={gaugeTrack} strokeWidth={strokeW} />
           {clamped > 0.1 && (
             <circle cx={size/2} cy={size/2} r={r}
               fill="none" stroke={color} strokeWidth={strokeW}
@@ -138,11 +169,11 @@ function GaugeChart({ pct, value, label, color = "#0ea5e9" }: {
           alignItems: "center", justifyContent: "center", lineHeight: 1.25,
         }}>
           <span style={{ fontSize: 14, fontWeight: 800, color }}>{pct.toFixed(2)}%</span>
-          <span style={{ fontSize: 8, color: "#64748b", fontWeight: 500, marginTop: 2 }}>{value}</span>
+          <span style={{ fontSize: 8, color: valueTxtColor, fontWeight: 500, marginTop: 2 }}>{value}</span>
         </div>
       </div>
       <p style={{
-        fontSize: 9, fontWeight: 700, color: "#1e3a5f",
+        fontSize: 9, fontWeight: 700, color: labelColor,
         textAlign: "center", margin: "6px 0 0", lineHeight: 1.3, paddingInline: 4,
       }}>
         {label}
@@ -241,7 +272,7 @@ function CellTooltip({ data, x, y }: { data: CellTooltipData; x: number; y: numb
 
 // ─── Calendar Grid ─────────────────────────────────────────────────────────────
 function CalendarGrid({
-  year, month, title, cellData, targetData, trafficData, showConditional,
+  year, month, title, cellData, targetData, trafficData, showConditional, css,
 }: {
   year: number;
   month: number;
@@ -250,6 +281,7 @@ function CalendarGrid({
   targetData: Record<number, number>;
   trafficData?: Record<number, number>;
   showConditional: boolean;
+  css: Record<string, string>;
 }) {
   const [tooltip, setTooltip] = useState<{ data: CellTooltipData; x: number; y: number } | null>(null);
 
@@ -266,7 +298,7 @@ function CalendarGrid({
 
   return (
     <div
-      style={{ background: "#1a3a5c", borderRadius: 10, overflow: "visible", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", width: "100%" }}
+      style={{ background: css.calBg, borderRadius: 10, overflow: "visible", boxShadow: "0 2px 8px rgba(0,0,0,0.15)", width: "100%", transition: "background 0.2s" }}
       onMouseLeave={() => setTooltip(null)}
     >
       {tooltip && (
@@ -351,7 +383,7 @@ function CalendarGrid({
                   return (
                     <td key={di} style={{
                       border: "1px solid rgba(255,255,255,0.07)",
-                      background: "rgba(0,0,0,0.25)",
+                      background: css.cellBgEmpty,
                       height: 68,
                     }} />
                   );
@@ -365,24 +397,29 @@ function CalendarGrid({
                 // For right calendar: val is actual sales
                 const hasValue = val > 0;
 
-                let bg = "white";
+                const isDarkMode = css.cellBg !== "white";
+                let bg = css.cellBg;
                 let dayNumColor = "#9ca3af";
-                let valueColor = "#374151";
-                let trafficColor = "#6b7280";
+                let valueColor = isDarkMode ? "#e2e8f0" : "#374151";
+                let trafficColor = isDarkMode ? "#64748b" : "#6b7280";
 
                 if (showConditional) {
                   if (isAboveTarget) {
                     bg = "#4ade80"; dayNumColor = "#14532d"; valueColor = "#14532d"; trafficColor = "#166534";
                   } else if (hasValue) {
-                    bg = "white"; dayNumColor = "#9ca3af"; valueColor = "#1e293b"; trafficColor = "#64748b";
+                    bg = css.cellBg; dayNumColor = "#9ca3af";
+                    valueColor = isDarkMode ? "#e2e8f0" : "#1e293b";
+                    trafficColor = isDarkMode ? "#64748b" : "#64748b";
                   } else {
-                    bg = "white"; dayNumColor = "#9ca3af";
+                    bg = css.cellBg; dayNumColor = isDarkMode ? "#4b5563" : "#9ca3af";
                   }
                 } else {
                   if (hasValue) {
-                    bg = "#e8f4f8"; dayNumColor = "#334155"; valueColor = "#0f172a";
+                    bg = css.cellBgVal;
+                    dayNumColor = isDarkMode ? "#93c5fd" : "#334155";
+                    valueColor = isDarkMode ? "#e2e8f0" : "#0f172a";
                   } else {
-                    bg = "white"; dayNumColor = "#9ca3af";
+                    bg = css.cellBg; dayNumColor = isDarkMode ? "#4b5563" : "#9ca3af";
                   }
                 }
 
@@ -448,10 +485,11 @@ function CalendarGrid({
 }
 
 // ─── Select style ──────────────────────────────────────────────────────────────
-const selectStyle: React.CSSProperties = {
-  padding: "4px 8px", border: "1px solid #cbd5e1", borderRadius: 6,
-  fontSize: 11, background: "white", color: "#374151", outline: "none", cursor: "pointer",
-};
+// selectStyle is now built dynamically inside the component using css vars
+const selectStyle = (css: any): React.CSSProperties => ({
+  padding: "4px 8px", border: `1px solid ${css.selectBorder}`, borderRadius: 6,
+  fontSize: 11, background: css.selectBg, color: css.selectColor, outline: "none", cursor: "pointer",
+});
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function SalesPage() {
@@ -608,17 +646,48 @@ export default function SalesPage() {
   if (!user) return null;
   const lockedStore = isLocked ? (user.user_name?.toLowerCase() || "") : null;
 
+  // Detect Tailwind dark mode (html.dark class set by next-themes / system)
+  const [isDark, setIsDark] = React.useState(false);
+  React.useEffect(() => {
+    const update = () => setIsDark(document.documentElement.classList.contains("dark"));
+    update();
+    const obs = new MutationObserver(update);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
+  }, []);
+
+  const DM = isDark;
+  const css = {
+    pageBg:      DM ? "#0f1724" : "#eef2f7",
+    cardBg:      DM ? "#1e293b" : "white",
+    cardShadow:  DM ? "0 1px 4px rgba(0,0,0,0.4)" : "0 1px 4px rgba(0,0,0,0.07)",
+    textHeading: DM ? "#e2e8f0" : "#1e3a5c",
+    textSub:     DM ? "#94a3b8" : "#64748b",
+    textValue:   DM ? "#f1f5f9" : "#1e293b",
+    textMuted:   DM ? "#64748b" : "#94a3b8",
+    divider:     DM ? "rgba(255,255,255,0.08)" : "#f8fafc",
+    dividerLine: DM ? "rgba(255,255,255,0.08)" : "#e2e8f0",
+    gaugeTrack:  DM ? "#334155" : "#e2e8f0",
+    selectBg:    DM ? "#1e293b" : "white",
+    selectColor: DM ? "#e2e8f0" : "#374151",
+    selectBorder:DM ? "#334155" : "#cbd5e1",
+    calBg:       DM ? "#0f1e35" : "#1a3a5c",
+    cellBg:      DM ? "#1e293b" : "white",
+    cellBgVal:   DM ? "#243447" : "#e8f4f8",
+    cellBgEmpty: DM ? "#111827" : "rgba(0,0,0,0.25)",
+  };
+
   return (
     <div
       className="flex-1 overflow-auto"
-      style={{ background: "#eef2f7", width: "100%", minWidth: 0 }}
+      style={{ background: css.pageBg, width: "100%", minWidth: 0, transition: "background 0.2s" }}
     >
       <div style={{ padding: "16px 18px", width: "100%", boxSizing: "border-box" }}>
 
         {/* ── Header & Filters ── */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
           <div>
-            <h1 style={{ fontSize: 19, fontWeight: 800, color: "#1e3a5c", margin: 0, letterSpacing: "-0.02em" }}>
+            <h1 style={{ fontSize: 19, fontWeight: 800, color: css.textHeading, margin: 0, letterSpacing: "-0.02em" }}>
               Daily Target vs Achievement
             </h1>
             {lockedStore && (
@@ -628,14 +697,14 @@ export default function SalesPage() {
             )}
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-            <select value={selYear} onChange={(e) => setSelYear(Number(e.target.value))} style={selectStyle}>
+            <select value={selYear} onChange={(e) => setSelYear(Number(e.target.value))} style={selectStyle(css)}>
               {availableYears.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
-            <select value={selMonth} onChange={(e) => setSelMonth(Number(e.target.value))} style={selectStyle}>
+            <select value={selMonth} onChange={(e) => setSelMonth(Number(e.target.value))} style={selectStyle(css)}>
               {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
             </select>
             {!isLocked && (
-              <select value={selStore} onChange={(e) => setSelStore(e.target.value)} style={selectStyle}>
+              <select value={selStore} onChange={(e) => setSelStore(e.target.value)} style={selectStyle(css)}>
                 <option value="all">All Stores</option>
                 {detectedStores.map((s) => <option key={s} value={s}>{STORE_LABELS[s] || s}</option>)}
               </select>
@@ -669,10 +738,11 @@ export default function SalesPage() {
 
                 {/* Gauges — fixed height, centered, no overflow */}
                 <div style={{
-                  background: "white", borderRadius: 10,
-                  boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+                  background: css.cardBg, borderRadius: 10,
+                  boxShadow: css.cardShadow,
                   padding: "12px 12px 4px",
                   overflow: "hidden",
+                  transition: "background 0.2s",
                 }}>
                   <div style={{ display: "flex", alignItems: "stretch", gap: 0 }}>
                     <GaugeChart
@@ -680,21 +750,31 @@ export default function SalesPage() {
                       value={fmtRp(stats.totalSales)}
                       label="Net Sales MTD vs Target MTD"
                       color="#0ea5e9"
+                      actualValue={fmtRpExact(stats.totalSales)}
+                      targetValue={fmtRpExact(stats.totalTarget)}
+                      gaugeTrack={css.gaugeTrack}
+                      labelColor={css.textHeading}
+                      valueColor={css.textMuted}
                     />
-                    <div style={{ width: 1, background: "#e2e8f0", margin: "8px 0" }} />
+                    <div style={{ width: 1, background: css.dividerLine, margin: "8px 0" }} />
                     <GaugeChart
                       pct={stats.forecastPct}
                       value={fmtRp(Math.round(stats.forecast))}
                       label="Est Net Sales vs Target MTD"
                       color="#0ea5e9"
+                      actualValue={fmtRpExact(Math.round(stats.forecast))}
+                      targetValue={fmtRpExact(stats.totalTarget)}
+                      gaugeTrack={css.gaugeTrack}
+                      labelColor={css.textHeading}
+                      valueColor={css.textMuted}
                     />
                   </div>
                 </div>
 
                 {/* Stat grid */}
                 <div style={{
-                  background: "white", borderRadius: 10, padding: "12px 16px",
-                  boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+                  background: css.cardBg, borderRadius: 10, padding: "12px 16px",
+                  boxShadow: css.cardShadow, transition: "background 0.2s",
                 }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 20px" }}>
                     {[
@@ -704,9 +784,9 @@ export default function SalesPage() {
                       { label: "% Est Net Sales", value: `${stats.forecastPct.toFixed(2)}%` },
                       { label: "Total Traffic", value: stats.totalTraffic.toLocaleString("id-ID") },
                     ].map((item) => (
-                      <div key={item.label} style={{ borderBottom: "1px solid #f8fafc", paddingBottom: 5 }}>
-                        <p style={{ fontSize: 9.5, color: "#94a3b8", margin: 0, fontWeight: 500 }}>{item.label}</p>
-                        <p style={{ fontSize: 14, fontWeight: 800, color: "#1e293b", margin: 0 }}>{item.value}</p>
+                      <div key={item.label} style={{ borderBottom: `1px solid ${css.divider}`, paddingBottom: 5 }}>
+                        <p style={{ fontSize: 9.5, color: css.textMuted, margin: 0, fontWeight: 500 }}>{item.label}</p>
+                        <p style={{ fontSize: 14, fontWeight: 800, color: css.textValue, margin: 0 }}>{item.value}</p>
                       </div>
                     ))}
                   </div>
@@ -715,12 +795,12 @@ export default function SalesPage() {
 
               {/* Right: Trend chart */}
               <div style={{
-                background: "white", borderRadius: 10, padding: "14px 16px",
-                boxShadow: "0 1px 4px rgba(0,0,0,0.07)", minWidth: 0,
+                background: css.cardBg, borderRadius: 10, padding: "14px 16px",
+                boxShadow: css.cardShadow, minWidth: 0, transition: "background 0.2s",
               }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", margin: 0 }}>Net Sales Trend</p>
-                  <div style={{ display: "flex", gap: 14, fontSize: 10, color: "#64748b" }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: css.textValue, margin: 0 }}>Net Sales Trend</p>
+                  <div style={{ display: "flex", gap: 14, fontSize: 10, color: css.textSub }}>
                     <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                       <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#0ea5e9", display: "inline-block" }} />
                       Net Sales
@@ -774,6 +854,7 @@ export default function SalesPage() {
                 cellData={calendarTarget}
                 targetData={{}}
                 showConditional={false}
+                css={css}
               />
               <CalendarGrid
                 year={selYear}
@@ -783,6 +864,7 @@ export default function SalesPage() {
                 targetData={calendarTarget}
                 trafficData={calendarTraffic}
                 showConditional={true}
+                css={css}
               />
             </div>
           </>
