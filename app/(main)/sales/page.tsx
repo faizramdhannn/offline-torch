@@ -508,6 +508,16 @@ export default function SalesPage() {
   const [selMonth, setSelMonth] = useState(currentMonth);
   const [selStore, setSelStore] = useState<string>("all");
 
+  // ── Dark mode detection — must be before any return ────────────────────────
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const update = () => setIsDark(document.documentElement.classList.contains("dark"));
+    update();
+    const obs = new MutationObserver(update);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
+  }, []);
+
   const availableYears = useMemo(() => {
     const ys = new Set<number>();
     [...dailySales, ...targetSales].forEach((r) => {
@@ -645,17 +655,6 @@ export default function SalesPage() {
 
   if (!user) return null;
   const lockedStore = isLocked ? (user.user_name?.toLowerCase() || "") : null;
-
-  // Detect Tailwind dark mode (html.dark class set by next-themes / system)
-  const [isDark, setIsDark] = React.useState(false);
-  React.useEffect(() => {
-    const update = () => setIsDark(document.documentElement.classList.contains("dark"));
-    update();
-    const obs = new MutationObserver(update);
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => obs.disconnect();
-  }, []);
-
   const DM = isDark;
   const css = {
     pageBg:      DM ? "#0f1724" : "#eef2f7",
