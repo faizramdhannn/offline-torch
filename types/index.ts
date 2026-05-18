@@ -45,6 +45,8 @@ export interface User {
   invoice_edit: boolean;
   invoice_delete: boolean;
   invoice_master: boolean;
+  sales_view: boolean;
+  sales_view_all: boolean;
   last_activity: string;
 }
 

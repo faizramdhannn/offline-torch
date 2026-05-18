@@ -64,6 +64,8 @@ export async function POST(request: NextRequest) {
       invoice_edit: user.invoice_edit === 'TRUE',
       invoice_delete: user.invoice_delete === 'TRUE',
       invoice_master: user.invoice_master === 'TRUE',
+      sales_view: user.sales_view === 'TRUE',
+      sales_view_all: user.sales_view_all === 'TRUE',
     });
   } catch (error) {
     return NextResponse.json({ error: 'Authentication failed' }, { status: 500 });

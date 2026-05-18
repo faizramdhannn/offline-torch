@@ -5,9 +5,6 @@ const VALID_SHEETS = ['erp_stock_balance', 'javelin', 'powerbi_threshold'];
 
 async function updateLastUpdate(sheetType: string, dateStr: string) {
   try {
-    const existingData = await getSheetData('last_update');
-
-    // Build label map: erp_stock_balance → ERP, javelin → Javelin, powerbi_threshold → Threshold
     const labelMap: Record<string, string> = {
       erp_stock_balance: 'ERP',
       javelin: 'Javelin',
@@ -15,21 +12,17 @@ async function updateLastUpdate(sheetType: string, dateStr: string) {
     };
 
     const currentLabel = labelMap[sheetType] ?? sheetType;
-    const allLabels = Object.values(labelMap);
+    const existingData = await getSheetData('last_update');
 
-    // Build updated rows
-    const updatedData: any[][] = [['type', 'last_update']];
+    const rowIndex = existingData.findIndex((row: any) => row.type === currentLabel);
 
-    allLabels.forEach((label) => {
-      if (label === currentLabel) {
-        updatedData.push([label, dateStr]);
-      } else {
-        const existing = existingData.find((row: any) => row.type === label);
-        updatedData.push([label, existing?.last_update ?? '-']);
-      }
-    });
-
-    await updateSheetDataWithHeader('last_update', updatedData);
+    if (rowIndex !== -1) {
+      // Update hanya baris yang sesuai (rowIndex + 2 karena header di baris 1)
+      await updateSheetRow('last_update', rowIndex + 2, [currentLabel, dateStr]);
+    } else {
+      // Kalau belum ada, append baris baru
+      await appendSheetData('last_update', [[currentLabel, dateStr]]);
+    }
   } catch (err) {
     console.warn('Skipping last_update timestamp, non-critical:', err);
   }

@@ -31,6 +31,8 @@ interface SidebarProps {
     tracking_edit?: boolean;
     attendance?: boolean;
     invoice?: boolean;
+    sales_view?: boolean;
+    sales_view_all?: boolean;
   };
 }
 
@@ -137,10 +139,11 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     pathname === "/request-store" || pathname === "/request-tracking" || pathname === "/invoice";
 
   const hasAnalyticsAccess = !!permissions.analytics_order;
-  const hasOrderReportAccess = !!permissions.order_report;
-  const showOrderGroup = hasAnalyticsAccess || hasOrderReportAccess;
+const hasOrderReportAccess = !!permissions.order_report;
+const hasSalesAccess = !!(permissions.sales_view || permissions.sales_view_all);
+const showOrderGroup = hasAnalyticsAccess || hasOrderReportAccess || hasSalesAccess;
   const isOrderActive =
-    pathname === "/analytics-order" || pathname === "/order-report";
+pathname === "/analytics-order" || pathname === "/order-report" || pathname === "/sales";
 
   const menuItems: MenuItem[] = [
     {
@@ -606,6 +609,12 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
     </svg>
   );
+  const salesIcon = (
+<svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+     d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+</svg>
+);
 
   const requestItems = [
     { path: "/request-store", label: "Cancel Order", icon: cancelOrderIcon, show: hasRequestAccess },
@@ -614,9 +623,10 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
   ];
 
   const orderItems = [
-    { path: "/analytics-order", label: "Analytics", icon: analyticsIcon, show: hasAnalyticsAccess },
-    { path: "/order-report", label: "Report", icon: reportIcon, show: hasOrderReportAccess },
-  ];
+{ path: "/analytics-order", label: "Analytics", icon: analyticsIcon, show: hasAnalyticsAccess },
+{ path: "/order-report", label: "Report", icon: reportIcon, show: hasOrderReportAccess },
+{ path: "/sales", label: "Sales", icon: salesIcon, show: hasSalesAccess },
+];
 
   return (
     <>

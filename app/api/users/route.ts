@@ -125,7 +125,9 @@ export async function PUT(request: NextRequest) {
       permissions.invoice_create ? "TRUE" : "FALSE",   // invoice_create
       permissions.invoice_edit ? "TRUE" : "FALSE",      // invoice_edit
       permissions.invoice_delete ? "TRUE" : "FALSE",    // invoice_delete
-      permissions.invoice_master ? "TRUE" : "FALSE",    // invoice_master
+      permissions.invoice_master ? "TRUE" : "FALSE",
+      permissions.sales_view ? "TRUE" : "FALSE",
+      permissions.sales_view_all ? "TRUE" : "FALSE",    // invoice_master
       timestamp, // AM
     ];
 
