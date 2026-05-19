@@ -77,13 +77,21 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       : userName;
 
   useEffect(() => {
-    if (pathname === "/request-store" || pathname === "/request-tracking" || pathname === "/invoice") {
-      setRequestOpen(true);
-    }
-    if (pathname === "/analytics-order" || pathname === "/order-report") {
-      setOrderOpen(true);
-    }
-  }, [pathname]);
+  const isRequestPath = pathname === "/request-store" || pathname === "/request-tracking" || pathname === "/invoice";
+  const isOrderPath = pathname === "/analytics-order" || pathname === "/order-report" || pathname === "/sales";
+
+  if (isRequestPath) {
+    setRequestOpen(true);
+    setOrderOpen(false);
+  } else if (isOrderPath) {
+    setOrderOpen(true);
+    setRequestOpen(false);
+  } else {
+    // Halaman lain (dashboard, stock, dll) — tutup semua group
+    setRequestOpen(false);
+    setOrderOpen(false);
+  }
+}, [pathname]);
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -843,7 +851,10 @@ pathname === "/analytics-order" || pathname === "/order-report" || pathname === 
                 label="Order"
                 isActive={isOrderActive}
                 isOpen={orderOpen}
-                onToggle={() => setOrderOpen((prev) => !prev)}
+                onToggle={() => {
+                  setOrderOpen((prev) => !prev);
+                  setRequestOpen(false);
+                }}
                 items={orderItems}
               />
             )
@@ -863,7 +874,10 @@ pathname === "/analytics-order" || pathname === "/order-report" || pathname === 
                 label="Request"
                 isActive={isRequestActive}
                 isOpen={requestOpen}
-                onToggle={() => setRequestOpen((prev) => !prev)}
+                onToggle={() => {
+                  setRequestOpen((prev) => !prev);
+                  setOrderOpen(false);
+                }}
                 items={requestItems}
               />
             )
