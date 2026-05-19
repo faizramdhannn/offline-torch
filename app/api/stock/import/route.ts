@@ -4,27 +4,46 @@ import { updateSheetDataWithHeader, getSheetData, updateSheetRow, appendSheetDat
 const VALID_SHEETS = ['erp_stock_balance', 'javelin', 'powerbi_threshold'];
 
 async function updateLastUpdate(sheetType: string, dateStr: string) {
-  try {
-    const labelMap: Record<string, string> = {
-      erp_stock_balance: 'ERP',
-      javelin: 'Javelin',
-      powerbi_threshold: 'Threshold',
-    };
+  const maxRetries = 3;
 
-    const currentLabel = labelMap[sheetType] ?? sheetType;
-    const existingData = await getSheetData('last_update');
+  const labelMap: Record<string, string> = {
+    erp_stock_balance: 'ERP',
+    javelin: 'Javelin',
+    powerbi_threshold: 'Threshold',
+  };
 
-    const rowIndex = existingData.findIndex((row: any) => row.type === currentLabel);
+  const currentLabel = labelMap[sheetType] ?? sheetType;
 
-    if (rowIndex !== -1) {
-      // Update hanya baris yang sesuai (rowIndex + 2 karena header di baris 1)
-      await updateSheetRow('last_update', rowIndex + 2, [currentLabel, dateStr]);
-    } else {
-      // Kalau belum ada, append baris baru
-      await appendSheetData('last_update', [[currentLabel, dateStr]]);
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const existingData = await getSheetData('last_update');
+
+      const rowIndex = existingData.findIndex((row: any) => {
+        const typeVal =
+          row.type ?? row.Type ?? row.TYPE ??
+          String(Object.values(row)[0] ?? '');
+        return String(typeVal).trim().toLowerCase() === currentLabel.toLowerCase();
+      });
+
+      if (rowIndex !== -1) {
+        await updateSheetRow('last_update', rowIndex + 2, [currentLabel, dateStr]);
+        console.log(`✅ last_update updated: ${currentLabel} at row ${rowIndex + 2}`);
+      } else {
+        await appendSheetData('last_update', [[currentLabel, dateStr]]);
+        console.log(`✅ last_update appended: ${currentLabel} (row not found, new entry)`);
+      }
+
+      return; // sukses, keluar dari loop
+    } catch (err) {
+      console.error(`❌ last_update attempt ${attempt}/${maxRetries} failed for "${currentLabel}":`, err);
+      if (attempt < maxRetries) {
+        const delay = 1000 * attempt; // 1s, 2s
+        console.log(`⏳ Retrying in ${delay}ms...`);
+        await new Promise((res) => setTimeout(res, delay));
+      } else {
+        console.error(`❌ All ${maxRetries} attempts failed for "${currentLabel}". Skipping.`);
+      }
     }
-  } catch (err) {
-    console.warn('Skipping last_update timestamp, non-critical:', err);
   }
 }
 
@@ -66,11 +85,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log(`[import] Starting: ${sheetName}, rows: ${cleanedData.length}`);
+
     await updateSheetDataWithHeader(sheetName, cleanedData);
 
-    // Update last_update — always runs, failure is non-fatal
+    console.log(`[import] Sheet updated: ${sheetName}`);
+
     const dateStr = getJakartaDateStr();
     await updateLastUpdate(sheetName, dateStr);
+
+    console.log(`[import] Done: ${sheetName}`);
 
     return NextResponse.json({
       success: true,
