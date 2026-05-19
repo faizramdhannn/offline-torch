@@ -70,8 +70,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
   );
 
   // ── Only sync open group when navigating TO a group page from outside ───────
-  // (e.g. user clicks a deep link). We do NOT close the group on every
-  // pathname change so clicking a submenu item doesn't cause a flicker.
   const prevPathnameRef = useRef(pathname);
   useEffect(() => {
     const prev = prevPathnameRef.current;
@@ -86,7 +84,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       pathname === "/order-report" ||
       pathname === "/sales";
 
-    // Only auto-open if we navigated from outside the group
     const wasRequestPath =
       prev === "/request-store" ||
       prev === "/request-tracking" ||
@@ -101,21 +98,29 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     } else if (isOrderPath && !wasOrderPath) {
       setOpenGroup("order");
     } else if (!isRequestPath && !isOrderPath && (wasRequestPath || wasOrderPath)) {
-      // Navigated away from both groups — close
       setOpenGroup(null);
     }
   }, [pathname]);
 
-  const [collapseAnim, setCollapseAnim] = useState<"idle" | "jelly">("idle");
-  const [jellyKey, setJellyKey] = useState<string | null>(null);
+  // ── Collapse jelly — ref-based so it never re-renders ExpandedGroup ─────────
+  const collapseButtonRef = useRef<HTMLButtonElement>(null);
   const { isOpen, isCollapsed, toggleOpen, toggleCollapsed } = useSidebar();
   const { isDark, toggleTheme } = useTheme();
 
-  const handleToggleCollapsed = () => {
-    setCollapseAnim("jelly");
+  const handleToggleCollapsed = useCallback(() => {
     toggleCollapsed();
-    setTimeout(() => setCollapseAnim("idle"), 600);
-  };
+    const btn = collapseButtonRef.current;
+    if (!btn) return;
+    btn.classList.remove("jelly-btn");
+    // Force reflow so removing+adding the class restarts the animation
+    void btn.offsetWidth;
+    btn.classList.add("jelly-btn");
+    const onEnd = () => {
+      btn.classList.remove("jelly-btn");
+      btn.removeEventListener("animationend", onEnd);
+    };
+    btn.addEventListener("animationend", onEnd);
+  }, [toggleCollapsed]);
 
   const loginName =
     typeof window !== "undefined"
@@ -136,12 +141,24 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     router.push("/login");
   };
 
-  // ── Jelly navigate ──────────────────────────────────────────────────────────
+  // ── Jelly navigate — ref-based, never triggers a sidebar re-render ──────────
   const jellyNavigate = useCallback(
     (path: string) => {
-      setJellyKey(path);
+      // Apply jelly directly on the DOM element via data-path attribute
+      const el = document.querySelector<HTMLElement>(
+        `[data-navpath="${CSS.escape(path)}"]`
+      );
+      if (el) {
+        el.classList.remove("menu-item-jelly");
+        void el.offsetWidth; // reflow
+        el.classList.add("menu-item-jelly");
+        const onEnd = () => {
+          el.classList.remove("menu-item-jelly");
+          el.removeEventListener("animationend", onEnd);
+        };
+        el.addEventListener("animationend", onEnd);
+      }
       setTimeout(() => {
-        setJellyKey(null);
         router.push(path);
         if (window.innerWidth < 768) toggleOpen();
       }, 160);
@@ -339,18 +356,18 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     return !!permissions[item.permission as keyof typeof permissions];
   };
 
+  // ── MenuButton — animasi via DOM, tidak pakai state ─────────────────────────
   const MenuButton = ({ item }: { item: MenuItem }) => {
     const isActive = pathname === item.path;
-    const isJelly = jellyKey === item.path;
     return (
       <button
+        data-navpath={item.path}
         onClick={() => jellyNavigate(item.path)}
         title={isCollapsed ? item.name : undefined}
         className={`
           menu-btn w-full flex items-center gap-3
           ${isCollapsed ? "justify-center px-0 py-2" : "px-3 py-2"}
           ${isActive ? "active text-white" : "text-white/55"}
-          ${isJelly ? "menu-item-jelly" : ""}
         `}
       >
         <span className={`shrink-0 transition-opacity duration-150 ${isActive ? "opacity-100" : "opacity-60"}`}>
@@ -402,6 +419,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
                 sub.show && (
                   <button
                     key={sub.path}
+                    data-navpath={sub.path}
                     onClick={() => jellyNavigate(sub.path)}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${pathname === sub.path ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"}`}
                   >
@@ -416,7 +434,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     );
   };
 
-  // ── Expanded group — submenu animates only when first opening ────────────────
+  // ── Expanded group — FIX: track transisi open/close, bukan nilai saat ini ────
   const ExpandedGroup = ({
     groupIcon,
     label,
@@ -432,12 +450,16 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     onToggle: () => void;
     items: { path: string; label: string; icon: ReactNode; show: boolean }[];
   }) => {
-    // Track whether the submenu has already been shown so we only animate on
-    // the first open, not on every re-render while it stays open.
-    const didOpenRef = useRef(false);
-    const animClass = open && !didOpenRef.current ? "submenu-enter" : "";
-    if (open) didOpenRef.current = true;
-    if (!open) didOpenRef.current = false;
+    // prevOpenRef menyimpan nilai open dari render SEBELUMNYA
+    const prevOpenRef = useRef(open);
+
+    // justOpened = true hanya saat render pertama setelah transisi false→true
+    const justOpened = open && !prevOpenRef.current;
+
+    // Update ref SETELAH semua render logic selesai dievaluasi
+    useEffect(() => {
+      prevOpenRef.current = open;
+    });
 
     return (
       <div>
@@ -464,15 +486,16 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           </span>
         </button>
         {open && (
-          <div className={`overflow-hidden ${animClass}`}>
+          <div className={`overflow-hidden ${justOpened ? "submenu-enter" : ""}`}>
             <div className="bg-black/15 border-l-2 border-white/20 ml-4 mr-2 rounded-r-lg mb-0.5">
               {items.map(
                 (sub) =>
                   sub.show && (
                     <button
                       key={sub.path}
+                      data-navpath={sub.path}
                       onClick={() => jellyNavigate(sub.path)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors rounded-r-lg ${jellyKey === sub.path ? "menu-item-jelly" : ""} ${pathname === sub.path ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/15 hover:text-white"}`}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors rounded-r-lg ${pathname === sub.path ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/15 hover:text-white"}`}
                     >
                       {sub.icon}
                       {sub.label}
@@ -577,7 +600,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           90%  { transform: scaleY(0.99) scaleX(1.01); transform-origin: top; }
           100% { transform: scaleY(1) scaleX(1); opacity: 1; transform-origin: top; }
         }
-        /* animation-fill-mode: both means it holds the final frame and never re-triggers */
         .submenu-enter {
           animation: jellyIn 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
         }
@@ -661,8 +683,9 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
             </div>
           )}
           <button
+            ref={collapseButtonRef}
             onClick={handleToggleCollapsed}
-            className={`hidden md:flex items-center justify-center w-6 h-6 rounded-md hover:bg-white/10 transition-colors shrink-0 ${isCollapsed ? "w-full mt-1" : "ml-1"} ${collapseAnim === "jelly" ? "jelly-btn" : ""}`}
+            className={`hidden md:flex items-center justify-center w-6 h-6 rounded-md hover:bg-white/10 transition-colors shrink-0 ${isCollapsed ? "w-full mt-1" : "ml-1"}`}
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             <svg
