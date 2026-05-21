@@ -373,21 +373,16 @@ export async function POST(request: NextRequest) {
     doc.text(`Bandung, ${formatDate(invoice.invoice_date)}`, rightX, sigY, { align: 'right' });
 
     // Gambar tanda tangan — hanya jika useSign = true
-    let imgH = 0;
+    const imgH = 28;
     if (useSign && signImg) {
       try {
         const w = 40;
-        const h = 35;
+        const h = 25;
         const format = signImg.includes('data:image/png') ? 'PNG' : 'JPEG';
         doc.addImage(signImg, format, margin, sigY + 1, w, h, undefined, 'FAST');
-        imgH = h + 2;
       } catch {
-        imgH = 24;
+        // gagal load gambar, ruang tetap tersedia
       }
-    } else if (useSign && !signImg) {
-      imgH = 24;
-    } else {
-      imgH = 4;
     }
 
     // Baris 2: nama kiri & nama toko kanan sejajar
