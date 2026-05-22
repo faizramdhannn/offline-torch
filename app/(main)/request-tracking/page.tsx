@@ -663,6 +663,10 @@ export default function RequestTrackingPage() {
     setPopupMessage(message); setPopupType(type); setShowPopup(true);
   };
 
+  const playSound = (file: string) => {
+    try { new Audio(file).play(); } catch {}
+  };
+
   const logActivity = async (method: string, activity: string) => {
     if (!user) return;
     try {
@@ -782,6 +786,7 @@ export default function RequestTrackingPage() {
       const res = await fetch(`/api/request-tracking?id=${item.id}`, { method: "DELETE" });
       if (res.ok) {
         setData((prev) => prev.filter((d) => d.id !== item.id));
+        playSound("/delete.mp3");
         showMessage("Request dihapus", "success");
         await logActivity("DELETE", `Deleted shipment request ID: ${item.id}`);
       } else { showMessage("Gagal menghapus", "error"); }

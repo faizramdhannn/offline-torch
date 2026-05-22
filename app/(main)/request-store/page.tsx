@@ -309,6 +309,7 @@ export default function RequestStorePage() {
       const res = await fetch(`/api/request-store?id=${item.id}`, { method: "DELETE" });
       if (res.ok) {
         setData((prev) => prev.filter((d) => d.id !== item.id));
+        playSound("/delete.mp3");
         showMessage("Request dihapus", "success");
         await logActivity("DELETE", `Deleted request ID: ${item.id}`);
       } else {
