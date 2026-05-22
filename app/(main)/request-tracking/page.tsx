@@ -224,9 +224,11 @@ function SenderSelect({ value, onChange, details, storeAddresses }: {
 }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-700 mb-1">
-        Pengirim (Store) <span className="text-red-500">*</span>
-      </label>
+      <div className="flex items-center min-h-[24px] mb-1">
+        <label className="text-xs font-medium text-gray-700">
+          Pengirim (Store) <span className="text-red-500">*</span>
+        </label>
+      </div>
       <select value={value} onChange={(e) => onChange(e.target.value)}
         className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
         <option value="">Pilih store pengirim</option>
@@ -251,7 +253,7 @@ function ReceiverField({ mode, onModeChange, storeValue, onStoreChange, customVa
 }) {
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between min-h-[24px] mb-1">
         <label className="text-xs font-medium text-gray-700">Penerima <span className="text-red-500">*</span></label>
         <div className="flex gap-1 bg-gray-100 rounded p-0.5">
           <button type="button" onClick={() => { onModeChange("dropdown"); onCustomChange(""); }}
@@ -1107,30 +1109,32 @@ export default function RequestTrackingPage() {
         {/* Add Modal */}
         {showAddModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
               <h2 className="text-lg font-bold text-primary mb-4">Request Shipment Baru</h2>
               <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Tanggal <span className="text-red-500">*</span></label>
-                  <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To <span className="text-red-500">*</span></label>
-                  <select value={form.assigned_to} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-                    <option value="">Pilih</option>
-                    {dropdownData.assignees.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
-                  </select>
+                <div className="flex gap-3 items-start">
+                  <div className="w-1/2 min-w-0">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Tanggal <span className="text-red-500">*</span></label>
+                    <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                  </div>
+                  <div className="w-1/2 min-w-0">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To <span className="text-red-500">*</span></label>
+                    <select value={form.assigned_to} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
+                      <option value="">Pilih</option>
+                      {dropdownData.assignees.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+                    </select>
+                  </div>
                 </div>
                 <ExpeditionToggle value={form.expedition} onChange={(v) => setForm({ ...form, expedition: v })} />
 
                 {/* Pengirim & Penerima — satu baris */}
                 <div className="flex gap-3 items-start">
-                  <div className="w-1/2">
+                  <div className="w-1/2 min-w-0">
                     <SenderSelect value={form.sender} onChange={(v) => handleSenderChange(v)} details={selectedSenderDetails} storeAddresses={storeAddresses} />
                   </div>
-                  <div className="w-1/2">
+                  <div className="w-1/2 min-w-0">
                     <ReceiverField mode={addReceiverMode} onModeChange={(m) => setAddReceiverMode(m)}
                       storeValue={addReceiverStore} onStoreChange={(v) => handleReceiverStoreChange(v, false)}
                       customValue={form.receiver} onCustomChange={(v) => { setForm({ ...form, receiver: v }); setReceiverError(""); }}
@@ -1173,27 +1177,29 @@ export default function RequestTrackingPage() {
             <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
               <h2 className="text-lg font-bold text-primary mb-4">Edit Request Shipment</h2>
               <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Tanggal</label>
-                  <input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To</label>
-                  <select value={editForm.assigned_to} onChange={(e) => setEditForm({ ...editForm, assigned_to: e.target.value })}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-                    <option value="">Pilih</option>
-                    {dropdownData.assignees.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
-                  </select>
+                <div className="flex gap-3 items-start">
+                  <div className="w-1/2 min-w-0">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Tanggal</label>
+                    <input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                  </div>
+                  <div className="w-1/2 min-w-0">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To</label>
+                    <select value={editForm.assigned_to} onChange={(e) => setEditForm({ ...editForm, assigned_to: e.target.value })}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
+                      <option value="">Pilih</option>
+                      {dropdownData.assignees.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+                    </select>
+                  </div>
                 </div>
                 <ExpeditionToggle value={editForm.expedition} onChange={(v) => setEditForm({ ...editForm, expedition: v })} />
 
                 {/* Pengirim & Penerima — satu baris */}
                 <div className="flex gap-3 items-start">
-                  <div className="w-1/2">
+                  <div className="w-1/2 min-w-0">
                     <SenderSelect value={editForm.sender} onChange={(v) => handleSenderChange(v, true)} details={editSenderDetails} storeAddresses={storeAddresses} />
                   </div>
-                  <div className="w-1/2">
+                  <div className="w-1/2 min-w-0">
                     <ReceiverField mode={editReceiverMode} onModeChange={(m) => setEditReceiverMode(m)}
                       storeValue={editReceiverStore} onStoreChange={(v) => handleReceiverStoreChange(v, true)}
                       customValue={editForm.receiver} onCustomChange={(v) => { setEditForm({ ...editForm, receiver: v }); setReceiverError(""); }}
