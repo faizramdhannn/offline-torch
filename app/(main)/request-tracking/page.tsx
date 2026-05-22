@@ -279,12 +279,18 @@ function ReceiverField({ mode, onModeChange, storeValue, onStoreChange, customVa
         </>
       ) : (
         <>
-          <textarea value={customValue} onChange={(e) => onCustomChange(e.target.value)} onBlur={onBlur} rows={4}
+          <textarea value={customValue} onChange={(e) => onCustomChange(e.target.value.slice(0, 200))} onBlur={onBlur} rows={4}
             placeholder={"Nama Penerima\n08xxxxxxxxxx\nJl. Contoh No. 1, Kota, Provinsi\n12345"}
+            maxLength={200}
             className={`w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 resize-none font-mono ${error ? "border-red-400 focus:ring-red-400" : "border-gray-300 focus:ring-primary"}`} />
-          {error
-            ? <p className="text-[10px] text-red-500 mt-1">⚠ {error}</p>
-            : <p className="text-[10px] text-gray-400 mt-1">Wajib: nama · nomor HP (08xx/+628xx) · alamat · kode pos 5 digit</p>}
+          <div className="flex items-center justify-between mt-1">
+            {error
+              ? <p className="text-[10px] text-red-500">⚠ {error}</p>
+              : <p className="text-[10px] text-gray-400">Wajib: nama · nomor HP (08xx/+628xx) · alamat · kode pos 5 digit</p>}
+            <p className={`text-[10px] tabular-nums shrink-0 ml-2 ${customValue.length >= 200 ? "text-red-500 font-semibold" : customValue.length >= 180 ? "text-yellow-500" : "text-gray-400"}`}>
+              {customValue.length}/200
+            </p>
+          </div>
         </>
       )}
     </div>
@@ -313,7 +319,6 @@ function CopyButton({ text, id, copiedId, onCopy }: {
 }
 
 // ── CheckResiButton ───────────────────────────────────────────────────────
-// Klik → pindah ke tab "Cek Resi" dan kirim nomor resi via postMessage ke iframe
 function CheckResiButton({ trackingNumber, onCheck }: {
   trackingNumber: string; onCheck: (resi: string) => void;
 }) {
@@ -441,7 +446,6 @@ function DetailPopup({ item, onClose, copiedId, onCopy }: {
                   : <p className="text-xs font-medium text-gray-800">{item.expedition}</p>}
               </div>
 
-              {/* No. Resi — tampil jika ada tracking_number, teks bisa di-select-all */}
               {item.tracking_number && (
                 <div>
                   <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">No. Resi</p>
@@ -473,7 +477,6 @@ function DetailPopup({ item, onClose, copiedId, onCopy }: {
                     <CopyButton text={item.receiver} id={`detail-${item.id}`} copiedId={copiedId} onCopy={onCopy} />
                   )}
                 </div>
-                {/* select-all agar Ctrl+A bisa copy di dalam box ini */}
                 <p className="text-xs text-gray-800 font-mono whitespace-pre-line leading-relaxed bg-gray-50 rounded p-2 border border-gray-100 select-all">
                   {item.receiver || "-"}
                 </p>
@@ -533,19 +536,16 @@ export default function RequestTrackingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  useSessionGuard(); 
-  usePushNotification(user?.user_name ?? null); 
+  useSessionGuard();
+  usePushNotification(user?.user_name ?? null);
 
   const [activeTab, setActiveTab] = useState<"table" | "tracking">("table");
   const [iframeUrl] = useState("https://offline-tracking.vercel.app/");
   const [searchReceiver, setSearchReceiver] = useState("");
 
-  // ── Ref ke iframe Cek Resi ─────────────────────────────────────────────
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  // Simpan resi yang menunggu dikirim saat iframe selesai load
   const [iframeReady, setIframeReady] = useState(false);
   const pendingResiRef = useRef<string | null>(null);
-
 
   const itemsPerPage = 25;
   const uploadFileRef = useRef<HTMLInputElement>(null);
@@ -582,39 +582,33 @@ export default function RequestTrackingPage() {
     return () => clearInterval(interval);
   }, [user]);
 
-  // ── Kirim postMessage saat iframe selesai load ─────────────────────────
-const handleIframeLoad = useCallback(() => {
-  setIframeReady(true);
-  if (pendingResiRef.current && iframeRef.current?.contentWindow) {
-    const resi = pendingResiRef.current;
-    pendingResiRef.current = null;
-    // Delay kecil agar app di dalam iframe selesai mount
-    setTimeout(() => {
-      iframeRef.current?.contentWindow?.postMessage(
-        { type: "CHECK_RESI", resi },
-        "https://offline-tracking.vercel.app"
-      );
-    }, 800);
-  }
-}, []);
+  const handleIframeLoad = useCallback(() => {
+    setIframeReady(true);
+    if (pendingResiRef.current && iframeRef.current?.contentWindow) {
+      const resi = pendingResiRef.current;
+      pendingResiRef.current = null;
+      setTimeout(() => {
+        iframeRef.current?.contentWindow?.postMessage(
+          { type: "CHECK_RESI", resi },
+          "https://offline-tracking.vercel.app"
+        );
+      }, 800);
+    }
+  }, []);
 
-  // ── Klik ikon cek: pindah tab → kirim postMessage ─────────────────────
-const handleCheckResi = useCallback((resi: string) => {
-  setActiveTab("tracking");
-
-  if (iframeReady && iframeRef.current?.contentWindow) {
-    // Iframe sudah siap → kirim langsung dengan delay kecil untuk render tab
-    setTimeout(() => {
-      iframeRef.current?.contentWindow?.postMessage(
-        { type: "CHECK_RESI", resi },
-        "https://offline-tracking.vercel.app"
-      );
-    }, 150);
-  } else {
-    // Iframe belum siap → simpan, akan dikirim saat onLoad
-    pendingResiRef.current = resi;
-  }
-}, [iframeReady]);
+  const handleCheckResi = useCallback((resi: string) => {
+    setActiveTab("tracking");
+    if (iframeReady && iframeRef.current?.contentWindow) {
+      setTimeout(() => {
+        iframeRef.current?.contentWindow?.postMessage(
+          { type: "CHECK_RESI", resi },
+          "https://offline-tracking.vercel.app"
+        );
+      }, 150);
+    } else {
+      pendingResiRef.current = resi;
+    }
+  }, [iframeReady]);
 
   const fetchData = async () => {
     try {
@@ -687,7 +681,7 @@ const handleCheckResi = useCallback((resi: string) => {
     setReceiverError("");
   };
 
-const handleAdd = async () => {
+  const handleAdd = async () => {
     if (!form.date || !form.assigned_to || !form.expedition || !form.sender || !form.receiver || !form.weight || !form.reason) {
       showMessage("Semua field wajib diisi", "error"); return;
     }
@@ -703,7 +697,6 @@ const handleAdd = async () => {
       if (res.ok) {
         showMessage("Request berhasil dibuat", "success");
         setShowAddModal(false); resetAddForm();
-
         try {
           await fetch("/api/push-notify", {
             method: "POST",
@@ -715,7 +708,6 @@ const handleAdd = async () => {
             }),
           });
         } catch {}
-
         await logActivity("POST", `Created shipment request: ${form.expedition} → ${form.assigned_to}`);
         fetchData();
       } else { showMessage("Gagal membuat request", "error"); }
@@ -794,7 +786,7 @@ const handleAdd = async () => {
             : "File berhasil diupload (nomor resi tidak terdeteksi)",
           "success"
         );
-          try {
+        try {
           await fetch("/api/push-notify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -856,423 +848,437 @@ const handleAdd = async () => {
   const canEdit = user.request_tracking;
   const canUpload = user.tracking_edit;
 
-return (
-  <div className="flex-1 overflow-auto">
-    <div className="p-6">
-
-      <div className="flex-1 overflow-auto">
-        <div className="p-6">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-primary">Request Shipment</h1>
-            {canEdit && (
-              <button onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Add Request
-              </button>
-            )}
-          </div>
-
-          {/* Tabs */}
-          <div className="flex gap-1 mb-4 border-b border-gray-200">
-            {(["table", "tracking"] as const).map((tab) => (
-              <button key={tab} onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
-                {tab === "table" ? "List" : "Cek Resi"}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab: Table */}
-          {activeTab === "table" && (
-            <>
-              {/* Search Bar */}
-              <div className="bg-white rounded-lg shadow px-3 py-2 mb-3 flex flex-wrap items-center gap-2">
-                <div className="relative">
-                  <svg className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400"
-                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+  return (
+    <div className="flex-1 overflow-auto">
+      <div className="p-6">
+        <div className="flex-1 overflow-auto">
+          <div className="p-6">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-2xl font-bold text-primary">Request Shipment</h1>
+              {canEdit && (
+                <button onClick={() => setShowAddModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  <input type="text" value={searchReceiver}
-                    onChange={(e) => { setSearchReceiver(e.target.value); setCurrentPage(1); }}
-                    placeholder="Cari penerima / no. resi..."
-                    className="pl-6 pr-2 py-1 border border-gray-300 rounded text-[11px] w-56 focus:outline-none focus:ring-1 focus:ring-primary" />
+                  Add Request
+                </button>
+              )}
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-1 mb-4 border-b border-gray-200">
+              {(["table", "tracking"] as const).map((tab) => (
+                <button key={tab} onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === tab ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
+                  {tab === "table" ? "List" : "Cek Resi"}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab: Table */}
+            {activeTab === "table" && (
+              <>
+                {/* Search Bar */}
+                <div className="bg-white rounded-lg shadow px-3 py-2 mb-3 flex flex-wrap items-center gap-2">
+                  <div className="relative">
+                    <svg className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400"
+                      fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                    </svg>
+                    <input type="text" value={searchReceiver}
+                      onChange={(e) => { setSearchReceiver(e.target.value); setCurrentPage(1); }}
+                      placeholder="Cari penerima / no. resi..."
+                      className="pl-6 pr-2 py-1 border border-gray-300 rounded text-[11px] w-56 focus:outline-none focus:ring-1 focus:ring-primary" />
+                  </div>
+                  {hasActiveSearch && (
+                    <>
+                      <button onClick={() => { setSearchReceiver(""); setCurrentPage(1); }}
+                        className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 border border-gray-200 rounded text-[11px] hover:bg-gray-200 transition-colors">
+                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Clear
+                      </button>
+                      <span className="text-[10px] text-gray-400">
+                        {filteredData.length} result{filteredData.length !== 1 ? "s" : ""}
+                      </span>
+                    </>
+                  )}
                 </div>
-                {hasActiveSearch && (
-                  <>
-                    <button onClick={() => { setSearchReceiver(""); setCurrentPage(1); }}
-                      className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 border border-gray-200 rounded text-[11px] hover:bg-gray-200 transition-colors">
-                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                      Clear
-                    </button>
-                    <span className="text-[10px] text-gray-400">
-                      {filteredData.length} result{filteredData.length !== 1 ? "s" : ""}
-                    </span>
-                  </>
-                )}
-              </div>
 
-              {/* Table */}
-              <div className="bg-white rounded-lg shadow overflow-hidden">
-                {loading ? (
-                  <div className="p-8 text-center text-sm text-gray-500">Loading...</div>
-                ) : (
-                  <>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-[11px] table-fixed">
-                        <thead className="bg-gray-100 border-b">
-                          <tr>
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[88px]">Tanggal</th>
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[90px]">Assigned To</th>
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[75px]">Ekspedisi</th>
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[100px]">Pengirim</th>
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[150px]">Penerima</th>
-                            {/* Kolom No. Resi sedikit lebih lebar untuk akomodasi 2 ikon */}
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[155px]">No. Resi</th>
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[50px]">Berat</th>
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[110px]">Alasan</th>
-                            {canUpload && <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[85px]">Request By</th>}
-                            <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-[60px]">Status</th>
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[130px]">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {currentItems.map((item, idx) => {
-                            const status = getStatus(item);
-                            const waLink = item.link_tracking ? buildWhatsappLink(item) : null;
-                            return (
-                              <tr key={item.id}
-                                className={`border-b cursor-pointer ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-blue-50 transition-colors`}
-                                onClick={() => setDetailItem(item)}>
-                                <td className="px-2 py-1 text-gray-600">{item.date}</td>
-                                <td className="px-2 py-1 text-gray-700 truncate">{item.assigned_to}</td>
-                                <td className="px-2 py-1"><ExpeditionBadge expedition={item.expedition} /></td>
-                                <td className="px-2 py-1 text-gray-700 truncate">{item.sender}</td>
-                                <td className="px-2 py-1 text-gray-600">
-                                  <div className="flex items-start gap-1">
-                                    <div className="truncate flex-1" title={item.receiver}>
-                                      {hasActiveSearch
-                                        ? highlightText(item.receiver.split("\n")[0], searchReceiver)
-                                        : item.receiver.split("\n")[0]}
-                                    </div>
-                                    {canUpload && item.receiver && (
-                                      <span onClick={(e) => e.stopPropagation()}>
-                                        <CopyButton text={item.receiver} id={item.id} copiedId={copiedId} onCopy={handleCopyReceiver} />
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-
-                                {/* ── Kolom No. Resi: ikon copy + ikon cek resi ── */}
-                                <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
-                                  {item.tracking_number ? (
-                                    <div className="flex items-center gap-1">
-                                      <span
-                                        className="font-mono text-[10px] font-semibold text-blue-700 truncate flex-1"
-                                        title={item.tracking_number}
-                                      >
+                {/* Table */}
+                <div className="bg-white rounded-lg shadow overflow-hidden">
+                  {loading ? (
+                    <div className="p-8 text-center text-sm text-gray-500">Loading...</div>
+                  ) : (
+                    <>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-[11px] table-fixed">
+                          <thead className="bg-gray-100 border-b">
+                            <tr>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[88px]">Tanggal</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[90px]">Assigned To</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[75px]">Ekspedisi</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[100px]">Pengirim</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[150px]">Penerima</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[155px]">No. Resi</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[50px]">Berat</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[110px]">Alasan</th>
+                              {canUpload && <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[85px]">Request By</th>}
+                              <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-[60px]">Status</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[130px]">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {currentItems.map((item, idx) => {
+                              const status = getStatus(item);
+                              const waLink = item.link_tracking ? buildWhatsappLink(item) : null;
+                              return (
+                                <tr key={item.id}
+                                  className={`border-b cursor-pointer ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-blue-50 transition-colors`}
+                                  onClick={() => setDetailItem(item)}>
+                                  <td className="px-2 py-1 text-gray-600">{item.date}</td>
+                                  <td className="px-2 py-1 text-gray-700 truncate">{item.assigned_to}</td>
+                                  <td className="px-2 py-1"><ExpeditionBadge expedition={item.expedition} /></td>
+                                  <td className="px-2 py-1 text-gray-700 truncate">{item.sender}</td>
+                                  <td className="px-2 py-1 text-gray-600">
+                                    <div className="flex items-start gap-1">
+                                      <div className="truncate flex-1" title={item.receiver}>
                                         {hasActiveSearch
-                                          ? highlightText(item.tracking_number, searchReceiver)
-                                          : item.tracking_number}
-                                      </span>
-                                      {/* Ikon copy */}
-                                      <CopyButton
-                                        text={item.tracking_number}
-                                        id={`resi-${item.id}`}
-                                        copiedId={copiedId}
-                                        onCopy={handleCopyReceiver}
-                                      />
-                                      {/* Ikon cek resi → pindah ke tab Cek Resi + postMessage */}
-                                      <CheckResiButton
-                                        trackingNumber={item.tracking_number}
-                                        onCheck={handleCheckResi}
-                                      />
+                                          ? highlightText(item.receiver.split("\n")[0], searchReceiver)
+                                          : item.receiver.split("\n")[0]}
+                                      </div>
+                                      {canUpload && item.receiver && (
+                                        <span onClick={(e) => e.stopPropagation()}>
+                                          <CopyButton text={item.receiver} id={item.id} copiedId={copiedId} onCopy={handleCopyReceiver} />
+                                        </span>
+                                      )}
                                     </div>
-                                  ) : (
-                                    <span className="text-gray-300 text-[10px]">—</span>
-                                  )}
-                                </td>
+                                  </td>
+                                  <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                                    {item.tracking_number ? (
+                                      <div className="flex items-center gap-1">
+                                        <span
+                                          className="font-mono text-[10px] font-semibold text-blue-700 truncate flex-1"
+                                          title={item.tracking_number}
+                                        >
+                                          {hasActiveSearch
+                                            ? highlightText(item.tracking_number, searchReceiver)
+                                            : item.tracking_number}
+                                        </span>
+                                        <CopyButton
+                                          text={item.tracking_number}
+                                          id={`resi-${item.id}`}
+                                          copiedId={copiedId}
+                                          onCopy={handleCopyReceiver}
+                                        />
+                                        <CheckResiButton
+                                          trackingNumber={item.tracking_number}
+                                          onCheck={handleCheckResi}
+                                        />
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-300 text-[10px]">—</span>
+                                    )}
+                                  </td>
+                                  <td className="px-2 py-1 text-gray-600">{item.weight} kg</td>
+                                  <td className="px-2 py-1 text-gray-600 truncate" title={item.reason}>{item.reason}</td>
+                                  {canUpload && <td className="px-2 py-1 text-gray-500">{item.request_by}</td>}
+                                  <td className="px-2 py-1 text-center">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${status === "completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
+                                      {status === "completed" ? "Selesai" : "Pending"}
+                                    </span>
+                                  </td>
+                                  <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex flex-wrap gap-1">
+                                      {canUpload && status === "pending" && (
+                                        <button onClick={() => openUpload(item)}
+                                          className="px-1.5 py-0.5 bg-blue-600 text-white rounded text-[10px] hover:bg-blue-700">
+                                          Upload
+                                        </button>
+                                      )}
+                                      {status === "completed" && waLink && (
+                                        <a href={waLink} target="_blank" rel="noopener noreferrer"
+                                          className="px-1.5 py-0.5 bg-green-500 text-white rounded text-[10px] hover:bg-green-600 inline-flex items-center gap-0.5">
+                                          <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                                          </svg>
+                                          WA
+                                        </a>
+                                      )}
+                                      {item.link_tracking && (
+                                        <a href={item.link_tracking} target="_blank" rel="noopener noreferrer"
+                                          className="px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded text-[10px] hover:bg-gray-300">
+                                          Resi
+                                        </a>
+                                      )}
+                                      {canEdit && !canUpload && item.request_by === user.user_name && status === "pending" && (
+                                        <>
+                                          <button onClick={() => openEdit(item)}
+                                            className="px-1.5 py-0.5 bg-yellow-500 text-white rounded text-[10px] hover:bg-yellow-600">Edit</button>
+                                          <button onClick={() => handleDelete(item)}
+                                            className="px-1.5 py-0.5 bg-red-500 text-white rounded text-[10px] hover:bg-red-600">Hapus</button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                        {filteredData.length === 0 && (
+                          <div className="p-8 text-center text-gray-500 text-sm">
+                            {hasActiveSearch ? "Tidak ada hasil yang sesuai pencarian" : "Belum ada request shipment"}
+                          </div>
+                        )}
+                      </div>
 
-                                <td className="px-2 py-1 text-gray-600">{item.weight} kg</td>
-                                <td className="px-2 py-1 text-gray-600 truncate" title={item.reason}>{item.reason}</td>
-                                {canUpload && <td className="px-2 py-1 text-gray-500">{item.request_by}</td>}
-                                <td className="px-2 py-1 text-center">
-                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${status === "completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
-                                    {status === "completed" ? "Selesai" : "Pending"}
-                                  </span>
-                                </td>
-                                <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
-                                  <div className="flex flex-wrap gap-1">
-                                    {canUpload && status === "pending" && (
-                                      <button onClick={() => openUpload(item)}
-                                        className="px-1.5 py-0.5 bg-blue-600 text-white rounded text-[10px] hover:bg-blue-700">
-                                        Upload
-                                      </button>
-                                    )}
-                                    {status === "completed" && waLink && (
-                                      <a href={waLink} target="_blank" rel="noopener noreferrer"
-                                        className="px-1.5 py-0.5 bg-green-500 text-white rounded text-[10px] hover:bg-green-600 inline-flex items-center gap-0.5">
-                                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24">
-                                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                                        </svg>
-                                        WA
-                                      </a>
-                                    )}
-                                    {item.link_tracking && (
-                                      <a href={item.link_tracking} target="_blank" rel="noopener noreferrer"
-                                        className="px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded text-[10px] hover:bg-gray-300">
-                                        Resi
-                                      </a>
-                                    )}
-                                    {canEdit && !canUpload && item.request_by === user.user_name && status === "pending" && (
-                                      <>
-                                        <button onClick={() => openEdit(item)}
-                                          className="px-1.5 py-0.5 bg-yellow-500 text-white rounded text-[10px] hover:bg-yellow-600">Edit</button>
-                                        <button onClick={() => handleDelete(item)}
-                                          className="px-1.5 py-0.5 bg-red-500 text-white rounded text-[10px] hover:bg-red-600">Hapus</button>
-                                      </>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                      {filteredData.length === 0 && (
-                        <div className="p-8 text-center text-gray-500 text-sm">
-                          {hasActiveSearch ? "Tidak ada hasil yang sesuai pencarian" : "Belum ada request shipment"}
+                      {totalPages > 1 && (
+                        <div className="flex justify-between items-center px-4 py-2.5 border-t">
+                          <div className="text-xs text-gray-500">
+                            {indexOfFirst + 1}–{Math.min(indexOfLast, filteredData.length)} dari {filteredData.length} entri
+                          </div>
+                          <div className="flex gap-1">
+                            <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}
+                              className="px-2.5 py-1 text-xs border rounded disabled:opacity-40 hover:bg-gray-50">Prev</button>
+                            {[...Array(totalPages)].map((_, i) => {
+                              const page = i + 1;
+                              if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                                return (
+                                  <button key={page} onClick={() => setCurrentPage(page)}
+                                    className={`px-2.5 py-1 text-xs border rounded ${currentPage === page ? "bg-primary text-white border-primary" : "hover:bg-gray-50"}`}>
+                                    {page}
+                                  </button>
+                                );
+                              } else if (page === currentPage - 2 || page === currentPage + 2) {
+                                return <span key={page} className="px-1 text-xs text-gray-400 self-center">…</span>;
+                              }
+                              return null;
+                            })}
+                            <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                              className="px-2.5 py-1 text-xs border rounded disabled:opacity-40 hover:bg-gray-50">Next</button>
+                          </div>
                         </div>
                       )}
-                    </div>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
 
-                    {totalPages > 1 && (
-                      <div className="flex justify-between items-center px-4 py-2.5 border-t">
-                        <div className="text-xs text-gray-500">
-                          {indexOfFirst + 1}–{Math.min(indexOfLast, filteredData.length)} dari {filteredData.length} entri
-                        </div>
-                        <div className="flex gap-1">
-                          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}
-                            className="px-2.5 py-1 text-xs border rounded disabled:opacity-40 hover:bg-gray-50">Prev</button>
-                          {[...Array(totalPages)].map((_, i) => {
-                            const page = i + 1;
-                            if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
-                              return (
-                                <button key={page} onClick={() => setCurrentPage(page)}
-                                  className={`px-2.5 py-1 text-xs border rounded ${currentPage === page ? "bg-primary text-white border-primary" : "hover:bg-gray-50"}`}>
-                                  {page}
-                                </button>
-                              );
-                            } else if (page === currentPage - 2 || page === currentPage + 2) {
-                              return <span key={page} className="px-1 text-xs text-gray-400 self-center">…</span>;
-                            }
-                            return null;
-                          })}
-                          <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-                            className="px-2.5 py-1 text-xs border rounded disabled:opacity-40 hover:bg-gray-50">Next</button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
+            {/* Tab: Cek Resi */}
+            {activeTab === "tracking" && (
+              <div
+                className="bg-white rounded-lg shadow overflow-hidden"
+                style={{ height: "calc(100vh - 180px)" }}
+              >
+                <div
+                  style={{
+                    width: "142.86%",
+                    height: "142.86%",
+                    transform: "scale(0.7)",
+                    transformOrigin: "top left",
+                  }}
+                >
+                  <iframe
+                    ref={iframeRef}
+                    key={iframeUrl}
+                    src={iframeUrl}
+                    className="w-full"
+                    style={{ height: "calc((100vh - 180px) / 0.7)" }}
+                    title="Tracking Pengiriman"
+                    onLoad={handleIframeLoad}
+                  />
+                </div>
               </div>
-            </>
-          )}
-
-          {/* Tab: Cek Resi — iframe dengan ref untuk postMessage */}
-{/* Tab: Cek Resi — iframe dengan ref untuk postMessage */}
-{activeTab === "tracking" && (
-  <div
-    className="bg-white rounded-lg shadow overflow-hidden"
-    style={{ height: "calc(100vh - 180px)" }}
-  >
-    <div
-      style={{
-        width: "142.86%",
-        height: "142.86%",
-        transform: "scale(0.7)",
-        transformOrigin: "top left",
-      }}
-    >
-      <iframe
-        ref={iframeRef}
-        key={iframeUrl}
-        src={iframeUrl}
-        className="w-full"
-        style={{ height: "calc((100vh - 180px) / 0.7)" }}
-        title="Tracking Pengiriman"
-        onLoad={handleIframeLoad}
-      />
-    </div>
-  </div>
-)}
+            )}
+          </div>
         </div>
+
+        {/* Detail Popup */}
+        {detailItem && (
+          <DetailPopup item={detailItem} onClose={() => setDetailItem(null)} copiedId={copiedId} onCopy={handleCopyReceiver} />
+        )}
+
+        {/* Add Modal */}
+        {showAddModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
+              <h2 className="text-lg font-bold text-primary mb-4">Request Shipment Baru</h2>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Tanggal <span className="text-red-500">*</span></label>
+                  <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To <span className="text-red-500">*</span></label>
+                  <select value={form.assigned_to} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
+                    <option value="">Pilih</option>
+                    {dropdownData.assignees.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+                  </select>
+                </div>
+                <ExpeditionToggle value={form.expedition} onChange={(v) => setForm({ ...form, expedition: v })} />
+
+                {/* Pengirim & Penerima — satu baris */}
+                <div className="flex gap-3 items-start">
+                  <div className="w-1/2">
+                    <SenderSelect value={form.sender} onChange={(v) => handleSenderChange(v)} details={selectedSenderDetails} storeAddresses={storeAddresses} />
+                  </div>
+                  <div className="w-1/2">
+                    <ReceiverField mode={addReceiverMode} onModeChange={(m) => setAddReceiverMode(m)}
+                      storeValue={addReceiverStore} onStoreChange={(v) => handleReceiverStoreChange(v, false)}
+                      customValue={form.receiver} onCustomChange={(v) => { setForm({ ...form, receiver: v }); setReceiverError(""); }}
+                      error={receiverError} onBlur={() => { if (addReceiverMode === "custom") setReceiverError(validateReceiver(form.receiver)); }}
+                      storeAddresses={storeAddresses} />
+                  </div>
+                </div>
+
+                {/* Berat & Alasan — satu baris */}
+                <div className="flex gap-3 items-start">
+                  <div className="w-20 shrink-0">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Berat (kg) <span className="text-red-500">*</span></label>
+                    <input type="number" min="1" step="1" value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })}
+                      placeholder="1"
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Alasan / Keterangan <span className="text-red-500">*</span></label>
+                    <textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} rows={2}
+                      placeholder="Misal: Order WAG, Retur barang rusak..."
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-5">
+                <button onClick={() => { setShowAddModal(false); resetAddForm(); }}
+                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">Batal</button>
+                <button onClick={handleAdd} disabled={submitting}
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">
+                  {submitting ? "Menyimpan..." : "Submit"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Modal */}
+        {showEditModal && selectedItem && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
+              <h2 className="text-lg font-bold text-primary mb-4">Edit Request Shipment</h2>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Tanggal</label>
+                  <input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To</label>
+                  <select value={editForm.assigned_to} onChange={(e) => setEditForm({ ...editForm, assigned_to: e.target.value })}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
+                    <option value="">Pilih</option>
+                    {dropdownData.assignees.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+                  </select>
+                </div>
+                <ExpeditionToggle value={editForm.expedition} onChange={(v) => setEditForm({ ...editForm, expedition: v })} />
+
+                {/* Pengirim & Penerima — satu baris */}
+                <div className="flex gap-3 items-start">
+                  <div className="w-1/2">
+                    <SenderSelect value={editForm.sender} onChange={(v) => handleSenderChange(v, true)} details={editSenderDetails} storeAddresses={storeAddresses} />
+                  </div>
+                  <div className="w-1/2">
+                    <ReceiverField mode={editReceiverMode} onModeChange={(m) => setEditReceiverMode(m)}
+                      storeValue={editReceiverStore} onStoreChange={(v) => handleReceiverStoreChange(v, true)}
+                      customValue={editForm.receiver} onCustomChange={(v) => { setEditForm({ ...editForm, receiver: v }); setReceiverError(""); }}
+                      error={receiverError} onBlur={() => { if (editReceiverMode === "custom") setReceiverError(validateReceiver(editForm.receiver)); }}
+                      storeAddresses={storeAddresses} />
+                  </div>
+                </div>
+
+                {/* Berat & Alasan — satu baris */}
+                <div className="flex gap-3 items-start">
+                  <div className="w-20 shrink-0">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Berat (kg)</label>
+                    <input type="number" min="1" step="1" value={editForm.weight} onChange={(e) => setEditForm({ ...editForm, weight: e.target.value })}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Alasan</label>
+                    <textarea value={editForm.reason} onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })} rows={2}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-5">
+                <button onClick={() => { setShowEditModal(false); setSelectedItem(null); setReceiverError(""); }}
+                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">Batal</button>
+                <button onClick={handleEdit} disabled={submitting}
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">
+                  {submitting ? "Menyimpan..." : "Simpan"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Upload Modal */}
+        {showUploadModal && selectedItem && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-5 max-w-sm w-full mx-4 shadow-xl">
+              <h2 className="text-sm font-bold text-primary mb-3">Upload Resi</h2>
+              <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200 mb-3 text-[11px]">
+                <div className="flex-1 min-w-0 space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-semibold text-gray-800 truncate">{selectedItem.id}</span>
+                    <span className="text-gray-400">·</span>
+                    <span className="text-gray-600 truncate">{selectedItem.assigned_to}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-gray-500">
+                    {EXPEDITION_LOGO[selectedItem.expedition]
+                      ? <img src={EXPEDITION_LOGO[selectedItem.expedition]} alt={selectedItem.expedition} className="h-3.5 w-auto object-contain" />
+                      : <span>{selectedItem.expedition}</span>}
+                    <span className="text-gray-400">·</span>
+                    <span className="truncate">{selectedItem.sender}</span>
+                    <span className="text-gray-400">·</span>
+                    <span>{selectedItem.weight} kg</span>
+                  </div>
+                </div>
+                <CopyButton text={selectedItem.receiver} id={`upload-${selectedItem.id}`} copiedId={copiedId} onCopy={handleCopyReceiver} />
+              </div>
+              <div className="mb-3 px-2 py-1.5 bg-blue-50 border border-blue-100 rounded text-[10px] font-mono text-blue-800 whitespace-pre-line leading-relaxed">
+                {selectedItem.receiver}
+              </div>
+              <div className="mb-3 flex items-start gap-1.5 p-2 bg-yellow-50 border border-yellow-200 rounded text-[10px] text-yellow-800">
+                <svg className="w-3 h-3 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Nomor resi akan terbaca otomatis dari file yang diupload</span>
+              </div>
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">File Resi / Bukti</label>
+                <DropZone file={uploadFile} onFile={setUploadFile} inputRef={uploadFileRef} />
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => { setShowUploadModal(false); setSelectedItem(null); setUploadFile(null); }}
+                  className="flex-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200 border border-gray-200">Batal</button>
+                <button onClick={handleUpload} disabled={submitting || !uploadFile}
+                  className="flex-1 px-3 py-1.5 bg-green-600 text-white rounded text-xs hover:bg-green-700 disabled:opacity-40 font-medium">
+                  {submitting ? "Mengupload..." : "Upload & Selesaikan"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
       </div>
-
-      {/* Detail Popup */}
-      {detailItem && (
-        <DetailPopup item={detailItem} onClose={() => setDetailItem(null)} copiedId={copiedId} onCopy={handleCopyReceiver} />
-      )}
-
-      {/* Add Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-bold text-primary mb-4">Request Shipment Baru</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Tanggal <span className="text-red-500">*</span></label>
-                <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To <span className="text-red-500">*</span></label>
-                <select value={form.assigned_to} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-                  <option value="">Pilih</option>
-                  {dropdownData.assignees.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
-                </select>
-              </div>
-              <ExpeditionToggle value={form.expedition} onChange={(v) => setForm({ ...form, expedition: v })} />
-              <SenderSelect value={form.sender} onChange={(v) => handleSenderChange(v)} details={selectedSenderDetails} storeAddresses={storeAddresses} />
-              <ReceiverField mode={addReceiverMode} onModeChange={(m) => setAddReceiverMode(m)}
-                storeValue={addReceiverStore} onStoreChange={(v) => handleReceiverStoreChange(v, false)}
-                customValue={form.receiver} onCustomChange={(v) => { setForm({ ...form, receiver: v }); setReceiverError(""); }}
-                error={receiverError} onBlur={() => { if (addReceiverMode === "custom") setReceiverError(validateReceiver(form.receiver)); }}
-                storeAddresses={storeAddresses} />
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Berat (kg) <span className="text-red-500">*</span></label>
-                <input type="number" min="0.1" step="0.1" value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })}
-                  placeholder="contoh: 1.5"
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Alasan / Keterangan <span className="text-red-500">*</span></label>
-                <textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} rows={2}
-                  placeholder="Misal: Order WAG, Retur barang rusak..."
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
-              </div>
-            </div>
-            <div className="flex gap-2 mt-5">
-              <button onClick={() => { setShowAddModal(false); resetAddForm(); }}
-                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">Batal</button>
-              <button onClick={handleAdd} disabled={submitting}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">
-                {submitting ? "Menyimpan..." : "Submit"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Modal */}
-      {showEditModal && selectedItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-bold text-primary mb-4">Edit Request Shipment</h2>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Tanggal</label>
-                <input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To</label>
-                <select value={editForm.assigned_to} onChange={(e) => setEditForm({ ...editForm, assigned_to: e.target.value })}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-                  <option value="">Pilih</option>
-                  {dropdownData.assignees.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
-                </select>
-              </div>
-              <ExpeditionToggle value={editForm.expedition} onChange={(v) => setEditForm({ ...editForm, expedition: v })} />
-              <SenderSelect value={editForm.sender} onChange={(v) => handleSenderChange(v, true)} details={editSenderDetails} storeAddresses={storeAddresses} />
-              <ReceiverField mode={editReceiverMode} onModeChange={(m) => setEditReceiverMode(m)}
-                storeValue={editReceiverStore} onStoreChange={(v) => handleReceiverStoreChange(v, true)}
-                customValue={editForm.receiver} onCustomChange={(v) => { setEditForm({ ...editForm, receiver: v }); setReceiverError(""); }}
-                error={receiverError} onBlur={() => { if (editReceiverMode === "custom") setReceiverError(validateReceiver(editForm.receiver)); }}
-                storeAddresses={storeAddresses} />
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Berat (kg)</label>
-                <input type="number" min="0.1" step="0.1" value={editForm.weight} onChange={(e) => setEditForm({ ...editForm, weight: e.target.value })}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Alasan</label>
-                <textarea value={editForm.reason} onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })} rows={2}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
-              </div>
-            </div>
-            <div className="flex gap-2 mt-5">
-              <button onClick={() => { setShowEditModal(false); setSelectedItem(null); setReceiverError(""); }}
-                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">Batal</button>
-              <button onClick={handleEdit} disabled={submitting}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">
-                {submitting ? "Menyimpan..." : "Simpan"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Upload Modal */}
-      {showUploadModal && selectedItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-5 max-w-sm w-full mx-4 shadow-xl">
-            <h2 className="text-sm font-bold text-primary mb-3">Upload Resi</h2>
-            <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200 mb-3 text-[11px]">
-              <div className="flex-1 min-w-0 space-y-0.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-mono font-semibold text-gray-800 truncate">{selectedItem.id}</span>
-                  <span className="text-gray-400">·</span>
-                  <span className="text-gray-600 truncate">{selectedItem.assigned_to}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-gray-500">
-                  {EXPEDITION_LOGO[selectedItem.expedition]
-                    ? <img src={EXPEDITION_LOGO[selectedItem.expedition]} alt={selectedItem.expedition} className="h-3.5 w-auto object-contain" />
-                    : <span>{selectedItem.expedition}</span>}
-                  <span className="text-gray-400">·</span>
-                  <span className="truncate">{selectedItem.sender}</span>
-                  <span className="text-gray-400">·</span>
-                  <span>{selectedItem.weight} kg</span>
-                </div>
-              </div>
-              <CopyButton text={selectedItem.receiver} id={`upload-${selectedItem.id}`} copiedId={copiedId} onCopy={handleCopyReceiver} />
-            </div>
-            <div className="mb-3 px-2 py-1.5 bg-blue-50 border border-blue-100 rounded text-[10px] font-mono text-blue-800 whitespace-pre-line leading-relaxed">
-              {selectedItem.receiver}
-            </div>
-
-            <div className="mb-3 flex items-start gap-1.5 p-2 bg-yellow-50 border border-yellow-200 rounded text-[10px] text-yellow-800">
-              <svg className="w-3 h-3 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>Nomor resi akan terbaca otomatis dari file yang diupload</span>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-xs font-medium text-gray-700 mb-1.5">File Resi / Bukti</label>
-              <DropZone file={uploadFile} onFile={setUploadFile} inputRef={uploadFileRef} />
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => { setShowUploadModal(false); setSelectedItem(null); setUploadFile(null); }}
-                className="flex-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200 border border-gray-200">Batal</button>
-              <button onClick={handleUpload} disabled={submitting || !uploadFile}
-                className="flex-1 px-3 py-1.5 bg-green-600 text-white rounded text-xs hover:bg-green-700 disabled:opacity-40 font-medium">
-                {submitting ? "Mengupload..." : "Upload & Selesaikan"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
     </div>
-  </div>
   );
 }
