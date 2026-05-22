@@ -133,6 +133,10 @@ export default function RequestStorePage() {
     } catch {}
   };
 
+  const playSound = (file: string) => {
+    try { new Audio(file).play(); } catch {}
+  };
+
   const logActivity = async (method: string, activity: string) => {
     if (!user) return;
     try {
@@ -172,6 +176,7 @@ export default function RequestStorePage() {
       if (res.ok) {
         setData((prev) => prev.map((d) => d.id === item.id ? { ...d, status: newStatus } : d));
         if (newStatus === "Completed") {
+          playSound("/button.mp3");
           await sendPushNotification({
             requesterUsername: item.created_by,
             title: "Request Selesai",
@@ -218,6 +223,7 @@ export default function RequestStorePage() {
           body: `${form.requester}: ${form.reason_request}`,
         });
         showMessage("Request berhasil dibuat", "success");
+        playSound("/add.mp3");
         setShowAddModal(false);
         resetAddForm();
         await logActivity("POST", `Created request: ${form.reason_request} → ${form.assigned_to}`);
@@ -263,6 +269,7 @@ export default function RequestStorePage() {
 
       if (res.ok) {
         if (editForm.status === "Completed" && selectedItem.status !== "Completed") {
+          playSound("/button.mp3");
           await sendPushNotification({
             requesterUsername: selectedItem.created_by,
             title: "Request Selesai",

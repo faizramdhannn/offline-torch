@@ -612,6 +612,15 @@ export default function RequestTrackingPage() {
     }
   }, [iframeReady]);
 
+  const prevDataRef = useRef<TrackingItem[]>([]);
+
+  const playCompletedSound = () => {
+    try {
+      const audio = new Audio("/button.mp3");
+      audio.play();
+    } catch {}
+  };
+
   const fetchData = async () => {
     try {
       const params = new URLSearchParams({
@@ -619,7 +628,20 @@ export default function RequestTrackingPage() {
         isTrackingEdit: String(!!user?.tracking_edit),
       });
       const res = await fetch(`/api/request-tracking?${params}`);
-      if (res.ok) { setData(await res.json()); setLoading(false); }
+      if (res.ok) {
+        const newData: TrackingItem[] = await res.json();
+        // Cek apakah ada item yang baru berubah jadi completed
+        if (prevDataRef.current.length > 0) {
+          const justCompleted = newData.filter((newItem) => {
+            const prev = prevDataRef.current.find((p) => p.id === newItem.id);
+            return prev && !prev.link_tracking && !!newItem.link_tracking;
+          });
+          if (justCompleted.length > 0) playCompletedSound();
+        }
+        prevDataRef.current = newData;
+        setData(newData);
+        setLoading(false);
+      }
     } catch {}
   };
 
@@ -699,6 +721,7 @@ export default function RequestTrackingPage() {
       if (res.ok) {
         showMessage("Request berhasil dibuat", "success");
         setShowAddModal(false); resetAddForm();
+        try { new Audio("/add.mp3").play(); } catch {}
         try {
           await fetch("/api/push-notify", {
             method: "POST",
