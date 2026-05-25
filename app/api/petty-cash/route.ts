@@ -42,6 +42,49 @@ async function addBalanceDebit(value: string, notes: string, updateBy: string) {
   });
 }
 
+// Log history to petty_cash_history sheet
+async function logHistory(
+  petty_cash_id: string,
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'RESTORE',
+  action_by: string,
+  snapshot: Record<string, string>,
+  notes?: string
+) {
+  try {
+    const credentials = getGoogleCredentials();
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    const sheets = google.sheets({ version: 'v4', auth });
+    const SPREADSHEET_PETTY_CASH = process.env.SPREADSHEET_PETTY_CASH || '';
+
+    const history_id = `H${Date.now().toString().slice(-10)}`;
+    const action_at = new Date().toISOString();
+
+    const newRow = [
+      history_id,
+      petty_cash_id,
+      action,
+      action_by,
+      action_at,
+      JSON.stringify(snapshot),
+      notes || '',
+    ];
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_PETTY_CASH,
+      range: 'petty_cash_history!A2',
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [newRow] },
+    });
+  } catch (error) {
+    // Non-fatal: log error but don't break main operation
+    console.error('Failed to write history log:', error);
+  }
+}
+
 // Check if ket contains both "dana talang" and "odi"
 function isDanaTalangOdi(ket: string): boolean {
   const lower = (ket || '').toLowerCase();
@@ -53,9 +96,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const username = searchParams.get('username');
     const isAdmin = searchParams.get('isAdmin') === 'true';
-    
+
     const data = await getSheetData('petty_cash');
-    
+
     // Sort by date (newest first)
     const months: { [key: string]: number } = {
       Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
@@ -72,13 +115,12 @@ export async function GET(request: NextRequest) {
     const sortedData = data.sort((a: any, b: any) => {
       return parseDate(b.date).getTime() - parseDate(a.date).getTime();
     });
-    
-    // Filter based on user permissions
+
     if (!isAdmin && username) {
       const filteredData = sortedData.filter((item: any) => item.store === username);
       return NextResponse.json(filteredData);
     }
-    
+
     return NextResponse.json(sortedData);
   } catch (error) {
     return NextResponse.json(
@@ -100,17 +142,14 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null;
     const username = formData.get('username') as string;
 
-    // Generate ID (short numeric ID)
     const id = Date.now().toString().slice(-8);
-    
-    // Format date
+
     const now = new Date();
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const date = `${now.getDate().toString().padStart(2, '0')} ${months[now.getMonth()]} ${now.getFullYear()}`;
-    
+
     let linkUrl = '';
-    
-    // Upload file to Google Drive if present
+
     if (file) {
       const fileName = `${date.replace(/ /g, '_')}_${category}_${store}_${id}`;
       const fileBuffer = await file.arrayBuffer();
@@ -123,10 +162,8 @@ export async function POST(request: NextRequest) {
     }
 
     const createdAt = now.toISOString();
-    
-    // Extract raw number from value
     const rawValue = value.replace(/[^0-9]/g, '');
-    
+
     const newEntry = [
       id,
       date,
@@ -139,12 +176,26 @@ export async function POST(request: NextRequest) {
       linkUrl,
       username,
       createdAt,
-      createdAt
+      createdAt,
     ];
 
     await appendSheetData('petty_cash', [newEntry]);
 
-    // ── Auto debit balance jika dana talang + odi dan transfer TRUE saat POST ──
+    // Log CREATE history
+    await logHistory(
+      id,
+      'CREATE',
+      username,
+      {
+        id, date, description, category, value: rawValue,
+        store, ket, transfer: transfer ? 'TRUE' : 'FALSE',
+        link_url: linkUrl, update_by: username,
+        created_at: createdAt, update_at: createdAt,
+      },
+      `Created by ${username}`
+    );
+
+    // Auto debit balance if dana talang + odi and transfer TRUE
     if (transfer && isDanaTalangOdi(ket)) {
       await addBalanceDebit(
         rawValue,
@@ -152,7 +203,6 @@ export async function POST(request: NextRequest) {
         username
       );
     }
-    // ──────────────────────────────────────────────────────────────────────────
 
     return NextResponse.json({ success: true, id });
   } catch (error) {
@@ -177,23 +227,34 @@ export async function PUT(request: NextRequest) {
     const file = formData.get('file') as File | null;
     const username = formData.get('username') as string;
 
-    // Get all petty cash data to find the row index
     const pettyCashData = await getSheetData('petty_cash');
     const entryIndex = pettyCashData.findIndex((item: any) => item.id === id);
-    
+
     if (entryIndex === -1) {
-      return NextResponse.json(
-        { error: 'Entry not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
     }
 
     const entry = pettyCashData[entryIndex];
     const rowIndex = entryIndex + 2;
-    
+
+    // Snapshot BEFORE update (for audit trail)
+    const snapshotBefore = {
+      id: entry.id,
+      date: entry.date,
+      description: entry.description,
+      category: entry.category,
+      value: entry.value,
+      store: entry.store,
+      ket: entry.ket,
+      transfer: entry.transfer,
+      link_url: entry.link_url,
+      update_by: entry.update_by,
+      created_at: entry.created_at,
+      update_at: entry.update_at,
+    };
+
     let linkUrl = entry.link_url || '';
-    
-    // Upload new file if present
+
     if (file) {
       const now = new Date();
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -210,7 +271,7 @@ export async function PUT(request: NextRequest) {
 
     const now = new Date().toISOString();
     const rawValue = value.replace(/[^0-9]/g, '');
-    
+
     const updatedEntry = [
       id,
       entry.date,
@@ -223,15 +284,31 @@ export async function PUT(request: NextRequest) {
       linkUrl,
       username,
       entry.created_at,
-      now
+      now,
     ];
 
     await updateSheetRow('petty_cash', rowIndex, updatedEntry);
 
-    // ── Auto debit balance jika: ──────────────────────────────────────────────
-    // 1. transfer sekarang TRUE
-    // 2. ket mengandung "dana talang" dan "odi"
-    // 3. sebelumnya transfer BELUM TRUE (hindari double debit)
+    // Build diff notes
+    const changes: string[] = [];
+    if (snapshotBefore.description !== description) changes.push(`description: "${snapshotBefore.description}" → "${description}"`);
+    if (snapshotBefore.category !== category) changes.push(`category: "${snapshotBefore.category}" → "${category}"`);
+    if (snapshotBefore.value !== rawValue) changes.push(`value: ${snapshotBefore.value} → ${rawValue}`);
+    if (snapshotBefore.ket !== ket) changes.push(`ket: "${snapshotBefore.ket}" → "${ket}"`);
+    if ((snapshotBefore.transfer || '').toUpperCase() !== (transfer ? 'TRUE' : 'FALSE')) {
+      changes.push(`transfer: ${snapshotBefore.transfer} → ${transfer ? 'TRUE' : 'FALSE'}`);
+    }
+
+    // Log UPDATE history — snapshot is the BEFORE state so it can be restored
+    await logHistory(
+      id,
+      'UPDATE',
+      username,
+      snapshotBefore,
+      changes.length > 0 ? `Changed: ${changes.join('; ')}` : 'No field changes detected'
+    );
+
+    // Auto debit balance logic
     const wasAlreadyTransferred = (entry.transfer || '').toUpperCase() === 'TRUE';
     const isNowTransferred = transfer === true;
     const ketHasDanaTalangOdi = isDanaTalangOdi(ket);
@@ -243,7 +320,6 @@ export async function PUT(request: NextRequest) {
         username
       );
     }
-    // ──────────────────────────────────────────────────────────────────────────
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -259,28 +335,49 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const deletedBy = searchParams.get('deletedBy') || 'unknown';
 
     if (!id) {
-      return NextResponse.json(
-        { error: 'ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    // Get all petty cash data
     const pettyCashData = await getSheetData('petty_cash');
     const entryIndex = pettyCashData.findIndex((item: any) => item.id === id);
-    
+
     if (entryIndex === -1) {
-      return NextResponse.json(
-        { error: 'Entry not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
     }
 
+    const entry = pettyCashData[entryIndex];
     const rowIndex = entryIndex + 2;
+
+    // Snapshot the full entry BEFORE deletion
+    const snapshot = {
+      id: entry.id,
+      date: entry.date,
+      description: entry.description,
+      category: entry.category,
+      value: entry.value,
+      store: entry.store,
+      ket: entry.ket,
+      transfer: entry.transfer,
+      link_url: entry.link_url,
+      update_by: entry.update_by,
+      created_at: entry.created_at,
+      update_at: entry.update_at,
+    };
+
+    // Log DELETE history BEFORE clearing
+    await logHistory(
+      id,
+      'DELETE',
+      deletedBy,
+      snapshot,
+      `Deleted by ${deletedBy} — was: ${entry.description} | ${entry.category} | ${entry.value} | ${entry.store}`
+    );
+
+    // Clear the row
     const updatedRow = Array(12).fill('');
-    
     await updateSheetRow('petty_cash', rowIndex, updatedRow);
 
     return NextResponse.json({ success: true });
