@@ -409,7 +409,7 @@ export async function POST(request: NextRequest) {
     setFont(doc, 'normal');
     doc.setFontSize(8);
     setTextCol(doc, TEXT_DARK);
-    doc.text('O2O Koordinator Operasional', margin, namY + 5);
+    doc.text('Area Supervisor', margin, namY + 5);
 
     if (sigPicName) {
       setFont(doc, 'normal');
