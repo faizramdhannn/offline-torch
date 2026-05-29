@@ -83,6 +83,33 @@ function parseTrackingNumber(text: string): string {
   return '';
 }
 
+// ── Kirim notifikasi Telegram ─────────────────────────────────────────────
+async function sendTelegramNotification(sender: string, trackingNumber: string): Promise<void> {
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
+const CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
+
+  const message = `🚀 Request pickup "${sender}" dengan no Resi "${trackingNumber}"`;
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: CHAT_ID,
+        text: message,
+      }),
+    });
+    const result = await res.json();
+    if (!result.ok) {
+      console.error('[Telegram] Failed to send:', result);
+    } else {
+      console.log('[Telegram] Message sent successfully');
+    }
+  } catch (e) {
+    console.error('[Telegram] Error sending notification:', e);
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Column order (14 columns):
 // 0  id           1  date          2  assigned_to   3  expedition
@@ -200,6 +227,13 @@ export async function PUT(request: NextRequest) {
         console.log(`[OCR] Success for ${id}: ${trackingNumber}`);
       } else {
         console.warn(`[OCR] Could not extract tracking number for ${id}`);
+      }
+
+      // 3. Kirim notifikasi Telegram jika ekspedisi Lion
+      const currentExpedition = expedition ?? existing.expedition ?? '';
+      if (currentExpedition.toLowerCase() === 'lion') {
+        const senderName = sender ?? existing.sender ?? '';
+        await sendTelegramNotification(senderName, trackingNumber || '-');
       }
     }
 
