@@ -1349,7 +1349,7 @@ return (
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Contact Person
+                    Contact Person*
                   </label>
                   <input
                     type="text"
@@ -1361,6 +1361,7 @@ return (
                       })
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    required
                   />
                 </div>
                 <div>
@@ -1379,7 +1380,7 @@ return (
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Sub Category
+                    Sub Category*
                   </label>
                   <input
                     type="text"
@@ -1388,6 +1389,7 @@ return (
                       setFormData({ ...formData, sub_category: e.target.value })
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    required
                   />
                 </div>
                 <div>
@@ -1443,7 +1445,7 @@ return (
                 </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Notes
+                    Notes*
                   </label>
                   <textarea
                     value={formData.notes}
@@ -1452,6 +1454,7 @@ return (
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     rows={3}
+                    required
                   />
                 </div>
                 <div className="col-span-2">
