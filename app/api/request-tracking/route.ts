@@ -88,7 +88,7 @@ async function sendTelegramNotification(sender: string, trackingNumber: string):
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
 
-  const message = `🚀 Request pickup "${sender}" dengan no Resi "${trackingNumber}"`;
+  const message = `Request pickup "${sender}" dengan no Resi "${trackingNumber}"`;
 
   try {
     const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
