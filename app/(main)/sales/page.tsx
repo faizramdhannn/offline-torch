@@ -102,6 +102,373 @@ function getYear(dateStr: string): number { const d = parseDate(dateStr); return
 function getMonth(dateStr: string): number { const d = parseDate(dateStr); return d ? d.getMonth() : -1; }
 function getDay(dateStr: string): number { const d = parseDate(dateStr); return d ? d.getDate() : 0; }
 
+// ─── Spreadsheet icon SVG ──────────────────────────────────────────────────────
+function SpreadsheetIcon({ size = 32 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="8" fill="#1a7a4a"/>
+      <rect x="8" y="12" width="32" height="24" rx="2" fill="white" fillOpacity="0.15"/>
+      <rect x="8" y="12" width="32" height="6" fill="white" fillOpacity="0.25"/>
+      <line x1="8" y1="24" x2="40" y2="24" stroke="white" strokeOpacity="0.3" strokeWidth="1"/>
+      <line x1="8" y1="30" x2="40" y2="30" stroke="white" strokeOpacity="0.3" strokeWidth="1"/>
+      <line x1="20" y1="12" x2="20" y2="36" stroke="white" strokeOpacity="0.3" strokeWidth="1"/>
+      <line x1="30" y1="12" x2="30" y2="36" stroke="white" strokeOpacity="0.3" strokeWidth="1"/>
+      <text x="24" y="10" textAnchor="middle" fill="white" fontSize="7" fontWeight="700" fontFamily="sans-serif">S</text>
+    </svg>
+  );
+}
+
+// ─── Spreadsheet List/Card Views ───────────────────────────────────────────────
+interface SpreadsheetEntry {
+  id: string;
+  month: string;
+  year: string;
+  store: string;
+  spreadsheet_link_url: string;
+  spreadsheet_id: string;
+}
+
+// Month order for sorting
+const MONTH_ORDER: Record<string, number> = {
+  januari: 0, februari: 1, maret: 2, april: 3, mei: 4, juni: 5,
+  juli: 6, agustus: 7, september: 8, oktober: 9, november: 10, desember: 11,
+};
+
+function getMonthOrder(month: string): number {
+  return MONTH_ORDER[month.toLowerCase()] ?? 99;
+}
+
+// Card view item
+function SpreadsheetCard({ entry, isDark }: { entry: SpreadsheetEntry; isDark: boolean }) {
+  const [hovered, setHovered] = useState(false);
+  const storeName = STORE_LABELS[entry.store.toLowerCase()] || entry.store;
+  const monthLabel = entry.month;
+  const yearLabel = entry.year;
+
+  return (
+    <a
+      href={entry.spreadsheet_link_url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        padding: "16px 12px 12px",
+        borderRadius: 10,
+        background: isDark
+          ? hovered ? "#243447" : "#1e293b"
+          : hovered ? "#f0f7ff" : "white",
+        border: `1px solid ${isDark
+          ? hovered ? "#3b82f6" : "rgba(255,255,255,0.08)"
+          : hovered ? "#3b82f6" : "#e2e8f0"}`,
+        boxShadow: hovered
+          ? "0 4px 16px rgba(59,130,246,0.2)"
+          : isDark ? "0 1px 4px rgba(0,0,0,0.3)" : "0 1px 4px rgba(0,0,0,0.06)",
+        cursor: "pointer",
+        textDecoration: "none",
+        transition: "all 0.15s ease",
+        gap: 10,
+        userSelect: "none",
+      }}
+    >
+      <SpreadsheetIcon size={40} />
+      <div style={{ textAlign: "center", width: "100%", minWidth: 0 }}>
+        <p style={{
+          fontSize: 11, fontWeight: 700,
+          color: isDark ? "#e2e8f0" : "#1e293b",
+          margin: 0, lineHeight: 1.3,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
+          {storeName}
+        </p>
+        <p style={{
+          fontSize: 9.5, color: isDark ? "#64748b" : "#94a3b8",
+          margin: "2px 0 0", fontWeight: 500,
+        }}>
+          {monthLabel} {yearLabel}
+        </p>
+      </div>
+    </a>
+  );
+}
+
+// List view item
+function SpreadsheetListItem({ entry, isDark, index }: { entry: SpreadsheetEntry; isDark: boolean; index: number }) {
+  const [hovered, setHovered] = useState(false);
+  const storeName = STORE_LABELS[entry.store.toLowerCase()] || entry.store;
+
+  return (
+    <a
+      href={entry.spreadsheet_link_url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "auto 1fr 1fr auto",
+        alignItems: "center",
+        gap: 12,
+        padding: "9px 14px",
+        borderRadius: 8,
+        background: isDark
+          ? hovered ? "#243447" : index % 2 === 0 ? "#1e293b" : "transparent"
+          : hovered ? "#f0f7ff" : index % 2 === 0 ? "#f8fafc" : "white",
+        border: `1px solid ${isDark
+          ? hovered ? "#3b82f6" : "transparent"
+          : hovered ? "#3b82f6" : "transparent"}`,
+        cursor: "pointer",
+        textDecoration: "none",
+        transition: "all 0.12s ease",
+        userSelect: "none",
+      }}
+    >
+      <SpreadsheetIcon size={28} />
+      <p style={{
+        fontSize: 12, fontWeight: 700,
+        color: isDark ? "#e2e8f0" : "#1e293b",
+        margin: 0,
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+      }}>
+        {storeName}
+      </p>
+      <p style={{
+        fontSize: 11, color: isDark ? "#94a3b8" : "#64748b",
+        margin: 0, fontWeight: 500,
+      }}>
+        {entry.month} {entry.year}
+      </p>
+      {/* External link icon */}
+      <svg
+        width="14" height="14" viewBox="0 0 24 24" fill="none"
+        stroke={hovered ? "#3b82f6" : isDark ? "#475569" : "#cbd5e1"}
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        style={{ flexShrink: 0, transition: "stroke 0.12s" }}
+      >
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+        <polyline points="15 3 21 3 21 9"/>
+        <line x1="10" y1="14" x2="21" y2="3"/>
+      </svg>
+    </a>
+  );
+}
+
+// ─── Spreadsheet List Section ──────────────────────────────────────────────────
+function SpreadsheetListSection({
+  entries, isDark, css, isLocked, userStore,
+}: {
+  entries: SpreadsheetEntry[];
+  isDark: boolean;
+  css: Record<string, string>;
+  isLocked: boolean;
+  userStore: string;
+}) {
+  const [viewMode, setViewMode] = useState<"card" | "list">("card");
+  const [filterMonth, setFilterMonth] = useState<string>("all");
+  const [filterYear, setFilterYear] = useState<string>("all");
+  const [filterStore, setFilterStore] = useState<string>("all");
+
+  // Filter by user if locked
+  const visibleEntries = useMemo(() => {
+    if (isLocked) {
+      return entries.filter(e => e.store.toLowerCase() === userStore.toLowerCase());
+    }
+    return entries;
+  }, [entries, isLocked, userStore]);
+
+  // Available filter options
+  const availableMonths = useMemo(() => {
+    const set = new Set(visibleEntries.map(e => e.month));
+    return [...set].sort((a, b) => getMonthOrder(a) - getMonthOrder(b));
+  }, [visibleEntries]);
+
+  const availableYears = useMemo(() => {
+    const set = new Set(visibleEntries.map(e => e.year));
+    return [...set].sort((a, b) => Number(b) - Number(a));
+  }, [visibleEntries]);
+
+  const availableStores = useMemo(() => {
+    const set = new Set(visibleEntries.map(e => e.store.toLowerCase()));
+    return [...set].sort();
+  }, [visibleEntries]);
+
+  // Apply filters
+  const filtered = useMemo(() => {
+    return visibleEntries.filter(e => {
+      if (filterMonth !== "all" && e.month.toLowerCase() !== filterMonth.toLowerCase()) return false;
+      if (filterYear !== "all" && e.year !== filterYear) return false;
+      if (!isLocked && filterStore !== "all" && e.store.toLowerCase() !== filterStore) return false;
+      return true;
+    });
+  }, [visibleEntries, filterMonth, filterYear, filterStore, isLocked]);
+
+  // Group by month-year for card view
+  const grouped = useMemo(() => {
+    const map = new Map<string, SpreadsheetEntry[]>();
+    filtered.forEach(e => {
+      const key = `${e.month} ${e.year}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(e);
+    });
+    // Sort groups by year desc then month desc
+    return [...map.entries()].sort(([a], [b]) => {
+      const [am, ay] = a.split(" ");
+      const [bm, by] = b.split(" ");
+      if (ay !== by) return Number(ay) - Number(by);
+      return getMonthOrder(am) - getMonthOrder(bm);
+    });
+  }, [filtered]);
+
+  const selectSty: React.CSSProperties = {
+    padding: "4px 8px", border: `1px solid ${css.selectBorder}`, borderRadius: 6,
+    fontSize: 11, background: css.selectBg, color: css.selectColor,
+    outline: "none", cursor: "pointer",
+  };
+
+  const iconBtn = (active: boolean): React.CSSProperties => ({
+    padding: "5px 8px",
+    border: `1px solid ${active ? "#3b82f6" : isDark ? "#334155" : "#e2e8f0"}`,
+    borderRadius: 6,
+    background: active ? (isDark ? "#1e3a5c" : "#eff6ff") : "transparent",
+    color: active ? "#3b82f6" : isDark ? "#64748b" : "#94a3b8",
+    cursor: "pointer",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    transition: "all 0.12s",
+  });
+
+  return (
+    <div style={{ width: "100%", boxSizing: "border-box" }}>
+      {/* Toolbar */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        marginBottom: 14, flexWrap: "wrap", gap: 8,
+      }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          <select value={filterYear} onChange={e => setFilterYear(e.target.value)} style={selectSty}>
+            <option value="all">Semua Tahun</option>
+            {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} style={selectSty}>
+            <option value="all">Semua Bulan</option>
+            {availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+          {!isLocked && (
+            <select value={filterStore} onChange={e => setFilterStore(e.target.value)} style={selectSty}>
+              <option value="all">Semua Store</option>
+              {availableStores.map(s => (
+                <option key={s} value={s}>{STORE_LABELS[s] || s}</option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {/* View toggle */}
+        <div style={{ display: "flex", gap: 4 }}>
+          <button onClick={() => setViewMode("card")} style={iconBtn(viewMode === "card")} title="Card view">
+            {/* Grid icon */}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="3" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/>
+              <rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+          </button>
+          <button onClick={() => setViewMode("list")} style={iconBtn(viewMode === "list")} title="List view">
+            {/* List icon */}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="8" y1="6" x2="21" y2="6"/>
+              <line x1="8" y1="12" x2="21" y2="12"/>
+              <line x1="8" y1="18" x2="21" y2="18"/>
+              <circle cx="3" cy="6" r="1.5" fill="currentColor" stroke="none"/>
+              <circle cx="3" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+              <circle cx="3" cy="18" r="1.5" fill="currentColor" stroke="none"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Empty state */}
+      {filtered.length === 0 && (
+        <div style={{
+          display: "flex", flexDirection: "column", alignItems: "center",
+          justifyContent: "center", padding: "60px 20px",
+          color: isDark ? "#475569" : "#94a3b8",
+        }}>
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ marginBottom: 12, opacity: 0.5 }}>
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          <p style={{ fontSize: 13, fontWeight: 600, margin: 0 }}>Tidak ada data</p>
+          <p style={{ fontSize: 11, margin: "4px 0 0" }}>Coba ubah filter pencarian</p>
+        </div>
+      )}
+
+      {/* Card view — grouped by month-year */}
+      {viewMode === "card" && filtered.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {grouped.map(([groupKey, items]) => (
+            <div key={groupKey}>
+              <p style={{
+                fontSize: 11, fontWeight: 700, color: isDark ? "#64748b" : "#94a3b8",
+                margin: "0 0 8px", textTransform: "uppercase", letterSpacing: "0.05em",
+              }}>
+                {groupKey}
+              </p>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))",
+                gap: 10,
+              }}>
+                {items.map((entry, idx) => (
+                  <SpreadsheetCard key={`${entry.id}-${groupKey}-${idx}`} entry={entry} isDark={isDark} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* List view */}
+      {viewMode === "list" && filtered.length > 0 && (
+        <div style={{
+          background: isDark ? "#1e293b" : "white",
+          borderRadius: 10,
+          border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "#e2e8f0"}`,
+          overflow: "hidden",
+          boxShadow: isDark ? "0 1px 4px rgba(0,0,0,0.3)" : "0 1px 4px rgba(0,0,0,0.06)",
+        }}>
+          {/* List header */}
+          <div style={{
+            display: "grid", gridTemplateColumns: "auto 1fr 1fr auto",
+            padding: "8px 14px",
+            borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "#f1f5f9"}`,
+            background: isDark ? "rgba(0,0,0,0.2)" : "#f8fafc",
+          }}>
+            <span style={{ fontSize: 9.5, fontWeight: 700, color: isDark ? "#64748b" : "#94a3b8", width: 40, textTransform: "uppercase" }}>
+              &nbsp;
+            </span>
+            <span style={{ fontSize: 9.5, fontWeight: 700, color: isDark ? "#64748b" : "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Nama
+            </span>
+            <span style={{ fontSize: 9.5, fontWeight: 700, color: isDark ? "#64748b" : "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Periode
+            </span>
+            <span style={{ width: 20 }}>&nbsp;</span>
+          </div>
+          <div>
+            {filtered.map((entry, i) => (
+              <SpreadsheetListItem key={`${entry.id}-${i}`} entry={entry} isDark={isDark} index={i} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Donut Progress Card ───────────────────────────────────────────────────────
 function GaugeChart({ pct, value, label, color = "#0ea5e9", targetValue, actualValue, gaugeTrack = "#e2e8f0", labelColor = "#1e3a5f", valueColor: valueTxtColor = "#64748b" }: {
   pct: number; value: string; label: string; color?: string;
@@ -122,7 +489,6 @@ function GaugeChart({ pct, value, label, color = "#0ea5e9", targetValue, actualV
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Hover tooltip */}
       {hovered && (
         <div style={{
           position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)",
@@ -185,7 +551,6 @@ function GaugeChart({ pct, value, label, color = "#0ea5e9", targetValue, actualV
 // ─── Trend Tooltip ─────────────────────────────────────────────────────────────
 const TrendTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
-  // fullDate is carried in the data point; label is just the day number
   const fullDate = payload[0]?.payload?.fullDate || `Tanggal ${label}`;
   return (
     <div style={{
@@ -206,70 +571,6 @@ const TrendTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-// ─── Calendar Cell Tooltip ──────────────────────────────────────────────────────
-interface CellTooltipData {
-  day: number;
-  sales: number;
-  target: number;
-  traffic: number;
-  showConditional: boolean;
-}
-
-function CellTooltip({ data, x, y }: { data: CellTooltipData; x: number; y: number }) {
-  const pct = data.target > 0 ? (data.sales / data.target) * 100 : 0;
-  const isRight = x > window.innerWidth / 2;
-
-  return (
-    <div style={{
-      position: "fixed",
-      left: isRight ? x - 200 : x + 12,
-      top: Math.min(y - 10, window.innerHeight - 180),
-      background: "#0f172a",
-      border: "1px solid rgba(255,255,255,0.12)",
-      borderRadius: 8,
-      padding: "10px 14px",
-      fontSize: 11,
-      zIndex: 9999,
-      boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
-      minWidth: 180,
-      pointerEvents: "none",
-    }}>
-      <p style={{ color: "#93c5fd", fontWeight: 700, margin: "0 0 8px", fontSize: 12 }}>
-        Tanggal {data.day}
-      </p>
-      {data.showConditional ? (
-        <>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
-            <span style={{ color: "#94a3b8" }}>Net Sales</span>
-            <span style={{ color: "#f1f5f9", fontWeight: 700 }}>{fmtRpExact(data.sales)}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
-            <span style={{ color: "#94a3b8" }}>Target</span>
-            <span style={{ color: "#f1f5f9", fontWeight: 700 }}>{fmtRpExact(data.target)}</span>
-          </div>
-          {data.target > 0 && (
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 4 }}>
-              <span style={{ color: "#94a3b8" }}>Pencapaian</span>
-              <span style={{ color: pct >= 100 ? "#4ade80" : "#f59e0b", fontWeight: 700 }}>{pct.toFixed(1)}%</span>
-            </div>
-          )}
-          {data.traffic > 0 && (
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-              <span style={{ color: "#94a3b8" }}>Traffic</span>
-              <span style={{ color: "#f1f5f9", fontWeight: 700 }}>{data.traffic.toLocaleString("id-ID")}</span>
-            </div>
-          )}
-        </>
-      ) : (
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-          <span style={{ color: "#94a3b8" }}>Target</span>
-          <span style={{ color: "#f1f5f9", fontWeight: 700 }}>{fmtRpExact(data.target)}</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Calendar Grid ─────────────────────────────────────────────────────────────
 function CalendarGrid({
   year, month, title, cellData, targetData, trafficData, showConditional, css,
@@ -283,7 +584,7 @@ function CalendarGrid({
   showConditional: boolean;
   css: Record<string, string>;
 }) {
-  const [tooltip, setTooltip] = useState<{ data: CellTooltipData; x: number; y: number } | null>(null);
+  const [tooltip, setTooltip] = useState<{ data: any; x: number; y: number } | null>(null);
 
   const totalDays = daysInMonth(year, month);
   const firstDay = firstDayOfMonth(year, month);
@@ -356,7 +657,6 @@ function CalendarGrid({
         </div>
       )}
 
-      {/* Title */}
       <div style={{ padding: "10px 16px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
         <p style={{ color: "white", fontWeight: 800, fontSize: 13, margin: 0 }}>{title}</p>
         <p style={{ color: "#93c5fd", fontSize: 10, margin: 0 }}>{MONTHS_SHORT[month]} {year}</p>
@@ -393,10 +693,7 @@ function CalendarGrid({
                 const tgt = targetData[day] || 0;
                 const traffic = trafficData?.[day] || 0;
                 const isAboveTarget = showConditional && val > 0 && tgt > 0 && val >= tgt;
-                // For left calendar: val IS the target amount (cellData=calendarTarget)
-                // For right calendar: val is actual sales
                 const hasValue = val > 0;
-
                 const isDarkMode = css.cellBg !== "white";
                 let bg = css.cellBg;
                 let dayNumColor = "#9ca3af";
@@ -430,7 +727,6 @@ function CalendarGrid({
                   setTooltip({
                     data: {
                       day,
-                      // For left calendar (showConditional=false): cellData IS the target
                       sales: showConditional ? val : 0,
                       target: showConditional ? tgt : val,
                       traffic,
@@ -485,7 +781,6 @@ function CalendarGrid({
 }
 
 // ─── Select style ──────────────────────────────────────────────────────────────
-// selectStyle is now built dynamically inside the component using css vars
 const selectStyle = (css: any): React.CSSProperties => ({
   padding: "4px 8px", border: `1px solid ${css.selectBorder}`, borderRadius: 6,
   fontSize: 11, background: css.selectBg, color: css.selectColor, outline: "none", cursor: "pointer",
@@ -501,6 +796,10 @@ export default function SalesPage() {
   const [dailySales, setDailySales] = useState<Record<string, any>[]>([]);
   const [targetSales, setTargetSales] = useState<Record<string, any>[]>([]);
   const [channelTraffic, setChannelTraffic] = useState<Record<string, any>[]>([]);
+  const [spreadsheetSales, setSpreadsheetSales] = useState<SpreadsheetEntry[]>([]);
+
+  // ── Tab state ──────────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<"list" | "report">("list");
 
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -508,7 +807,7 @@ export default function SalesPage() {
   const [selMonth, setSelMonth] = useState(currentMonth);
   const [selStore, setSelStore] = useState<string>("all");
 
-  // ── Dark mode detection — must be before any return ────────────────────────
+  // ── Dark mode detection ────────────────────────────────────────────────────
   const [isDark, setIsDark] = useState(false);
   useEffect(() => {
     const update = () => setIsDark(document.documentElement.classList.contains("dark"));
@@ -562,6 +861,7 @@ export default function SalesPage() {
       setDailySales(json.dailySales || []);
       setTargetSales(json.targetSales || []);
       setChannelTraffic(json.channelTraffic || []);
+      setSpreadsheetSales(json.spreadsheetSales || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -608,9 +908,8 @@ export default function SalesPage() {
     return { totalSales, totalTarget, totalTraffic, avgDaily, aov, salesPct, forecast, forecastPct, daysWithSales, isCurrentMonth };
   }, [filteredDaily, filteredTarget, filteredTraffic, activeStores, selYear, selMonth]);
 
-  // ── Trend chart — correct date sort + full date label for tooltip ──────────
+  // ── Trend chart ────────────────────────────────────────────────────────────
   const trendData = useMemo(() => {
-    // Build a map keyed by day-of-month (1..31) for the selected month
     const totalDaysInMonth = daysInMonth(selYear, selMonth);
     const result = [];
     for (let day = 1; day <= totalDaysInMonth; day++) {
@@ -618,7 +917,6 @@ export default function SalesPage() {
       const tRow = filteredTarget.find((r) => getDay(r.sales_date) === day) || {};
       const sales  = activeStores.reduce((s, st) => s + parseVal((dRow as any)[st]), 0);
       const target = activeStores.reduce((s, st) => s + parseVal((tRow as any)[st]), 0);
-      // Full date string for tooltip: "1 Mei 2026"
       const fullDate = `${day} ${MONTHS[selMonth]} ${selYear}`;
       result.push({ label: String(day), fullDate, sales, target });
     }
@@ -674,7 +972,25 @@ export default function SalesPage() {
     cellBg:      DM ? "#1e293b" : "white",
     cellBgVal:   DM ? "#243447" : "#e8f4f8",
     cellBgEmpty: DM ? "#111827" : "rgba(0,0,0,0.25)",
+    tabActiveBg: DM ? "#1e293b" : "white",
+    tabActiveColor: DM ? "#e2e8f0" : "#1e3a5c",
+    tabInactiveColor: DM ? "#64748b" : "#94a3b8",
   };
+
+  // ── Tab styles ─────────────────────────────────────────────────────────────
+  const tabStyle = (active: boolean): React.CSSProperties => ({
+    padding: "7px 18px",
+    fontSize: 12,
+    fontWeight: active ? 700 : 500,
+    color: active ? css.tabActiveColor : css.tabInactiveColor,
+    background: active ? css.tabActiveBg : "transparent",
+    border: "none",
+    borderRadius: "8px 8px 0 0",
+    cursor: "pointer",
+    transition: "all 0.15s",
+    borderBottom: active ? `2px solid #3b82f6` : "2px solid transparent",
+    letterSpacing: "-0.01em",
+  });
 
   return (
     <div
@@ -683,38 +999,38 @@ export default function SalesPage() {
     >
       <div style={{ padding: "16px 18px", width: "100%", boxSizing: "border-box" }}>
 
-        {/* ── Header & Filters ── */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+        {/* ── Header ── */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
           <div>
             <h1 style={{ fontSize: 19, fontWeight: 800, color: css.textHeading, margin: 0, letterSpacing: "-0.02em" }}>
-              Daily Target vs Achievement
+              Sales Dashboard
             </h1>
             {lockedStore && (
               <p style={{ fontSize: 10, color: "#64748b", margin: 0 }}>
-                {STORE_LABELS[lockedStore] || lockedStore} · {MONTHS[selMonth]} {selYear}
+                {STORE_LABELS[lockedStore] || lockedStore}
               </p>
             )}
           </div>
-          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-            <select value={selYear} onChange={(e) => setSelYear(Number(e.target.value))} style={selectStyle(css)}>
-              {availableYears.map((y) => <option key={y} value={y}>{y}</option>)}
-            </select>
-            <select value={selMonth} onChange={(e) => setSelMonth(Number(e.target.value))} style={selectStyle(css)}>
-              {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-            </select>
-            {!isLocked && (
-              <select value={selStore} onChange={(e) => setSelStore(e.target.value)} style={selectStyle(css)}>
-                <option value="all">All Stores</option>
-                {detectedStores.map((s) => <option key={s} value={s}>{STORE_LABELS[s] || s}</option>)}
-              </select>
-            )}
-            <button onClick={fetchData} style={{
-              padding: "4px 12px", background: "#1e3a5c", color: "white",
-              border: "none", borderRadius: 6, fontSize: 11, cursor: "pointer",
-            }}>
-              Refresh
-            </button>
-          </div>
+          <button onClick={fetchData} style={{
+            padding: "4px 12px", background: "#1e3a5c", color: "white",
+            border: "none", borderRadius: 6, fontSize: 11, cursor: "pointer",
+          }}>
+            Refresh
+          </button>
+        </div>
+
+        {/* ── Tabs ── */}
+        <div style={{
+          display: "flex", gap: 0,
+          borderBottom: `2px solid ${css.dividerLine}`,
+          marginBottom: 16,
+        }}>
+          <button style={tabStyle(activeTab === "list")} onClick={() => setActiveTab("list")}>
+            List
+          </button>
+          <button style={tabStyle(activeTab === "report")} onClick={() => setActiveTab("report")}>
+            Report
+          </button>
         </div>
 
         {loading ? (
@@ -723,149 +1039,189 @@ export default function SalesPage() {
           </div>
         ) : (
           <>
-            {/* ── TOP: Gauges + Stats + Trend ── */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.7fr)",
-              gap: 12,
-              marginBottom: 12,
-              width: "100%",
-            }}>
+            {/* ── LIST TAB ── */}
+            {activeTab === "list" && (
+              <SpreadsheetListSection
+                entries={spreadsheetSales}
+                isDark={DM}
+                css={css}
+                isLocked={isLocked}
+                userStore={lockedStore || ""}
+              />
+            )}
 
-              {/* Left panel */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
-
-                {/* Gauges — fixed height, centered, no overflow */}
-                <div style={{
-                  background: css.cardBg, borderRadius: 10,
-                  boxShadow: css.cardShadow,
-                  padding: "12px 12px 4px",
-                  overflow: "hidden",
-                  transition: "background 0.2s",
-                }}>
-                  <div style={{ display: "flex", alignItems: "stretch", gap: 0 }}>
-                    <GaugeChart
-                      pct={stats.salesPct}
-                      value={fmtRp(stats.totalSales)}
-                      label="Net Sales MTD vs Target MTD"
-                      color="#0ea5e9"
-                      actualValue={fmtRpExact(stats.totalSales)}
-                      targetValue={fmtRpExact(stats.totalTarget)}
-                      gaugeTrack={css.gaugeTrack}
-                      labelColor={css.textHeading}
-                      valueColor={css.textMuted}
-                    />
-                    <div style={{ width: 1, background: css.dividerLine, margin: "8px 0" }} />
-                    <GaugeChart
-                      pct={stats.forecastPct}
-                      value={fmtRp(Math.round(stats.forecast))}
-                      label="Est Net Sales vs Target MTD"
-                      color="#0ea5e9"
-                      actualValue={fmtRpExact(Math.round(stats.forecast))}
-                      targetValue={fmtRpExact(stats.totalTarget)}
-                      gaugeTrack={css.gaugeTrack}
-                      labelColor={css.textHeading}
-                      valueColor={css.textMuted}
-                    />
+            {/* ── REPORT TAB ── */}
+            {activeTab === "report" && (
+              <>
+                {/* Report filters */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: css.textValue, margin: 0 }}>
+                    Daily Target vs Achievement
+                    {lockedStore && (
+                      <span style={{ fontSize: 10, color: "#64748b", fontWeight: 500, marginLeft: 8 }}>
+                        {STORE_LABELS[lockedStore] || lockedStore} · {MONTHS[selMonth]} {selYear}
+                      </span>
+                    )}
+                  </p>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                    <select value={selYear} onChange={(e) => setSelYear(Number(e.target.value))} style={selectStyle(css)}>
+                      {availableYears.map((y) => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                    <select value={selMonth} onChange={(e) => setSelMonth(Number(e.target.value))} style={selectStyle(css)}>
+                      {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                    </select>
+                    {!isLocked && (
+                      <select value={selStore} onChange={(e) => setSelStore(e.target.value)} style={selectStyle(css)}>
+                        <option value="all">All Stores</option>
+                        {detectedStores.map((s) => <option key={s} value={s}>{STORE_LABELS[s] || s}</option>)}
+                      </select>
+                    )}
                   </div>
                 </div>
 
-                {/* Stat grid */}
+                {/* Gauges + Stats + Trend */}
                 <div style={{
-                  background: css.cardBg, borderRadius: 10, padding: "12px 16px",
-                  boxShadow: css.cardShadow, transition: "background 0.2s",
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.7fr)",
+                  gap: 12,
+                  marginBottom: 12,
+                  width: "100%",
                 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 20px" }}>
-                    {[
-                      { label: "Avg Net Daily", value: fmtRp(Math.round(stats.avgDaily)) },
-                      { label: "Net Sales MTD", value: fmtRp(stats.totalSales) },
-                      { label: "Est Net Sales", value: fmtRp(Math.round(stats.forecast)) },
-                      { label: "% Est Net Sales", value: `${stats.forecastPct.toFixed(2)}%` },
-                      { label: "Total Traffic", value: stats.totalTraffic.toLocaleString("id-ID") },
-                    ].map((item) => (
-                      <div key={item.label} style={{ borderBottom: `1px solid ${css.divider}`, paddingBottom: 5 }}>
-                        <p style={{ fontSize: 9.5, color: css.textMuted, margin: 0, fontWeight: 500 }}>{item.label}</p>
-                        <p style={{ fontSize: 14, fontWeight: 800, color: css.textValue, margin: 0 }}>{item.value}</p>
+                  {/* Left panel */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+                    {/* Gauges */}
+                    <div style={{
+                      background: css.cardBg, borderRadius: 10,
+                      boxShadow: css.cardShadow,
+                      padding: "12px 12px 4px",
+                      overflow: "hidden",
+                      transition: "background 0.2s",
+                    }}>
+                      <div style={{ display: "flex", alignItems: "stretch", gap: 0 }}>
+                        <GaugeChart
+                          pct={stats.salesPct}
+                          value={fmtRp(stats.totalSales)}
+                          label="Net Sales MTD vs Target MTD"
+                          color="#0ea5e9"
+                          actualValue={fmtRpExact(stats.totalSales)}
+                          targetValue={fmtRpExact(stats.totalTarget)}
+                          gaugeTrack={css.gaugeTrack}
+                          labelColor={css.textHeading}
+                          valueColor={css.textMuted}
+                        />
+                        <div style={{ width: 1, background: css.dividerLine, margin: "8px 0" }} />
+                        <GaugeChart
+                          pct={stats.forecastPct}
+                          value={fmtRp(Math.round(stats.forecast))}
+                          label="Est Net Sales vs Target MTD"
+                          color="#0ea5e9"
+                          actualValue={fmtRpExact(Math.round(stats.forecast))}
+                          targetValue={fmtRpExact(stats.totalTarget)}
+                          gaugeTrack={css.gaugeTrack}
+                          labelColor={css.textHeading}
+                          valueColor={css.textMuted}
+                        />
                       </div>
-                    ))}
+                    </div>
+
+                    {/* Stat grid */}
+                    <div style={{
+                      background: css.cardBg, borderRadius: 10, padding: "12px 16px",
+                      boxShadow: css.cardShadow, transition: "background 0.2s",
+                    }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 20px" }}>
+                        {[
+                          { label: "Avg Net Daily", value: fmtRp(Math.round(stats.avgDaily)) },
+                          { label: "Net Sales MTD", value: fmtRp(stats.totalSales) },
+                          { label: "Est Net Sales", value: fmtRp(Math.round(stats.forecast)) },
+                          { label: "% Est Net Sales", value: `${stats.forecastPct.toFixed(2)}%` },
+                          { label: "Total Traffic", value: stats.totalTraffic.toLocaleString("id-ID") },
+                        ].map((item) => (
+                          <div key={item.label} style={{ borderBottom: `1px solid ${css.divider}`, paddingBottom: 5 }}>
+                            <p style={{ fontSize: 9.5, color: css.textMuted, margin: 0, fontWeight: 500 }}>{item.label}</p>
+                            <p style={{ fontSize: 14, fontWeight: 800, color: css.textValue, margin: 0 }}>{item.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Trend chart */}
+                  <div style={{
+                    background: css.cardBg, borderRadius: 10, padding: "14px 16px",
+                    boxShadow: css.cardShadow, minWidth: 0, transition: "background 0.2s",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: css.textValue, margin: 0 }}>Net Sales Trend</p>
+                      <div style={{ display: "flex", gap: 14, fontSize: 10, color: css.textSub }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#0ea5e9", display: "inline-block" }} />
+                          Net Sales
+                        </span>
+                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#eab308", display: "inline-block" }} />
+                          Target Net Sales Daily
+                        </span>
+                      </div>
+                    </div>
+                    <ResponsiveContainer width="100%" height={215}>
+                      <AreaChart data={trendData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="gradS" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.35} />
+                            <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="gradT" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#eab308" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                        <YAxis
+                          tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false}
+                          tickFormatter={(v) => fmtRpShort(v)} width={54}
+                        />
+                        <Tooltip content={<TrendTooltip />} />
+                        <Area type="monotone" dataKey="target" name="Target" stroke="#eab308" strokeWidth={1.5}
+                          fill="url(#gradT)" dot={false} strokeDasharray="4 2" />
+                        <Area type="monotone" dataKey="sales" name="Net Sales" stroke="#0ea5e9" strokeWidth={2.5}
+                          fill="url(#gradS)" dot={{ r: 3, fill: "#0ea5e9", strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
-              </div>
 
-              {/* Right: Trend chart */}
-              <div style={{
-                background: css.cardBg, borderRadius: 10, padding: "14px 16px",
-                boxShadow: css.cardShadow, minWidth: 0, transition: "background 0.2s",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: css.textValue, margin: 0 }}>Net Sales Trend</p>
-                  <div style={{ display: "flex", gap: 14, fontSize: 10, color: css.textSub }}>
-                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#0ea5e9", display: "inline-block" }} />
-                      Net Sales
-                    </span>
-                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#eab308", display: "inline-block" }} />
-                      Target Net Sales Daily
-                    </span>
-                  </div>
+                {/* Calendar grids */}
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 12,
+                  width: "100%",
+                  alignItems: "start",
+                }}>
+                  <CalendarGrid
+                    year={selYear}
+                    month={selMonth}
+                    title="Target Net Sales by Date"
+                    cellData={calendarTarget}
+                    targetData={{}}
+                    showConditional={false}
+                    css={css}
+                  />
+                  <CalendarGrid
+                    year={selYear}
+                    month={selMonth}
+                    title="Net Sales by Date"
+                    cellData={calendarSales}
+                    targetData={calendarTarget}
+                    trafficData={calendarTraffic}
+                    showConditional={true}
+                    css={css}
+                  />
                 </div>
-                <ResponsiveContainer width="100%" height={215}>
-                  <AreaChart data={trendData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="gradS" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="gradT" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#eab308" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                    <YAxis
-                      tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false}
-                      tickFormatter={(v) => fmtRpShort(v)} width={54}
-                    />
-                    <Tooltip content={<TrendTooltip />} />
-                    <Area type="monotone" dataKey="target" name="Target" stroke="#eab308" strokeWidth={1.5}
-                      fill="url(#gradT)" dot={false} strokeDasharray="4 2" />
-                    <Area type="monotone" dataKey="sales" name="Net Sales" stroke="#0ea5e9" strokeWidth={2.5}
-                      fill="url(#gradS)" dot={{ r: 3, fill: "#0ea5e9", strokeWidth: 0 }} activeDot={{ r: 5 }} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* ── BOTTOM: Calendar grids — equal width, full width ── */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 12,
-              width: "100%",
-              alignItems: "start",
-            }}>
-              <CalendarGrid
-                year={selYear}
-                month={selMonth}
-                title="Target Net Sales by Date"
-                cellData={calendarTarget}
-                targetData={{}}
-                showConditional={false}
-                css={css}
-              />
-              <CalendarGrid
-                year={selYear}
-                month={selMonth}
-                title="Net Sales by Date"
-                cellData={calendarSales}
-                targetData={calendarTarget}
-                trafficData={calendarTraffic}
-                showConditional={true}
-                css={css}
-              />
-            </div>
+              </>
+            )}
           </>
         )}
       </div>

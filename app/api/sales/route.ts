@@ -58,14 +58,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(data);
     }
 
-    // type === 'all' — fetch all 3 in parallel
-    const [dailySales, targetSales, channelTraffic] = await Promise.all([
+    if (type === 'spreadsheet_sales') {
+      const data = await getSalesSheetData('spreadsheet_sales');
+      return NextResponse.json(data);
+    }
+
+    // type === 'all' — fetch all 4 in parallel
+    const [dailySales, targetSales, channelTraffic, spreadsheetSales] = await Promise.all([
       getSalesSheetData('daily_sales'),
       getSalesSheetData('target_sales'),
       getSalesSheetData('channel_traffic'),
+      getSalesSheetData('spreadsheet_sales'),
     ]);
 
-    return NextResponse.json({ dailySales, targetSales, channelTraffic });
+    return NextResponse.json({ dailySales, targetSales, channelTraffic, spreadsheetSales });
   } catch (error) {
     console.error('Error fetching sales data:', error);
     return NextResponse.json(
