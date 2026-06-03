@@ -30,6 +30,8 @@ interface SidebarProps {
     request_tracking?: boolean;
     tracking_edit?: boolean;
     attendance?: boolean;
+    attendance_store?: boolean;       // ← NEW
+    attendance_store_all?: boolean;   // ← NEW
     invoice?: boolean;
     sales_view?: boolean;
     sales_view_all?: boolean;
@@ -48,7 +50,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
   const pathname = usePathname();
   const [generatingCatalog, setGeneratingCatalog] = useState(false);
 
-  // ── Track which group is open, initialized once from pathname ───────────────
   const initialGroup = (() => {
     if (
       pathname === "/request-store" ||
@@ -69,7 +70,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     initialGroup
   );
 
-  // ── Only sync open group when navigating TO a group page from outside ───────
   const prevPathnameRef = useRef(pathname);
   useEffect(() => {
     const prev = prevPathnameRef.current;
@@ -102,7 +102,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     }
   }, [pathname]);
 
-  // ── Collapse jelly — ref-based so it never re-renders ExpandedGroup ─────────
   const collapseButtonRef = useRef<HTMLButtonElement>(null);
   const { isOpen, isCollapsed, toggleOpen, toggleCollapsed } = useSidebar();
   const { isDark, toggleTheme } = useTheme();
@@ -112,7 +111,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     const btn = collapseButtonRef.current;
     if (!btn) return;
     btn.classList.remove("jelly-btn");
-    // Force reflow so removing+adding the class restarts the animation
     void btn.offsetWidth;
     btn.classList.add("jelly-btn");
     const onEnd = () => {
@@ -141,16 +139,14 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     router.push("/login");
   };
 
-  // ── Jelly navigate — ref-based, never triggers a sidebar re-render ──────────
   const jellyNavigate = useCallback(
     (path: string) => {
-      // Apply jelly directly on the DOM element via data-path attribute
       const el = document.querySelector<HTMLElement>(
         `[data-navpath="${CSS.escape(path)}"]`
       );
       if (el) {
         el.classList.remove("menu-item-jelly");
-        void el.offsetWidth; // reflow
+        void el.offsetWidth;
         el.classList.add("menu-item-jelly");
         const onEnd = () => {
           el.classList.remove("menu-item-jelly");
@@ -232,6 +228,18 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      ),
+    },
+    // ── NEW: Capture Attendance ──────────────────────────────────────────────
+    {
+      name: "Capture Attendance",
+      path: "/capture-attendance",
+      permission: "attendance_store",
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
       ),
     },
@@ -353,10 +361,11 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
   const checkPermission = (item: MenuItem): boolean => {
     if (item.permission === "traffic_store")
       return !!(permissions.traffic_store || permissions.report_store);
+    if (item.permission === "attendance_store")
+      return !!(permissions.attendance_store || permissions.attendance_store_all);
     return !!permissions[item.permission as keyof typeof permissions];
   };
 
-  // ── MenuButton — animasi via DOM, tidak pakai state ─────────────────────────
   const MenuButton = ({ item }: { item: MenuItem }) => {
     const isActive = pathname === item.path;
     return (
@@ -385,7 +394,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     );
   };
 
-  // ── Collapsed flyout submenu ─────────────────────────────────────────────────
   const CollapsedFlyout = ({
     groupIcon,
     label,
@@ -434,7 +442,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     );
   };
 
-  // ── Expanded group — FIX: track transisi open/close, bukan nilai saat ini ────
   const ExpandedGroup = ({
     groupIcon,
     label,
@@ -450,13 +457,8 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     onToggle: () => void;
     items: { path: string; label: string; icon: ReactNode; show: boolean }[];
   }) => {
-    // prevOpenRef menyimpan nilai open dari render SEBELUMNYA
     const prevOpenRef = useRef(open);
-
-    // justOpened = true hanya saat render pertama setelah transisi false→true
     const justOpened = open && !prevOpenRef.current;
-
-    // Update ref SETELAH semua render logic selesai dievaluasi
     useEffect(() => {
       prevOpenRef.current = open;
     });
@@ -512,7 +514,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     );
   };
 
-  // Sub-item icons
   const cancelOrderIcon = (
     <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
@@ -712,7 +713,8 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         <nav className="flex-1 py-1.5 overflow-y-auto overflow-x-hidden">
           {checkPermission(menuItems[0]) && <MenuButton item={menuItems[0]} />}
 
-          {menuItems.slice(1, 5).map((item) =>
+          {/* Attendance, Capture Attendance, Bundling, Canvasing, Customer */}
+          {menuItems.slice(1, 6).map((item) =>
             checkPermission(item) ? <MenuButton key={item.path} item={item} /> : null
           )}
 
@@ -750,7 +752,8 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
             )
           )}
 
-          {menuItems.slice(5).map((item) =>
+          {/* Petty Cash, Stock, Stock Opname, Survey Store, Voucher, Registration, Settings */}
+          {menuItems.slice(6).map((item) =>
             checkPermission(item) ? <MenuButton key={item.path} item={item} /> : null
           )}
 
