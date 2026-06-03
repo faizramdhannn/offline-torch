@@ -22,10 +22,8 @@ export async function GET(request: NextRequest) {
 
     if (date) {
       filtered = filtered.filter((r) => {
-        // created_at format: "DD MMM YYYY, HH:MM:SS" or similar — match date portion
-        const created = r.created_at || '';
-        // Try to match YYYY-MM-DD in created_at, or open_timestamp
         const ts = r.open_timestamp || r.created_at || '';
+        const created = r.created_at || '';
         return ts.includes(date) || created.startsWith(date);
       });
     }
@@ -102,14 +100,12 @@ export async function POST(request: NextRequest) {
 
     if (selfieDataUrl && selfieDataUrl.startsWith('data:')) {
       try {
-        // date for filename: YYYYMMDD
         const dateStr = todayISO.replace(/-/g, '');
         const actionLabel = action === 'open' ? 'Open' : 'Close';
         const fileName = `${actionLabel}_${store_name}_${dateStr}`;
         selfieUrl = await uploadAttendanceSelfie(selfieDataUrl, fileName, store_name);
       } catch (uploadErr) {
         console.error('Selfie upload failed, storing base64 fallback:', uploadErr);
-        // Fallback: store compressed base64 (keep it small)
         selfieUrl = selfieDataUrl;
       }
     }
@@ -120,31 +116,30 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Already checked in today' }, { status: 400 });
       }
 
-      // Generate unique id
       const id = `ATT-${Date.now()}`;
 
       const newRow = [
-        id,                             // id
-        '',                             // store_id (optional)
-        store_name,                     // store_name
-        device_info || '',              // device_info
-        browser || '',                  // browser
-        ip_address || '',               // ip_address
-        is_valid_location ? 'TRUE' : 'FALSE', // is_valid_location
-        body.open_latitude || '',       // open_latitude
-        body.open_longitude || '',      // open_longitude
-        body.open_maps_url || '',       // open_maps_url
-        body.open_timestamp || nowStr,  // open_timestamp
-        staffName || '',                // open_staff_name
-        selfieUrl,                      // open_selfie
-        '',                             // close_latitude
-        '',                             // close_longitude
-        '',                             // close_maps_url
-        '',                             // close_timestamp
-        '',                             // close_staff_name
-        '',                             // close_selfie
-        nowStr,                         // created_at
-        nowStr,                         // updated_at
+        id,
+        '',
+        store_name,
+        device_info || '',
+        browser || '',
+        ip_address || '',
+        is_valid_location ? 'TRUE' : 'FALSE',
+        body.open_latitude || '',
+        body.open_longitude || '',
+        body.open_maps_url || '',
+        body.open_timestamp || nowStr,
+        staffName || '',
+        selfieUrl,
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        nowStr,
+        nowStr,
       ];
 
       await appendSheetData('attendance_store', [newRow]);
@@ -174,14 +169,14 @@ export async function POST(request: NextRequest) {
         existing.open_timestamp || '',
         existing.open_staff_name || '',
         existing.open_selfie || '',
-        body.close_latitude || '',       // close_latitude
-        body.close_longitude || '',      // close_longitude
-        body.close_maps_url || '',       // close_maps_url
-        body.close_timestamp || nowStr,  // close_timestamp
-        staffName || '',                 // close_staff_name
-        selfieUrl,                       // close_selfie
-        existing.created_at || nowStr,   // created_at
-        nowStr,                          // updated_at
+        body.close_latitude || '',
+        body.close_longitude || '',
+        body.close_maps_url || '',
+        body.close_timestamp || nowStr,
+        staffName || '',
+        selfieUrl,
+        existing.created_at || nowStr,
+        nowStr,
       ];
 
       await updateSheetRow('attendance_store', rowNumber, updatedRow);

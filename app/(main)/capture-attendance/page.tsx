@@ -69,17 +69,6 @@ function buildMapsUrl(lat: number, lng: number): string {
   return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}&zoom=17`;
 }
 
-function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371000; // meters
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 function nowTimestamp(): string {
   return new Date().toLocaleString('id-ID', {
     day: '2-digit', month: 'short', year: 'numeric',
@@ -106,11 +95,11 @@ function SelfieCapture({
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState(0);
 
   useEffect(() => {
     startCamera();
     return () => { stopCamera(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startCamera = async () => {
@@ -138,7 +127,6 @@ function SelfieCapture({
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    // Mirror the image (selfie)
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0);
@@ -251,12 +239,14 @@ export default function CaptureAttendancePage() {
     const userData = localStorage.getItem("user");
     if (!userData) { router.push("/login"); return; }
     const parsed = JSON.parse(userData);
+    // Check for attendance_store OR attendance_store_all access
     if (!parsed.attendance_store && !parsed.attendance_store_all) {
       router.push("/dashboard");
       return;
     }
     setUser(parsed);
 
+    // Match user_name to store_list to detect if this is a store account
     fetch('/api/attendance/meta?type=store_list')
       .then(r => r.json())
       .then((stores: StoreEntry[]) => {
@@ -280,7 +270,7 @@ export default function CaptureAttendancePage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-primary">Capture Attendance</h1>
-            <p className="text-[11px] text-gray-500 mt-0.5">Absensi buka & tutup toko</p>
+            <p className="text-[11px] text-gray-500 mt-0.5">Absensi buka &amp; tutup toko</p>
           </div>
           <div className="flex gap-0.5 bg-white rounded-lg p-0.5 shadow border border-gray-100">
             {(['capture', 'history'] as const).map(tab => (
@@ -339,7 +329,6 @@ function CaptureTab({
   // Selfie
   const [showCamera, setShowCamera] = useState(false);
   const [selfieData, setSelfieData] = useState<string | null>(null);
-  const [selfieFor, setSelfieFor] = useState<'open' | 'close'>('open');
 
   // Steps
   type Step = 'init' | 'gps' | 'selfie' | 'confirm' | 'done';
@@ -414,7 +403,6 @@ function CaptureTab({
     const c = await getGPS();
     if (!c) return;
     setStep('selfie');
-    setSelfieFor(type);
   };
 
   const handleSelfieCapture = (dataUrl: string) => {
@@ -438,7 +426,7 @@ function CaptureTab({
         device_info: getDeviceInfo(),
         browser: getBrowserName(),
         ip_address: ip,
-        is_valid_location: true, // simplified: always valid
+        is_valid_location: true,
       };
 
       if (actionType === 'open') {
@@ -905,7 +893,7 @@ function HistoryTab({
                       </div>
                     </div>
 
-                    {/* Extra info for all access */}
+                    {/* Extra info for all-access users */}
                     {isAll && (
                       <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2 text-[10px] text-gray-600">
                         <div><span className="text-gray-400">Device:</span> <span className="font-medium">{rec.device_info || '-'}</span></div>
