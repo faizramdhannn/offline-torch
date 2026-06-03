@@ -11,6 +11,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(stores || []);
     }
 
+    if (type === 'taft_list') {
+      const storeName = searchParams.get('store_name');
+      const tafts = await getSheetData('taft_list');
+      const filtered = storeName
+        ? (tafts || []).filter(
+            (t: any) => t.store_name?.toLowerCase() === storeName.toLowerCase()
+          )
+        : (tafts || []);
+      return NextResponse.json(filtered);
+    }
+
     return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
   } catch (error) {
     console.error('Attendance meta error:', error);

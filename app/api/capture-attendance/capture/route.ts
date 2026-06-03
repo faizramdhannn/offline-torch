@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
         open_staff_name: r.open_staff_name,
         open_selfie: r.open_selfie,
         open_maps_url: r.open_maps_url,
+        taft_names: r.taft_names,
         close_timestamp: r.close_timestamp,
         close_staff_name: r.close_staff_name,
         close_selfie: r.close_selfie,
@@ -97,6 +98,7 @@ export async function POST(request: NextRequest) {
     let selfieUrl = '';
     const selfieDataUrl: string = action === 'open' ? body.open_selfie : body.close_selfie;
     const staffName: string = action === 'open' ? body.open_staff_name : body.close_staff_name;
+    const taftNames: string = body.taft_names || '';
 
     if (selfieDataUrl && selfieDataUrl.startsWith('data:')) {
       try {
@@ -118,6 +120,11 @@ export async function POST(request: NextRequest) {
 
       const id = `ATT-${Date.now()}`;
 
+      // Column order must match sheet headers exactly:
+      // id | store_id | store_name | device_info | browser | ip_address | is_valid_location
+      // | open_latitude | open_longitude | open_maps_url | open_timestamp | open_staff_name
+      // | open_selfie | taft_names | close_latitude | close_longitude | close_maps_url
+      // | close_timestamp | close_staff_name | close_selfie | created_at | updated_at
       const newRow = [
         id,
         '',
@@ -132,12 +139,13 @@ export async function POST(request: NextRequest) {
         body.open_timestamp || nowStr,
         staffName || '',
         selfieUrl,
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
+        taftNames,
+        '',   // close_latitude
+        '',   // close_longitude
+        '',   // close_maps_url
+        '',   // close_timestamp
+        '',   // close_staff_name
+        '',   // close_selfie
         nowStr,
         nowStr,
       ];
@@ -169,6 +177,7 @@ export async function POST(request: NextRequest) {
         existing.open_timestamp || '',
         existing.open_staff_name || '',
         existing.open_selfie || '',
+        existing.taft_names || '',
         body.close_latitude || '',
         body.close_longitude || '',
         body.close_maps_url || '',

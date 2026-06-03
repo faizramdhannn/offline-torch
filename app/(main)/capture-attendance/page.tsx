@@ -19,6 +19,7 @@ interface AttendanceRecord {
   open_timestamp: string;
   open_staff_name: string;
   open_selfie: string;
+  taft_names: string;
   close_latitude: string;
   close_longitude: string;
   close_maps_url: string;
@@ -32,6 +33,65 @@ interface AttendanceRecord {
 interface StoreEntry {
   id: string;
   store_name: string;
+}
+
+interface StoreDetail {
+  id: string;
+  store_name: string;
+  type_store: string;
+  open_hours: string;   // "HH:mm" or "HH:mm:ss"
+  close_hours: string;
+  store_wages: string;
+}
+
+interface TaftEntry {
+  id: string;
+  store_name: string;
+  taft_name: string;
+  start_date: string;
+  end_date: string;
+}
+
+// ─── Time Window Helpers ───────────────────────────────────────────────────────
+
+/** Parse "HH:mm" or "HH:mm:ss" to minutes since midnight */
+function parseHHMM(timeStr: string): number | null {
+  if (!timeStr) return null;
+  const parts = timeStr.trim().split(':');
+  if (parts.length < 2) return null;
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  if (isNaN(h) || isNaN(m)) return null;
+  return h * 60 + m;
+}
+
+/** Current minutes since midnight in WIB (Asia/Jakarta) */
+function nowMinutesWIB(): number {
+  const now = new Date();
+  const wib = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+  return wib.getHours() * 60 + wib.getMinutes();
+}
+
+/**
+ * OPEN button is available within ±2 hours (120 min) of open_hours.
+ * If open_hours not set → always allowed.
+ */
+function isOpenWindowActive(openHours: string): boolean {
+  const target = parseHHMM(openHours);
+  if (target === null) return true;
+  const now = nowMinutesWIB();
+  return now >= target - 120 && now <= target + 120;
+}
+
+/**
+ * CLOSE button is available within ±1 minute of close_hours.
+ * If close_hours not set → always allowed.
+ */
+function isCloseWindowActive(closeHours: string): boolean {
+  const target = parseHHMM(closeHours);
+  if (target === null) return true;
+  const now = nowMinutesWIB();
+  return now >= target - 1 && now <= target + 1;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -239,15 +299,13 @@ export default function CaptureAttendancePage() {
     const userData = localStorage.getItem("user");
     if (!userData) { router.push("/login"); return; }
     const parsed = JSON.parse(userData);
-    // Check for attendance_store OR attendance_store_all access
     if (!parsed.attendance_store && !parsed.attendance_store_all) {
       router.push("/dashboard");
       return;
     }
     setUser(parsed);
 
-    // Match user_name to store_list to detect if this is a store account
-    fetch('/api/attendance/meta?type=store_list')
+    fetch('/api/capture-attendance/meta?type=store_list')
       .then(r => r.json())
       .then((stores: StoreEntry[]) => {
         const match = stores.find(
@@ -270,7 +328,6 @@ export default function CaptureAttendancePage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-primary">Capture Attendance</h1>
-            <p className="text-[11px] text-gray-500 mt-0.5">Absensi buka &amp; tutup toko</p>
           </div>
           <div className="flex gap-0.5 bg-white rounded-lg p-0.5 shadow border border-gray-100">
             {(['capture', 'history'] as const).map(tab => (
@@ -314,12 +371,17 @@ export default function CaptureAttendancePage() {
 function CaptureTab({
   user, isStoreUser, myStoreName, isAll,
 }: { user: any; isStoreUser: boolean; myStoreName: string; isAll: boolean }) {
-  const [stores, setStores] = useState<StoreEntry[]>([]);
+  const [stores, setStores] = useState<StoreDetail[]>([]);
   const [selectedStore, setSelectedStore] = useState('');
+  const [storeDetail, setStoreDetail] = useState<StoreDetail | null>(null);
   const [staffName, setStaffName] = useState('');
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  // Taft
+  const [tafts, setTafts] = useState<TaftEntry[]>([]);
+  const [selectedTafts, setSelectedTafts] = useState<string[]>([]);
 
   // GPS
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
@@ -335,14 +397,33 @@ function CaptureTab({
   const [step, setStep] = useState<Step>('init');
   const [actionType, setActionType] = useState<'open' | 'close'>('open');
 
+  // ── Fetch store list ──────────────────────────────────────────────────────────
   useEffect(() => {
-    fetch('/api/attendance/meta?type=store_list')
+    fetch('/api/capture-attendance/meta?type=store_list')
       .then(r => r.json())
-      .then((data: StoreEntry[]) => {
+      .then((data: StoreDetail[]) => {
         setStores(data);
-        if (isStoreUser && myStoreName) setSelectedStore(myStoreName);
+        if (isStoreUser && myStoreName) {
+          setSelectedStore(myStoreName);
+          const match = data.find(
+            s => s.store_name?.toLowerCase() === myStoreName.toLowerCase()
+          );
+          setStoreDetail(match || null);
+        }
       });
   }, [isStoreUser, myStoreName]);
+
+  // ── Update store detail when selectedStore changes ────────────────────────────
+  useEffect(() => {
+    if (selectedStore && stores.length > 0) {
+      const match = stores.find(
+        s => s.store_name?.toLowerCase() === selectedStore.toLowerCase()
+      );
+      setStoreDetail(match || null);
+    } else {
+      setStoreDetail(null);
+    }
+  }, [selectedStore, stores]);
 
   const fetchTodayRecord = useCallback(async (store: string) => {
     if (!store) { setTodayRecord(null); return; }
@@ -351,7 +432,7 @@ function CaptureTab({
       const todayISO = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
       const storeParam = encodeURIComponent(store);
       const allParam = isAll ? '&all=true' : '';
-      const res = await fetch(`/api/attendance/capture?store_name=${storeParam}&date=${todayISO}${allParam}`);
+      const res = await fetch(`/api/capture-attendance/capture?store_name=${storeParam}&date=${todayISO}${allParam}`);
       const data = await res.json();
       setTodayRecord(Array.isArray(data) && data.length > 0 ? data[0] : null);
     } catch {
@@ -359,14 +440,29 @@ function CaptureTab({
     }
   }, [isAll]);
 
+  // ── Fetch tafts when store changes ────────────────────────────────────────────
   useEffect(() => {
-    if (selectedStore) fetchTodayRecord(selectedStore);
-    else setTodayRecord(null);
+    if (selectedStore) {
+      fetchTodayRecord(selectedStore);
+      fetch(`/api/capture-attendance/meta?type=taft_list&store_name=${encodeURIComponent(selectedStore)}`)
+        .then(r => r.json())
+        .then((data: TaftEntry[]) => setTafts(data || []));
+    } else {
+      setTodayRecord(null);
+      setTafts([]);
+    }
     setStep('init');
     setSelfieData(null);
     setCoords(null);
     setGpsStatus('idle');
+    setSelectedTafts([]);
   }, [selectedStore, fetchTodayRecord]);
+
+  const toggleTaft = (name: string) => {
+    setSelectedTafts(prev =>
+      prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
+    );
+  };
 
   const getGPS = async (): Promise<{ lat: number; lng: number } | null> => {
     setGpsStatus('loading');
@@ -427,6 +523,7 @@ function CaptureTab({
         browser: getBrowserName(),
         ip_address: ip,
         is_valid_location: true,
+        taft_names: selectedTafts.join(', '),
       };
 
       if (actionType === 'open') {
@@ -445,7 +542,7 @@ function CaptureTab({
         body.close_selfie = selfieData;
       }
 
-      const res = await fetch('/api/attendance/capture', {
+      const res = await fetch('/api/capture-attendance/capture', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -477,8 +574,13 @@ function CaptureTab({
 
   const hasOpen = !!todayRecord?.open_timestamp;
   const hasClose = !!todayRecord?.close_timestamp;
-  const canOpen = !hasOpen;
-  const canClose = hasOpen && !hasClose;
+
+  // Time window checks
+  const timeAllowsOpen = isOpenWindowActive(storeDetail?.open_hours || '');
+  const timeAllowsClose = isCloseWindowActive(storeDetail?.close_hours || '');
+
+  const canOpen = !hasOpen && timeAllowsOpen;
+  const canClose = hasOpen && !hasClose && timeAllowsClose;
 
   return (
     <div className="max-w-lg mx-auto">
@@ -509,6 +611,24 @@ function CaptureTab({
             </select>
           </div>
         )}
+
+        {/* Store hours info */}
+        {storeDetail && (storeDetail.open_hours || storeDetail.close_hours) && (
+          <div className="mt-3 pt-3 border-t border-gray-100 flex gap-4">
+            {storeDetail.open_hours && (
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                <span className="text-[10px] text-gray-500">Buka: <span className="font-semibold text-gray-700">{storeDetail.open_hours}</span></span>
+              </div>
+            )}
+            {storeDetail.close_hours && (
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                <span className="text-[10px] text-gray-500">Tutup: <span className="font-semibold text-gray-700">{storeDetail.close_hours}</span></span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {selectedStore && (
@@ -527,6 +647,9 @@ function CaptureTab({
                   <>
                     <p className="text-[11px] font-semibold text-gray-800">{formatTimestamp(todayRecord!.open_timestamp)}</p>
                     <p className="text-[10px] text-gray-500">{todayRecord!.open_staff_name || '-'}</p>
+                    {todayRecord!.taft_names && (
+                      <p className="text-[10px] text-primary mt-1 font-medium">{todayRecord!.taft_names}</p>
+                    )}
                   </>
                 ) : (
                   <p className="text-[11px] text-gray-400">Belum absen</p>
@@ -550,18 +673,67 @@ function CaptureTab({
             </div>
           </div>
 
-          {/* Staff Name */}
-          {step === 'init' && (canOpen || canClose) && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
-              <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-medium mb-1.5">Nama Staff</label>
-              <input
-                type="text"
-                value={staffName}
-                onChange={e => setStaffName(e.target.value)}
-                placeholder={`Default: ${user.user_name}`}
-                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
-            </div>
+          {/* Staff Name + Taft selector — only when on init step and action is possible */}
+          {step === 'init' && (canOpen || canClose || hasOpen || hasClose) && (
+            <>
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
+                <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-medium mb-1.5">Nama Staff</label>
+                <input
+                  type="text"
+                  value={staffName}
+                  onChange={e => setStaffName(e.target.value)}
+                  placeholder={`Default: ${user.user_name}`}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+
+              {/* Taft multi-select */}
+              {tafts.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-medium">
+                      Pilih Taft Staff
+                    </label>
+                    {selectedTafts.length > 0 && (
+                      <span className="text-[10px] text-primary font-semibold bg-primary/10 px-2 py-0.5 rounded-full">
+                        {selectedTafts.length} dipilih
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    {tafts.map(t => {
+                      const checked = selectedTafts.includes(t.taft_name);
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => toggleTaft(t.taft_name)}
+                          className={`w-full flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all ${
+                            checked
+                              ? 'border-primary bg-primary/5'
+                              : 'border-gray-100 bg-gray-50 hover:bg-gray-100'
+                          }`}
+                        >
+                          {/* Custom checkbox */}
+                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+                            checked ? 'border-primary bg-primary' : 'border-gray-300 bg-white'
+                          }`}>
+                            {checked && (
+                              <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                          <span className={`text-sm font-medium ${checked ? 'text-primary' : 'text-gray-700'}`}>
+                            {t.taft_name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* Action buttons */}
@@ -576,10 +748,17 @@ function CaptureTab({
                     : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 }`}
               >
-                <span className="text-2xl">🟢</span>
                 <span>OPEN</span>
-                {hasOpen && <span className="text-[9px] font-normal opacity-70">Sudah absen</span>}
+                {hasOpen && (
+                  <span className="text-[9px] font-normal opacity-70">Sudah absen</span>
+                )}
+                {!hasOpen && !timeAllowsOpen && storeDetail?.open_hours && (
+                  <span className="text-[9px] font-normal opacity-70 text-center px-1">
+                    ±2j dari {storeDetail.open_hours}
+                  </span>
+                )}
               </button>
+
               <button
                 onClick={() => startAction('close')}
                 disabled={!canClose}
@@ -589,10 +768,18 @@ function CaptureTab({
                     : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 }`}
               >
-                <span className="text-2xl">🔵</span>
                 <span>CLOSE</span>
-                {hasClose && <span className="text-[9px] font-normal opacity-70">Sudah absen</span>}
-                {!hasOpen && !hasClose && <span className="text-[9px] font-normal opacity-70">Open dulu</span>}
+                {hasClose && (
+                  <span className="text-[9px] font-normal opacity-70">Sudah absen</span>
+                )}
+                {!hasOpen && !hasClose && (
+                  <span className="text-[9px] font-normal opacity-70">Open dulu</span>
+                )}
+                {hasOpen && !hasClose && !timeAllowsClose && storeDetail?.close_hours && (
+                  <span className="text-[9px] font-normal opacity-70 text-center px-1">
+                    ±1m dari {storeDetail.close_hours}
+                  </span>
+                )}
               </button>
             </div>
           )}
@@ -657,6 +844,12 @@ function CaptureTab({
                 <div className="flex justify-between"><span>Toko</span><span className="font-medium capitalize">{selectedStore}</span></div>
                 <div className="flex justify-between"><span>Staff</span><span className="font-medium">{staffName || user.user_name}</span></div>
                 <div className="flex justify-between"><span>Waktu</span><span className="font-medium">{nowTimestamp()}</span></div>
+                {selectedTafts.length > 0 && (
+                  <div className="flex justify-between gap-2">
+                    <span className="shrink-0">Taft</span>
+                    <span className="font-medium text-right">{selectedTafts.join(', ')}</span>
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <button onClick={reset} disabled={loading} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium">Batal</button>
@@ -716,7 +909,6 @@ function CaptureTab({
 
       {!selectedStore && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-12 text-center">
-          <div className="text-4xl mb-3">🏪</div>
           <p className="text-gray-500 text-sm">Pilih toko untuk mulai absensi</p>
         </div>
       )}
@@ -746,7 +938,7 @@ function HistoryTab({
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/api/attendance/meta?type=store_list')
+    fetch('/api/capture-attendance/meta?type=store_list')
       .then(r => r.json())
       .then((data: StoreEntry[]) => {
         setStores(data);
@@ -760,7 +952,7 @@ function HistoryTab({
       const storeParam = selectedStore ? `&store_name=${encodeURIComponent(selectedStore)}` : '';
       const dateParam = selectedDate ? `&date=${selectedDate}` : '';
       const allParam = isAll ? '&all=true' : '';
-      const res = await fetch(`/api/attendance/capture?${storeParam}${dateParam}${allParam}`);
+      const res = await fetch(`/api/capture-attendance/capture?${storeParam}${dateParam}${allParam}`);
       const data = await res.json();
       setRecords(Array.isArray(data) ? data : []);
     } catch {
@@ -814,7 +1006,6 @@ function HistoryTab({
         <div className="text-center py-12 text-gray-500 text-sm">Memuat data...</div>
       ) : records.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-12 text-center">
-          <div className="text-4xl mb-3">📋</div>
           <p className="text-gray-500 text-sm">Tidak ada data absensi</p>
         </div>
       ) : (
@@ -843,6 +1034,9 @@ function HistoryTab({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-gray-900 capitalize">{rec.store_name}</p>
                       <p className="text-[10px] text-gray-500">{rec.open_timestamp || '-'}</p>
+                      {rec.taft_names && (
+                        <p className="text-[10px] text-primary font-medium mt-0.5">{rec.taft_names}</p>
+                      )}
                     </div>
                     <div className="text-right shrink-0">
                       {!hasClose && (
@@ -866,6 +1060,9 @@ function HistoryTab({
                         <div className="space-y-1 text-[10px] text-gray-600">
                           <div><span className="text-gray-400">Staff:</span> <span className="font-medium">{rec.open_staff_name || '-'}</span></div>
                           <div><span className="text-gray-400">Waktu:</span> <span className="font-medium">{rec.open_timestamp || '-'}</span></div>
+                          {rec.taft_names && (
+                            <div><span className="text-gray-400">Taft:</span> <span className="font-medium text-primary">{rec.taft_names}</span></div>
+                          )}
                           {rec.open_maps_url && (
                             <a href={rec.open_maps_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline flex items-center gap-1">
                               <span>📍</span> Lihat Peta
