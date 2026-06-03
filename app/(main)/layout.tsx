@@ -4,11 +4,16 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { UserProvider, useUser } from "@/context/UserContext";
+import AttendanceGateModal from "@/components/AttendanceGateModal";
+import { useAttendanceGate } from "@/hooks/useAttendanceGate";
 
 function MainLayoutInner({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
   const router = useRouter();
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
+
+  const { showGate, storeName, dismissGate } = useAttendanceGate();
 
   useEffect(() => {
     setMounted(true);
@@ -20,9 +25,7 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
     }
   }, [user, router, mounted]);
 
-  // Server dan client sama-sama render null dulu → tidak ada mismatch
   if (!mounted) return null;
-
   if (!user) return null;
 
   return (
@@ -32,6 +35,11 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
         <div className="md:hidden h-12" />
         {children}
       </main>
+
+      {/* Attendance gate — only shown when user hasn't checked in yet */}
+      {showGate && storeName && (
+        <AttendanceGateModal storeName={storeName} onDismiss={dismissGate} />
+      )}
     </div>
   );
 }

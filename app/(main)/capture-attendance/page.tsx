@@ -19,7 +19,6 @@ interface AttendanceRecord {
   open_timestamp: string;
   open_staff_name: string;
   open_selfie: string;
-  taft_names: string;
   close_latitude: string;
   close_longitude: string;
   close_maps_url: string;
@@ -39,7 +38,7 @@ interface StoreDetail {
   id: string;
   store_name: string;
   type_store: string;
-  open_hours: string;   // "HH:mm" or "HH:mm:ss"
+  open_hours: string;
   close_hours: string;
   store_wages: string;
 }
@@ -53,8 +52,6 @@ interface TaftEntry {
 }
 
 // ─── Time Window Helpers ───────────────────────────────────────────────────────
-
-/** Parse "HH:mm" or "HH:mm:ss" to minutes since midnight */
 function parseHHMM(timeStr: string): number | null {
   if (!timeStr) return null;
   const parts = timeStr.trim().split(':');
@@ -65,28 +62,12 @@ function parseHHMM(timeStr: string): number | null {
   return h * 60 + m;
 }
 
-/** Current minutes since midnight in WIB (Asia/Jakarta) */
 function nowMinutesWIB(): number {
   const now = new Date();
   const wib = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
   return wib.getHours() * 60 + wib.getMinutes();
 }
 
-/**
- * OPEN button is available within ±2 hours (120 min) of open_hours.
- * If open_hours not set → always allowed.
- */
-function isOpenWindowActive(openHours: string): boolean {
-  const target = parseHHMM(openHours);
-  if (target === null) return true;
-  const now = nowMinutesWIB();
-  return now >= target - 120 && now <= target + 120;
-}
-
-/**
- * CLOSE button is available within ±1 minute of close_hours.
- * If close_hours not set → always allowed.
- */
 function isCloseWindowActive(closeHours: string): boolean {
   const target = parseHHMM(closeHours);
   if (target === null) return true;
@@ -270,7 +251,7 @@ function SelfieCapture({
   );
 }
 
-// ─── Map Preview (OpenStreetMap iframe) ───────────────────────────────────────
+// ─── Map Preview ──────────────────────────────────────────────────────────────
 function MapPreview({ lat, lng }: { lat: number; lng: number }) {
   return (
     <div className="rounded-xl overflow-hidden border border-gray-200" style={{ height: 160 }}>
@@ -282,6 +263,63 @@ function MapPreview({ lat, lng }: { lat: number; lng: number }) {
         src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.002},${lat - 0.002},${lng + 0.002},${lat + 0.002}&layer=mapnik&marker=${lat},${lng}`}
         style={{ border: 0 }}
       />
+    </div>
+  );
+}
+
+// ─── Taft Multi-Select ────────────────────────────────────────────────────────
+function TaftSelector({
+  tafts,
+  selected,
+  onToggle,
+  label,
+}: {
+  tafts: TaftEntry[];
+  selected: string[];
+  onToggle: (name: string) => void;
+  label: string;
+}) {
+  if (tafts.length === 0) return null;
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
+      <div className="flex items-center justify-between mb-2">
+        <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-medium">
+          {label}
+        </label>
+        {selected.length > 0 && (
+          <span className="text-[10px] text-primary font-semibold bg-primary/10 px-2 py-0.5 rounded-full">
+            {selected.length} dipilih
+          </span>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        {tafts.map(t => {
+          const checked = selected.includes(t.taft_name);
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => onToggle(t.taft_name)}
+              className={`w-full flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all ${
+                checked ? 'border-primary bg-primary/5' : 'border-gray-100 bg-gray-50 hover:bg-gray-100'
+              }`}
+            >
+              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+                checked ? 'border-primary bg-primary' : 'border-gray-300 bg-white'
+              }`}>
+                {checked && (
+                  <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+              <span className={`text-sm font-medium ${checked ? 'text-primary' : 'text-gray-700'}`}>
+                {t.taft_name}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -374,14 +412,14 @@ function CaptureTab({
   const [stores, setStores] = useState<StoreDetail[]>([]);
   const [selectedStore, setSelectedStore] = useState('');
   const [storeDetail, setStoreDetail] = useState<StoreDetail | null>(null);
-  const [staffName, setStaffName] = useState('');
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
 
-  // Taft
+  // Taft — separate for open and close
   const [tafts, setTafts] = useState<TaftEntry[]>([]);
-  const [selectedTafts, setSelectedTafts] = useState<string[]>([]);
+  const [selectedOpenTafts, setSelectedOpenTafts] = useState<string[]>([]);
+  const [selectedCloseTafts, setSelectedCloseTafts] = useState<string[]>([]);
 
   // GPS
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
@@ -392,8 +430,8 @@ function CaptureTab({
   const [showCamera, setShowCamera] = useState(false);
   const [selfieData, setSelfieData] = useState<string | null>(null);
 
-  // Steps
-  type Step = 'init' | 'gps' | 'selfie' | 'confirm' | 'done';
+  // Steps: init → gps → selfie → taft → confirm → done
+  type Step = 'init' | 'gps' | 'selfie' | 'taft' | 'confirm' | 'done';
   const [step, setStep] = useState<Step>('init');
   const [actionType, setActionType] = useState<'open' | 'close'>('open');
 
@@ -455,11 +493,18 @@ function CaptureTab({
     setSelfieData(null);
     setCoords(null);
     setGpsStatus('idle');
-    setSelectedTafts([]);
+    setSelectedOpenTafts([]);
+    setSelectedCloseTafts([]);
   }, [selectedStore, fetchTodayRecord]);
 
-  const toggleTaft = (name: string) => {
-    setSelectedTafts(prev =>
+  const toggleOpenTaft = (name: string) => {
+    setSelectedOpenTafts(prev =>
+      prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
+    );
+  };
+
+  const toggleCloseTaft = (name: string) => {
+    setSelectedCloseTafts(prev =>
       prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
     );
   };
@@ -490,11 +535,14 @@ function CaptureTab({
     });
   };
 
+  // Flow: OPEN/CLOSE → GPS → Selfie → Taft → Confirm
   const startAction = async (type: 'open' | 'close') => {
     setActionType(type);
     setSelfieData(null);
     setCoords(null);
     setGpsStatus('idle');
+    if (type === 'open') setSelectedOpenTafts([]);
+    else setSelectedCloseTafts([]);
     setStep('gps');
     const c = await getGPS();
     if (!c) return;
@@ -504,6 +552,11 @@ function CaptureTab({
   const handleSelfieCapture = (dataUrl: string) => {
     setSelfieData(dataUrl);
     setShowCamera(false);
+    // After selfie, go to taft selection step
+    setStep('taft');
+  };
+
+  const handleTaftNext = () => {
     setStep('confirm');
   };
 
@@ -516,6 +569,10 @@ function CaptureTab({
       const mapsUrl = buildMapsUrl(coords.lat, coords.lng);
       const ts = nowTimestamp();
 
+      const staffNames = actionType === 'open'
+        ? selectedOpenTafts.join('; ')
+        : selectedCloseTafts.join('; ');
+
       const body: any = {
         action: actionType,
         store_name: selectedStore,
@@ -523,7 +580,6 @@ function CaptureTab({
         browser: getBrowserName(),
         ip_address: ip,
         is_valid_location: true,
-        taft_names: selectedTafts.join(', '),
       };
 
       if (actionType === 'open') {
@@ -531,14 +587,14 @@ function CaptureTab({
         body.open_longitude = coords.lng;
         body.open_maps_url = mapsUrl;
         body.open_timestamp = ts;
-        body.open_staff_name = staffName || user.user_name;
+        body.open_staff_name = staffNames;
         body.open_selfie = selfieData;
       } else {
         body.close_latitude = coords.lat;
         body.close_longitude = coords.lng;
         body.close_maps_url = mapsUrl;
         body.close_timestamp = ts;
-        body.close_staff_name = staffName || user.user_name;
+        body.close_staff_name = staffNames;
         body.close_selfie = selfieData;
       }
 
@@ -575,12 +631,13 @@ function CaptureTab({
   const hasOpen = !!todayRecord?.open_timestamp;
   const hasClose = !!todayRecord?.close_timestamp;
 
-  // Time window checks
-  const timeAllowsOpen = isOpenWindowActive(storeDetail?.open_hours || '');
   const timeAllowsClose = isCloseWindowActive(storeDetail?.close_hours || '');
 
-  const canOpen = !hasOpen && timeAllowsOpen;
+  const canOpen = !hasOpen;
   const canClose = hasOpen && !hasClose && timeAllowsClose;
+
+  const currentSelectedTafts = actionType === 'open' ? selectedOpenTafts : selectedCloseTafts;
+  const currentToggleTaft = actionType === 'open' ? toggleOpenTaft : toggleCloseTaft;
 
   return (
     <div className="max-w-lg mx-auto">
@@ -612,7 +669,6 @@ function CaptureTab({
           </div>
         )}
 
-        {/* Store hours info */}
         {storeDetail && (storeDetail.open_hours || storeDetail.close_hours) && (
           <div className="mt-3 pt-3 border-t border-gray-100 flex gap-4">
             {storeDetail.open_hours && (
@@ -646,10 +702,7 @@ function CaptureTab({
                 {hasOpen ? (
                   <>
                     <p className="text-[11px] font-semibold text-gray-800">{formatTimestamp(todayRecord!.open_timestamp)}</p>
-                    <p className="text-[10px] text-gray-500">{todayRecord!.open_staff_name || '-'}</p>
-                    {todayRecord!.taft_names && (
-                      <p className="text-[10px] text-primary mt-1 font-medium">{todayRecord!.taft_names}</p>
-                    )}
+                    <p className="text-[10px] text-gray-500 mt-0.5">{todayRecord!.open_staff_name || '-'}</p>
                   </>
                 ) : (
                   <p className="text-[11px] text-gray-400">Belum absen</p>
@@ -664,7 +717,7 @@ function CaptureTab({
                 {hasClose ? (
                   <>
                     <p className="text-[11px] font-semibold text-gray-800">{formatTimestamp(todayRecord!.close_timestamp)}</p>
-                    <p className="text-[10px] text-gray-500">{todayRecord!.close_staff_name || '-'}</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">{todayRecord!.close_staff_name || '-'}</p>
                   </>
                 ) : (
                   <p className="text-[11px] text-gray-400">Belum absen</p>
@@ -672,69 +725,6 @@ function CaptureTab({
               </div>
             </div>
           </div>
-
-          {/* Staff Name + Taft selector — only when on init step and action is possible */}
-          {step === 'init' && (canOpen || canClose || hasOpen || hasClose) && (
-            <>
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
-                <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-medium mb-1.5">Nama Staff</label>
-                <input
-                  type="text"
-                  value={staffName}
-                  onChange={e => setStaffName(e.target.value)}
-                  placeholder={`Default: ${user.user_name}`}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </div>
-
-              {/* Taft multi-select */}
-              {tafts.length > 0 && (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-medium">
-                      Pilih Taft Staff
-                    </label>
-                    {selectedTafts.length > 0 && (
-                      <span className="text-[10px] text-primary font-semibold bg-primary/10 px-2 py-0.5 rounded-full">
-                        {selectedTafts.length} dipilih
-                      </span>
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    {tafts.map(t => {
-                      const checked = selectedTafts.includes(t.taft_name);
-                      return (
-                        <button
-                          key={t.id}
-                          type="button"
-                          onClick={() => toggleTaft(t.taft_name)}
-                          className={`w-full flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all ${
-                            checked
-                              ? 'border-primary bg-primary/5'
-                              : 'border-gray-100 bg-gray-50 hover:bg-gray-100'
-                          }`}
-                        >
-                          {/* Custom checkbox */}
-                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-                            checked ? 'border-primary bg-primary' : 'border-gray-300 bg-white'
-                          }`}>
-                            {checked && (
-                              <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
-                          </div>
-                          <span className={`text-sm font-medium ${checked ? 'text-primary' : 'text-gray-700'}`}>
-                            {t.taft_name}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
 
           {/* Action buttons */}
           {step === 'init' && (
@@ -749,14 +739,7 @@ function CaptureTab({
                 }`}
               >
                 <span>OPEN</span>
-                {hasOpen && (
-                  <span className="text-[9px] font-normal opacity-70">Sudah absen</span>
-                )}
-                {!hasOpen && !timeAllowsOpen && storeDetail?.open_hours && (
-                  <span className="text-[9px] font-normal opacity-70 text-center px-1">
-                    ±2j dari {storeDetail.open_hours}
-                  </span>
-                )}
+                {hasOpen && <span className="text-[9px] font-normal opacity-70">Sudah absen</span>}
               </button>
 
               <button
@@ -769,12 +752,8 @@ function CaptureTab({
                 }`}
               >
                 <span>CLOSE</span>
-                {hasClose && (
-                  <span className="text-[9px] font-normal opacity-70">Sudah absen</span>
-                )}
-                {!hasOpen && !hasClose && (
-                  <span className="text-[9px] font-normal opacity-70">Open dulu</span>
-                )}
+                {hasClose && <span className="text-[9px] font-normal opacity-70">Sudah absen</span>}
+                {!hasOpen && !hasClose && <span className="text-[9px] font-normal opacity-70">Open dulu</span>}
                 {hasOpen && !hasClose && !timeAllowsClose && storeDetail?.close_hours && (
                   <span className="text-[9px] font-normal opacity-70 text-center px-1">
                     ±1m dari {storeDetail.close_hours}
@@ -825,10 +804,51 @@ function CaptureTab({
             </div>
           )}
 
+          {/* Step: Taft Selection */}
+          {step === 'taft' && (
+            <div className="mb-4">
+              {/* Selfie preview kecil */}
+              {selfieData && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 mb-4 flex items-center gap-3">
+                  <img src={selfieData} alt="selfie" className="w-12 h-12 rounded-xl object-cover" />
+                  <div>
+                    <p className="text-[11px] font-semibold text-gray-700">Foto berhasil diambil</p>
+                    <p className="text-[10px] text-gray-400">Lanjut pilih staff yang hadir</p>
+                  </div>
+                  <svg className="w-4 h-4 text-green-500 ml-auto shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+
+              <TaftSelector
+                tafts={tafts}
+                selected={currentSelectedTafts}
+                onToggle={currentToggleTaft}
+                label={`Staff ${actionType === 'open' ? 'OPEN' : 'CLOSE'} yang Hadir`}
+              />
+
+              {/* Jika tidak ada taft, langsung ke confirm */}
+              <div className="flex gap-2">
+                <button onClick={reset} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium">
+                  Batal
+                </button>
+                <button
+                  onClick={handleTaftNext}
+                  className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90"
+                >
+                  Lanjut →
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Step: Confirm */}
           {step === 'confirm' && coords && selfieData && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
-              <p className="text-sm font-bold text-gray-800 mb-3">Konfirmasi Absensi {actionType === 'open' ? 'OPEN' : 'CLOSE'}</p>
+              <p className="text-sm font-bold text-gray-800 mb-3">
+                Konfirmasi Absensi {actionType === 'open' ? 'OPEN' : 'CLOSE'}
+              </p>
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
                   <p className="text-[10px] text-gray-500 mb-1">Foto Selfie</p>
@@ -841,18 +861,25 @@ function CaptureTab({
                 </div>
               </div>
               <div className="bg-gray-50 rounded-xl p-3 mb-3 text-[11px] text-gray-600 space-y-1">
-                <div className="flex justify-between"><span>Toko</span><span className="font-medium capitalize">{selectedStore}</span></div>
-                <div className="flex justify-between"><span>Staff</span><span className="font-medium">{staffName || user.user_name}</span></div>
-                <div className="flex justify-between"><span>Waktu</span><span className="font-medium">{nowTimestamp()}</span></div>
-                {selectedTafts.length > 0 && (
+                <div className="flex justify-between">
+                  <span>Toko</span>
+                  <span className="font-medium capitalize">{selectedStore}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Waktu</span>
+                  <span className="font-medium">{nowTimestamp()}</span>
+                </div>
+                {currentSelectedTafts.length > 0 && (
                   <div className="flex justify-between gap-2">
-                    <span className="shrink-0">Taft</span>
-                    <span className="font-medium text-right">{selectedTafts.join(', ')}</span>
+                    <span className="shrink-0">Staff</span>
+                    <span className="font-medium text-right text-primary">{currentSelectedTafts.join('; ')}</span>
                   </div>
                 )}
               </div>
               <div className="flex gap-2">
-                <button onClick={reset} disabled={loading} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium">Batal</button>
+                <button onClick={() => setStep('taft')} disabled={loading} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium">
+                  Kembali
+                </button>
                 <button
                   onClick={handleSubmit}
                   disabled={loading}
@@ -1015,7 +1042,6 @@ function HistoryTab({
             const isExpanded = expandedId === rec.id;
             return (
               <div key={rec.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                {/* Card header */}
                 <button
                   onClick={() => setExpandedId(isExpanded ? null : rec.id)}
                   className="w-full text-left p-4 hover:bg-gray-50/80 transition-colors"
@@ -1034,8 +1060,8 @@ function HistoryTab({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-gray-900 capitalize">{rec.store_name}</p>
                       <p className="text-[10px] text-gray-500">{rec.open_timestamp || '-'}</p>
-                      {rec.taft_names && (
-                        <p className="text-[10px] text-primary font-medium mt-0.5">{rec.taft_names}</p>
+                      {rec.open_staff_name && (
+                        <p className="text-[10px] text-primary font-medium mt-0.5">{rec.open_staff_name}</p>
                       )}
                     </div>
                     <div className="text-right shrink-0">
@@ -1047,11 +1073,9 @@ function HistoryTab({
                   </div>
                 </button>
 
-                {/* Expanded content */}
                 {isExpanded && (
                   <div className="border-t border-gray-100 p-4">
                     <div className="grid grid-cols-2 gap-4">
-                      {/* Open section */}
                       <div>
                         <p className="text-[10px] font-bold text-green-600 uppercase tracking-wide mb-2">OPEN</p>
                         {rec.open_selfie && (
@@ -1060,9 +1084,6 @@ function HistoryTab({
                         <div className="space-y-1 text-[10px] text-gray-600">
                           <div><span className="text-gray-400">Staff:</span> <span className="font-medium">{rec.open_staff_name || '-'}</span></div>
                           <div><span className="text-gray-400">Waktu:</span> <span className="font-medium">{rec.open_timestamp || '-'}</span></div>
-                          {rec.taft_names && (
-                            <div><span className="text-gray-400">Taft:</span> <span className="font-medium text-primary">{rec.taft_names}</span></div>
-                          )}
                           {rec.open_maps_url && (
                             <a href={rec.open_maps_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline flex items-center gap-1">
                               <span>📍</span> Lihat Peta
@@ -1070,7 +1091,6 @@ function HistoryTab({
                           )}
                         </div>
                       </div>
-                      {/* Close section */}
                       <div>
                         <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wide mb-2">CLOSE</p>
                         {rec.close_selfie ? (
@@ -1090,7 +1110,6 @@ function HistoryTab({
                       </div>
                     </div>
 
-                    {/* Extra info for all-access users */}
                     {isAll && (
                       <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2 text-[10px] text-gray-600">
                         <div><span className="text-gray-400">Device:</span> <span className="font-medium">{rec.device_info || '-'}</span></div>

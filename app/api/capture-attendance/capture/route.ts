@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow } from '@/lib/sheets';
 import { uploadAttendanceSelfie } from '@/lib/attendanceDrive';
 
-// ─── GET: fetch today's record(s) ─────────────────────────────────────────────
+// ─── GET ──────────────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const storeName = searchParams.get('store_name');
-    const date = searchParams.get('date'); // YYYY-MM-DD
+    const date = searchParams.get('date');
     const isAll = searchParams.get('all') === 'true';
 
     const rows: any[] = await getSheetData('attendance_store');
@@ -28,7 +28,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // If not all-access, strip sensitive columns
     if (!isAll) {
       filtered = filtered.map((r) => ({
         id: r.id,
@@ -38,7 +37,6 @@ export async function GET(request: NextRequest) {
         open_staff_name: r.open_staff_name,
         open_selfie: r.open_selfie,
         open_maps_url: r.open_maps_url,
-        taft_names: r.taft_names,
         close_timestamp: r.close_timestamp,
         close_staff_name: r.close_staff_name,
         close_selfie: r.close_selfie,
@@ -55,18 +53,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ─── POST: create (open) or update (close) attendance record ──────────────────
+// ─── POST ─────────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const {
-      action,          // 'open' | 'close'
-      store_name,
-      device_info,
-      browser,
-      ip_address,
-      is_valid_location,
-    } = body;
+    const { action, store_name, device_info, browser, ip_address, is_valid_location } = body;
 
     if (!action || !store_name) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -79,11 +70,9 @@ export async function POST(request: NextRequest) {
       hour12: false, timeZone: 'Asia/Jakarta',
     });
 
-    // Build date string for today in YYYY-MM-DD (Jakarta)
     const jakartaNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
     const todayISO = `${jakartaNow.getFullYear()}-${String(jakartaNow.getMonth() + 1).padStart(2, '0')}-${String(jakartaNow.getDate()).padStart(2, '0')}`;
 
-    // ── Fetch existing rows to find today's record for this store ───────────
     const allRows: any[] = await getSheetData('attendance_store');
 
     const todayRowIndex = allRows.findIndex((r) => {
@@ -94,11 +83,13 @@ export async function POST(request: NextRequest) {
       );
     });
 
-    // ── Upload selfie to Google Drive ────────────────────────────────────────
+    // Upload selfie
     let selfieUrl = '';
     const selfieDataUrl: string = action === 'open' ? body.open_selfie : body.close_selfie;
-    const staffName: string = action === 'open' ? body.open_staff_name : body.close_staff_name;
-    const taftNames: string = body.taft_names || '';
+    // staff_name: joined with "; " from selected tafts (or empty)
+    const staffName: string = action === 'open'
+      ? (body.open_staff_name || '')
+      : (body.close_staff_name || '');
 
     if (selfieDataUrl && selfieDataUrl.startsWith('data:')) {
       try {
@@ -112,7 +103,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── OPEN: create new row ──────────────────────────────────────────────────
+    // ── OPEN ──────────────────────────────────────────────────────────────────
     if (action === 'open') {
       if (todayRowIndex !== -1) {
         return NextResponse.json({ error: 'Already checked in today' }, { status: 400 });
@@ -120,10 +111,10 @@ export async function POST(request: NextRequest) {
 
       const id = `ATT-${Date.now()}`;
 
-      // Column order must match sheet headers exactly:
+      // Column order (sheet headers):
       // id | store_id | store_name | device_info | browser | ip_address | is_valid_location
       // | open_latitude | open_longitude | open_maps_url | open_timestamp | open_staff_name
-      // | open_selfie | taft_names | close_latitude | close_longitude | close_maps_url
+      // | open_selfie | close_latitude | close_longitude | close_maps_url
       // | close_timestamp | close_staff_name | close_selfie | created_at | updated_at
       const newRow = [
         id,
@@ -137,9 +128,8 @@ export async function POST(request: NextRequest) {
         body.open_longitude || '',
         body.open_maps_url || '',
         body.open_timestamp || nowStr,
-        staffName || '',
+        staffName,
         selfieUrl,
-        taftNames,
         '',   // close_latitude
         '',   // close_longitude
         '',   // close_maps_url
@@ -154,14 +144,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, id });
     }
 
-    // ── CLOSE: update existing row ────────────────────────────────────────────
+    // ── CLOSE ─────────────────────────────────────────────────────────────────
     if (action === 'close') {
       if (todayRowIndex === -1) {
         return NextResponse.json({ error: 'No open attendance found for today' }, { status: 404 });
       }
 
       const existing = allRows[todayRowIndex];
-      const rowNumber = todayRowIndex + 2; // +1 header, +1 for 1-based index
+      const rowNumber = todayRowIndex + 2;
 
       const updatedRow = [
         existing.id,
@@ -177,12 +167,11 @@ export async function POST(request: NextRequest) {
         existing.open_timestamp || '',
         existing.open_staff_name || '',
         existing.open_selfie || '',
-        existing.taft_names || '',
         body.close_latitude || '',
         body.close_longitude || '',
         body.close_maps_url || '',
         body.close_timestamp || nowStr,
-        staffName || '',
+        staffName,
         selfieUrl,
         existing.created_at || nowStr,
         nowStr,
