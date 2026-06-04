@@ -61,28 +61,85 @@ function toDriveProxyUrl(url: string): string {
 }
 
 // ─── Selfie Validity Check ─────────────────────────────────────────────────────
-// Filters out empty, "data:," stub, and suspiciously short data URLs
 function isValidSelfie(url: string): boolean {
   if (!url) return false;
   if (url === 'data:,' || url === 'data:') return false;
-  // A real base64 photo will be thousands of chars; < 100 means it's a stub
   if (url.startsWith('data:') && url.length < 100) return false;
   return true;
 }
 
-// ─── Lazy Image — only loads when visible in viewport ─────────────────────────
+// ─── Extract time from timestamp ──────────────────────────────────────────────
+function extractTime(ts: string): string {
+  if (!ts) return '-';
+  const m = ts.match(/,\s*(\d{2}[.:]\d{2})/);
+  if (m) return m[1].replace('.', ':');
+  const parts = ts.split(',');
+  if (parts.length > 1) return parts[1].trim().substring(0, 5);
+  return ts;
+}
+
+// ─── SVG Icons ────────────────────────────────────────────────────────────────
+const IconCamera = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+      d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
+
+const IconPin = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
+
+const IconSignal = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+      d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+  </svg>
+);
+
+const IconX = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
+
+const IconCheck = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+  </svg>
+);
+
+const IconCheckCircle = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+const IconAlertCircle = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+const IconStore = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+      d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+  </svg>
+);
+
+// ─── Lazy Image ────────────────────────────────────────────────────────────────
 function LazyImg({
-  src,
-  alt,
-  className,
-  style,
-  fallback,
+  src, alt, className, style, fallback,
 }: {
-  src: string;
-  alt: string;
-  className?: string;
-  style?: React.CSSProperties;
-  fallback?: React.ReactNode;
+  src: string; alt: string; className?: string; style?: React.CSSProperties; fallback?: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -101,17 +158,30 @@ function LazyImg({
   return (
     <div ref={ref} className={className} style={style}>
       {visible && !errored ? (
-        <img
-          src={src}
-          alt={alt}
-          className="w-full h-full object-cover"
-          onError={() => setErrored(true)}
-        />
+        <img src={src} alt={alt} className="w-full h-full object-cover" onError={() => setErrored(true)} />
       ) : errored ? (
-        fallback || <span className="text-gray-300 text-sm flex items-center justify-center w-full h-full">—</span>
+        fallback || <span className="text-gray-300 text-xs flex items-center justify-center w-full h-full">—</span>
       ) : (
-        <div className="w-full h-full bg-gray-100 animate-pulse rounded-inherit" />
+        <div className="w-full h-full bg-gray-100 animate-pulse" />
       )}
+    </div>
+  );
+}
+
+// ─── Selfie Placeholder ────────────────────────────────────────────────────────
+function SelfiePlaceholderSm() {
+  return (
+    <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center border border-gray-200">
+      <IconCamera className="w-4 h-4 text-gray-300" />
+    </div>
+  );
+}
+
+function SelfiePlaceholderMd() {
+  return (
+    <div className="w-full rounded-xl bg-gray-100 flex flex-col items-center justify-center mb-2 border border-gray-200" style={{ aspectRatio: '4/3' }}>
+      <IconCamera className="w-6 h-6 text-gray-300 mb-1" />
+      <span className="text-[10px] text-gray-400">Foto tidak tersedia</span>
     </div>
   );
 }
@@ -188,26 +258,8 @@ function formatTimestamp(ts: string): string {
   return ts;
 }
 
-// Extract time part only from timestamp, e.g. "04 Jun 2026, 08.09.16" → "08.09"
-function extractTime(ts: string): string {
-  if (!ts) return '-';
-  // Format: "DD Mon YYYY, HH.MM.SS"
-  const m = ts.match(/,\s*(\d{2}\.\d{2})/);
-  if (m) return m[1];
-  // Fallback: last part after comma
-  const parts = ts.split(',');
-  if (parts.length > 1) return parts[1].trim().substring(0, 5);
-  return ts;
-}
-
 // ─── Selfie Camera Component ───────────────────────────────────────────────────
-function SelfieCapture({
-  onCapture,
-  onCancel,
-}: {
-  onCapture: (dataUrl: string) => void;
-  onCancel: () => void;
-}) {
+function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) => void; onCancel: () => void; }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -233,9 +285,7 @@ function SelfieCapture({
     }
   };
 
-  const stopCamera = () => {
-    stream?.getTracks().forEach(t => t.stop());
-  };
+  const stopCamera = () => { stream?.getTracks().forEach(t => t.stop()); };
 
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -253,27 +303,23 @@ function SelfieCapture({
     stopCamera();
   };
 
-  const retake = () => {
-    setPreview(null);
-    startCamera();
-  };
-
-  const confirm = () => {
-    if (preview) onCapture(preview);
-  };
+  const retake = () => { setPreview(null); startCamera(); };
+  const confirm = () => { if (preview) onCapture(preview); };
 
   return (
     <div className="fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-4">
       <div className="bg-gray-900 rounded-2xl overflow-hidden w-full max-w-sm">
         <div className="p-4 border-b border-gray-700 flex items-center justify-between">
           <p className="text-white font-semibold text-sm">Ambil Selfie</p>
-          <button onClick={() => { stopCamera(); onCancel(); }} className="text-gray-400 hover:text-white text-xl leading-none">✕</button>
+          <button onClick={() => { stopCamera(); onCancel(); }} className="text-gray-400 hover:text-white p-1">
+            <IconX className="w-5 h-5" />
+          </button>
         </div>
         <div className="relative bg-black" style={{ aspectRatio: '4/3' }}>
           {error ? (
             <div className="absolute inset-0 flex items-center justify-center p-4 text-center">
               <div>
-                <div className="text-4xl mb-2">📷</div>
+                <IconAlertCircle className="w-10 h-10 text-red-400 mx-auto mb-2" />
                 <p className="text-red-400 text-sm">{error}</p>
               </div>
             </div>
@@ -295,8 +341,9 @@ function SelfieCapture({
         <canvas ref={canvasRef} className="hidden" />
         <div className="p-4 flex gap-3">
           {!preview ? (
-            <button onClick={capturePhoto} disabled={!!error} className="flex-1 py-3 bg-white text-gray-900 rounded-xl font-bold text-sm hover:bg-gray-100 disabled:opacity-50 flex items-center justify-center gap-2">
-              <span className="text-xl">📸</span> Ambil Foto
+            <button onClick={capturePhoto} disabled={!!error}
+              className="flex-1 py-3 bg-white text-gray-900 rounded-xl font-bold text-sm hover:bg-gray-100 disabled:opacity-50 flex items-center justify-center gap-2">
+              <IconCamera className="w-4 h-4" /> Ambil Foto
             </button>
           ) : (
             <>
@@ -327,13 +374,8 @@ function MapPreview({ lat, lng }: { lat: number; lng: number }) {
 }
 
 // ─── Taft Multi-Select ────────────────────────────────────────────────────────
-function TaftSelector({
-  tafts, selected, onToggle, label,
-}: {
-  tafts: TaftEntry[];
-  selected: string[];
-  onToggle: (name: string) => void;
-  label: string;
+function TaftSelector({ tafts, selected, onToggle, label }: {
+  tafts: TaftEntry[]; selected: string[]; onToggle: (name: string) => void; label: string;
 }) {
   if (tafts.length === 0) return null;
   return (
@@ -351,37 +393,13 @@ function TaftSelector({
             <button key={t.id} type="button" onClick={() => onToggle(t.taft_name)}
               className={`w-full flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all ${checked ? 'border-primary bg-primary/5' : 'border-gray-100 bg-gray-50 hover:bg-gray-100'}`}>
               <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'border-primary bg-primary' : 'border-gray-300 bg-white'}`}>
-                {checked && (
-                  <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
+                {checked && <IconCheck className="w-2.5 h-2.5 text-white" />}
               </div>
               <span className={`text-sm font-medium ${checked ? 'text-primary' : 'text-gray-700'}`}>{t.taft_name}</span>
             </button>
           );
         })}
       </div>
-    </div>
-  );
-}
-
-// ─── Selfie Placeholder ────────────────────────────────────────────────────────
-function SelfiePlaceholder({ size = 'md' }: { size?: 'sm' | 'md' }) {
-  if (size === 'sm') {
-    return (
-      <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
-        <span className="text-gray-300 text-xs">—</span>
-      </div>
-    );
-  }
-  return (
-    <div
-      className="w-full rounded-xl bg-gray-100 flex flex-col items-center justify-center mb-2 border border-gray-200"
-      style={{ aspectRatio: '4/3' }}
-    >
-      <span className="text-2xl mb-1">📷</span>
-      <span className="text-[10px] text-gray-400">Foto tidak tersedia</span>
     </div>
   );
 }
@@ -571,9 +589,7 @@ function CaptureTab({ user, isStoreUser, myStoreName, isAll }: { user: any; isSt
         {isStoreUser ? (
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
+              <IconStore className="w-4 h-4 text-primary" />
             </div>
             <div>
               <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Toko Anda</p>
@@ -658,20 +674,27 @@ function CaptureTab({ user, isStoreUser, myStoreName, isAll }: { user: any; isSt
           {/* Step: GPS */}
           {step === 'gps' && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-4 text-center">
-              <div className="text-4xl mb-3">{gpsStatus === 'loading' ? '📡' : gpsStatus === 'error' ? '❌' : '📍'}</div>
+              {gpsStatus === 'loading' && <IconSignal className="w-10 h-10 text-primary mx-auto mb-3 animate-pulse" />}
+              {gpsStatus === 'error' && <IconAlertCircle className="w-10 h-10 text-red-500 mx-auto mb-3" />}
+              {gpsStatus === 'ok' && <IconPin className="w-10 h-10 text-green-500 mx-auto mb-3" />}
               <p className="font-semibold text-gray-800 mb-1">
                 {gpsStatus === 'loading' ? 'Mengambil lokasi GPS...' : gpsStatus === 'error' ? 'GPS Gagal' : 'Lokasi Didapat'}
               </p>
               {gpsStatus === 'loading' && <p className="text-[11px] text-gray-500">Harap izinkan akses lokasi saat diminta browser</p>}
-              {gpsStatus === 'error' && (<><p className="text-[11px] text-red-500 mb-3">{gpsError}</p><button onClick={reset} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl text-sm">Batal</button></>)}
-              {gpsStatus === 'ok' && coords && (<><p className="text-[11px] text-gray-500 mb-2">{coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}</p><MapPreview lat={coords.lat} lng={coords.lng} /></>)}
+              {gpsStatus === 'error' && (
+                <><p className="text-[11px] text-red-500 mb-3">{gpsError}</p>
+                <button onClick={reset} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl text-sm">Batal</button></>
+              )}
+              {gpsStatus === 'ok' && coords && (
+                <><p className="text-[11px] text-gray-500 mb-2">{coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}</p><MapPreview lat={coords.lat} lng={coords.lng} /></>
+              )}
             </div>
           )}
 
           {/* Step: Selfie */}
           {step === 'selfie' && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-4 text-center">
-              <div className="text-4xl mb-3">📸</div>
+              <IconCamera className="w-10 h-10 text-primary mx-auto mb-3" />
               <p className="font-semibold text-gray-800 mb-1">Ambil Selfie</p>
               <p className="text-[11px] text-gray-500 mb-4">Foto untuk konfirmasi kehadiran Anda</p>
               <button onClick={() => setShowCamera(true)} className="px-6 py-3 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary/90">Buka Kamera</button>
@@ -689,15 +712,13 @@ function CaptureTab({ user, isStoreUser, myStoreName, isAll }: { user: any; isSt
                     <p className="text-[11px] font-semibold text-gray-700">Foto berhasil diambil</p>
                     <p className="text-[10px] text-gray-400">Lanjut pilih staff yang hadir</p>
                   </div>
-                  <svg className="w-4 h-4 text-green-500 ml-auto shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                  </svg>
+                  <IconCheck className="w-4 h-4 text-green-500 ml-auto shrink-0" />
                 </div>
               )}
               <TaftSelector tafts={tafts} selected={currentSelectedTafts} onToggle={currentToggleTaft} label={`Staff ${actionType === 'open' ? 'OPEN' : 'CLOSE'} yang Hadir`} />
               <div className="flex gap-2">
                 <button onClick={reset} className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium">Batal</button>
-                <button onClick={handleTaftNext} className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90">Lanjut →</button>
+                <button onClick={handleTaftNext} className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90">Lanjut</button>
               </div>
             </div>
           )}
@@ -736,7 +757,7 @@ function CaptureTab({ user, isStoreUser, myStoreName, isAll }: { user: any; isSt
           {/* Step: Done */}
           {step === 'done' && msg?.type === 'success' && (
             <div className="bg-green-50 border border-green-200 rounded-2xl p-6 mb-4 text-center">
-              <div className="text-4xl mb-2">✅</div>
+              <IconCheckCircle className="w-12 h-12 text-green-600 mx-auto mb-2" />
               <p className="font-bold text-green-800 mb-1">Berhasil!</p>
               <p className="text-[12px] text-green-700 mb-4">{msg.text}</p>
               <button onClick={reset} className="px-5 py-2 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700">Selesai</button>
@@ -746,7 +767,8 @@ function CaptureTab({ user, isStoreUser, myStoreName, isAll }: { user: any; isSt
           {/* Error */}
           {msg?.type === 'error' && (
             <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-4 text-center">
-              <p className="text-red-700 text-sm font-semibold mb-2">Gagal</p>
+              <IconAlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+              <p className="text-red-700 text-sm font-semibold mb-1">Gagal</p>
               <p className="text-red-600 text-[12px]">{msg.text}</p>
             </div>
           )}
@@ -759,23 +781,13 @@ function CaptureTab({ user, isStoreUser, myStoreName, isAll }: { user: any; isSt
                 {isValidSelfie(todayRecord.open_selfie) && (
                   <div>
                     <p className="text-[10px] text-green-600 font-bold mb-1">OPEN</p>
-                    <LazyImg
-                      src={toDriveProxyUrl(todayRecord.open_selfie)}
-                      alt="open selfie"
-                      className="w-full rounded-xl overflow-hidden"
-                      style={{ aspectRatio: '4/3' }}
-                    />
+                    <LazyImg src={toDriveProxyUrl(todayRecord.open_selfie)} alt="open selfie" className="w-full rounded-xl overflow-hidden" style={{ aspectRatio: '4/3' }} />
                   </div>
                 )}
                 {isValidSelfie(todayRecord.close_selfie) && (
                   <div>
                     <p className="text-[10px] text-blue-600 font-bold mb-1">CLOSE</p>
-                    <LazyImg
-                      src={toDriveProxyUrl(todayRecord.close_selfie)}
-                      alt="close selfie"
-                      className="w-full rounded-xl overflow-hidden"
-                      style={{ aspectRatio: '4/3' }}
-                    />
+                    <LazyImg src={toDriveProxyUrl(todayRecord.close_selfie)} alt="close selfie" className="w-full rounded-xl overflow-hidden" style={{ aspectRatio: '4/3' }} />
                   </div>
                 )}
               </div>
@@ -829,221 +841,382 @@ function HistoryTab({ user, isStoreUser, myStoreName, isAll }: { user: any; isSt
 
   useEffect(() => { fetchHistory(); }, [fetchHistory]);
 
+  // ── Column widths (px) ──
+  const W_NO    = 32;
+  const W_TOKO  = 110;
+  const W_STAFF = 120;
+  const W_FOTO  = 50;
+  const W_JAM   = 60;
+  // Admin-only extra columns
+  const W_DEV   = 105;
+  const W_BROW  = 80;
+  const W_IP    = 115;
+  const W_VALID = 60;
+  const W_LAT   = 95;
+  const W_LNG   = 95;
+  const W_PETA  = 48;
+
+  const baseCols = `${W_NO}px ${W_TOKO}px ${W_STAFF}px ${W_FOTO}px ${W_JAM}px ${W_STAFF}px ${W_FOTO}px ${W_JAM}px`;
+  const adminCols = isAll
+    ? ` ${W_DEV}px ${W_BROW}px ${W_IP}px ${W_VALID}px ${W_LAT}px ${W_LNG}px ${W_PETA}px ${W_PETA}px`
+    : '';
+  const gridCols = baseCols + adminCols;
+
+  const baseMinW = W_NO + W_TOKO + W_STAFF + W_FOTO + W_JAM + W_STAFF + W_FOTO + W_JAM;
+  const adminMinW = isAll ? W_DEV + W_BROW + W_IP + W_VALID + W_LAT + W_LNG + W_PETA + W_PETA : 0;
+  const minWidth = baseMinW + adminMinW;
+
   return (
-    <div>
-      {/* Filter */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 mb-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          {!isStoreUser && (
-            <div className="flex items-center gap-1.5">
-              <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">Toko</label>
-              <select value={selectedStore} onChange={e => setSelectedStore(e.target.value)}
-                className="px-2 py-1 border border-gray-200 rounded-lg text-[11px] focus:outline-none focus:ring-1 focus:ring-primary">
-                <option value="">Semua Toko</option>
-                {stores.map(s => <option key={s.id} value={s.store_name}>{s.store_name}</option>)}
-              </select>
-            </div>
-          )}
+    // ⬇ -mx-6 + px-6 makes the section break out of the parent p-6 padding
+    // so the table card can truly go edge-to-edge
+    <div className="-mx-6">
+      {/* Filter bar */}
+      <div className="mx-6 bg-white rounded-2xl shadow-sm border border-gray-100 p-3 mb-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Toko filter — always visible */}
           <div className="flex items-center gap-1.5">
-            <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">Tanggal</label>
-            <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-              className="px-2 py-1 border border-gray-200 rounded-lg text-[11px] focus:outline-none focus:ring-1 focus:ring-primary" />
+            <label className="text-[11px] font-medium text-gray-500 whitespace-nowrap">Toko</label>
+            {isStoreUser ? (
+              <span className="px-2 py-1 bg-gray-100 rounded-lg text-[11px] font-medium text-gray-700 capitalize">{myStoreName}</span>
+            ) : (
+              <select
+                value={selectedStore}
+                onChange={e => setSelectedStore(e.target.value)}
+                className="px-2 py-1 border border-gray-200 rounded-lg text-[11px] text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary bg-white"
+              >
+                <option value="">Semua Toko</option>
+                {stores.map(s => (
+                  <option key={s.id} value={s.store_name}>{s.store_name}</option>
+                ))}
+              </select>
+            )}
           </div>
-          <button onClick={fetchHistory} className="px-3 py-1 bg-primary text-white rounded-lg text-[11px] hover:bg-primary/90">Cari</button>
+
+          <div className="w-px h-4 bg-gray-200" />
+
+          <div className="flex items-center gap-1.5">
+            <label className="text-[11px] font-medium text-gray-500 whitespace-nowrap">Tanggal</label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              className="px-2 py-1 border border-gray-200 rounded-lg text-[11px] text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary bg-white"
+            />
+          </div>
+
+          <button
+            onClick={fetchHistory}
+            className="px-3 py-1 bg-primary text-white rounded-lg text-[11px] font-medium hover:bg-primary/90"
+          >
+            Cari
+          </button>
+
+          {records.length > 0 && (
+            <span className="ml-auto text-[11px] text-gray-400">{records.length} data</span>
+          )}
         </div>
       </div>
 
       {loading ? (
         <div className="text-center py-12 text-gray-500 text-sm">Memuat data...</div>
       ) : records.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-12 text-center">
+        <div className="mx-6 bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-12 text-center">
           <p className="text-gray-500 text-sm">Tidak ada data absensi</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        /* Table — full width edge-to-edge, scroll horizontally when needed */
+        <div className="bg-white border-y border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <div style={{ minWidth }}>
 
-          {/* ── Table header ── */}
-          <div className="bg-gray-50 border-b border-gray-100 px-3 py-2 grid gap-2 items-center"
-            style={{ gridTemplateColumns: '1fr 44px auto 44px auto' }}>
-            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Toko / Staff</span>
-            <span className="text-[10px] font-semibold text-green-600 uppercase tracking-wide text-center">Foto</span>
-            <span className="text-[10px] font-semibold text-green-600 uppercase tracking-wide text-center whitespace-nowrap">OPEN</span>
-            <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wide text-center">Foto</span>
-            <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wide text-center whitespace-nowrap">CLOSE</span>
-          </div>
+              {/* ── HEADER ROW 1 — group labels ── */}
+              <div
+                className="grid bg-gray-50 border-b border-gray-200 sticky top-0 z-10"
+                style={{ gridTemplateColumns: gridCols }}
+              >
+                {/* # + Toko */}
+                <div className="col-span-2 border-r border-gray-200" />
 
-          <div className="divide-y divide-gray-50">
-            {records.map(rec => {
-              const isExpanded = expandedId === rec.id;
-              const openProxyUrl = isValidSelfie(rec.open_selfie) ? toDriveProxyUrl(rec.open_selfie) : '';
-              const closeProxyUrl = isValidSelfie(rec.close_selfie) ? toDriveProxyUrl(rec.close_selfie) : '';
-              const openStaff = rec.open_staff_name?.trim() || '';
-              const closeStaff = rec.close_staff_name?.trim() || '';
-
-              return (
-                <div key={rec.id}>
-                  {/* ── Main row ── */}
-                  <button
-                    onClick={() => setExpandedId(isExpanded ? null : rec.id)}
-                    className="w-full grid gap-2 px-3 py-2.5 hover:bg-gray-50 transition-colors text-left items-center"
-                    style={{ gridTemplateColumns: '1fr 44px auto 44px auto' }}
-                  >
-                    {/* Toko + staff */}
-                    <div className="min-w-0">
-                      <p className="text-[12px] font-bold text-gray-900 capitalize truncate">{rec.store_name}</p>
-                      <p className="text-[10px] text-gray-400 truncate mt-0.5">
-                        {openStaff || closeStaff
-                          ? (openStaff || closeStaff)
-                          : <span className="italic text-gray-300">—</span>
-                        }
-                      </p>
-                    </div>
-
-                    {/* OPEN foto thumbnail */}
-                    <div className="flex justify-center">
-                      {openProxyUrl ? (
-                        <LazyImg
-                          src={openProxyUrl}
-                          alt="open"
-                          className="w-9 h-9 rounded-lg overflow-hidden border border-green-200 bg-gray-100 shrink-0"
-                          fallback={<SelfiePlaceholder size="sm" />}
-                        />
-                      ) : (
-                        <SelfiePlaceholder size="sm" />
-                      )}
-                    </div>
-
-                    {/* OPEN waktu + staff */}
-                    <div className="min-w-0">
-                      {rec.open_timestamp ? (
-                        <>
-                          <p className="text-[11px] font-semibold text-green-700 whitespace-nowrap">
-                            {extractTime(rec.open_timestamp)}
-                          </p>
-                          {openStaff && (
-                            <p className="text-[10px] text-gray-400 truncate max-w-[100px]">{openStaff}</p>
-                          )}
-                        </>
-                      ) : (
-                        <p className="text-[10px] text-gray-300 italic">Belum</p>
-                      )}
-                    </div>
-
-                    {/* CLOSE foto thumbnail */}
-                    <div className="flex justify-center">
-                      {closeProxyUrl ? (
-                        <LazyImg
-                          src={closeProxyUrl}
-                          alt="close"
-                          className="w-9 h-9 rounded-lg overflow-hidden border border-blue-200 bg-gray-100 shrink-0"
-                          fallback={<SelfiePlaceholder size="sm" />}
-                        />
-                      ) : (
-                        <SelfiePlaceholder size="sm" />
-                      )}
-                    </div>
-
-                    {/* CLOSE waktu + staff */}
-                    <div className="min-w-0">
-                      {rec.close_timestamp ? (
-                        <>
-                          <p className="text-[11px] font-semibold text-blue-700 whitespace-nowrap">
-                            {extractTime(rec.close_timestamp)}
-                          </p>
-                          {closeStaff && (
-                            <p className="text-[10px] text-gray-400 truncate max-w-[100px]">{closeStaff}</p>
-                          )}
-                        </>
-                      ) : (
-                        <p className="text-[10px] text-gray-300 italic">Belum</p>
-                      )}
-                    </div>
-                  </button>
-
-                  {/* ── Expanded detail ── */}
-                  {isExpanded && (
-                    <div className="bg-gray-50 border-t border-gray-100 px-3 py-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        {/* OPEN detail */}
-                        <div>
-                          <p className="text-[10px] font-bold text-green-600 uppercase tracking-wide mb-1.5">OPEN</p>
-                          {openProxyUrl ? (
-                            <img
-                              src={openProxyUrl}
-                              alt="open"
-                              className="w-full rounded-xl object-cover mb-2 border border-green-100"
-                              style={{ aspectRatio: '4/3' }}
-                            />
-                          ) : (
-                            <SelfiePlaceholder />
-                          )}
-                          <div className="space-y-0.5 text-[10px] text-gray-600">
-                            <div>
-                              <span className="text-gray-400">Staff: </span>
-                              <span className="font-medium">{openStaff || <span className="italic text-gray-300">Tidak diisi</span>}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-400">Waktu: </span>
-                              <span className="font-medium">{rec.open_timestamp || '-'}</span>
-                            </div>
-                            {rec.open_maps_url && (
-                              <a href={rec.open_maps_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline flex items-center gap-1 mt-0.5">
-                                <span>📍</span> Lihat Peta
-                              </a>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* CLOSE detail */}
-                        <div>
-                          <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wide mb-1.5">CLOSE</p>
-                          {closeProxyUrl ? (
-                            <img
-                              src={closeProxyUrl}
-                              alt="close"
-                              className="w-full rounded-xl object-cover mb-2 border border-blue-100"
-                              style={{ aspectRatio: '4/3' }}
-                            />
-                          ) : (
-                            <SelfiePlaceholder />
-                          )}
-                          <div className="space-y-0.5 text-[10px] text-gray-600">
-                            <div>
-                              <span className="text-gray-400">Staff: </span>
-                              <span className="font-medium">{closeStaff || <span className="italic text-gray-300">Tidak diisi</span>}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-400">Waktu: </span>
-                              <span className="font-medium">{rec.close_timestamp || '-'}</span>
-                            </div>
-                            {rec.close_maps_url && (
-                              <a href={rec.close_maps_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline flex items-center gap-1 mt-0.5">
-                                <span>📍</span> Lihat Peta
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Extra info for admin */}
-                      {isAll && (
-                        <div className="mt-2 pt-2 border-t border-gray-200 grid grid-cols-2 gap-1.5 text-[10px] text-gray-600">
-                          <div><span className="text-gray-400">Device: </span><span className="font-medium">{rec.device_info || '-'}</span></div>
-                          <div><span className="text-gray-400">Browser: </span><span className="font-medium">{rec.browser || '-'}</span></div>
-                          <div><span className="text-gray-400">IP: </span><span className="font-medium">{rec.ip_address || '-'}</span></div>
-                          <div>
-                            <span className="text-gray-400">Valid Lokasi: </span>
-                            <span className={`font-bold ${rec.is_valid_location === 'TRUE' ? 'text-green-600' : 'text-red-500'}`}>
-                              {rec.is_valid_location === 'TRUE' ? 'Ya' : 'Tidak'}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                {/* OPEN group */}
+                <div className="col-span-3 border-r border-gray-200 bg-gray-100">
+                  <div className="px-2 py-1 text-center">
+                    <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">OPEN</span>
+                  </div>
                 </div>
-              );
-            })}
+
+                {/* CLOSE group */}
+                <div className={`col-span-3 bg-gray-50 ${isAll ? 'border-r border-gray-200' : ''}`}>
+                  <div className="px-2 py-1 text-center">
+                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">CLOSE</span>
+                  </div>
+                </div>
+
+                {/* Admin extra */}
+                {isAll && (
+                  <div className="col-span-8 bg-gray-50">
+                    <div className="px-2 py-1 text-center">
+                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Info Teknis</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── HEADER ROW 2 — column labels ── */}
+              <div
+                className="grid bg-gray-50 border-b border-gray-200 sticky top-[25px] z-10"
+                style={{ gridTemplateColumns: gridCols }}
+              >
+                <div className="px-2 py-1.5 text-[9px] font-semibold text-gray-400 uppercase tracking-wide text-center border-r border-gray-200">#</div>
+                <div className="px-2 py-1.5 text-[9px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200">Toko</div>
+                {/* OPEN sub-headers */}
+                <div className="px-2 py-1.5 text-[9px] font-semibold text-gray-600 uppercase tracking-wide bg-gray-100 border-r border-gray-200">Staff</div>
+                <div className="px-2 py-1.5 text-[9px] font-semibold text-gray-600 uppercase tracking-wide text-center bg-gray-100 border-r border-gray-200">Foto</div>
+                <div className="px-2 py-1.5 text-[9px] font-semibold text-gray-600 uppercase tracking-wide text-center bg-gray-100 border-r border-gray-200">Jam</div>
+                {/* CLOSE sub-headers */}
+                <div className="px-2 py-1.5 text-[9px] font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200">Staff</div>
+                <div className="px-2 py-1.5 text-[9px] font-semibold text-gray-500 uppercase tracking-wide text-center border-r border-gray-200">Foto</div>
+                <div className={`px-2 py-1.5 text-[9px] font-semibold text-gray-500 uppercase tracking-wide text-center ${isAll ? 'border-r border-gray-200' : ''}`}>Jam</div>
+                {/* Admin extra sub-headers */}
+                {isAll && (
+                  <>
+                    <div className="px-2 py-1.5 text-[9px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-200">Device</div>
+                    <div className="px-2 py-1.5 text-[9px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-200">Browser</div>
+                    <div className="px-2 py-1.5 text-[9px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-200">IP</div>
+                    <div className="px-2 py-1.5 text-[9px] font-semibold text-gray-400 uppercase tracking-wide text-center border-r border-gray-200">Valid</div>
+                    <div className="px-2 py-1.5 text-[9px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-200">Lat Open</div>
+                    <div className="px-2 py-1.5 text-[9px] font-semibold text-gray-400 uppercase tracking-wide border-r border-gray-200">Lng Open</div>
+                    <div className="px-2 py-1.5 text-[9px] font-semibold text-gray-400 uppercase tracking-wide text-center border-r border-gray-200">Peta O</div>
+                    <div className="px-2 py-1.5 text-[9px] font-semibold text-gray-400 uppercase tracking-wide text-center">Peta C</div>
+                  </>
+                )}
+              </div>
+
+              {/* ── DATA ROWS ── */}
+              <div>
+                {records.map((rec, idx) => {
+                  const isExpanded = expandedId === rec.id;
+                  const openProxyUrl  = isValidSelfie(rec.open_selfie)  ? toDriveProxyUrl(rec.open_selfie)  : '';
+                  const closeProxyUrl = isValidSelfie(rec.close_selfie) ? toDriveProxyUrl(rec.close_selfie) : '';
+                  const openStaff  = rec.open_staff_name?.trim()  || '';
+                  const closeStaff = rec.close_staff_name?.trim() || '';
+                  const isValid =
+                    rec.is_valid_location === 'TRUE' ||
+                    rec.is_valid_location === 'true' ||
+                    rec.is_valid_location === '1';
+
+                  return (
+                    <div key={rec.id} className="border-b border-gray-100 last:border-b-0">
+                      {/* Main data row */}
+                      <button
+                        onClick={() => setExpandedId(isExpanded ? null : rec.id)}
+                        className={`w-full grid text-left transition-colors items-center ${isExpanded ? 'bg-gray-50' : 'hover:bg-gray-50/70'}`}
+                        style={{ gridTemplateColumns: gridCols }}
+                      >
+                        {/* # */}
+                        <div className="px-2 py-2.5 text-[10px] text-gray-400 text-center border-r border-gray-200">
+                          {idx + 1}
+                        </div>
+
+                        {/* Toko */}
+                        <div className="px-2 py-2.5 border-r border-gray-200">
+                          <p className="text-[11px] font-semibold text-gray-800 capitalize truncate">{rec.store_name}</p>
+                        </div>
+
+                        {/* OPEN — Staff */}
+                        <div className="px-2 py-2.5 border-r border-gray-200 bg-gray-50/60">
+                          <p className="text-[10px] text-gray-700 truncate leading-tight" style={{ maxWidth: W_STAFF - 16 }}>
+                            {openStaff || <span className="text-gray-300">—</span>}
+                          </p>
+                        </div>
+
+                        {/* OPEN — Foto */}
+                        <div className="px-1 py-1.5 flex justify-center border-r border-gray-200 bg-gray-50/60">
+                          {openProxyUrl ? (
+                            <LazyImg
+                              src={openProxyUrl}
+                              alt="foto open"
+                              className="rounded overflow-hidden border border-gray-200 bg-gray-100"
+                              style={{ width: 36, height: 36 }}
+                              fallback={<SelfiePlaceholderSm />}
+                            />
+                          ) : <SelfiePlaceholderSm />}
+                        </div>
+
+                        {/* OPEN — Jam */}
+                        <div className="px-2 py-2.5 border-r border-gray-200 bg-gray-50/60">
+                          {rec.open_timestamp
+                            ? <p className="text-[10px] font-semibold text-gray-700 whitespace-nowrap">{extractTime(rec.open_timestamp)}</p>
+                            : <p className="text-[10px] text-gray-300">—</p>
+                          }
+                        </div>
+
+                        {/* CLOSE — Staff */}
+                        <div className="px-2 py-2.5 border-r border-gray-200">
+                          <p className="text-[10px] text-gray-700 truncate leading-tight" style={{ maxWidth: W_STAFF - 16 }}>
+                            {closeStaff || <span className="text-gray-300">—</span>}
+                          </p>
+                        </div>
+
+                        {/* CLOSE — Foto */}
+                        <div className="px-1 py-1.5 flex justify-center border-r border-gray-200">
+                          {closeProxyUrl ? (
+                            <LazyImg
+                              src={closeProxyUrl}
+                              alt="foto close"
+                              className="rounded overflow-hidden border border-gray-200 bg-gray-100"
+                              style={{ width: 36, height: 36 }}
+                              fallback={<SelfiePlaceholderSm />}
+                            />
+                          ) : <SelfiePlaceholderSm />}
+                        </div>
+
+                        {/* CLOSE — Jam */}
+                        <div className={`px-2 py-2.5 ${isAll ? 'border-r border-gray-200' : ''}`}>
+                          {rec.close_timestamp
+                            ? <p className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">{extractTime(rec.close_timestamp)}</p>
+                            : <p className="text-[10px] text-gray-300">—</p>
+                          }
+                        </div>
+
+                        {/* Admin extra columns */}
+                        {isAll && (
+                          <>
+                            {/* Device */}
+                            <div className="px-2 py-2.5 border-r border-gray-200">
+                              <p className="text-[10px] text-gray-600 truncate">{rec.device_info || '—'}</p>
+                            </div>
+
+                            {/* Browser */}
+                            <div className="px-2 py-2.5 border-r border-gray-200">
+                              <p className="text-[10px] text-gray-600 truncate">{rec.browser || '—'}</p>
+                            </div>
+
+                            {/* IP */}
+                            <div className="px-2 py-2.5 border-r border-gray-200">
+                              <p className="text-[10px] text-gray-600 font-mono truncate">{rec.ip_address || '—'}</p>
+                            </div>
+
+                            {/* Valid Lokasi */}
+                            <div className="px-2 py-2.5 flex justify-center border-r border-gray-200">
+                              {isValid
+                                ? <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-300">
+                                    <IconCheck className="w-2.5 h-2.5" /> Ya
+                                  </span>
+                                : <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">
+                                    <IconX className="w-2.5 h-2.5" /> Tidak
+                                  </span>
+                              }
+                            </div>
+
+                            {/* Lat Open */}
+                            <div className="px-2 py-2.5 border-r border-gray-200">
+                              <p className="text-[10px] text-gray-600 font-mono truncate">{rec.open_latitude || '—'}</p>
+                            </div>
+
+                            {/* Lng Open */}
+                            <div className="px-2 py-2.5 border-r border-gray-200">
+                              <p className="text-[10px] text-gray-600 font-mono truncate">{rec.open_longitude || '—'}</p>
+                            </div>
+
+                            {/* Peta Open */}
+                            <div className="px-2 py-2.5 flex justify-center border-r border-gray-200">
+                              {rec.open_maps_url
+                                ? <a href={rec.open_maps_url} target="_blank" rel="noopener noreferrer"
+                                    onClick={e => e.stopPropagation()}
+                                    className="text-gray-500 hover:text-gray-800">
+                                    <IconPin className="w-3.5 h-3.5" />
+                                  </a>
+                                : <span className="text-gray-200"><IconPin className="w-3.5 h-3.5" /></span>
+                              }
+                            </div>
+
+                            {/* Peta Close */}
+                            <div className="px-2 py-2.5 flex justify-center">
+                              {rec.close_maps_url
+                                ? <a href={rec.close_maps_url} target="_blank" rel="noopener noreferrer"
+                                    onClick={e => e.stopPropagation()}
+                                    className="text-gray-500 hover:text-gray-800">
+                                    <IconPin className="w-3.5 h-3.5" />
+                                  </a>
+                                : <span className="text-gray-200"><IconPin className="w-3.5 h-3.5" /></span>
+                              }
+                            </div>
+                          </>
+                        )}
+                      </button>
+
+                      {/* ── Expanded photo detail ── */}
+                      {isExpanded && (
+                        <div className="bg-gray-50 border-t border-gray-200 px-6 py-4">
+                          <div className="grid grid-cols-2 gap-6 max-w-md">
+                            {/* OPEN detail */}
+                            <div>
+                              <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">OPEN</p>
+                              {openProxyUrl ? (
+                                <img src={openProxyUrl} alt="open" className="w-full rounded-lg object-cover mb-2 border border-gray-200" style={{ aspectRatio: '4/3' }} />
+                              ) : <SelfiePlaceholderMd />}
+                              <p className="text-[10px] text-gray-500">
+                                <span className="text-gray-400">Staff: </span>
+                                <span className="font-medium text-gray-700">{openStaff || <span className="italic text-gray-300">tidak diisi</span>}</span>
+                              </p>
+                              <p className="text-[10px] text-gray-500 mt-0.5">
+                                <span className="text-gray-400">Waktu: </span>
+                                <span className="font-medium text-gray-700">{rec.open_timestamp || '-'}</span>
+                              </p>
+                              {rec.open_maps_url && (
+                                <a href={rec.open_maps_url} target="_blank" rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-800 hover:underline mt-1">
+                                  <IconPin className="w-3 h-3" /> Lihat Peta
+                                </a>
+                              )}
+                            </div>
+                            {/* CLOSE detail */}
+                            <div>
+                              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-2">CLOSE</p>
+                              {closeProxyUrl ? (
+                                <img src={closeProxyUrl} alt="close" className="w-full rounded-lg object-cover mb-2 border border-gray-200" style={{ aspectRatio: '4/3' }} />
+                              ) : <SelfiePlaceholderMd />}
+                              <p className="text-[10px] text-gray-500">
+                                <span className="text-gray-400">Staff: </span>
+                                <span className="font-medium text-gray-700">{closeStaff || <span className="italic text-gray-300">tidak diisi</span>}</span>
+                              </p>
+                              <p className="text-[10px] text-gray-500 mt-0.5">
+                                <span className="text-gray-400">Waktu: </span>
+                                <span className="font-medium text-gray-700">{rec.close_timestamp || '-'}</span>
+                              </p>
+                              {rec.close_maps_url && (
+                                <a href={rec.close_maps_url} target="_blank" rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-800 hover:underline mt-1">
+                                  <IconPin className="w-3 h-3" /> Lihat Peta
+                                </a>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Admin-only extra info (expanded) */}
+                          {isAll && (
+                            <div className="mt-4 pt-3 border-t border-gray-200 grid grid-cols-3 gap-x-6 gap-y-1 text-[10px] text-gray-600">
+                              <div><span className="text-gray-400">Device: </span><span className="font-medium">{rec.device_info || '-'}</span></div>
+                              <div><span className="text-gray-400">Browser: </span><span className="font-medium">{rec.browser || '-'}</span></div>
+                              <div><span className="text-gray-400">IP: </span><span className="font-medium font-mono">{rec.ip_address || '-'}</span></div>
+                              <div>
+                                <span className="text-gray-400">Valid Lokasi: </span>
+                                <span className={`font-semibold ${isValid ? 'text-gray-700' : 'text-gray-400'}`}>
+                                  {isValid ? 'Ya' : 'Tidak'}
+                                </span>
+                              </div>
+                              <div><span className="text-gray-400">Lat Open: </span><span className="font-medium font-mono">{rec.open_latitude || '-'}</span></div>
+                              <div><span className="text-gray-400">Lng Open: </span><span className="font-medium font-mono">{rec.open_longitude || '-'}</span></div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+            </div>
           </div>
         </div>
       )}
