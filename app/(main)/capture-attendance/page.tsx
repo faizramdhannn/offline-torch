@@ -136,7 +136,7 @@ function isCloseWindowActive(closeHours: string): boolean {
   const target = parseHHMM(closeHours);
   if (target === null) return true;
   const now = nowMinutesWIB();
-  return now >= target - 1 && now <= target + 1;
+  return now >= target - 5 && now <= target + 120;
 }
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -592,7 +592,7 @@ function CaptureSection({ user, isStoreUser, myStoreName, isAll }: {
   const currentToggleTaft = actionType === 'open' ? toggleOpenTaft : toggleCloseTaft;
 
   return (
-    <div className="w-full">
+    <div className="w-full center">
       {/* ══════════════════════════════════════════════════
           ABSENSI SECTION
       ══════════════════════════════════════════════════ */}
@@ -617,7 +617,7 @@ function CaptureSection({ user, isStoreUser, myStoreName, isAll }: {
                 <label className="block text-[10px] text-gray-500 uppercase tracking-wide font-medium mb-1.5">Pilih Toko</label>
                 <select value={selectedStore} onChange={e => setSelectedStore(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
-                  <option value="">-- Pilih Toko --</option>
+                  <option value="">Pilih Toko</option>
                   {stores.map(s => <option key={s.id} value={s.store_name}>{s.store_name}</option>)}
                 </select>
               </div>
@@ -713,7 +713,7 @@ function CaptureSection({ user, isStoreUser, myStoreName, isAll }: {
                   {hasClose && <span className="text-[9px] font-normal opacity-70">Sudah absen</span>}
                   {!hasOpen && !hasClose && <span className="text-[9px] font-normal opacity-70">Open dulu</span>}
                   {hasOpen && !hasClose && !timeAllowsClose && storeDetail?.close_hours && (
-                    <span className="text-[9px] font-normal opacity-70 text-center px-1">±1m dari {storeDetail.close_hours}</span>
+                    <span className="text-[9px] font-normal opacity-70 text-center px-1">5m sebelum - 2j sesudah {storeDetail.close_hours}</span>
                   )}
                 </button>
               </div>
