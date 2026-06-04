@@ -60,6 +60,16 @@ function toDriveProxyUrl(url: string): string {
   return url;
 }
 
+// ─── Selfie Validity Check ─────────────────────────────────────────────────────
+// Filters out empty, "data:," stub, and suspiciously short data URLs
+function isValidSelfie(url: string): boolean {
+  if (!url) return false;
+  if (url === 'data:,' || url === 'data:') return false;
+  // A real base64 photo will be thousands of chars; < 100 means it's a stub
+  if (url.startsWith('data:') && url.length < 100) return false;
+  return true;
+}
+
 // ─── Lazy Image — only loads when visible in viewport ─────────────────────────
 function LazyImg({
   src,
@@ -175,6 +185,18 @@ function nowTimestamp(): string {
 
 function formatTimestamp(ts: string): string {
   if (!ts) return '-';
+  return ts;
+}
+
+// Extract time part only from timestamp, e.g. "04 Jun 2026, 08.09.16" → "08.09"
+function extractTime(ts: string): string {
+  if (!ts) return '-';
+  // Format: "DD Mon YYYY, HH.MM.SS"
+  const m = ts.match(/,\s*(\d{2}\.\d{2})/);
+  if (m) return m[1];
+  // Fallback: last part after comma
+  const parts = ts.split(',');
+  if (parts.length > 1) return parts[1].trim().substring(0, 5);
   return ts;
 }
 
@@ -340,6 +362,26 @@ function TaftSelector({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ─── Selfie Placeholder ────────────────────────────────────────────────────────
+function SelfiePlaceholder({ size = 'md' }: { size?: 'sm' | 'md' }) {
+  if (size === 'sm') {
+    return (
+      <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
+        <span className="text-gray-300 text-xs">—</span>
+      </div>
+    );
+  }
+  return (
+    <div
+      className="w-full rounded-xl bg-gray-100 flex flex-col items-center justify-center mb-2 border border-gray-200"
+      style={{ aspectRatio: '4/3' }}
+    >
+      <span className="text-2xl mb-1">📷</span>
+      <span className="text-[10px] text-gray-400">Foto tidak tersedia</span>
     </div>
   );
 }
@@ -710,11 +752,11 @@ function CaptureTab({ user, isStoreUser, myStoreName, isAll }: { user: any; isSt
           )}
 
           {/* Today's selfie previews */}
-          {todayRecord && (todayRecord.open_selfie || todayRecord.close_selfie) && step === 'init' && (
+          {todayRecord && (isValidSelfie(todayRecord.open_selfie) || isValidSelfie(todayRecord.close_selfie)) && step === 'init' && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
               <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium mb-3">Foto Hari Ini</p>
               <div className="grid grid-cols-2 gap-3">
-                {todayRecord.open_selfie && (
+                {isValidSelfie(todayRecord.open_selfie) && (
                   <div>
                     <p className="text-[10px] text-green-600 font-bold mb-1">OPEN</p>
                     <LazyImg
@@ -725,7 +767,7 @@ function CaptureTab({ user, isStoreUser, myStoreName, isAll }: { user: any; isSt
                     />
                   </div>
                 )}
-                {todayRecord.close_selfie && (
+                {isValidSelfie(todayRecord.close_selfie) && (
                   <div>
                     <p className="text-[10px] text-blue-600 font-bold mb-1">CLOSE</p>
                     <LazyImg
@@ -819,93 +861,131 @@ function HistoryTab({ user, isStoreUser, myStoreName, isAll }: { user: any; isSt
         </div>
       ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          {/* Header */}
-          <div className="grid grid-cols-[1fr_auto_auto] border-b border-gray-100 bg-gray-50 px-3 py-2">
+
+          {/* ── Table header ── */}
+          <div className="bg-gray-50 border-b border-gray-100 px-3 py-2 grid gap-2 items-center"
+            style={{ gridTemplateColumns: '1fr 44px auto 44px auto' }}>
             <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Toko / Staff</span>
-            <span className="text-[10px] font-semibold text-green-600 uppercase tracking-wide w-20 text-center">OPEN</span>
-            <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wide w-20 text-center">CLOSE</span>
+            <span className="text-[10px] font-semibold text-green-600 uppercase tracking-wide text-center">Foto</span>
+            <span className="text-[10px] font-semibold text-green-600 uppercase tracking-wide text-center whitespace-nowrap">OPEN</span>
+            <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wide text-center">Foto</span>
+            <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wide text-center whitespace-nowrap">CLOSE</span>
           </div>
 
           <div className="divide-y divide-gray-50">
             {records.map(rec => {
               const isExpanded = expandedId === rec.id;
-              const openProxyUrl = toDriveProxyUrl(rec.open_selfie);
-              const closeProxyUrl = toDriveProxyUrl(rec.close_selfie);
+              const openProxyUrl = isValidSelfie(rec.open_selfie) ? toDriveProxyUrl(rec.open_selfie) : '';
+              const closeProxyUrl = isValidSelfie(rec.close_selfie) ? toDriveProxyUrl(rec.close_selfie) : '';
+              const openStaff = rec.open_staff_name?.trim() || '';
+              const closeStaff = rec.close_staff_name?.trim() || '';
 
               return (
                 <div key={rec.id}>
-                  {/* Row — thumbnail lazy load via IntersectionObserver */}
+                  {/* ── Main row ── */}
                   <button
                     onClick={() => setExpandedId(isExpanded ? null : rec.id)}
-                    className="w-full grid grid-cols-[1fr_auto_auto] px-3 py-2.5 hover:bg-gray-50 transition-colors text-left items-center"
+                    className="w-full grid gap-2 px-3 py-2.5 hover:bg-gray-50 transition-colors text-left items-center"
+                    style={{ gridTemplateColumns: '1fr 44px auto 44px auto' }}
                   >
-                    <div className="min-w-0 pr-2">
+                    {/* Toko + staff */}
+                    <div className="min-w-0">
                       <p className="text-[12px] font-bold text-gray-900 capitalize truncate">{rec.store_name}</p>
-                      {(rec.open_staff_name || rec.close_staff_name) && (
-                        <p className="text-[10px] text-gray-400 truncate mt-0.5">{rec.open_staff_name || rec.close_staff_name}</p>
-                      )}
+                      <p className="text-[10px] text-gray-400 truncate mt-0.5">
+                        {openStaff || closeStaff
+                          ? (openStaff || closeStaff)
+                          : <span className="italic text-gray-300">—</span>
+                        }
+                      </p>
                     </div>
 
-                    {/* OPEN thumbnail — lazy */}
-                    <div className="w-20 flex flex-col items-center gap-1">
-                      {rec.open_selfie ? (
+                    {/* OPEN foto thumbnail */}
+                    <div className="flex justify-center">
+                      {openProxyUrl ? (
                         <LazyImg
                           src={openProxyUrl}
                           alt="open"
-                          className="w-9 h-9 rounded-lg overflow-hidden border border-green-200 bg-gray-100"
-                          fallback={<div className="w-full h-full bg-gray-100 rounded-lg flex items-center justify-center"><span className="text-gray-300 text-sm">—</span></div>}
+                          className="w-9 h-9 rounded-lg overflow-hidden border border-green-200 bg-gray-100 shrink-0"
+                          fallback={<SelfiePlaceholder size="sm" />}
                         />
                       ) : (
-                        <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
-                          <span className="text-gray-300 text-sm">—</span>
-                        </div>
+                        <SelfiePlaceholder size="sm" />
                       )}
-                      {rec.open_timestamp ? (
-                        <span className="text-[9px] text-green-600 font-medium leading-tight text-center w-20 truncate px-1">
-                          {rec.open_timestamp.split(',')[1]?.trim() || rec.open_timestamp}
-                        </span>
-                      ) : <span className="text-[9px] text-gray-300">-</span>}
                     </div>
 
-                    {/* CLOSE thumbnail — lazy */}
-                    <div className="w-20 flex flex-col items-center gap-1">
-                      {rec.close_selfie ? (
+                    {/* OPEN waktu + staff */}
+                    <div className="min-w-0">
+                      {rec.open_timestamp ? (
+                        <>
+                          <p className="text-[11px] font-semibold text-green-700 whitespace-nowrap">
+                            {extractTime(rec.open_timestamp)}
+                          </p>
+                          {openStaff && (
+                            <p className="text-[10px] text-gray-400 truncate max-w-[100px]">{openStaff}</p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-[10px] text-gray-300 italic">Belum</p>
+                      )}
+                    </div>
+
+                    {/* CLOSE foto thumbnail */}
+                    <div className="flex justify-center">
+                      {closeProxyUrl ? (
                         <LazyImg
                           src={closeProxyUrl}
                           alt="close"
-                          className="w-9 h-9 rounded-lg overflow-hidden border border-blue-200 bg-gray-100"
-                          fallback={<div className="w-full h-full bg-gray-100 rounded-lg flex items-center justify-center"><span className="text-gray-300 text-sm">—</span></div>}
+                          className="w-9 h-9 rounded-lg overflow-hidden border border-blue-200 bg-gray-100 shrink-0"
+                          fallback={<SelfiePlaceholder size="sm" />}
                         />
                       ) : (
-                        <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
-                          <span className="text-gray-300 text-sm">—</span>
-                        </div>
+                        <SelfiePlaceholder size="sm" />
                       )}
+                    </div>
+
+                    {/* CLOSE waktu + staff */}
+                    <div className="min-w-0">
                       {rec.close_timestamp ? (
-                        <span className="text-[9px] text-blue-600 font-medium leading-tight text-center w-20 truncate px-1">
-                          {rec.close_timestamp.split(',')[1]?.trim() || rec.close_timestamp}
-                        </span>
-                      ) : <span className="text-[9px] text-gray-300">-</span>}
+                        <>
+                          <p className="text-[11px] font-semibold text-blue-700 whitespace-nowrap">
+                            {extractTime(rec.close_timestamp)}
+                          </p>
+                          {closeStaff && (
+                            <p className="text-[10px] text-gray-400 truncate max-w-[100px]">{closeStaff}</p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-[10px] text-gray-300 italic">Belum</p>
+                      )}
                     </div>
                   </button>
 
-                  {/* Expanded detail — foto besar hanya render saat isExpanded */}
+                  {/* ── Expanded detail ── */}
                   {isExpanded && (
                     <div className="bg-gray-50 border-t border-gray-100 px-3 py-3">
                       <div className="grid grid-cols-2 gap-3">
+                        {/* OPEN detail */}
                         <div>
                           <p className="text-[10px] font-bold text-green-600 uppercase tracking-wide mb-1.5">OPEN</p>
-                          {rec.open_selfie && (
+                          {openProxyUrl ? (
                             <img
                               src={openProxyUrl}
                               alt="open"
                               className="w-full rounded-xl object-cover mb-2 border border-green-100"
                               style={{ aspectRatio: '4/3' }}
                             />
+                          ) : (
+                            <SelfiePlaceholder />
                           )}
                           <div className="space-y-0.5 text-[10px] text-gray-600">
-                            <div><span className="text-gray-400">Staff:</span> <span className="font-medium">{rec.open_staff_name || '-'}</span></div>
-                            <div><span className="text-gray-400">Waktu:</span> <span className="font-medium">{rec.open_timestamp || '-'}</span></div>
+                            <div>
+                              <span className="text-gray-400">Staff: </span>
+                              <span className="font-medium">{openStaff || <span className="italic text-gray-300">Tidak diisi</span>}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Waktu: </span>
+                              <span className="font-medium">{rec.open_timestamp || '-'}</span>
+                            </div>
                             {rec.open_maps_url && (
                               <a href={rec.open_maps_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline flex items-center gap-1 mt-0.5">
                                 <span>📍</span> Lihat Peta
@@ -913,9 +993,11 @@ function HistoryTab({ user, isStoreUser, myStoreName, isAll }: { user: any; isSt
                             )}
                           </div>
                         </div>
+
+                        {/* CLOSE detail */}
                         <div>
                           <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wide mb-1.5">CLOSE</p>
-                          {rec.close_selfie ? (
+                          {closeProxyUrl ? (
                             <img
                               src={closeProxyUrl}
                               alt="close"
@@ -923,11 +1005,17 @@ function HistoryTab({ user, isStoreUser, myStoreName, isAll }: { user: any; isSt
                               style={{ aspectRatio: '4/3' }}
                             />
                           ) : (
-                            <div className="w-full rounded-xl bg-gray-100 flex items-center justify-center mb-2 text-gray-300 text-2xl" style={{ aspectRatio: '4/3' }}>—</div>
+                            <SelfiePlaceholder />
                           )}
                           <div className="space-y-0.5 text-[10px] text-gray-600">
-                            <div><span className="text-gray-400">Staff:</span> <span className="font-medium">{rec.close_staff_name || '-'}</span></div>
-                            <div><span className="text-gray-400">Waktu:</span> <span className="font-medium">{rec.close_timestamp || '-'}</span></div>
+                            <div>
+                              <span className="text-gray-400">Staff: </span>
+                              <span className="font-medium">{closeStaff || <span className="italic text-gray-300">Tidak diisi</span>}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Waktu: </span>
+                              <span className="font-medium">{rec.close_timestamp || '-'}</span>
+                            </div>
                             {rec.close_maps_url && (
                               <a href={rec.close_maps_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline flex items-center gap-1 mt-0.5">
                                 <span>📍</span> Lihat Peta
@@ -937,13 +1025,14 @@ function HistoryTab({ user, isStoreUser, myStoreName, isAll }: { user: any; isSt
                         </div>
                       </div>
 
+                      {/* Extra info for admin */}
                       {isAll && (
                         <div className="mt-2 pt-2 border-t border-gray-200 grid grid-cols-2 gap-1.5 text-[10px] text-gray-600">
-                          <div><span className="text-gray-400">Device:</span> <span className="font-medium">{rec.device_info || '-'}</span></div>
-                          <div><span className="text-gray-400">Browser:</span> <span className="font-medium">{rec.browser || '-'}</span></div>
-                          <div><span className="text-gray-400">IP:</span> <span className="font-medium">{rec.ip_address || '-'}</span></div>
+                          <div><span className="text-gray-400">Device: </span><span className="font-medium">{rec.device_info || '-'}</span></div>
+                          <div><span className="text-gray-400">Browser: </span><span className="font-medium">{rec.browser || '-'}</span></div>
+                          <div><span className="text-gray-400">IP: </span><span className="font-medium">{rec.ip_address || '-'}</span></div>
                           <div>
-                            <span className="text-gray-400">Valid Lokasi:</span>{' '}
+                            <span className="text-gray-400">Valid Lokasi: </span>
                             <span className={`font-bold ${rec.is_valid_location === 'TRUE' ? 'text-green-600' : 'text-red-500'}`}>
                               {rec.is_valid_location === 'TRUE' ? 'Ya' : 'Tidak'}
                             </span>
