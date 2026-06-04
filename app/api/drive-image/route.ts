@@ -2,7 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const fileId = searchParams.get('id');
+  
+  // Support both ?id=FILE_ID and ?url=DRIVE_URL
+  let fileId = searchParams.get('id');
+  
+  if (!fileId) {
+    const url = searchParams.get('url') || '';
+    const m = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    fileId = m ? m[1] : null;
+  }
 
   if (!fileId) {
     return NextResponse.json({ error: 'Missing file ID' }, { status: 400 });
@@ -26,8 +34,6 @@ export async function GET(request: NextRequest) {
 
       if (response.ok) {
         const contentType = response.headers.get('content-type') || 'image/jpeg';
-        
-        // Only proxy image responses
         if (contentType.startsWith('image/')) {
           const buffer = await response.arrayBuffer();
           return new NextResponse(buffer, {
@@ -38,12 +44,12 @@ export async function GET(request: NextRequest) {
           });
         }
       }
-    } catch (e) {
+    } catch {
       continue;
     }
   }
 
-  // Return placeholder SVG if all failed
+  // Fallback placeholder SVG
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
     <rect width="128" height="128" fill="#e5e7eb" rx="8"/>
     <text x="64" y="56" text-anchor="middle" fill="#9ca3af" font-size="11" font-family="sans-serif">Foto tidak</text>

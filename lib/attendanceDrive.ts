@@ -131,6 +131,6 @@ export async function uploadAttendanceSelfie(
     // Permission setting is best-effort
   }
 
-  return uploadRes.data.webViewLink ||
-    `https://drive.google.com/file/d/${uploadRes.data.id}/view`;
+const fileId = uploadRes.data.id!;
+return `https://drive.google.com/uc?export=view&id=${fileId}`;
 }
