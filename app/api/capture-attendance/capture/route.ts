@@ -3,7 +3,6 @@ import { getSheetData, appendSheetData, updateSheetRow } from '@/lib/sheets';
 import { uploadAttendanceSelfie } from '@/lib/attendanceDrive';
 
 // ─── Helper: parse Indonesian locale timestamp to YYYY-MM-DD ─────────────────
-// e.g. "04 Jun 2025, 08:30:00" → "2025-06-04"
 function tsToISO(ts: string): string {
   const monthMap: Record<string, string> = {
     Jan: '01', Feb: '02', Mar: '03', Apr: '04',
@@ -11,14 +10,47 @@ function tsToISO(ts: string): string {
     Sep: '09', Okt: '10', Nov: '11', Des: '12',
   };
   const m = ts.match(/^(\d{2})\s+(\w{3})\s+(\d{4})/);
-  if (!m) return ts; // fallback — might already be ISO
+  if (!m) return ts;
   return `${m[3]}-${monthMap[m[2]] || '00'}-${m[1]}`;
 }
 
 function matchesDate(ts: string, date: string): boolean {
   if (!ts) return false;
-  if (ts.includes(date)) return true;       // ISO format
-  return tsToISO(ts) === date;              // Indonesian locale format
+  if (ts.includes(date)) return true;
+  return tsToISO(ts) === date;
+}
+
+// ─── Coordinate Validation ────────────────────────────────────────────────────
+function parseCoord(val: string): number {
+  return parseFloat(String(val).replace(',', '.'));
+}
+
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function validateCoordinates(
+  openLat: string, openLng: string,
+  closeLat: string, closeLng: string
+): { isValid: boolean; distanceMeters: number | null } {
+  const oLat = parseCoord(openLat);
+  const oLng = parseCoord(openLng);
+  const cLat = parseCoord(closeLat);
+  const cLng = parseCoord(closeLng);
+
+  if (isNaN(oLat) || isNaN(oLng) || isNaN(cLat) || isNaN(cLng)) {
+    return { isValid: false, distanceMeters: null };
+  }
+
+  const distanceMeters = haversineDistance(oLat, oLng, cLat, cLng);
+  return { isValid: distanceMeters <= 200, distanceMeters };
 }
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
@@ -77,7 +109,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, store_name, device_info, browser, ip_address, is_valid_location } = body;
+    const { action, store_name, device_info, browser, ip_address } = body;
 
     if (!action || !store_name) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -93,7 +125,7 @@ export async function POST(request: NextRequest) {
     const jakartaNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
     const todayISO = `${jakartaNow.getFullYear()}-${String(jakartaNow.getMonth() + 1).padStart(2, '0')}-${String(jakartaNow.getDate()).padStart(2, '0')}`;
 
-    // ── Fetch store_id from store_list ────────────────────────────────────────
+    // ── Fetch store_id ────────────────────────────────────────────────────────
     let storeId = '';
     try {
       const storeList: any[] = await getSheetData('store_list');
@@ -102,12 +134,11 @@ export async function POST(request: NextRequest) {
       );
       storeId = storeMatch?.id || '';
     } catch {
-      // Non-fatal — store_id will be empty
+      // Non-fatal
     }
 
     const allRows: any[] = await getSheetData('attendance_store');
 
-    // Find today's existing row using the same locale-aware date matching
     const todayRowIndex = allRows.findIndex((r) => {
       if (r.store_name?.toLowerCase() !== store_name.toLowerCase()) return false;
       return (
@@ -116,14 +147,14 @@ export async function POST(request: NextRequest) {
       );
     });
 
-    // Upload selfie
+    // ── Upload selfie ─────────────────────────────────────────────────────────
     let selfieUrl = '';
     const selfieDataUrl: string = action === 'open' ? body.open_selfie : body.close_selfie;
     const staffName: string = action === 'open'
       ? (body.open_staff_name || '')
       : (body.close_staff_name || '');
 
-    if (selfieDataUrl && selfieDataUrl.startsWith('data:')) {
+    if (selfieDataUrl && selfieDataUrl.startsWith('data:image')) {
       try {
         const dateStr = todayISO.replace(/-/g, '');
         const actionLabel = action === 'open' ? 'Open' : 'Close';
@@ -143,11 +174,6 @@ export async function POST(request: NextRequest) {
 
       const id = `ATT-${Date.now()}`;
 
-      // Column order must match sheet headers exactly:
-      // id | store_id | store_name | device_info | browser | ip_address | is_valid_location
-      // | open_latitude | open_longitude | open_maps_url | open_timestamp | open_staff_name
-      // | open_selfie | close_latitude | close_longitude | close_maps_url
-      // | close_timestamp | close_staff_name | close_selfie | created_at | updated_at
       const newRow = [
         id,
         storeId,
@@ -155,19 +181,19 @@ export async function POST(request: NextRequest) {
         device_info || '',
         browser || '',
         ip_address || '',
-        is_valid_location ? 'TRUE' : 'FALSE',
+        'TRUE',                       // is_valid_location — belum bisa divalidasi saat open
         body.open_latitude || '',
         body.open_longitude || '',
         body.open_maps_url || '',
         body.open_timestamp || nowStr,
         staffName,
         selfieUrl,
-        '',   // close_latitude
-        '',   // close_longitude
-        '',   // close_maps_url
-        '',   // close_timestamp
-        '',   // close_staff_name
-        '',   // close_selfie
+        '',                           // close_latitude
+        '',                           // close_longitude
+        '',                           // close_maps_url
+        '',                           // close_timestamp
+        '',                           // close_staff_name
+        '',                           // close_selfie
         nowStr,
         nowStr,
       ];
@@ -183,7 +209,15 @@ export async function POST(request: NextRequest) {
       }
 
       const existing = allRows[todayRowIndex];
-      const rowNumber = todayRowIndex + 2; // +1 header, +1 1-based
+      const rowNumber = todayRowIndex + 2;
+
+      // Validasi koordinat open vs close
+      const { isValid, distanceMeters } = validateCoordinates(
+        existing.open_latitude,
+        existing.open_longitude,
+        body.close_latitude,
+        body.close_longitude,
+      );
 
       const updatedRow = [
         existing.id,
@@ -192,7 +226,7 @@ export async function POST(request: NextRequest) {
         existing.device_info || '',
         existing.browser || '',
         existing.ip_address || '',
-        existing.is_valid_location || 'FALSE',
+        isValid ? 'TRUE' : 'FALSE',   // is_valid_location hasil validasi koordinat
         existing.open_latitude || '',
         existing.open_longitude || '',
         existing.open_maps_url || '',
@@ -210,7 +244,12 @@ export async function POST(request: NextRequest) {
       ];
 
       await updateSheetRow('attendance_store', rowNumber, updatedRow);
-      return NextResponse.json({ success: true, id: existing.id });
+      return NextResponse.json({
+        success: true,
+        id: existing.id,
+        valid: isValid,
+        distance_meters: distanceMeters !== null ? Math.round(distanceMeters) : null,
+      });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

@@ -256,15 +256,38 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
     if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
   };
 
+  // ── FIXED: guard doCapture agar tidak menghasilkan data:, ──────────────────
   const doCapture = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current) return;
-    const canvas = canvasRef.current; const video = videoRef.current;
-    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
+    // Pastikan video sudah punya dimensi yang valid
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      setError('Kamera belum siap, coba ulangi.');
+      setCountdown(null);
+      return;
+    }
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
+
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0);
-    setPreview(canvas.toDataURL('image/jpeg', 0.85));
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+    // Validasi hasil — tolak jika kosong atau terlalu pendek
+    if (!dataUrl || dataUrl === 'data:,' || dataUrl.length < 1000) {
+      setError('Gagal mengambil foto, coba ulangi.');
+      setCountdown(null);
+      return;
+    }
+
+    setPreview(dataUrl);
     setCountdown(null);
     stopCamera();
   }, [stream]); // eslint-disable-line
@@ -282,7 +305,7 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
   };
 
   const cancelCountdown = () => { clearCountdown(); setCountdown(null); };
-  const retake = () => { setPreview(null); setCountdown(null); startCamera(); };
+  const retake = () => { setPreview(null); setCountdown(null); setError(''); startCamera(); };
   const confirm = () => { if (preview) onCapture(preview); };
 
   return (
@@ -305,7 +328,7 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
           </button>
         </div>
 
-        {/* Timer selector — hanya tampil sebelum preview */}
+        {/* Timer selector */}
         {!preview && !error && (
           <div className="px-5 py-2.5 border-b border-gray-700/40 flex items-center gap-2">
             <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide shrink-0">Timer</span>
@@ -333,6 +356,10 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
                 </div>
                 <p className="text-red-400 text-sm font-medium mb-1">Kamera tidak tersedia</p>
                 <p className="text-gray-500 text-xs">{error}</p>
+                <button onClick={retake}
+                  className="mt-4 px-4 py-2 bg-gray-700 text-white rounded-xl text-sm hover:bg-gray-600">
+                  Coba Lagi
+                </button>
               </div>
             </div>
           ) : preview ? (
@@ -345,7 +372,6 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
           {!preview && !error && (
             <div className="absolute inset-0 pointer-events-none">
               <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/30" />
-              {/* Face guide */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="relative" style={{ width: '45%', aspectRatio: '3/4' }}>
                   <div className="absolute inset-0 border border-white/20 rounded-full" />
@@ -355,7 +381,6 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
                   <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-white rounded-br-lg" />
                 </div>
               </div>
-              {/* Countdown overlay */}
               {countdown !== null && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="w-24 h-24 rounded-full bg-black/50 flex items-center justify-center backdrop-blur-sm border-2 border-white/30">
@@ -363,7 +388,6 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
                   </div>
                 </div>
               )}
-              {/* Live badge — sembunyikan saat countdown */}
               {countdown === null && (
                 <div className="absolute top-4 left-4 flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
@@ -511,7 +535,7 @@ function CaptureSection({ user, isStoreUser, myStoreName, isAll }: {
   const [storeDetail, setStoreDetail] = useState<StoreDetail | null>(null);
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error'; distanceMeters?: number | null } | null>(null);
   const [tafts, setTafts] = useState<TaftEntry[]>([]);
   const [selectedOpenTafts, setSelectedOpenTafts] = useState<string[]>([]);
   const [selectedCloseTafts, setSelectedCloseTafts] = useState<string[]>([]);
@@ -534,7 +558,6 @@ function CaptureSection({ user, isStoreUser, myStoreName, isAll }: {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Load stores once
   useEffect(() => {
     fetch('/api/capture-attendance/meta?type=store_list')
       .then(r => r.json())
@@ -571,7 +594,6 @@ function CaptureSection({ user, isStoreUser, myStoreName, isAll }: {
   const fetchHistory = useCallback(async (store: string, date: string) => {
     setHistoryLoading(true);
     try {
-      // attendance_store (bukan all): hanya toko sendiri, paksa store = myStoreName
       const effectiveStore = isAll ? store : myStoreName;
       const storeParam = effectiveStore ? `&store_name=${encodeURIComponent(effectiveStore)}` : '';
       const res = await fetch(`/api/capture-attendance/capture?${storeParam}&date=${date}${isAll ? '&all=true' : ''}`);
@@ -591,7 +613,6 @@ function CaptureSection({ user, isStoreUser, myStoreName, isAll }: {
     setSelectedOpenTafts([]); setSelectedCloseTafts([]);
   }, [selectedStore, fetchTodayRecord]);
 
-  // Initial history load
   useEffect(() => {
     if (isStoreUser && myStoreName) fetchHistory(myStoreName, historyDate);
     else if (isAll) fetchHistory(historyStore, historyDate);
@@ -630,29 +651,54 @@ function CaptureSection({ user, isStoreUser, myStoreName, isAll }: {
     try {
       const ip = await getPublicIP();
       const staffNames = (actionType === 'open' ? selectedOpenTafts : selectedCloseTafts).join('; ');
-      const body: any = { action: actionType, store_name: selectedStore, device_info: getDeviceInfo(), browser: getBrowserName(), ip_address: ip, is_valid_location: true };
+      const body: any = {
+        action: actionType,
+        store_name: selectedStore,
+        device_info: getDeviceInfo(),
+        browser: getBrowserName(),
+        ip_address: ip,
+        is_valid_location: true,
+      };
       if (actionType === 'open') {
-        body.open_latitude = coords.lat; body.open_longitude = coords.lng;
+        body.open_latitude = coords.lat;
+        body.open_longitude = coords.lng;
         body.open_maps_url = buildMapsUrl(coords.lat, coords.lng);
-        body.open_timestamp = nowTimestamp(); body.open_staff_name = staffNames; body.open_selfie = selfieData;
+        body.open_timestamp = nowTimestamp();
+        body.open_staff_name = staffNames;
+        body.open_selfie = selfieData;
       } else {
-        body.close_latitude = coords.lat; body.close_longitude = coords.lng;
+        body.close_latitude = coords.lat;
+        body.close_longitude = coords.lng;
         body.close_maps_url = buildMapsUrl(coords.lat, coords.lng);
-        body.close_timestamp = nowTimestamp(); body.close_staff_name = staffNames; body.close_selfie = selfieData;
+        body.close_timestamp = nowTimestamp();
+        body.close_staff_name = staffNames;
+        body.close_selfie = selfieData;
       }
-      const res = await fetch('/api/capture-attendance/capture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const res = await fetch('/api/capture-attendance/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
       const result = await res.json();
       if (result.success) {
-        setMsg({ text: `Absensi ${actionType === 'open' ? 'OPEN' : 'CLOSE'} berhasil disimpan!`, type: 'success' });
+        setMsg({
+          text: `Absensi ${actionType === 'open' ? 'OPEN' : 'CLOSE'} berhasil disimpan!`,
+          type: 'success',
+          distanceMeters: result.distance_meters ?? null,
+        });
         setStep('done');
         await fetchTodayRecord(selectedStore);
-        // Refresh history for today
         fetchHistory(isAll ? historyStore : myStoreName, historyDate);
       } else {
-        setMsg({ text: result.error || 'Gagal menyimpan', type: 'error' }); setStep('init');
+        setMsg({ text: result.error || 'Gagal menyimpan', type: 'error' });
+        setStep('init');
       }
-    } catch { setMsg({ text: 'Terjadi kesalahan', type: 'error' }); setStep('init'); }
-    finally { setLoading(false); }
+    } catch {
+      setMsg({ text: 'Terjadi kesalahan', type: 'error' });
+      setStep('init');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const reset = () => { setStep('init'); setSelfieData(null); setCoords(null); setGpsStatus('idle'); setMsg(null); };
@@ -667,14 +713,10 @@ function CaptureSection({ user, isStoreUser, myStoreName, isAll }: {
 
   return (
     <div className="w-full center">
-      {/* ══════════════════════════════════════════════════
-          ABSENSI SECTION
-      ══════════════════════════════════════════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start mb-8">
 
-        {/* KOLOM KIRI: store info + status */}
+        {/* KOLOM KIRI */}
         <div>
-          {/* Store Selector */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
             {isStoreUser ? (
               <div className="flex items-center gap-2">
@@ -714,7 +756,6 @@ function CaptureSection({ user, isStoreUser, myStoreName, isAll }: {
             )}
           </div>
 
-          {/* Status hari ini */}
           {selectedStore && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
               <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium mb-3">Status Hari Ini</p>
@@ -741,7 +782,6 @@ function CaptureSection({ user, isStoreUser, myStoreName, isAll }: {
             </div>
           )}
 
-          {/* Foto hari ini */}
           {selectedStore && todayRecord && (isValidSelfie(todayRecord.open_selfie) || isValidSelfie(todayRecord.close_selfie)) && step === 'init' && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
               <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium mb-3">Foto Hari Ini</p>
@@ -769,7 +809,7 @@ function CaptureSection({ user, isStoreUser, myStoreName, isAll }: {
           )}
         </div>
 
-        {/* KOLOM KANAN: action steps */}
+        {/* KOLOM KANAN */}
         {selectedStore && (
           <div>
             {step === 'init' && (
@@ -868,11 +908,22 @@ function CaptureSection({ user, isStoreUser, myStoreName, isAll }: {
               </div>
             )}
 
+            {/* ── DONE ── */}
             {step === 'done' && msg?.type === 'success' && (
               <div className="bg-green-50 border border-green-200 rounded-2xl p-6 mb-4 text-center">
                 <IconCheckCircle className="w-12 h-12 text-green-600 mx-auto mb-2" />
                 <p className="font-bold text-green-800 mb-1">Berhasil!</p>
-                <p className="text-[12px] text-green-700 mb-4">{msg.text}</p>
+                <p className="text-[12px] text-green-700 mb-2">{msg.text}</p>
+                {/* Tampilkan jarak hanya untuk CLOSE */}
+                {actionType === 'close' && msg.distanceMeters !== null && msg.distanceMeters !== undefined && (
+                  <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold mb-4
+                    ${msg.distanceMeters <= 200 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    <IconPin className="w-3 h-3" />
+                    Jarak open–close: {msg.distanceMeters} m
+                    {msg.distanceMeters <= 200 ? ' ✓ Valid' : ' ✗ Terlalu jauh'}
+                  </div>
+                )}
+                <br />
                 <button onClick={reset} className="px-5 py-2 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700">Selesai</button>
               </div>
             )}
@@ -888,19 +939,14 @@ function CaptureSection({ user, isStoreUser, myStoreName, isAll }: {
         )}
       </div>
 
-      {/* ══════════════════════════════════════════════════
-          RIWAYAT SECTION
-      ══════════════════════════════════════════════════ */}
+      {/* ══ RIWAYAT ══ */}
       <div className="-mx-6">
-        {/* Section header */}
         <div className="mx-6 mb-4 flex items-center justify-between">
           <h2 className="text-base font-bold text-gray-800">Riwayat Absensi</h2>
         </div>
 
-        {/* Filter bar */}
         <div className="mx-6 mb-4 bg-white rounded-2xl shadow-sm border border-gray-100 p-3">
           <div className="flex items-center gap-3 flex-wrap">
-            {/* Toko filter — hanya tampil untuk attendance_store_all */}
             {isAll && (
               <>
                 <div className="flex items-center gap-1.5">
@@ -914,7 +960,6 @@ function CaptureSection({ user, isStoreUser, myStoreName, isAll }: {
                 <div className="w-px h-4 bg-gray-200" />
               </>
             )}
-            {/* attendance_store biasa: tampilkan nama toko saja, tidak bisa ganti */}
             {!isAll && isStoreUser && (
               <>
                 <div className="flex items-center gap-1.5">
@@ -1035,8 +1080,8 @@ function CaptureSection({ user, isStoreUser, myStoreName, isAll }: {
                             <td className="px-2 py-2.5 border-r border-gray-200"><p className="text-[10px] text-gray-600 font-mono truncate">{rec.ip_address || '—'}</p></td>
                             <td className="px-2 py-2.5 border-r border-gray-200 text-center">
                               {isValid
-                                ? <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-300"><IconCheck className="w-2.5 h-2.5" /> Ya</span>
-                                : <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200"><IconX className="w-2.5 h-2.5" /> Tidak</span>}
+                                ? <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-green-700 bg-green-50 px-1.5 py-0.5 rounded border border-green-200"><IconCheck className="w-2.5 h-2.5" /> Ya</span>
+                                : <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-200"><IconX className="w-2.5 h-2.5" /> Tidak</span>}
                             </td>
                             <td className="px-2 py-2.5 border-r border-gray-200"><p className="text-[10px] text-gray-600 font-mono truncate">{rec.open_latitude || '—'}</p></td>
                             <td className="px-2 py-2.5 border-r border-gray-200"><p className="text-[10px] text-gray-600 font-mono truncate">{rec.open_longitude || '—'}</p></td>
@@ -1076,7 +1121,7 @@ function CaptureSection({ user, isStoreUser, myStoreName, isAll }: {
                                   <div><span className="text-gray-400">Device: </span><span className="font-medium">{rec.device_info || '-'}</span></div>
                                   <div><span className="text-gray-400">Browser: </span><span className="font-medium">{rec.browser || '-'}</span></div>
                                   <div><span className="text-gray-400">IP: </span><span className="font-medium font-mono">{rec.ip_address || '-'}</span></div>
-                                  <div><span className="text-gray-400">Valid: </span><span className={`font-semibold ${isValid ? 'text-gray-700' : 'text-gray-400'}`}>{isValid ? 'Ya' : 'Tidak'}</span></div>
+                                  <div><span className="text-gray-400">Valid: </span><span className={`font-semibold ${isValid ? 'text-green-700' : 'text-red-500'}`}>{isValid ? 'Ya' : 'Tidak'}</span></div>
                                   <div><span className="text-gray-400">Lat: </span><span className="font-medium font-mono">{rec.open_latitude || '-'}</span></div>
                                   <div><span className="text-gray-400">Lng: </span><span className="font-medium font-mono">{rec.open_longitude || '-'}</span></div>
                                 </div>
