@@ -227,14 +227,20 @@ function SelfiePlaceholderMd() {
 }
 
 // ─── Selfie Camera ────────────────────────────────────────────────────────────
+const TIMER_OPTIONS = [0, 3, 5, 10] as const;
+type TimerOption = typeof TIMER_OPTIONS[number];
+
 function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) => void; onCancel: () => void; }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState('');
   const [preview, setPreview] = useState<string | null>(null);
+  const [timerOption, setTimerOption] = useState<TimerOption>(3);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => { startCamera(); return () => { stopCamera(); }; }, []); // eslint-disable-line
+  useEffect(() => { startCamera(); return () => { stopCamera(); clearCountdown(); }; }, []); // eslint-disable-line
 
   const startCamera = async () => {
     try {
@@ -246,7 +252,11 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
     } catch { setError('Tidak bisa mengakses kamera. Pastikan izin kamera diberikan.'); }
   };
   const stopCamera = () => { stream?.getTracks().forEach(t => t.stop()); };
-  const capturePhoto = () => {
+  const clearCountdown = () => {
+    if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+  };
+
+  const doCapture = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return;
     const canvas = canvasRef.current; const video = videoRef.current;
     canvas.width = video.videoWidth; canvas.height = video.videoHeight;
@@ -255,14 +265,30 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
     ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0);
     setPreview(canvas.toDataURL('image/jpeg', 0.85));
+    setCountdown(null);
     stopCamera();
+  }, [stream]); // eslint-disable-line
+
+  const capturePhoto = () => {
+    clearCountdown();
+    if (timerOption === 0) { doCapture(); return; }
+    setCountdown(timerOption);
+    let remaining = timerOption;
+    countdownRef.current = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) { clearCountdown(); setCountdown(null); doCapture(); }
+      else setCountdown(remaining);
+    }, 1000);
   };
-  const retake = () => { setPreview(null); startCamera(); };
+
+  const cancelCountdown = () => { clearCountdown(); setCountdown(null); };
+  const retake = () => { setPreview(null); setCountdown(null); startCamera(); };
   const confirm = () => { if (preview) onCapture(preview); };
 
   return (
     <div className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-4">
       <div className="bg-gray-900 rounded-2xl overflow-hidden w-full shadow-2xl" style={{ maxWidth: 680 }}>
+        {/* Header */}
         <div className="px-5 py-4 border-b border-gray-700/60 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
@@ -273,11 +299,31 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
               <p className="text-gray-400 text-[11px]">Posisikan wajah di dalam bingkai</p>
             </div>
           </div>
-          <button onClick={() => { stopCamera(); onCancel(); }}
+          <button onClick={() => { clearCountdown(); stopCamera(); onCancel(); }}
             className="w-8 h-8 rounded-lg bg-gray-700/60 hover:bg-gray-600 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
             <IconX className="w-4 h-4" />
           </button>
         </div>
+
+        {/* Timer selector — hanya tampil sebelum preview */}
+        {!preview && !error && (
+          <div className="px-5 py-2.5 border-b border-gray-700/40 flex items-center gap-2">
+            <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide shrink-0">Timer</span>
+            <div className="flex gap-1.5">
+              {TIMER_OPTIONS.map(opt => (
+                <button key={opt} type="button"
+                  onClick={() => { if (countdown !== null) return; setTimerOption(opt); }}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all
+                    ${timerOption === opt ? 'bg-primary text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}
+                    ${countdown !== null ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                  {opt === 0 ? 'OFF' : `${opt}s`}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Viewfinder */}
         <div className="relative bg-black" style={{ aspectRatio: '16/9' }}>
           {error ? (
             <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
@@ -292,11 +338,14 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
           ) : preview ? (
             <img src={preview} alt="preview" className="w-full h-full object-cover" />
           ) : (
-            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
+            <video ref={videoRef} autoPlay playsInline muted
+              className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
           )}
+
           {!preview && !error && (
             <div className="absolute inset-0 pointer-events-none">
               <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/30" />
+              {/* Face guide */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="relative" style={{ width: '45%', aspectRatio: '3/4' }}>
                   <div className="absolute inset-0 border border-white/20 rounded-full" />
@@ -306,12 +355,24 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
                   <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-white rounded-br-lg" />
                 </div>
               </div>
-              <div className="absolute top-4 left-4 flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-white text-[10px] font-semibold tracking-widest uppercase">Live</span>
-              </div>
+              {/* Countdown overlay */}
+              {countdown !== null && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-24 h-24 rounded-full bg-black/50 flex items-center justify-center backdrop-blur-sm border-2 border-white/30">
+                    <span className="text-white font-bold" style={{ fontSize: 52, lineHeight: 1 }}>{countdown}</span>
+                  </div>
+                </div>
+              )}
+              {/* Live badge — sembunyikan saat countdown */}
+              {countdown === null && (
+                <div className="absolute top-4 left-4 flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-white text-[10px] font-semibold tracking-widest uppercase">Live</span>
+                </div>
+              )}
             </div>
           )}
+
           {preview && (
             <div className="absolute top-4 right-4">
               <div className="flex items-center gap-1.5 bg-green-500/90 backdrop-blur-sm px-2.5 py-1 rounded-full">
@@ -321,22 +382,35 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
             </div>
           )}
         </div>
+
         <canvas ref={canvasRef} className="hidden" />
+
+        {/* Actions */}
         <div className="px-5 py-4 border-t border-gray-700/60 flex gap-3">
           {!preview ? (
-            <>
-              <button onClick={() => { stopCamera(); onCancel(); }}
-                className="px-4 py-2.5 bg-gray-700 text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-600 transition-colors">
-                Batal
+            countdown !== null ? (
+              <button onClick={cancelCountdown}
+                className="flex-1 py-2.5 bg-red-600/80 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition-colors">
+                Batalkan ({countdown}s)
               </button>
-              <button onClick={capturePhoto} disabled={!!error}
-                className="flex-1 py-2.5 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 disabled:opacity-40 flex items-center justify-center gap-2 transition-colors">
-                <IconCamera className="w-4 h-4" /> Ambil Foto
-              </button>
-            </>
+            ) : (
+              <>
+                <button onClick={() => { clearCountdown(); stopCamera(); onCancel(); }}
+                  className="px-4 py-2.5 bg-gray-700 text-gray-300 rounded-xl text-sm font-medium hover:bg-gray-600 transition-colors">
+                  Batal
+                </button>
+                <button onClick={capturePhoto} disabled={!!error}
+                  className="flex-1 py-2.5 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 disabled:opacity-40 flex items-center justify-center gap-2 transition-colors">
+                  <IconCamera className="w-4 h-4" />
+                  {timerOption === 0 ? 'Ambil Foto' : `Foto dalam ${timerOption}s`}
+                </button>
+              </>
+            )
           ) : (
             <>
-              <button onClick={retake} className="flex-1 py-2.5 bg-gray-700 text-white rounded-xl font-semibold text-sm hover:bg-gray-600 transition-colors">Ulangi</button>
+              <button onClick={retake} className="flex-1 py-2.5 bg-gray-700 text-white rounded-xl font-semibold text-sm hover:bg-gray-600 transition-colors">
+                Ulangi
+              </button>
               <button onClick={confirm} className="flex-1 py-2.5 bg-green-500 text-white rounded-xl font-bold text-sm hover:bg-green-600 flex items-center justify-center gap-2 transition-colors">
                 <IconCheck className="w-4 h-4" /> Gunakan Foto
               </button>
