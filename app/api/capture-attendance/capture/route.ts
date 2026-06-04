@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow } from '@/lib/sheets';
 import { uploadAttendanceSelfie } from '@/lib/attendanceDrive';
 
+// ─── Helper: parse Indonesian locale timestamp to YYYY-MM-DD ─────────────────
+// e.g. "04 Jun 2025, 08:30:00" → "2025-06-04"
+function tsToISO(ts: string): string {
+  const monthMap: Record<string, string> = {
+    Jan: '01', Feb: '02', Mar: '03', Apr: '04',
+    Mei: '05', Jun: '06', Jul: '07', Agu: '08',
+    Sep: '09', Okt: '10', Nov: '11', Des: '12',
+  };
+  const m = ts.match(/^(\d{2})\s+(\w{3})\s+(\d{4})/);
+  if (!m) return ts; // fallback — might already be ISO
+  return `${m[3]}-${monthMap[m[2]] || '00'}-${m[1]}`;
+}
+
+function matchesDate(ts: string, date: string): boolean {
+  if (!ts) return false;
+  if (ts.includes(date)) return true;       // ISO format
+  return tsToISO(ts) === date;              // Indonesian locale format
+}
+
 // ─── GET ──────────────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   try {
@@ -22,9 +41,10 @@ export async function GET(request: NextRequest) {
 
     if (date) {
       filtered = filtered.filter((r) => {
-        const ts = r.open_timestamp || r.created_at || '';
-        const created = r.created_at || '';
-        return ts.includes(date) || created.startsWith(date);
+        return (
+          matchesDate(r.open_timestamp || '', date) ||
+          matchesDate(r.created_at || '', date)
+        );
       });
     }
 
@@ -73,20 +93,32 @@ export async function POST(request: NextRequest) {
     const jakartaNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
     const todayISO = `${jakartaNow.getFullYear()}-${String(jakartaNow.getMonth() + 1).padStart(2, '0')}-${String(jakartaNow.getDate()).padStart(2, '0')}`;
 
+    // ── Fetch store_id from store_list ────────────────────────────────────────
+    let storeId = '';
+    try {
+      const storeList: any[] = await getSheetData('store_list');
+      const storeMatch = storeList.find(
+        (s) => s.store_name?.toLowerCase() === store_name.toLowerCase()
+      );
+      storeId = storeMatch?.id || '';
+    } catch {
+      // Non-fatal — store_id will be empty
+    }
+
     const allRows: any[] = await getSheetData('attendance_store');
 
+    // Find today's existing row using the same locale-aware date matching
     const todayRowIndex = allRows.findIndex((r) => {
-      const ts = r.open_timestamp || r.created_at || '';
+      if (r.store_name?.toLowerCase() !== store_name.toLowerCase()) return false;
       return (
-        r.store_name?.toLowerCase() === store_name.toLowerCase() &&
-        ts.includes(todayISO)
+        matchesDate(r.open_timestamp || '', todayISO) ||
+        matchesDate(r.created_at || '', todayISO)
       );
     });
 
     // Upload selfie
     let selfieUrl = '';
     const selfieDataUrl: string = action === 'open' ? body.open_selfie : body.close_selfie;
-    // staff_name: joined with "; " from selected tafts (or empty)
     const staffName: string = action === 'open'
       ? (body.open_staff_name || '')
       : (body.close_staff_name || '');
@@ -111,14 +143,14 @@ export async function POST(request: NextRequest) {
 
       const id = `ATT-${Date.now()}`;
 
-      // Column order (sheet headers):
+      // Column order must match sheet headers exactly:
       // id | store_id | store_name | device_info | browser | ip_address | is_valid_location
       // | open_latitude | open_longitude | open_maps_url | open_timestamp | open_staff_name
       // | open_selfie | close_latitude | close_longitude | close_maps_url
       // | close_timestamp | close_staff_name | close_selfie | created_at | updated_at
       const newRow = [
         id,
-        '',
+        storeId,
         store_name,
         device_info || '',
         browser || '',
@@ -151,11 +183,11 @@ export async function POST(request: NextRequest) {
       }
 
       const existing = allRows[todayRowIndex];
-      const rowNumber = todayRowIndex + 2;
+      const rowNumber = todayRowIndex + 2; // +1 header, +1 1-based
 
       const updatedRow = [
         existing.id,
-        existing.store_id || '',
+        existing.store_id || storeId,
         existing.store_name,
         existing.device_info || '',
         existing.browser || '',
