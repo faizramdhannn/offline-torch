@@ -851,7 +851,7 @@ function CaptureSection({ user, isStoreUser, myStoreName, isAll }: {
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-4 text-center">
                 <IconCamera className="w-10 h-10 text-primary mx-auto mb-3" />
                 <p className="font-semibold text-gray-800 mb-1">Ambil Selfie</p>
-                <p className="text-[11px] text-gray-500 mb-4">Foto untuk konfirmasi kehadiran Anda</p>
+                <p className="text-[11px] text-gray-500 mb-4">Foto untuk konfirmasi kehadiran</p>
                 <button onClick={() => setShowCamera(true)} className="px-6 py-3 bg-primary text-white rounded-xl font-semibold text-sm hover:bg-primary/90">Buka Kamera</button>
                 <button onClick={reset} className="block mx-auto mt-2 text-[11px] text-gray-400 hover:text-gray-600">Batal</button>
               </div>
