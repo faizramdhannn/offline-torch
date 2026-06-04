@@ -308,14 +308,14 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
 
   return (
     <div className="fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-4">
-      <div className="bg-gray-900 rounded-2xl overflow-hidden w-full max-w-sm">
+      <div className="bg-gray-900 rounded-2xl overflow-hidden w-full max-w-2xl">
         <div className="p-4 border-b border-gray-700 flex items-center justify-between">
           <p className="text-white font-semibold text-sm">Ambil Selfie</p>
           <button onClick={() => { stopCamera(); onCancel(); }} className="text-gray-400 hover:text-white p-1">
             <IconX className="w-5 h-5" />
           </button>
         </div>
-        <div className="relative bg-black" style={{ aspectRatio: '4/3' }}>
+        <div className="relative bg-black" style={{ aspectRatio: '16/9' }}>
           {error ? (
             <div className="absolute inset-0 flex items-center justify-center p-4 text-center">
               <div>
@@ -583,7 +583,12 @@ function CaptureTab({ user, isStoreUser, myStoreName, isAll }: { user: any; isSt
   const currentToggleTaft = actionType === 'open' ? toggleOpenTaft : toggleCloseTaft;
 
   return (
-    <div className="max-w-lg mx-auto">
+    <div className="w-full">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+      {/* KOLOM KIRI */}
+      <div>
+        
       {/* Store Selector */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
         {isStoreUser ? (
@@ -799,9 +804,11 @@ function CaptureTab({ user, isStoreUser, myStoreName, isAll }: { user: any; isSt
       {!selectedStore && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-12 text-center">
           <p className="text-gray-500 text-sm">Pilih toko untuk mulai absensi</p>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
+    </div>
       {showCamera && <SelfieCapture onCapture={handleSelfieCapture} onCancel={() => setShowCamera(false)} />}
     </div>
   );
@@ -927,7 +934,7 @@ function HistoryTab({ user, isStoreUser, myStoreName, isAll }: { user: any; isSt
         /* Table — full width edge-to-edge, scroll horizontally when needed */
         <div className="bg-white border-y border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <div style={{ minWidth }}>
+            <div className="w-max min-w-full">
 
               {/* ── HEADER ROW 1 — group labels ── */}
               <div
