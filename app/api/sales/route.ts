@@ -38,40 +38,61 @@ async function getSalesSheetData(sheetName: string): Promise<Record<string, any>
     });
 }
 
+// Safe wrapper — returns [] instead of throwing if sheet doesn't exist yet
+async function safeGetSheet(sheetName: string): Promise<Record<string, any>[]> {
+  try {
+    return await getSalesSheetData(sheetName);
+  } catch (err: any) {
+    const msg = String(err?.message || err);
+    // Sheet not found (400) or similar — log and return empty
+    console.warn(`[sales] Sheet "${sheetName}" not available: ${msg}`);
+    return [];
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'all';
 
-    if (type === 'daily_sales') {
-      const data = await getSalesSheetData('daily_sales');
-      return NextResponse.json(data);
-    }
+    if (type === 'daily_sales')      return NextResponse.json(await getSalesSheetData('daily_sales'));
+    if (type === 'target_sales')     return NextResponse.json(await getSalesSheetData('target_sales'));
+    if (type === 'channel_traffic')  return NextResponse.json(await getSalesSheetData('channel_traffic'));
+    if (type === 'spreadsheet_sales')return NextResponse.json(await getSalesSheetData('spreadsheet_sales'));
+    if (type === 'gross_sales')      return NextResponse.json(await safeGetSheet('gross_sales'));
+    if (type === 'daily_order')      return NextResponse.json(await safeGetSheet('daily_order'));
+    if (type === 'quantity_order')   return NextResponse.json(await safeGetSheet('quantity_order'));
 
-    if (type === 'target_sales') {
-      const data = await getSalesSheetData('target_sales');
-      return NextResponse.json(data);
-    }
-
-    if (type === 'channel_traffic') {
-      const data = await getSalesSheetData('channel_traffic');
-      return NextResponse.json(data);
-    }
-
-    if (type === 'spreadsheet_sales') {
-      const data = await getSalesSheetData('spreadsheet_sales');
-      return NextResponse.json(data);
-    }
-
-    // type === 'all' — fetch all 4 in parallel
-    const [dailySales, targetSales, channelTraffic, spreadsheetSales] = await Promise.all([
+    // type === 'all' — fetch all 7 in parallel
+    // Core sheets use getSalesSheetData (hard fail if missing)
+    // New sheets use safeGetSheet (soft fail → [])
+    const [
+      dailySales,
+      targetSales,
+      channelTraffic,
+      spreadsheetSales,
+      grossSales,
+      dailyOrder,
+      quantityOrder,
+    ] = await Promise.all([
       getSalesSheetData('daily_sales'),
       getSalesSheetData('target_sales'),
       getSalesSheetData('channel_traffic'),
       getSalesSheetData('spreadsheet_sales'),
+      safeGetSheet('gross_sales'),
+      safeGetSheet('daily_order'),
+      safeGetSheet('quantity_order'),
     ]);
 
-    return NextResponse.json({ dailySales, targetSales, channelTraffic, spreadsheetSales });
+    return NextResponse.json({
+      dailySales,
+      targetSales,
+      channelTraffic,
+      spreadsheetSales,
+      grossSales,
+      dailyOrder,
+      quantityOrder,
+    });
   } catch (error) {
     console.error('Error fetching sales data:', error);
     return NextResponse.json(
