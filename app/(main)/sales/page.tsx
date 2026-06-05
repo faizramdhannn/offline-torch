@@ -637,8 +637,8 @@ function MetricTrendChart({
         </div>
       </div>
 
-      <ResponsiveContainer width="100%" height={230}>
-        <AreaChart data={merged} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+      <ResponsiveContainer width="100%" height={260}>
+        <AreaChart data={merged} margin={{ top: 8, right: 8, left: 0, bottom: 28 }}>
           <defs>
             <linearGradient id="gNet" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.35} /><stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
@@ -654,7 +654,7 @@ function MetricTrendChart({
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? "rgba(255,255,255,0.06)" : "#f1f5f9"} />
-          <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+          <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#94a3b8", dy: 4 }} axisLine={false} tickLine={false} interval={0} angle={-45} textAnchor="end" />
           <YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={fmtY} width={54} />
           <Tooltip content={<CustomTooltip />} />
 
