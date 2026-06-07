@@ -23,6 +23,7 @@ interface TrackingItem {
   created_at: string;
   update_at: string;
   tracking_number?: string;
+  has_processed?: string;
 }
 
 interface StoreAddress {
@@ -204,29 +205,6 @@ function DropZone({
   );
 }
 
-// ── ExpeditionToggle ──────────────────────────────────────────────────────
-function ExpeditionToggle({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <div>
-      <label className="block text-xs font-medium text-gray-700 mb-1">
-        Ekspedisi <span className="text-red-500">*</span>
-      </label>
-      <div className="flex gap-2">
-        {EXPEDITIONS.map((exp) => {
-          const isSelected = value === exp;
-          return (
-            <button key={exp} type="button" onClick={() => onChange(exp)}
-              className={`flex-1 flex items-center justify-center py-2 px-3 rounded border-2 transition-all ${
-                isSelected ? "border-primary bg-primary/5 shadow-sm" : "border-gray-200 hover:border-gray-400 bg-white"}`}>
-              <img src={EXPEDITION_LOGO[exp]} alt={exp} className="h-7 w-auto object-contain" />
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 // ── ExpeditionBadge ───────────────────────────────────────────────────────
 function ExpeditionBadge({ expedition }: { expedition: string }) {
   const logo = EXPEDITION_LOGO[expedition];
@@ -250,88 +228,6 @@ function TypeReasonBadge({ typeReason }: { typeReason?: string }) {
     <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${color}`}>
       {typeReason}
     </span>
-  );
-}
-
-// ── SenderSelect ──────────────────────────────────────────────────────────
-function SenderSelect({ value, onChange, details, storeAddresses }: {
-  value: string; onChange: (v: string) => void;
-  details: StoreAddress | null; storeAddresses: StoreAddress[];
-}) {
-  return (
-    <div>
-      <div className="flex items-center min-h-[24px] mb-1">
-        <label className="text-xs font-medium text-gray-700">
-          Pengirim (Store) <span className="text-red-500">*</span>
-        </label>
-      </div>
-      <select value={value} onChange={(e) => onChange(e.target.value)}
-        className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-        <option value="">Pilih store pengirim</option>
-        {storeAddresses.map((s) => <option key={s.id} value={s.store_location}>{s.store_location}</option>)}
-      </select>
-      {details && (
-        <div className="mt-1.5 p-2 bg-blue-50 border border-blue-200 rounded text-[10px] text-blue-800 space-y-0.5">
-          <div>{details.phone_number}</div>
-          <div>{details.address}</div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── ReceiverField ─────────────────────────────────────────────────────────
-function ReceiverField({ mode, onModeChange, storeValue, onStoreChange, customValue, onCustomChange, error, onBlur, storeAddresses }: {
-  mode: "dropdown" | "custom"; onModeChange: (m: "dropdown" | "custom") => void;
-  storeValue: string; onStoreChange: (v: string) => void;
-  customValue: string; onCustomChange: (v: string) => void;
-  error: string; onBlur: () => void; storeAddresses: StoreAddress[];
-}) {
-  return (
-    <div>
-      <div className="flex items-center justify-between min-h-[24px] mb-1">
-        <label className="text-xs font-medium text-gray-700">Penerima <span className="text-red-500">*</span></label>
-        <div className="flex gap-1 bg-gray-100 rounded p-0.5">
-          <button type="button" onClick={() => { onModeChange("dropdown"); onCustomChange(""); }}
-            className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${mode === "dropdown" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-            Store
-          </button>
-          <button type="button" onClick={() => { onModeChange("custom"); onStoreChange(""); onCustomChange(""); }}
-            className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${mode === "custom" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-            Custom
-          </button>
-        </div>
-      </div>
-      {mode === "dropdown" ? (
-        <>
-          <select value={storeValue} onChange={(e) => onStoreChange(e.target.value)}
-            className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-            <option value="">Pilih store penerima</option>
-            {storeAddresses.map((s) => <option key={s.id} value={s.store_location}>{s.store_location}</option>)}
-          </select>
-          {customValue && (
-            <div className="mt-1.5 p-2 bg-gray-50 border border-gray-200 rounded text-[10px] text-gray-700 font-mono whitespace-pre-line">
-              {customValue}
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          <textarea value={customValue} onChange={(e) => onCustomChange(e.target.value.slice(0, 200))} onBlur={onBlur} rows={4}
-            placeholder={"Nama Penerima\n08xxxxxxxxxx\nJl. Contoh No. 1, Kota, Provinsi\n12345"}
-            maxLength={200}
-            className={`w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 resize-none font-mono ${error ? "border-red-400 focus:ring-red-400" : "border-gray-300 focus:ring-primary"}`} />
-          <div className="flex items-center justify-between mt-1">
-            {error
-              ? <p className="text-[10px] text-red-500">⚠ {error}</p>
-              : <p className="text-[10px] text-gray-400">Wajib: nama · nomor HP (08xx/+628xx) · alamat · kode pos 5 digit</p>}
-            <p className={`text-[10px] tabular-nums shrink-0 ml-2 ${customValue.length >= 200 ? "text-red-500 font-semibold" : customValue.length >= 180 ? "text-yellow-500" : "text-gray-400"}`}>
-              {customValue.length}/200
-            </p>
-          </div>
-        </>
-      )}
-    </div>
   );
 }
 
@@ -422,7 +318,6 @@ function DetailPopup({ item, onClose, copiedId, onCopy }: {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={handleBackdrop}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b bg-gray-50 rounded-t-xl">
           <div className="flex items-center gap-3">
             <h2 className="text-sm font-bold text-gray-800">Detail Shipment</h2>
@@ -430,6 +325,11 @@ function DetailPopup({ item, onClose, copiedId, onCopy }: {
             <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${status === "completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
               {status === "completed" ? "Selesai" : "Pending"}
             </span>
+            {item.has_processed === 'TRUE' && (
+              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-100 text-teal-800">
+                Diproses
+              </span>
+            )}
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors text-gray-500">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -438,9 +338,7 @@ function DetailPopup({ item, onClose, copiedId, onCopy }: {
           </button>
         </div>
 
-        {/* Body */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Left: File viewer */}
           <div className="flex-1 bg-gray-100 flex flex-col overflow-hidden border-r">
             {item.link_tracking ? (
               <>
@@ -474,7 +372,6 @@ function DetailPopup({ item, onClose, copiedId, onCopy }: {
             )}
           </div>
 
-          {/* Right: Detail info */}
           <div className="w-64 flex flex-col overflow-y-auto bg-white">
             <div className="p-4 space-y-4">
               <div>
@@ -483,7 +380,6 @@ function DetailPopup({ item, onClose, copiedId, onCopy }: {
                   ? <img src={EXPEDITION_LOGO[item.expedition]} alt={item.expedition} className="h-6 w-auto object-contain" />
                   : <p className="text-xs font-medium text-gray-800">{item.expedition}</p>}
               </div>
-
               {item.tracking_number && (
                 <div>
                   <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">No. Resi</p>
@@ -495,12 +391,10 @@ function DetailPopup({ item, onClose, copiedId, onCopy }: {
                   </div>
                 </div>
               )}
-
               <div>
                 <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Tipe Pengiriman</p>
                 <TypeReasonBadge typeReason={item.type_reason} />
               </div>
-
               {item.sales_order && (
                 <div>
                   <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">No. Sales Order</p>
@@ -510,7 +404,6 @@ function DetailPopup({ item, onClose, copiedId, onCopy }: {
                   </div>
                 </div>
               )}
-
               <div>
                 <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Tanggal</p>
                 <p className="text-xs text-gray-800">{item.date}</p>
@@ -552,6 +445,16 @@ function DetailPopup({ item, onClose, copiedId, onCopy }: {
                   <p className="text-xs text-gray-800">{item.update_by}</p>
                 </div>
               )}
+              <div>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Status Proses</p>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                  item.has_processed === 'TRUE'
+                    ? 'bg-teal-100 text-teal-800'
+                    : 'bg-gray-100 text-gray-500'
+                }`}>
+                  {item.has_processed === 'TRUE' ? 'Sudah diproses' : 'Belum diproses'}
+                </span>
+              </div>
               <div className="pt-2 border-t border-gray-100 space-y-1">
                 {item.created_at && (
                   <p className="text-[10px] text-gray-400">Dibuat: {new Date(item.created_at).toLocaleString("id-ID")}</p>
@@ -669,10 +572,7 @@ export default function RequestTrackingPage() {
   const prevDataRef = useRef<TrackingItem[]>([]);
 
   const playCompletedSound = () => {
-    try {
-      const audio = new Audio("/button.mp3");
-      audio.play();
-    } catch {}
+    try { new Audio("/button.mp3").play(); } catch {}
   };
 
   const fetchData = async () => {
@@ -760,6 +660,38 @@ export default function RequestTrackingPage() {
     if (isEdit) { setEditReceiverStore(storeName); setEditForm((prev) => ({ ...prev, receiver: formatted })); }
     else { setAddReceiverStore(storeName); setForm((prev) => ({ ...prev, receiver: formatted })); }
     setReceiverError("");
+  };
+
+  // ── Toggle has_processed ──────────────────────────────────────────────
+  const handleToggleProcessed = async (item: TrackingItem) => {
+    const newValue = item.has_processed === 'TRUE' ? 'FALSE' : 'TRUE';
+    setData((prev) =>
+      prev.map((d) => d.id === item.id ? { ...d, has_processed: newValue } : d)
+    );
+    try {
+      const res = await fetch('/api/request-tracking', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: item.id,
+          update_by: user.user_name,
+          has_processed: newValue,
+        }),
+      });
+      if (!res.ok) {
+        setData((prev) =>
+          prev.map((d) => d.id === item.id ? { ...d, has_processed: item.has_processed } : d)
+        );
+        showMessage('Gagal update status proses', 'error');
+      } else {
+        await logActivity('PUT', `Toggled has_processed=${newValue} for ID: ${item.id}`);
+      }
+    } catch {
+      setData((prev) =>
+        prev.map((d) => d.id === item.id ? { ...d, has_processed: item.has_processed } : d)
+      );
+      showMessage('Gagal update status proses', 'error');
+    }
   };
 
   const handleAdd = async () => {
@@ -950,23 +882,23 @@ export default function RequestTrackingPage() {
     soErr: string,
     setSoErr: (v: string) => void,
   ) => (
-    <div className="flex gap-3 items-start">
-      <div className="w-1/2 min-w-0">
-        <label className="block text-xs font-medium text-gray-700 mb-1">
+    <div className="grid grid-cols-2 gap-4 items-start">
+      <div>
+        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
           Tipe Pengiriman <span className="text-red-500">*</span>
         </label>
         <select
           value={f.type_reason}
           onChange={(e) => { setF({ ...f, type_reason: e.target.value, sales_order: "" }); setSoErr(""); }}
-          className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors"
         >
           <option value="">Pilih tipe</option>
           {TYPE_REASONS.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
       </div>
       {REQUIRES_SALES_ORDER.includes(f.type_reason) && (
-        <div className="w-1/2 min-w-0">
-          <label className="block text-xs font-medium text-gray-700 mb-1">
+        <div>
+          <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
             No. Sales Order <span className="text-red-500">*</span>
           </label>
           <input
@@ -975,12 +907,16 @@ export default function RequestTrackingPage() {
             onChange={(e) => { setF({ ...f, sales_order: e.target.value }); setSoErr(""); }}
             onBlur={() => setSoErr(validateSalesOrder(f.type_reason, f.sales_order))}
             placeholder="#12345 / MAT-MR... / MAT-STE..."
-            className={`w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 ${soErr ? "border-red-400 focus:ring-red-400" : "border-gray-300 focus:ring-primary"}`}
+            className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-2 bg-gray-50 hover:bg-white transition-colors ${
+              soErr
+                ? "border-red-300 focus:ring-red-200 focus:border-red-400"
+                : "border-gray-200 focus:ring-primary/30 focus:border-primary"
+            }`}
           />
-          {soErr && <p className="text-[10px] text-red-500 mt-0.5">⚠ {soErr}</p>}
-          {!soErr && (
-            <p className="text-[10px] text-gray-400 mt-0.5">Format: #angka, MAT-MR..., atau MAT-STE...</p>
-          )}
+          {soErr
+            ? <p className="text-[10px] text-red-500 mt-1">⚠ {soErr}</p>
+            : <p className="text-[10px] text-gray-400 mt-1">Format: #angka, MAT-MR..., atau MAT-STE...</p>
+          }
         </div>
       )}
     </div>
@@ -1066,8 +1002,13 @@ export default function RequestTrackingPage() {
                               <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[40px]">KG</th>
                               <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[100px]">Tipe</th>
                               <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[100px]">Sales Order</th>
-                              {canUpload && <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[80px]">Request By</th>}
+                              {canEdit && (
+                                <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[80px]">Request By</th>
+                              )}
                               <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-[55px]">Status</th>
+                              {(canEdit || canUpload) && (
+                                <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-[55px]">Proses</th>
+                              )}
                               <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[125px]">Action</th>
                             </tr>
                           </thead>
@@ -1138,12 +1079,37 @@ export default function RequestTrackingPage() {
                                       <span className="text-gray-300 text-[10px]">—</span>
                                     )}
                                   </td>
-                                  {canUpload && <td className="px-2 py-1 text-gray-500">{item.request_by}</td>}
+                                  {canEdit && (
+                                    <td className="px-2 py-1 text-gray-500 truncate">{item.request_by}</td>
+                                  )}
                                   <td className="px-2 py-1 text-center">
-                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${status === "completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                      status === "completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                                    }`}>
                                       {status === "completed" ? "Selesai" : "Pending"}
                                     </span>
                                   </td>
+                                  {(canEdit || canUpload) && (
+                                    <td className="px-2 py-1 text-center" onClick={(e) => e.stopPropagation()}>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleToggleProcessed(item)}
+                                        title={item.has_processed === 'TRUE' ? 'Tandai belum diproses' : 'Tandai sudah diproses'}
+                                        className="inline-flex items-center justify-center w-5 h-5 rounded transition-colors hover:bg-gray-100"
+                                      >
+                                        {item.has_processed === 'TRUE' ? (
+                                          <svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
+                                        ) : (
+                                          <svg className="w-4 h-4 text-gray-300 hover:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <circle cx="12" cy="12" r="9" strokeWidth={2} />
+                                          </svg>
+                                        )}
+                                      </button>
+                                    </td>
+                                  )}
                                   <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
                                     <div className="flex flex-wrap gap-1">
                                       {canUpload && status === "pending" && (
@@ -1224,18 +1190,8 @@ export default function RequestTrackingPage() {
 
             {/* Tab: Cek Resi */}
             {activeTab === "tracking" && (
-              <div
-                className="bg-white rounded-lg shadow overflow-hidden"
-                style={{ height: "calc(100vh - 180px)" }}
-              >
-                <div
-                  style={{
-                    width: "142.86%",
-                    height: "142.86%",
-                    transform: "scale(0.7)",
-                    transformOrigin: "top left",
-                  }}
-                >
+              <div className="bg-white rounded-lg shadow overflow-hidden" style={{ height: "calc(100vh - 180px)" }}>
+                <div style={{ width: "142.86%", height: "142.86%", transform: "scale(0.7)", transformOrigin: "top left" }}>
                   <iframe
                     ref={iframeRef}
                     key={iframeUrl}
@@ -1258,66 +1214,172 @@ export default function RequestTrackingPage() {
 
         {/* Add Modal */}
         {showAddModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
-              <h2 className="text-lg font-bold text-primary mb-4">Request Shipment Baru</h2>
-              <div className="space-y-3">
-                <div className="flex gap-3 items-start">
-                  <div className="w-1/2 min-w-0">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Tanggal <span className="text-red-500">*</span></label>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto max-h-[90vh] flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <div>
+                  <h2 className="text-base font-bold text-gray-900">Request Shipment Baru</h2>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Isi semua field yang ditandai *</p>
+                </div>
+                <button
+                  onClick={() => { setShowAddModal(false); resetAddForm(); }}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                      Tanggal <span className="text-red-500">*</span>
+                    </label>
                     <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors" />
                   </div>
-                  <div className="w-1/2 min-w-0">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To <span className="text-red-500">*</span></label>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                      Assigned To <span className="text-red-500">*</span>
+                    </label>
                     <select value={form.assigned_to} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-                      <option value="">Pilih</option>
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors">
+                      <option value="">Pilih assignee</option>
                       {dropdownData.assignees.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
                     </select>
                   </div>
                 </div>
-                <ExpeditionToggle value={form.expedition} onChange={(v) => setForm({ ...form, expedition: v })} />
 
-                {/* Pengirim & Penerima */}
-                <div className="flex gap-3 items-start">
-                  <div className="w-1/2 min-w-0">
-                    <SenderSelect value={form.sender} onChange={(v) => handleSenderChange(v)} details={selectedSenderDetails} storeAddresses={storeAddresses} />
-                  </div>
-                  <div className="w-1/2 min-w-0">
-                    <ReceiverField mode={addReceiverMode} onModeChange={(m) => setAddReceiverMode(m)}
-                      storeValue={addReceiverStore} onStoreChange={(v) => handleReceiverStoreChange(v, false)}
-                      customValue={form.receiver} onCustomChange={(v) => { setForm({ ...form, receiver: v }); setReceiverError(""); }}
-                      error={receiverError} onBlur={() => { if (addReceiverMode === "custom") setReceiverError(validateReceiver(form.receiver)); }}
-                      storeAddresses={storeAddresses} />
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                    Ekspedisi <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex gap-3">
+                    {EXPEDITIONS.map((exp) => {
+                      const isSelected = form.expedition === exp;
+                      return (
+                        <button key={exp} type="button" onClick={() => setForm({ ...form, expedition: exp })}
+                          className={`flex-1 flex items-center justify-center py-2.5 px-4 rounded-lg border-2 transition-all ${
+                            isSelected ? "border-primary bg-primary/5 shadow-sm" : "border-gray-200 hover:border-gray-300 bg-gray-50 hover:bg-white"}`}>
+                          <img src={EXPEDITION_LOGO[exp]} alt={exp} className="h-7 w-auto object-contain" />
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Berat & Alasan */}
-                <div className="flex gap-3 items-start">
-                  <div className="w-20 shrink-0">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Berat (kg) <span className="text-red-500">*</span></label>
-                    <input type="number" min="1" step="1" value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })}
-                      placeholder="1"
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                <div className="border-t border-dashed border-gray-200" />
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                    Pengirim (Store) <span className="text-red-500">*</span>
+                  </label>
+                  <select value={form.sender} onChange={(e) => handleSenderChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors">
+                    <option value="">Pilih store pengirim</option>
+                    {storeAddresses.map((s) => <option key={s.id} value={s.store_location}>{s.store_location}</option>)}
+                  </select>
+                  {selectedSenderDetails && (
+                    <div className="mt-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-[10px] text-blue-700 space-y-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                        {selectedSenderDetails.phone_number}
+                      </div>
+                      <div className="flex items-start gap-1.5">
+                        <svg className="w-3 h-3 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        {selectedSenderDetails.address}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                      Penerima <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
+                      <button type="button"
+                        onClick={() => { setAddReceiverMode("dropdown"); setForm({ ...form, receiver: "" }); setAddReceiverStore(""); }}
+                        className={`px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${addReceiverMode === "dropdown" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                        Store
+                      </button>
+                      <button type="button"
+                        onClick={() => { setAddReceiverMode("custom"); setAddReceiverStore(""); setForm({ ...form, receiver: "" }); }}
+                        className={`px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${addReceiverMode === "custom" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                        Custom
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Alasan / Keterangan <span className="text-red-500">*</span></label>
+                  {addReceiverMode === "dropdown" ? (
+                    <select value={addReceiverStore} onChange={(e) => handleReceiverStoreChange(e.target.value, false)}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors">
+                      <option value="">Pilih store penerima</option>
+                      {storeAddresses.map((s) => <option key={s.id} value={s.store_location}>{s.store_location}</option>)}
+                    </select>
+                  ) : (
+                    <div>
+                      <textarea value={form.receiver}
+                        onChange={(e) => { setForm({ ...form, receiver: e.target.value.slice(0, 200) }); setReceiverError(""); }}
+                        onBlur={() => setReceiverError(validateReceiver(form.receiver))}
+                        rows={4}
+                        placeholder={"Nama Penerima\n08xxxxxxxxxx\nJl. Contoh No. 1, Kota, Provinsi\n12345"}
+                        maxLength={200}
+                        className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-2 resize-none font-mono bg-gray-50 hover:bg-white transition-colors ${
+                          receiverError ? "border-red-300 focus:ring-red-200 focus:border-red-400" : "border-gray-200 focus:ring-primary/30 focus:border-primary"}`} />
+                      <div className="flex items-center justify-between mt-1">
+                        {receiverError
+                          ? <p className="text-[10px] text-red-500">⚠ {receiverError}</p>
+                          : <p className="text-[10px] text-gray-400">Nama · HP (08xx/+628xx) · alamat · kode pos 5 digit</p>}
+                        <p className={`text-[10px] tabular-nums shrink-0 ml-2 ${
+                          form.receiver.length >= 200 ? "text-red-500 font-semibold" : form.receiver.length >= 180 ? "text-yellow-500" : "text-gray-400"}`}>
+                          {form.receiver.length}/200
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t border-dashed border-gray-200" />
+
+                <div className="grid grid-cols-[80px_1fr] gap-4 items-start">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                      Berat (kg) <span className="text-red-500">*</span>
+                    </label>
+                    <input type="number" min="1" step="1" value={form.weight}
+                      onChange={(e) => setForm({ ...form, weight: e.target.value })}
+                      placeholder="1"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                      Alasan / Keterangan <span className="text-red-500">*</span>
+                    </label>
                     <textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} rows={2}
                       placeholder="Misal: Order WAG, Retur barang rusak..."
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none bg-gray-50 hover:bg-white transition-colors" />
                   </div>
                 </div>
 
-                {/* Tipe Pengiriman & Sales Order */}
                 {renderTypeReasonFields(form, setForm, salesOrderError, setSalesOrderError)}
               </div>
-              <div className="flex gap-2 mt-5">
+
+              <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
                 <button onClick={() => { setShowAddModal(false); resetAddForm(); }}
-                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">Batal</button>
+                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-semibold hover:bg-gray-200 transition-colors">
+                  Batal
+                </button>
                 <button onClick={handleAdd} disabled={submitting}
-                  className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">
-                  {submitting ? "Menyimpan..." : "Submit"}
+                  className="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors">
+                  {submitting ? "Menyimpan..." : "Submit Request"}
                 </button>
               </div>
             </div>
@@ -1326,64 +1388,160 @@ export default function RequestTrackingPage() {
 
         {/* Edit Modal */}
         {showEditModal && selectedItem && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
-              <h2 className="text-lg font-bold text-primary mb-4">Edit Request Shipment</h2>
-              <div className="space-y-3">
-                <div className="flex gap-3 items-start">
-                  <div className="w-1/2 min-w-0">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Tanggal</label>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto max-h-[90vh] flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <div>
+                  <h2 className="text-base font-bold text-gray-900">Edit Request Shipment</h2>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    <span className="font-mono">{selectedItem.id}</span> · {selectedItem.request_by}
+                  </p>
+                </div>
+                <button
+                  onClick={() => { setShowEditModal(false); setSelectedItem(null); setReceiverError(""); setEditSalesOrderError(""); }}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Tanggal</label>
                     <input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors" />
                   </div>
-                  <div className="w-1/2 min-w-0">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Assigned To</label>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Assigned To</label>
                     <select value={editForm.assigned_to} onChange={(e) => setEditForm({ ...editForm, assigned_to: e.target.value })}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary">
-                      <option value="">Pilih</option>
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors">
+                      <option value="">Pilih assignee</option>
                       {dropdownData.assignees.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
                     </select>
                   </div>
                 </div>
-                <ExpeditionToggle value={editForm.expedition} onChange={(v) => setEditForm({ ...editForm, expedition: v })} />
 
-                {/* Pengirim & Penerima */}
-                <div className="flex gap-3 items-start">
-                  <div className="w-1/2 min-w-0">
-                    <SenderSelect value={editForm.sender} onChange={(v) => handleSenderChange(v, true)} details={editSenderDetails} storeAddresses={storeAddresses} />
-                  </div>
-                  <div className="w-1/2 min-w-0">
-                    <ReceiverField mode={editReceiverMode} onModeChange={(m) => setEditReceiverMode(m)}
-                      storeValue={editReceiverStore} onStoreChange={(v) => handleReceiverStoreChange(v, true)}
-                      customValue={editForm.receiver} onCustomChange={(v) => { setEditForm({ ...editForm, receiver: v }); setReceiverError(""); }}
-                      error={receiverError} onBlur={() => { if (editReceiverMode === "custom") setReceiverError(validateReceiver(editForm.receiver)); }}
-                      storeAddresses={storeAddresses} />
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Ekspedisi</label>
+                  <div className="flex gap-3">
+                    {EXPEDITIONS.map((exp) => {
+                      const isSelected = editForm.expedition === exp;
+                      return (
+                        <button key={exp} type="button" onClick={() => setEditForm({ ...editForm, expedition: exp })}
+                          className={`flex-1 flex items-center justify-center py-2.5 px-4 rounded-lg border-2 transition-all ${
+                            isSelected ? "border-primary bg-primary/5 shadow-sm" : "border-gray-200 hover:border-gray-300 bg-gray-50 hover:bg-white"}`}>
+                          <img src={EXPEDITION_LOGO[exp]} alt={exp} className="h-7 w-auto object-contain" />
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Berat & Alasan */}
-                <div className="flex gap-3 items-start">
-                  <div className="w-20 shrink-0">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Berat (kg)</label>
-                    <input type="number" min="1" step="1" value={editForm.weight} onChange={(e) => setEditForm({ ...editForm, weight: e.target.value })}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                <div className="border-t border-dashed border-gray-200" />
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Pengirim (Store)</label>
+                  <select value={editForm.sender} onChange={(e) => handleSenderChange(e.target.value, true)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors">
+                    <option value="">Pilih store pengirim</option>
+                    {storeAddresses.map((s) => <option key={s.id} value={s.store_location}>{s.store_location}</option>)}
+                  </select>
+                  {editSenderDetails && (
+                    <div className="mt-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-[10px] text-blue-700 space-y-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                        {editSenderDetails.phone_number}
+                      </div>
+                      <div className="flex items-start gap-1.5">
+                        <svg className="w-3 h-3 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        {editSenderDetails.address}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Penerima</label>
+                    <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
+                      <button type="button"
+                        onClick={() => { setEditReceiverMode("dropdown"); setEditForm({ ...editForm, receiver: "" }); setEditReceiverStore(""); }}
+                        className={`px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${editReceiverMode === "dropdown" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                        Store
+                      </button>
+                      <button type="button"
+                        onClick={() => { setEditReceiverMode("custom"); setEditReceiverStore(""); setEditForm({ ...editForm, receiver: "" }); }}
+                        className={`px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${editReceiverMode === "custom" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                        Custom
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Alasan</label>
+                  {editReceiverMode === "dropdown" ? (
+                    <select value={editReceiverStore} onChange={(e) => handleReceiverStoreChange(e.target.value, true)}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors">
+                      <option value="">Pilih store penerima</option>
+                      {storeAddresses.map((s) => <option key={s.id} value={s.store_location}>{s.store_location}</option>)}
+                    </select>
+                  ) : (
+                    <div>
+                      <textarea value={editForm.receiver}
+                        onChange={(e) => { setEditForm({ ...editForm, receiver: e.target.value.slice(0, 200) }); setReceiverError(""); }}
+                        onBlur={() => setReceiverError(validateReceiver(editForm.receiver))}
+                        rows={4}
+                        placeholder={"Nama Penerima\n08xxxxxxxxxx\nJl. Contoh No. 1, Kota, Provinsi\n12345"}
+                        maxLength={200}
+                        className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-2 resize-none font-mono bg-gray-50 hover:bg-white transition-colors ${
+                          receiverError ? "border-red-300 focus:ring-red-200 focus:border-red-400" : "border-gray-200 focus:ring-primary/30 focus:border-primary"}`} />
+                      <div className="flex items-center justify-between mt-1">
+                        {receiverError
+                          ? <p className="text-[10px] text-red-500">⚠ {receiverError}</p>
+                          : <p className="text-[10px] text-gray-400">Nama · HP (08xx/+628xx) · alamat · kode pos 5 digit</p>}
+                        <p className={`text-[10px] tabular-nums shrink-0 ml-2 ${
+                          editForm.receiver.length >= 200 ? "text-red-500 font-semibold" : editForm.receiver.length >= 180 ? "text-yellow-500" : "text-gray-400"}`}>
+                          {editForm.receiver.length}/200
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t border-dashed border-gray-200" />
+
+                <div className="grid grid-cols-[80px_1fr] gap-4 items-start">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Berat (kg)</label>
+                    <input type="number" min="1" step="1" value={editForm.weight}
+                      onChange={(e) => setEditForm({ ...editForm, weight: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Alasan / Keterangan</label>
                     <textarea value={editForm.reason} onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })} rows={2}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
+                      placeholder="Misal: Order WAG, Retur barang rusak..."
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none bg-gray-50 hover:bg-white transition-colors" />
                   </div>
                 </div>
 
-                {/* Tipe Pengiriman & Sales Order */}
                 {renderTypeReasonFields(editForm, setEditForm, editSalesOrderError, setEditSalesOrderError)}
               </div>
-              <div className="flex gap-2 mt-5">
-                <button onClick={() => { setShowEditModal(false); setSelectedItem(null); setReceiverError(""); setEditSalesOrderError(""); }}
-                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">Batal</button>
+
+              <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
+                <button
+                  onClick={() => { setShowEditModal(false); setSelectedItem(null); setReceiverError(""); setEditSalesOrderError(""); }}
+                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-semibold hover:bg-gray-200 transition-colors">
+                  Batal
+                </button>
                 <button onClick={handleEdit} disabled={submitting}
-                  className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">
-                  {submitting ? "Menyimpan..." : "Simpan"}
+                  className="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors">
+                  {submitting ? "Menyimpan..." : "Simpan Perubahan"}
                 </button>
               </div>
             </div>

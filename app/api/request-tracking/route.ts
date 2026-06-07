@@ -85,11 +85,12 @@ async function sendTelegramNotification(sender: string, trackingNumber: string):
   }
 }
 
-// ─── Column order (16 columns) ────────────────────────────────────────────
+// ─── Column order (17 columns) ────────────────────────────────────────────
 // 0  id             1  date          2  assigned_to    3  expedition
 // 4  sender         5  receiver      6  weight         7  reason
 // 8  type_reason    9  sales_order   10 link_tracking  11 tracking_number
 // 12 request_by    13 update_by     14 created_at     15 update_at
+// 16 has_processed
 // ─────────────────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -106,7 +107,6 @@ export async function GET(request: NextRequest) {
 
     if (isTrackingEdit) return NextResponse.json(sorted);
 
-    // Tampilkan jika request_by === username ATAU sender === username (store name match)
     const userFiltered = sorted.filter(
       (row: any) => row.request_by === username || row.sender === username,
     );
@@ -133,6 +133,7 @@ export async function POST(request: NextRequest) {
       id, date, assigned_to, expedition, sender, receiver,
       weight, reason, type_reason, sales_order ?? '',
       '', '', request_by, request_by, now, now,
+      'FALSE', // has_processed
     ];
 
     await appendSheetData('request_tracking', [newRow]);
@@ -153,6 +154,7 @@ export async function PUT(request: NextRequest) {
     let receiver: string | undefined, weight: string | undefined;
     let reason: string | undefined, type_reason: string | undefined;
     let sales_order: string | undefined, link_tracking: string | undefined;
+    let has_processed: string | undefined;
     let newFile: File | null = null;
     let fileBuffer: ArrayBuffer | null = null;
 
@@ -170,13 +172,18 @@ export async function PUT(request: NextRequest) {
       type_reason = formData.get('type_reason') as string | undefined;
       sales_order = formData.get('sales_order') as string | undefined;
       link_tracking = formData.get('link_tracking') as string | undefined;
+      has_processed = formData.get('has_processed') as string | undefined;
       newFile = formData.get('file') as File | null;
       if (newFile && newFile.size > 0) {
         fileBuffer = await newFile.arrayBuffer();
       }
     } else {
       const body = await request.json();
-      ({ id, update_by, date, assigned_to, expedition, sender, receiver, weight, reason, type_reason, sales_order, link_tracking } = body);
+      ({
+        id, update_by, date, assigned_to, expedition, sender,
+        receiver, weight, reason, type_reason, sales_order,
+        link_tracking, has_processed,
+      } = body);
     }
 
     const data = await getSheetData('request_tracking');
@@ -230,6 +237,7 @@ export async function PUT(request: NextRequest) {
       update_by,
       existing.created_at,
       now,
+      has_processed ?? existing.has_processed ?? 'FALSE',
     ];
 
     await updateSheetRow('request_tracking', rowIndex, updatedRow);
@@ -262,7 +270,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const rowIndex = idx + 2;
-    await updateSheetRow('request_tracking', rowIndex, Array(16).fill(''));
+    await updateSheetRow('request_tracking', rowIndex, Array(17).fill(''));
 
     return NextResponse.json({ success: true });
   } catch (error) {
