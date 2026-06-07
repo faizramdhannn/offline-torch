@@ -578,9 +578,11 @@ export default function RequestTrackingPage() {
   const fetchData = async () => {
     try {
       const params = new URLSearchParams({
-        username: user?.user_name || "",
-        isTrackingEdit: String(!!user?.tracking_edit),
-      });
+  username: user?.user_name || "",
+  userName: user?.name || "",          // ← tambah ini
+  isTrackingEdit: String(!!user?.tracking_edit),
+});
+
       const res = await fetch(`/api/request-tracking?${params}`);
       if (res.ok) {
         const newData: TrackingItem[] = await res.json();

@@ -97,6 +97,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const username = searchParams.get('username');
+    const userName = searchParams.get('userName') ?? '';
     const isTrackingEdit = searchParams.get('isTrackingEdit') === 'true';
 
     const data = await getSheetData('request_tracking');
@@ -108,8 +109,10 @@ export async function GET(request: NextRequest) {
     if (isTrackingEdit) return NextResponse.json(sorted);
 
     const userFiltered = sorted.filter(
-      (row: any) => row.request_by === username || row.sender === username,
-    );
+  (row: any) =>
+    row.request_by === username ||
+    (userName && row.sender === userName),
+);
     return NextResponse.json(userFiltered);
   } catch (error) {
     console.error('Error fetching request tracking:', error);

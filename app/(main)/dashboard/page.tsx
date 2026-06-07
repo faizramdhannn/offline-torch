@@ -200,8 +200,10 @@ export default function DashboardPage() {
       if (!currentDateRange && dateList.length > 0) currentDateRange = dateList[dateList.length - 1].date_range;
       if (!currentDateRange) { setTodaySchedules([]); return; }
 
-      const schedRes  = await fetch(`/api/attendance/schedule?date_range=${encodeURIComponent(currentDateRange)}`);
-      const schedules: ScheduleRow[] = await schedRes.json();
+
+const schedRes  = await fetch(`/api/attendance/schedule?date_range=${encodeURIComponent(currentDateRange)}`);
+const schedRaw  = await schedRes.json();
+const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?.data ?? []);
       const stores = [...new Set(taftList.map(t => t.store_name))];
 
       setTodaySchedules(stores.map(store => ({
