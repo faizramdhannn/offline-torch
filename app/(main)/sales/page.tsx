@@ -564,7 +564,6 @@ function MetricTrendChart({
   const cfg = METRIC_CONFIG[metric];
   const isSales = metric === "sales";
 
-  // Merge all data by label (day number)
   const merged = useMemo(() => {
     return trendData.map((t) => {
       const o       = orderTrendData.find((r) => r.label === t.label) || {};
@@ -583,7 +582,6 @@ function MetricTrendChart({
     return fmtNum(v);
   };
 
-  // Tooltip
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     const fullDate = payload[0]?.payload?.fullDate || `Tanggal ${label}`;
@@ -620,7 +618,18 @@ function MetricTrendChart({
   };
 
   return (
-    <div style={{ background: css.cardBg, borderRadius: 10, padding: "14px 16px", boxShadow: css.cardShadow, minWidth: 0, transition: "background 0.2s" }}>
+    // ✅ FIX: flex: 1 + display flex column agar card stretch penuh
+    <div style={{
+      background: css.cardBg,
+      borderRadius: 10,
+      padding: "14px 16px",
+      boxShadow: css.cardShadow,
+      minWidth: 0,
+      transition: "background 0.2s",
+      display: "flex",
+      flexDirection: "column",
+      flex: 1,
+    }}>
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
         <p style={{ fontSize: 13, fontWeight: 700, color: css.textValue, margin: 0 }}>
@@ -635,55 +644,53 @@ function MetricTrendChart({
         </div>
       </div>
 
-      <ResponsiveContainer width="100%" height={260}>
-        <AreaChart data={merged} margin={{ top: 8, right: 8, left: 0, bottom: 28 }}>
-          <defs>
-            <linearGradient id="gNet" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.35} /><stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
-            </linearGradient>
-            <linearGradient id="gGross" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#a855f7" stopOpacity={0.2} /><stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
-            </linearGradient>
-            <linearGradient id="gTarget" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#eab308" stopOpacity={0.2} /><stop offset="95%" stopColor="#eab308" stopOpacity={0} />
-            </linearGradient>
-            <linearGradient id="gSingle" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={cfg.color} stopOpacity={0.35} /><stop offset="95%" stopColor={cfg.color} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? "rgba(255,255,255,0.06)" : "#f1f5f9"} />
-          <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#94a3b8", dy: 4 }} axisLine={false} tickLine={false} interval={0} angle={-45} textAnchor="end" />
-          {/* ✅ FIX: domain={[0, 'auto']} ensures Y-axis always starts from 0 */}
-          <YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={fmtY} width={54} domain={[0, 'auto']} />
-          <Tooltip content={<CustomTooltip />} />
+      {/* ✅ FIX: flex:1 + minHeight:0 agar ResponsiveContainer bisa mengisi sisa ruang */}
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={merged} margin={{ top: 8, right: 8, left: 0, bottom: 28 }}>
+            <defs>
+              <linearGradient id="gNet" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.35} /><stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="gGross" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#a855f7" stopOpacity={0.2} /><stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="gTarget" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#eab308" stopOpacity={0.2} /><stop offset="95%" stopColor="#eab308" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="gSingle" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={cfg.color} stopOpacity={0.35} /><stop offset="95%" stopColor={cfg.color} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? "rgba(255,255,255,0.06)" : "#f1f5f9"} />
+            <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#94a3b8", dy: 4 }} axisLine={false} tickLine={false} interval={0} angle={-45} textAnchor="end" />
+            <YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={fmtY} width={54} domain={[0, 'auto']} />
+            <Tooltip content={<CustomTooltip />} />
 
-          {isSales ? (
-            // Sales tab: 3 lines — Target (dashed), Gross, Net
-            // ✅ FIX: baseValue={0} on all 3 Areas so fill goes to the bottom
-            <>
-              <Area type="monotone" dataKey="target" name="Target" stroke="#eab308" strokeWidth={1.5} fill="url(#gTarget)" dot={false} strokeDasharray="4 2" baseValue={0} />
-              <Area type="monotone" dataKey="gross"  name="Gross"  stroke="#a855f7" strokeWidth={1.5} fill="url(#gGross)"  dot={false} baseValue={0} />
-              <Area type="monotone" dataKey="sales"  name="Net"    stroke="#0ea5e9" strokeWidth={2.5} fill="url(#gNet)"    dot={{ r: 3, fill: "#0ea5e9", strokeWidth: 0 }} activeDot={{ r: 5 }} baseValue={0} />
-            </>
-          ) : (
-            // Other metrics: single line
-            // ✅ FIX: baseValue={0} so fill goes to the bottom
-            <Area
-              key={metric}
-              type="monotone"
-              dataKey={metric}
-              name={cfg.label}
-              stroke={cfg.color}
-              strokeWidth={2.5}
-              fill="url(#gSingle)"
-              dot={{ r: 3, fill: cfg.color, strokeWidth: 0 }}
-              activeDot={{ r: 5 }}
-              isAnimationActive={true}
-              baseValue={0}
-            />
-          )}
-        </AreaChart>
-      </ResponsiveContainer>
+            {isSales ? (
+              <>
+                <Area type="monotone" dataKey="target" name="Target" stroke="#eab308" strokeWidth={1.5} fill="url(#gTarget)" dot={false} strokeDasharray="4 2" baseValue={0} />
+                <Area type="monotone" dataKey="gross"  name="Gross"  stroke="#a855f7" strokeWidth={1.5} fill="url(#gGross)"  dot={false} baseValue={0} />
+                <Area type="monotone" dataKey="sales"  name="Net"    stroke="#0ea5e9" strokeWidth={2.5} fill="url(#gNet)"    dot={{ r: 3, fill: "#0ea5e9", strokeWidth: 0 }} activeDot={{ r: 5 }} baseValue={0} />
+              </>
+            ) : (
+              <Area
+                key={metric}
+                type="monotone"
+                dataKey={metric}
+                name={cfg.label}
+                stroke={cfg.color}
+                strokeWidth={2.5}
+                fill="url(#gSingle)"
+                dot={{ r: 3, fill: cfg.color, strokeWidth: 0 }}
+                activeDot={{ r: 5 }}
+                isAnimationActive={true}
+                baseValue={0}
+              />
+            )}
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
 
       {/* Legend — only for Sales tab */}
       {isSales && (
@@ -999,7 +1006,8 @@ export default function SalesPage() {
                 </div>
 
                 {/* ── ROW 1: Gauges + Stats + Net Sales Trend ── */}
-                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.7fr)", gap: 12, marginBottom: 12, width: "100%" }}>
+                {/* ✅ FIX: tambah alignItems:"stretch" agar kedua kolom sama tinggi */}
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.7fr)", gap: 12, marginBottom: 12, width: "100%", alignItems: "stretch" }}>
                   {/* Left */}
                   <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
                     {/* Gauges */}
@@ -1028,13 +1036,15 @@ export default function SalesPage() {
                     </div>
                   </div>
 
-                  {/* Right: Single metric trend chart with picker */}
-                  <MetricTrendChart
-                    trendData={trendData}
-                    orderTrendData={orderTrendData}
-                    css={css}
-                    isDark={DM}
-                  />
+                  {/* ✅ FIX: Right kolom pakai display:flex agar MetricTrendChart bisa stretch */}
+                  <div style={{ display: "flex", minWidth: 0 }}>
+                    <MetricTrendChart
+                      trendData={trendData}
+                      orderTrendData={orderTrendData}
+                      css={css}
+                      isDark={DM}
+                    />
+                  </div>
                 </div>
 
                 {/* ── ROW 3: Calendar grids ── */}

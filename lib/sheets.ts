@@ -18,9 +18,10 @@ const SPREADSHEET_MAP: Record<string, string> = {
   pca_stock: process.env.SPREADSHEET_STOCK || "",
   powerbi_threshold: process.env.SPREADSHEET_STOCK || "",
   last_update: process.env.SPREADSHEET_STOCK || "",
-  system_config: process.env.SPREADSHEET_STOCK || "",
-  invoices: process.env.SPREADSHEET_STOCK || "",    // ← TAMBAH INI
-  invoice_items:  process.env.SPREADSHEET_STOCK || "",    // ← TAMBAH INI
+  // ✅ system_config pakai spreadsheet terpisah agar tidak kena beban SPREADSHEET_STOCK
+  system_config: process.env.SPREADSHEET_SYSTEM || process.env.SPREADSHEET_STOCK || "",
+  invoices: process.env.SPREADSHEET_STOCK || "",
+  invoice_items: process.env.SPREADSHEET_STOCK || "",
   master_invoice: process.env.SPREADSHEET_STOCK || "",
   activity_log: process.env.SPREADSHEET_STORE || "",
   shopify_import: process.env.SPREADSHEET_ORDER || "",
@@ -104,78 +105,125 @@ function withTimeout<T>(
   ]);
 }
 
-export async function getSheetData(sheetName: string) {
-  try {
-    const sheets = getSheetsClient();
-    const response = await withTimeout(
-      sheets.spreadsheets.values.get({
-        spreadsheetId: getSpreadsheetId(sheetName),
-        range: `${sheetName}!A1:CZ`,
-      }),
-      15000,
-      `getSheetData(${sheetName})`
-    ) as { data: { values?: any[][] } }; // ✅ tambah type cast di sini
-    const rows = response.data.values || [];
-    if (rows.length === 0) return [];
-    const headers = rows[0];
-    return rows.slice(1).map((row: any[]) => {
-      const obj: any = {};
-      headers.forEach((header: string, index: number) => {
-        obj[header] = row[index] || null;
-      });
-      return obj;
-    });
-  } catch (error) {
-    console.error("Error fetching sheet data:", error);
-    throw error;
+// ✅ Retry helper — coba ulang jika gagal karena timeout/network
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  retries: number,
+  label: string
+): Promise<T> {
+  let lastError: any;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastError = err;
+      const isRetryable =
+        err?.message?.includes("Timeout") ||
+        err?.code === "ECONNRESET" ||
+        err?.code === "ETIMEDOUT" ||
+        err?.status === 429 || // rate limit
+        err?.status === 503;   // service unavailable
+      if (!isRetryable || attempt === retries) break;
+      const delay = attempt * 1500; // 1.5s, 3s, 4.5s
+      console.warn(`[${label}] attempt ${attempt} failed, retrying in ${delay}ms...`);
+      await new Promise((r) => setTimeout(r, delay));
+    }
   }
+  throw lastError;
+}
+
+export async function getSheetData(sheetName: string) {
+  const spreadsheetId = getSpreadsheetId(sheetName);
+  if (!spreadsheetId) {
+    throw new Error(`No spreadsheet ID configured for sheet: ${sheetName}`);
+  }
+  return withRetry(
+    async () => {
+      const sheets = getSheetsClient();
+      const response = await withTimeout(
+        sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: `${sheetName}!A1:CZ`,
+        }),
+        // ✅ system_config kecil, timeout lebih pendek tapi tetap reasonable
+        sheetName === "system_config" ? 20000 : 15000,
+        `getSheetData(${sheetName})`
+      ) as { data: { values?: any[][] } };
+      const rows = response.data.values || [];
+      if (rows.length === 0) return [];
+      const headers = rows[0];
+      return rows.slice(1).map((row: any[]) => {
+        const obj: any = {};
+        headers.forEach((header: string, index: number) => {
+          obj[header] = row[index] || null;
+        });
+        return obj;
+      });
+    },
+    3, // ✅ coba maksimal 3x
+    `getSheetData(${sheetName})`
+  );
 }
 
 export async function updateSheetDataWithHeader(sheetName: string, data: any[][]) {
-  try {
-    const sheets = getSheetsClient();
-    await withTimeout(
-      sheets.spreadsheets.values.clear({
-        spreadsheetId: getSpreadsheetId(sheetName),
-        range: `${sheetName}!A1:CZ`,
-      }),
-      15000,
-      `clear(${sheetName})`
-    );
-    if (data.length > 0) {
-      await withTimeout(
-        sheets.spreadsheets.values.update({
-          spreadsheetId: getSpreadsheetId(sheetName),
-          range: `${sheetName}!A1`,
-          valueInputOption: "RAW",
-          requestBody: { values: data },
-        }),
-        30000,   // lebih lama untuk data besar
-        `update(${sheetName})`
-      );
-    }
-    return { success: true };
-  } catch (error) {
-    console.error("Error updating sheet data:", error);
-    throw error;
+  const spreadsheetId = getSpreadsheetId(sheetName);
+  if (!spreadsheetId) {
+    throw new Error(`No spreadsheet ID configured for sheet: ${sheetName}`);
   }
+  return withRetry(
+    async () => {
+      const sheets = getSheetsClient();
+      await withTimeout(
+        sheets.spreadsheets.values.clear({
+          spreadsheetId,
+          range: `${sheetName}!A1:CZ`,
+        }),
+        15000,
+        `clear(${sheetName})`
+      );
+      if (data.length > 0) {
+        await withTimeout(
+          sheets.spreadsheets.values.update({
+            spreadsheetId,
+            range: `${sheetName}!A1`,
+            valueInputOption: "RAW",
+            requestBody: { values: data },
+          }),
+          30000,
+          `update(${sheetName})`
+        );
+      }
+      return { success: true };
+    },
+    3,
+    `updateSheetDataWithHeader(${sheetName})`
+  );
 }
 
 export async function appendSheetData(sheetName: string, data: any[][]) {
-  try {
-    const sheets = getSheetsClient();
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: getSpreadsheetId(sheetName),
-      range: `${sheetName}!A2`,
-      valueInputOption: "RAW",
-      insertDataOption: "INSERT_ROWS",
-      requestBody: { values: data },
-    });
-    return { success: true };
-  } catch (error) {
-    console.error("Error appending sheet data:", error);
-    throw error;
+  const spreadsheetId = getSpreadsheetId(sheetName);
+  if (!spreadsheetId) {
+    throw new Error(`No spreadsheet ID configured for sheet: ${sheetName}`);
   }
+  return withRetry(
+    async () => {
+      const sheets = getSheetsClient();
+      await withTimeout(
+        sheets.spreadsheets.values.append({
+          spreadsheetId,
+          range: `${sheetName}!A2`,
+          valueInputOption: "RAW",
+          insertDataOption: "INSERT_ROWS",
+          requestBody: { values: data },
+        }),
+        15000,
+        `appendSheetData(${sheetName})`
+      );
+      return { success: true };
+    },
+    3,
+    `appendSheetData(${sheetName})`
+  );
 }
 
 export async function updateSheetRow(
@@ -183,23 +231,32 @@ export async function updateSheetRow(
   rowIndex: number,
   data: any[]
 ) {
-  try {
-    const sheets = getSheetsClient();
-    const numColumns = data.length;
-    const endColumn = getColumnLetter(numColumns);
-    const range = `${sheetName}!A${rowIndex}:${endColumn}${rowIndex}`;
-    console.log(`Updating sheet row: ${range} with ${numColumns} columns`);
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: getSpreadsheetId(sheetName),
-      range: range,
-      valueInputOption: "RAW",
-      requestBody: { values: [data] },
-    });
-    return { success: true };
-  } catch (error) {
-    console.error("Error updating sheet row:", error);
-    throw error;
+  const spreadsheetId = getSpreadsheetId(sheetName);
+  if (!spreadsheetId) {
+    throw new Error(`No spreadsheet ID configured for sheet: ${sheetName}`);
   }
+  return withRetry(
+    async () => {
+      const sheets = getSheetsClient();
+      const numColumns = data.length;
+      const endColumn = getColumnLetter(numColumns);
+      const range = `${sheetName}!A${rowIndex}:${endColumn}${rowIndex}`;
+      console.log(`Updating sheet row: ${range} with ${numColumns} columns`);
+      await withTimeout(
+        sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range,
+          valueInputOption: "RAW",
+          requestBody: { values: [data] },
+        }),
+        15000,
+        `updateSheetRow(${sheetName}, row=${rowIndex})`
+      );
+      return { success: true };
+    },
+    3,
+    `updateSheetRow(${sheetName})`
+  );
 }
 
 export async function updateSheetRowSkipColumns(
@@ -209,35 +266,43 @@ export async function updateSheetRowSkipColumns(
   afterData: any[],
   skipCount: number
 ) {
-  try {
-    const sheets = getSheetsClient();
-    const spreadsheetId = getSpreadsheetId(sheetName);
-
-    const beforeEndCol = getColumnLetter(beforeData.length);
-    const range1 = `${sheetName}!A${rowIndex}:${beforeEndCol}${rowIndex}`;
-
-    const afterStartColNum = beforeData.length + skipCount + 1;
-    const afterEndColNum = afterStartColNum + afterData.length - 1;
-    const afterStartCol = getColumnLetter(afterStartColNum);
-    const afterEndCol = getColumnLetter(afterEndColNum);
-    const range2 = `${sheetName}!${afterStartCol}${rowIndex}:${afterEndCol}${rowIndex}`;
-
-    console.log(`Updating range1: ${range1}, range2: ${range2}`);
-
-    await sheets.spreadsheets.values.batchUpdate({
-      spreadsheetId,
-      requestBody: {
-        valueInputOption: "RAW",
-        data: [
-          { range: range1, values: [beforeData] },
-          { range: range2, values: [afterData] },
-        ],
-      },
-    });
-
-    return { success: true };
-  } catch (error) {
-    console.error("Error updating sheet row with skip:", error);
-    throw error;
+  const spreadsheetId = getSpreadsheetId(sheetName);
+  if (!spreadsheetId) {
+    throw new Error(`No spreadsheet ID configured for sheet: ${sheetName}`);
   }
+  return withRetry(
+    async () => {
+      const sheets = getSheetsClient();
+
+      const beforeEndCol = getColumnLetter(beforeData.length);
+      const range1 = `${sheetName}!A${rowIndex}:${beforeEndCol}${rowIndex}`;
+
+      const afterStartColNum = beforeData.length + skipCount + 1;
+      const afterEndColNum = afterStartColNum + afterData.length - 1;
+      const afterStartCol = getColumnLetter(afterStartColNum);
+      const afterEndCol = getColumnLetter(afterEndColNum);
+      const range2 = `${sheetName}!${afterStartCol}${rowIndex}:${afterEndCol}${rowIndex}`;
+
+      console.log(`Updating range1: ${range1}, range2: ${range2}`);
+
+      await withTimeout(
+        sheets.spreadsheets.values.batchUpdate({
+          spreadsheetId,
+          requestBody: {
+            valueInputOption: "RAW",
+            data: [
+              { range: range1, values: [beforeData] },
+              { range: range2, values: [afterData] },
+            ],
+          },
+        }),
+        15000,
+        `updateSheetRowSkipColumns(${sheetName}, row=${rowIndex})`
+      );
+
+      return { success: true };
+    },
+    3,
+    `updateSheetRowSkipColumns(${sheetName})`
+  );
 }
