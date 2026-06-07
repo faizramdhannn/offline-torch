@@ -238,59 +238,76 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
   const [preview, setPreview] = useState<string | null>(null);
   const [timerOption, setTimerOption] = useState<TimerOption>(3);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user'); // 🆕
+  const [flash, setFlash] = useState(false); // 🆕
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const streamRef = useRef<MediaStream | null>(null); // 🆕 track stream for switching
 
-  useEffect(() => { startCamera(); return () => { stopCamera(); clearCountdown(); }; }, []); // eslint-disable-line
+  useEffect(() => { startCamera(facingMode); return () => { stopCamera(); clearCountdown(); }; }, []); // eslint-disable-line
 
-  const startCamera = async () => {
+  const startCamera = async (mode: 'user' | 'environment' = 'user') => {
+    // Stop existing stream first
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    setError('');
     try {
       const s = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
+        video: { facingMode: mode, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
       });
+      streamRef.current = s;
       setStream(s);
       if (videoRef.current) videoRef.current.srcObject = s;
     } catch { setError('Tidak bisa mengakses kamera. Pastikan izin kamera diberikan.'); }
   };
-  const stopCamera = () => { stream?.getTracks().forEach(t => t.stop()); };
+
+  const stopCamera = () => { streamRef.current?.getTracks().forEach(t => t.stop()); };
+
   const clearCountdown = () => {
     if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
   };
 
-  // ── FIXED: guard doCapture agar tidak menghasilkan data:, ──────────────────
+  // 🆕 toggle kamera depan/belakang
+  const switchCamera = async () => {
+    if (countdown !== null) return;
+    const newMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newMode);
+    await startCamera(newMode);
+  };
+
+  // 🆕 flash effect — berkedip saat countdown (hanya kamera belakang)
+  const triggerFlash = () => {
+    setFlash(true);
+    setTimeout(() => setFlash(false), 120);
+  };
+
   const doCapture = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
-
-    // Pastikan video sudah punya dimensi yang valid
     if (video.videoWidth === 0 || video.videoHeight === 0) {
       setError('Kamera belum siap, coba ulangi.');
       setCountdown(null);
       return;
     }
-
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
+    // Mirror hanya untuk kamera depan
+    if (facingMode === 'user') {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
     ctx.drawImage(video, 0, 0);
-
     const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-
-    // Validasi hasil — tolak jika kosong atau terlalu pendek
     if (!dataUrl || dataUrl === 'data:,' || dataUrl.length < 1000) {
       setError('Gagal mengambil foto, coba ulangi.');
       setCountdown(null);
       return;
     }
-
     setPreview(dataUrl);
     setCountdown(null);
     stopCamera();
-  }, [stream]); // eslint-disable-line
+  }, [facingMode]); // eslint-disable-line
 
   const capturePhoto = () => {
     clearCountdown();
@@ -299,13 +316,15 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
     let remaining = timerOption;
     countdownRef.current = setInterval(() => {
       remaining -= 1;
+      // 🆕 flash tiap detik hanya di kamera belakang
+      if (facingMode === 'environment') triggerFlash();
       if (remaining <= 0) { clearCountdown(); setCountdown(null); doCapture(); }
       else setCountdown(remaining);
     }, 1000);
   };
 
   const cancelCountdown = () => { clearCountdown(); setCountdown(null); };
-  const retake = () => { setPreview(null); setCountdown(null); setError(''); startCamera(); };
+  const retake = () => { setPreview(null); setCountdown(null); setError(''); startCamera(facingMode); };
   const confirm = () => { if (preview) onCapture(preview); };
 
   return (
@@ -322,10 +341,26 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
               <p className="text-gray-400 text-[11px]">Posisikan wajah di dalam bingkai</p>
             </div>
           </div>
-          <button onClick={() => { clearCountdown(); stopCamera(); onCancel(); }}
-            className="w-8 h-8 rounded-lg bg-gray-700/60 hover:bg-gray-600 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
-            <IconX className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* 🆕 Tombol switch kamera */}
+            {!preview && !error && (
+              <button
+                onClick={switchCamera}
+                disabled={countdown !== null}
+                title={facingMode === 'user' ? 'Ganti ke kamera belakang' : 'Ganti ke kamera depan'}
+                className={`w-8 h-8 rounded-lg bg-gray-700/60 hover:bg-gray-600 flex items-center justify-center text-gray-400 hover:text-white transition-colors ${countdown !== null ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                {/* flip/rotate icon */}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            )}
+            <button onClick={() => { clearCountdown(); stopCamera(); onCancel(); }}
+              className="w-8 h-8 rounded-lg bg-gray-700/60 hover:bg-gray-600 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+              <IconX className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Timer selector */}
@@ -343,11 +378,20 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
                 </button>
               ))}
             </div>
+            {/* 🆕 label kamera aktif */}
+            <span className="ml-auto text-[10px] text-gray-500">
+              {facingMode === 'user' ? '📷 Depan' : '📸 Belakang'}
+            </span>
           </div>
         )}
 
         {/* Viewfinder */}
         <div className="relative bg-black" style={{ aspectRatio: '16/9' }}>
+          {/* 🆕 Flash overlay */}
+          {flash && (
+            <div className="absolute inset-0 bg-white z-20 pointer-events-none transition-opacity" style={{ opacity: 0.85 }} />
+          )}
+
           {error ? (
             <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
               <div>
@@ -366,7 +410,9 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
             <img src={preview} alt="preview" className="w-full h-full object-cover" />
           ) : (
             <video ref={videoRef} autoPlay playsInline muted
-              className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
+              className="w-full h-full object-cover"
+              // Mirror hanya kamera depan
+              style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }} />
           )}
 
           {!preview && !error && (
@@ -409,7 +455,7 @@ function SelfieCapture({ onCapture, onCancel }: { onCapture: (dataUrl: string) =
 
         <canvas ref={canvasRef} className="hidden" />
 
-        {/* Actions */}
+        {/* Actions — sama seperti sebelumnya */}
         <div className="px-5 py-4 border-t border-gray-700/60 flex gap-3">
           {!preview ? (
             countdown !== null ? (
