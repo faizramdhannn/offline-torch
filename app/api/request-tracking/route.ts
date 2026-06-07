@@ -15,7 +15,6 @@ async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
   }
 }
 
-// ── Extract teks dari gambar via Tesseract (untuk JPG/PNG) ───────────────
 async function extractTextFromImage(imageBuffer: Buffer): Promise<string> {
   try {
     const Tesseract = await import('tesseract.js');
@@ -34,89 +33,64 @@ async function extractTextFromImage(imageBuffer: Buffer): Promise<string> {
   }
 }
 
-// ── Main: ambil teks lalu parse nomor resi ────────────────────────────────
 async function extractTrackingNumber(fileBuffer: Buffer, mimeType: string): Promise<string> {
   let text = '';
-
   if (mimeType === 'application/pdf') {
     text = await extractTextFromPdf(fileBuffer);
   } else {
     text = await extractTextFromImage(fileBuffer);
   }
-
   if (!text) {
     console.warn('[OCR] No text extracted from file');
     return '';
   }
-
   const trackingNumber = parseTrackingNumber(text);
   console.log('[OCR] Extracted tracking number:', trackingNumber || '(not found)');
   return trackingNumber;
 }
 
-// ── Parser: cari nomor resi dari teks ────────────────────────────────────
 function parseTrackingNumber(text: string): string {
   const normalized = text.replace(/[^\S\n]+/g, ' ').trim();
-
   const patterns: RegExp[] = [
-    // Lion Parcel: 99LP + 10-15 digit (contoh: 99LP1777381048226)
     /\b(99LP\d{10,15})\b/i,
-    // SiCepat: 999 + 9-12 digit (contoh: 999514609439)
     /\b(999\d{9,12})\b/,
-    // J&T Express: JP + 10-14 digit
     /\b(JP\d{10,14})\b/i,
-    // AnterAja: AA + 10-14 digit
     /\b(AA\d{10,14})\b/i,
-    // Ninja Express: NVSID + 8-14 digit
     /\b(NVSID\d{8,14})\b/i,
-    // JNE: 2-6 huruf kapital + 10-16 digit
     /\b([A-Z]{2,6}\d{10,16})\b/,
-    // Fallback: angka panjang 12-20 digit
     /\b(\d{12,20})\b/,
   ];
-
   for (const pattern of patterns) {
     const match = normalized.match(pattern);
     if (match) return match[1].toUpperCase();
   }
-
   return '';
 }
 
-// ── Kirim notifikasi Telegram ─────────────────────────────────────────────
 async function sendTelegramNotification(sender: string, trackingNumber: string): Promise<void> {
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
-const CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
-
+  const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
+  const CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
   const message = `Request pickup "${sender}" dengan no Resi "${trackingNumber}"`;
-
   try {
     const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: CHAT_ID,
-        text: message,
-      }),
+      body: JSON.stringify({ chat_id: CHAT_ID, text: message }),
     });
     const result = await res.json();
-    if (!result.ok) {
-      console.error('[Telegram] Failed to send:', result);
-    } else {
-      console.log('[Telegram] Message sent successfully');
-    }
+    if (!result.ok) console.error('[Telegram] Failed to send:', result);
+    else console.log('[Telegram] Message sent successfully');
   } catch (e) {
     console.error('[Telegram] Error sending notification:', e);
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Column order (14 columns):
-// 0  id           1  date          2  assigned_to   3  expedition
-// 4  sender       5  receiver      6  weight        7  reason
-// 8  link_tracking  9  request_by  10 update_by    11 created_at
-// 12 update_at    13 tracking_number
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Column order (16 columns) ────────────────────────────────────────────
+// 0  id             1  date          2  assigned_to    3  expedition
+// 4  sender         5  receiver      6  weight         7  reason
+// 8  type_reason    9  sales_order   10 link_tracking  11 tracking_number
+// 12 request_by    13 update_by     14 created_at     15 update_at
+// ─────────────────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
   try {
@@ -132,7 +106,10 @@ export async function GET(request: NextRequest) {
 
     if (isTrackingEdit) return NextResponse.json(sorted);
 
-    const userFiltered = sorted.filter((row: any) => row.request_by === username);
+    // Tampilkan jika request_by === username ATAU sender === username (store name match)
+    const userFiltered = sorted.filter(
+      (row: any) => row.request_by === username || row.sender === username,
+    );
     return NextResponse.json(userFiltered);
   } catch (error) {
     console.error('Error fetching request tracking:', error);
@@ -143,9 +120,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { date, assigned_to, expedition, sender, receiver, weight, reason, request_by } = body;
+    const { date, assigned_to, expedition, sender, receiver, weight, reason, type_reason, sales_order, request_by } = body;
 
-    if (!date || !assigned_to || !expedition || !sender || !receiver || !weight || !reason || !request_by) {
+    if (!date || !assigned_to || !expedition || !sender || !receiver || !weight || !reason || !type_reason || !request_by) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -154,7 +131,8 @@ export async function POST(request: NextRequest) {
 
     const newRow = [
       id, date, assigned_to, expedition, sender, receiver,
-      weight, reason, '', request_by, request_by, now, now, '',
+      weight, reason, type_reason, sales_order ?? '',
+      '', '', request_by, request_by, now, now,
     ];
 
     await appendSheetData('request_tracking', [newRow]);
@@ -173,7 +151,8 @@ export async function PUT(request: NextRequest) {
     let date: string | undefined, assigned_to: string | undefined;
     let expedition: string | undefined, sender: string | undefined;
     let receiver: string | undefined, weight: string | undefined;
-    let reason: string | undefined, link_tracking: string | undefined;
+    let reason: string | undefined, type_reason: string | undefined;
+    let sales_order: string | undefined, link_tracking: string | undefined;
     let newFile: File | null = null;
     let fileBuffer: ArrayBuffer | null = null;
 
@@ -188,15 +167,16 @@ export async function PUT(request: NextRequest) {
       receiver = formData.get('receiver') as string | undefined;
       weight = formData.get('weight') as string | undefined;
       reason = formData.get('reason') as string | undefined;
+      type_reason = formData.get('type_reason') as string | undefined;
+      sales_order = formData.get('sales_order') as string | undefined;
       link_tracking = formData.get('link_tracking') as string | undefined;
       newFile = formData.get('file') as File | null;
-
       if (newFile && newFile.size > 0) {
         fileBuffer = await newFile.arrayBuffer();
       }
     } else {
       const body = await request.json();
-      ({ id, update_by, date, assigned_to, expedition, sender, receiver, weight, reason, link_tracking } = body);
+      ({ id, update_by, date, assigned_to, expedition, sender, receiver, weight, reason, type_reason, sales_order, link_tracking } = body);
     }
 
     const data = await getSheetData('request_tracking');
@@ -215,12 +195,9 @@ export async function PUT(request: NextRequest) {
 
     if (newFile && newFile.size > 0 && fileBuffer) {
       const buf = Buffer.from(fileBuffer);
-
-      // 1. Upload ke Google Drive
       const fileName = `tracking_${id}_${Date.now()}`;
       finalLinkTracking = await uploadToGoogleDrive(buf, fileName, newFile.type, 'request_tracking');
 
-      // 2. Extract nomor resi
       const extracted = await extractTrackingNumber(buf, newFile.type);
       if (extracted) {
         trackingNumber = extracted;
@@ -229,7 +206,6 @@ export async function PUT(request: NextRequest) {
         console.warn(`[OCR] Could not extract tracking number for ${id}`);
       }
 
-      // 3. Kirim notifikasi Telegram jika ekspedisi Lion
       const currentExpedition = expedition ?? existing.expedition ?? '';
       if (currentExpedition.toLowerCase() === 'lion') {
         const senderName = sender ?? existing.sender ?? '';
@@ -246,12 +222,14 @@ export async function PUT(request: NextRequest) {
       receiver ?? existing.receiver,
       weight ?? existing.weight,
       reason ?? existing.reason,
+      type_reason ?? existing.type_reason ?? '',
+      sales_order ?? existing.sales_order ?? '',
       finalLinkTracking,
+      trackingNumber,
       existing.request_by,
       update_by,
       existing.created_at,
       now,
-      trackingNumber,
     ];
 
     await updateSheetRow('request_tracking', rowIndex, updatedRow);
@@ -284,7 +262,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const rowIndex = idx + 2;
-    await updateSheetRow('request_tracking', rowIndex, Array(14).fill(''));
+    await updateSheetRow('request_tracking', rowIndex, Array(16).fill(''));
 
     return NextResponse.json({ success: true });
   } catch (error) {

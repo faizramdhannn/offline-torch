@@ -15,6 +15,8 @@ interface TrackingItem {
   receiver: string;
   weight: string;
   reason: string;
+  type_reason?: string;
+  sales_order?: string;
   link_tracking: string;
   request_by: string;
   update_by: string;
@@ -42,6 +44,21 @@ const EXPEDITION_LOGO: Record<string, string> = {
   SiCepat: "/Logo Sicepat.png",
   Lion: "/Logo Lion.png",
 };
+
+const TYPE_REASONS = ["Order", "Retur", "Request Product", "Free Gift", "Sending Document"];
+const REQUIRES_SALES_ORDER = ["Order", "Retur", "Request Product", "Free Gift"];
+
+function validateSalesOrder(typeReason: string, salesOrder: string): string {
+  if (!REQUIRES_SALES_ORDER.includes(typeReason)) return "";
+  if (!salesOrder.trim()) return "No. Sales Order wajib diisi untuk tipe ini";
+  const val = salesOrder.trim();
+  const valid =
+    /^#\d+$/.test(val) ||
+    /^MAT-MR/i.test(val) ||
+    /^MAT-STE/i.test(val);
+  if (!valid) return "Format: #angka, MAT-MR..., atau MAT-STE...";
+  return "";
+}
 
 function formatStoreAddress(s: StoreAddress): string {
   return [s.store_location, s.phone_number, s.address].filter(Boolean).join("\n");
@@ -215,6 +232,25 @@ function ExpeditionBadge({ expedition }: { expedition: string }) {
   const logo = EXPEDITION_LOGO[expedition];
   if (logo) return <img src={logo} alt={expedition} className="h-5 w-auto object-contain" title={expedition} />;
   return <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700">{expedition}</span>;
+}
+
+// ── TypeReasonBadge ───────────────────────────────────────────────────────
+const TYPE_REASON_COLORS: Record<string, string> = {
+  "Order": "bg-blue-100 text-blue-800",
+  "Retur": "bg-orange-100 text-orange-800",
+  "Request Product": "bg-purple-100 text-purple-800",
+  "Free Gift": "bg-pink-100 text-pink-800",
+  "Sending Document": "bg-gray-100 text-gray-700",
+};
+
+function TypeReasonBadge({ typeReason }: { typeReason?: string }) {
+  if (!typeReason) return <span className="text-gray-300 text-[10px]">—</span>;
+  const color = TYPE_REASON_COLORS[typeReason] ?? "bg-gray-100 text-gray-700";
+  return (
+    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${color}`}>
+      {typeReason}
+    </span>
+  );
 }
 
 // ── SenderSelect ──────────────────────────────────────────────────────────
@@ -461,6 +497,21 @@ function DetailPopup({ item, onClose, copiedId, onCopy }: {
               )}
 
               <div>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Tipe Pengiriman</p>
+                <TypeReasonBadge typeReason={item.type_reason} />
+              </div>
+
+              {item.sales_order && (
+                <div>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">No. Sales Order</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-xs font-mono font-semibold text-gray-800 flex-1">{item.sales_order}</p>
+                    <CopyButton text={item.sales_order} id={`so-detail-${item.id}`} copiedId={copiedId} onCopy={onCopy} />
+                  </div>
+                </div>
+              )}
+
+              <div>
                 <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Tanggal</p>
                 <p className="text-xs text-gray-800">{item.date}</p>
               </div>
@@ -559,10 +610,13 @@ export default function RequestTrackingPage() {
   const [addReceiverStore, setAddReceiverStore] = useState<string>("");
   const [editReceiverStore, setEditReceiverStore] = useState<string>("");
   const [receiverError, setReceiverError] = useState("");
+  const [salesOrderError, setSalesOrderError] = useState("");
+  const [editSalesOrderError, setEditSalesOrderError] = useState("");
 
   const emptyForm = {
     date: new Date().toISOString().split("T")[0],
-    assigned_to: "", expedition: "", sender: "", receiver: "", weight: "", reason: "",
+    assigned_to: "", expedition: "", sender: "", receiver: "",
+    weight: "", reason: "", type_reason: "", sales_order: "",
   };
   const [form, setForm] = useState(emptyForm);
   const [editForm, setEditForm] = useState(emptyForm);
@@ -630,7 +684,6 @@ export default function RequestTrackingPage() {
       const res = await fetch(`/api/request-tracking?${params}`);
       if (res.ok) {
         const newData: TrackingItem[] = await res.json();
-        // Cek apakah ada item yang baru berubah jadi completed
         if (prevDataRef.current.length > 0) {
           const justCompleted = newData.filter((newItem) => {
             const prev = prevDataRef.current.find((p) => p.id === newItem.id);
@@ -710,11 +763,14 @@ export default function RequestTrackingPage() {
   };
 
   const handleAdd = async () => {
-    if (!form.date || !form.assigned_to || !form.expedition || !form.sender || !form.receiver || !form.weight || !form.reason) {
+    if (!form.date || !form.assigned_to || !form.expedition || !form.sender || !form.receiver || !form.weight || !form.reason || !form.type_reason) {
       showMessage("Semua field wajib diisi", "error"); return;
     }
     const err = validateReceiver(form.receiver);
     if (err) { showMessage(err, "error"); return; }
+    const soErr = validateSalesOrder(form.type_reason, form.sales_order);
+    if (soErr) { setSalesOrderError(soErr); showMessage(soErr, "error"); return; }
+
     setSubmitting(true);
     try {
       const res = await fetch("/api/request-tracking", {
@@ -746,23 +802,31 @@ export default function RequestTrackingPage() {
 
   const resetAddForm = () => {
     setForm(emptyForm); setSelectedSenderDetails(null);
-    setAddReceiverMode("dropdown"); setAddReceiverStore(""); setReceiverError("");
+    setAddReceiverMode("dropdown"); setAddReceiverStore("");
+    setReceiverError(""); setSalesOrderError("");
   };
 
   const openEdit = (item: TrackingItem) => {
     setSelectedItem(item);
-    setEditForm({ date: item.date, assigned_to: item.assigned_to, expedition: item.expedition, sender: item.sender, receiver: item.receiver, weight: item.weight, reason: item.reason });
+    setEditForm({
+      date: item.date, assigned_to: item.assigned_to, expedition: item.expedition,
+      sender: item.sender, receiver: item.receiver, weight: item.weight, reason: item.reason,
+      type_reason: item.type_reason ?? "", sales_order: item.sales_order ?? "",
+    });
     setEditSenderDetails(storeAddresses.find((s) => s.store_location === item.sender) || null);
     const matchedStore = storeAddresses.find((s) => formatStoreAddress(s) === item.receiver);
     if (matchedStore) { setEditReceiverMode("dropdown"); setEditReceiverStore(matchedStore.store_location); }
     else { setEditReceiverMode("custom"); setEditReceiverStore(""); }
-    setReceiverError(""); setShowEditModal(true);
+    setReceiverError(""); setEditSalesOrderError(""); setShowEditModal(true);
   };
 
   const handleEdit = async () => {
     if (!selectedItem) return;
     const err = validateReceiver(editForm.receiver);
     if (err) { showMessage(err, "error"); return; }
+    const soErr = validateSalesOrder(editForm.type_reason, editForm.sales_order);
+    if (soErr) { setEditSalesOrderError(soErr); showMessage(soErr, "error"); return; }
+
     setSubmitting(true);
     try {
       const res = await fetch("/api/request-tracking", {
@@ -850,7 +914,8 @@ export default function RequestTrackingPage() {
     const q = searchReceiver.trim().toLowerCase();
     return data.filter((d) =>
       (d.receiver || "").toLowerCase().includes(q) ||
-      (d.tracking_number || "").toLowerCase().includes(q)
+      (d.tracking_number || "").toLowerCase().includes(q) ||
+      (d.sales_order || "").toLowerCase().includes(q)
     );
   })();
 
@@ -877,6 +942,49 @@ export default function RequestTrackingPage() {
 
   const canEdit = user.request_tracking;
   const canUpload = user.tracking_edit;
+
+  // ── Shared form fields for type_reason + sales_order ──────────────────
+  const renderTypeReasonFields = (
+    f: typeof form,
+    setF: (v: typeof form) => void,
+    soErr: string,
+    setSoErr: (v: string) => void,
+  ) => (
+    <div className="flex gap-3 items-start">
+      <div className="w-1/2 min-w-0">
+        <label className="block text-xs font-medium text-gray-700 mb-1">
+          Tipe Pengiriman <span className="text-red-500">*</span>
+        </label>
+        <select
+          value={f.type_reason}
+          onChange={(e) => { setF({ ...f, type_reason: e.target.value, sales_order: "" }); setSoErr(""); }}
+          className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+        >
+          <option value="">Pilih tipe</option>
+          {TYPE_REASONS.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
+      {REQUIRES_SALES_ORDER.includes(f.type_reason) && (
+        <div className="w-1/2 min-w-0">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            No. Sales Order <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            value={f.sales_order}
+            onChange={(e) => { setF({ ...f, sales_order: e.target.value }); setSoErr(""); }}
+            onBlur={() => setSoErr(validateSalesOrder(f.type_reason, f.sales_order))}
+            placeholder="#12345 / MAT-MR... / MAT-STE..."
+            className={`w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 ${soErr ? "border-red-400 focus:ring-red-400" : "border-gray-300 focus:ring-primary"}`}
+          />
+          {soErr && <p className="text-[10px] text-red-500 mt-0.5">⚠ {soErr}</p>}
+          {!soErr && (
+            <p className="text-[10px] text-gray-400 mt-0.5">Format: #angka, MAT-MR..., atau MAT-STE...</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="flex-1 overflow-auto">
@@ -920,8 +1028,8 @@ export default function RequestTrackingPage() {
                     </svg>
                     <input type="text" value={searchReceiver}
                       onChange={(e) => { setSearchReceiver(e.target.value); setCurrentPage(1); }}
-                      placeholder="Cari penerima / no. resi..."
-                      className="pl-6 pr-2 py-1 border border-gray-300 rounded text-[11px] w-56 focus:outline-none focus:ring-1 focus:ring-primary" />
+                      placeholder="Cari penerima / no. resi / sales order..."
+                      className="pl-6 pr-2 py-1 border border-gray-300 rounded text-[11px] w-64 focus:outline-none focus:ring-1 focus:ring-primary" />
                   </div>
                   {hasActiveSearch && (
                     <>
@@ -949,17 +1057,18 @@ export default function RequestTrackingPage() {
                         <table className="w-full text-[11px] table-fixed">
                           <thead className="bg-gray-100 border-b">
                             <tr>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[88px]">Tanggal</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[90px]">Assigned To</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[75px]">Ekspedisi</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[100px]">Pengirim</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[150px]">Penerima</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[155px]">No. Resi</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[50px]">Berat</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[110px]">Alasan</th>
-                              {canUpload && <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[85px]">Request By</th>}
-                              <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-[60px]">Status</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[130px]">Action</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[80px]">Tanggal</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[85px]">Assigned To</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[65px]">Ekspedisi</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[90px]">Pengirim</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[130px]">Penerima</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[140px]">No. Resi</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[40px]">KG</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[100px]">Tipe</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[100px]">Sales Order</th>
+                              {canUpload && <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[80px]">Request By</th>}
+                              <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-[55px]">Status</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[125px]">Action</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1014,8 +1123,21 @@ export default function RequestTrackingPage() {
                                       <span className="text-gray-300 text-[10px]">—</span>
                                     )}
                                   </td>
-                                  <td className="px-2 py-1 text-gray-600">{item.weight} kg</td>
-                                  <td className="px-2 py-1 text-gray-600 truncate" title={item.reason}>{item.reason}</td>
+                                  <td className="px-2 py-1 text-gray-600">{item.weight}</td>
+                                  <td className="px-2 py-1">
+                                    <TypeReasonBadge typeReason={item.type_reason} />
+                                  </td>
+                                  <td className="px-2 py-1 text-gray-600 truncate" title={item.sales_order}>
+                                    {item.sales_order ? (
+                                      <span className="font-mono text-[10px]">
+                                        {hasActiveSearch
+                                          ? highlightText(item.sales_order, searchReceiver)
+                                          : item.sales_order}
+                                      </span>
+                                    ) : (
+                                      <span className="text-gray-300 text-[10px]">—</span>
+                                    )}
+                                  </td>
                                   {canUpload && <td className="px-2 py-1 text-gray-500">{item.request_by}</td>}
                                   <td className="px-2 py-1 text-center">
                                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${status === "completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
@@ -1157,7 +1279,7 @@ export default function RequestTrackingPage() {
                 </div>
                 <ExpeditionToggle value={form.expedition} onChange={(v) => setForm({ ...form, expedition: v })} />
 
-                {/* Pengirim & Penerima — satu baris */}
+                {/* Pengirim & Penerima */}
                 <div className="flex gap-3 items-start">
                   <div className="w-1/2 min-w-0">
                     <SenderSelect value={form.sender} onChange={(v) => handleSenderChange(v)} details={selectedSenderDetails} storeAddresses={storeAddresses} />
@@ -1171,7 +1293,7 @@ export default function RequestTrackingPage() {
                   </div>
                 </div>
 
-                {/* Berat & Alasan — satu baris */}
+                {/* Berat & Alasan */}
                 <div className="flex gap-3 items-start">
                   <div className="w-20 shrink-0">
                     <label className="block text-xs font-medium text-gray-700 mb-1">Berat (kg) <span className="text-red-500">*</span></label>
@@ -1186,6 +1308,9 @@ export default function RequestTrackingPage() {
                       className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
                   </div>
                 </div>
+
+                {/* Tipe Pengiriman & Sales Order */}
+                {renderTypeReasonFields(form, setForm, salesOrderError, setSalesOrderError)}
               </div>
               <div className="flex gap-2 mt-5">
                 <button onClick={() => { setShowAddModal(false); resetAddForm(); }}
@@ -1222,7 +1347,7 @@ export default function RequestTrackingPage() {
                 </div>
                 <ExpeditionToggle value={editForm.expedition} onChange={(v) => setEditForm({ ...editForm, expedition: v })} />
 
-                {/* Pengirim & Penerima — satu baris */}
+                {/* Pengirim & Penerima */}
                 <div className="flex gap-3 items-start">
                   <div className="w-1/2 min-w-0">
                     <SenderSelect value={editForm.sender} onChange={(v) => handleSenderChange(v, true)} details={editSenderDetails} storeAddresses={storeAddresses} />
@@ -1236,7 +1361,7 @@ export default function RequestTrackingPage() {
                   </div>
                 </div>
 
-                {/* Berat & Alasan — satu baris */}
+                {/* Berat & Alasan */}
                 <div className="flex gap-3 items-start">
                   <div className="w-20 shrink-0">
                     <label className="block text-xs font-medium text-gray-700 mb-1">Berat (kg)</label>
@@ -1249,9 +1374,12 @@ export default function RequestTrackingPage() {
                       className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none" />
                   </div>
                 </div>
+
+                {/* Tipe Pengiriman & Sales Order */}
+                {renderTypeReasonFields(editForm, setEditForm, editSalesOrderError, setEditSalesOrderError)}
               </div>
               <div className="flex gap-2 mt-5">
-                <button onClick={() => { setShowEditModal(false); setSelectedItem(null); setReceiverError(""); }}
+                <button onClick={() => { setShowEditModal(false); setSelectedItem(null); setReceiverError(""); setEditSalesOrderError(""); }}
                   className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">Batal</button>
                 <button onClick={handleEdit} disabled={submitting}
                   className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">
@@ -1283,6 +1411,14 @@ export default function RequestTrackingPage() {
                     <span className="text-gray-400">·</span>
                     <span>{selectedItem.weight} kg</span>
                   </div>
+                  {selectedItem.type_reason && (
+                    <div className="flex items-center gap-1.5">
+                      <TypeReasonBadge typeReason={selectedItem.type_reason} />
+                      {selectedItem.sales_order && (
+                        <span className="font-mono text-[10px] text-gray-600">{selectedItem.sales_order}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <CopyButton text={selectedItem.receiver} id={`upload-${selectedItem.id}`} copiedId={copiedId} onCopy={handleCopyReceiver} />
               </div>
