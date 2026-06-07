@@ -583,7 +583,7 @@ function MetricTrendChart({
     return fmtNum(v);
   };
 
-  // Tooltip: Sales shows 3 lines, others 1
+  // Tooltip
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     const fullDate = payload[0]?.payload?.fullDate || `Tanggal ${label}`;
@@ -606,8 +606,6 @@ function MetricTrendChart({
       </div>
     );
   };
-
-  const ACTIVE_COLOR = isSales ? "#0ea5e9" : cfg.color;
 
   const btnStyle = (m: MetricKey): React.CSSProperties => {
     const active = metric === m;
@@ -655,18 +653,21 @@ function MetricTrendChart({
           </defs>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? "rgba(255,255,255,0.06)" : "#f1f5f9"} />
           <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#94a3b8", dy: 4 }} axisLine={false} tickLine={false} interval={0} angle={-45} textAnchor="end" />
-          <YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={fmtY} width={54} />
+          {/* ✅ FIX: domain={[0, 'auto']} ensures Y-axis always starts from 0 */}
+          <YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={fmtY} width={54} domain={[0, 'auto']} />
           <Tooltip content={<CustomTooltip />} />
 
           {isSales ? (
             // Sales tab: 3 lines — Target (dashed), Gross, Net
+            // ✅ FIX: baseValue={0} on all 3 Areas so fill goes to the bottom
             <>
-              <Area type="monotone" dataKey="target" name="Target" stroke="#eab308" strokeWidth={1.5} fill="url(#gTarget)" dot={false} strokeDasharray="4 2" />
-              <Area type="monotone" dataKey="gross"  name="Gross"  stroke="#a855f7" strokeWidth={1.5} fill="url(#gGross)"  dot={false} />
-              <Area type="monotone" dataKey="sales"  name="Net"    stroke="#0ea5e9" strokeWidth={2.5} fill="url(#gNet)"    dot={{ r: 3, fill: "#0ea5e9", strokeWidth: 0 }} activeDot={{ r: 5 }} />
+              <Area type="monotone" dataKey="target" name="Target" stroke="#eab308" strokeWidth={1.5} fill="url(#gTarget)" dot={false} strokeDasharray="4 2" baseValue={0} />
+              <Area type="monotone" dataKey="gross"  name="Gross"  stroke="#a855f7" strokeWidth={1.5} fill="url(#gGross)"  dot={false} baseValue={0} />
+              <Area type="monotone" dataKey="sales"  name="Net"    stroke="#0ea5e9" strokeWidth={2.5} fill="url(#gNet)"    dot={{ r: 3, fill: "#0ea5e9", strokeWidth: 0 }} activeDot={{ r: 5 }} baseValue={0} />
             </>
           ) : (
             // Other metrics: single line
+            // ✅ FIX: baseValue={0} so fill goes to the bottom
             <Area
               key={metric}
               type="monotone"
@@ -678,6 +679,7 @@ function MetricTrendChart({
               dot={{ r: 3, fill: cfg.color, strokeWidth: 0 }}
               activeDot={{ r: 5 }}
               isAnimationActive={true}
+              baseValue={0}
             />
           )}
         </AreaChart>
