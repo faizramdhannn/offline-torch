@@ -811,40 +811,34 @@ useEffect(() => {
 }, [user, fetchData]);
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !importMode) return;
-    setShowImportModal(false);
-    setImporting(true);
-    try {
-      await new Promise<void>((resolve, reject) => {
-        Papa.parse(file, {
-          header: false,
-          skipEmptyLines: true,
-          complete: async (results) => {
-            try {
-              const data = results.data as any[][];
-              const res = await fetch("/api/shopify-analytics", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ data, mode: importMode }),
-              });
-              const result = await res.json();
-              if (res.ok && result.success) {
-                showMessage(`Import berhasil!\n${result.message}`, "success");
-                await fetchData();
-              } else { showMessage(result.error || "Import failed", "error"); }
-              resolve();
-            } catch (err) { reject(err); }
-          },
-          error: reject,
-        });
-      });
-    } catch { showMessage("Gagal import data", "error"); }
-    finally {
-      setImporting(false); setImportMode(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+  const file = e.target.files?.[0];
+  if (!file || !importMode) return;
+  setShowImportModal(false);
+  setImporting(true);
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("mode", importMode);
+
+    const res = await fetch("/api/shopify-analytics", {
+      method: "POST",
+      body: formData,
+    });
+    const result = await res.json();
+    if (res.ok && result.success) {
+      showMessage(`Import berhasil!\n${result.message}`, "success");
+      await fetchData();
+    } else {
+      showMessage(result.error || "Import failed", "error");
     }
-  };
+  } catch {
+    showMessage("Gagal import data", "error");
+  } finally {
+    setImporting(false);
+    setImportMode(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+};
 
   const triggerImport = (mode: "append" | "refresh") => {
     setImportMode(mode); setShowImportModal(true);
