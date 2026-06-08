@@ -768,41 +768,47 @@ export default function AnalyticsOrderPage() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  useEffect(() => {
-    const userData = localStorage.getItem("user");
-    if (!userData) { router.push("/login"); return; }
-    const parsedUser = JSON.parse(userData);
-    if (!parsedUser.analytics_order) { router.push("/dashboard"); return; }
-    setUser(parsedUser);
-    fetchData();
-    fetchTrafficMap();
-  }, []);
+const showMessage = (msg: string, type: "success" | "error") => {
+  setPopupMessage(msg); setPopupType(type); setShowPopup(true);
+};
 
-  const showMessage = (msg: string, type: "success" | "error") => {
-    setPopupMessage(msg); setPopupType(type); setShowPopup(true);
-  };
+const fetchTrafficMap = async () => {
+  try {
+    setTrafficMapLoading(true);
+    const res = await fetch("/api/master-traffic");
+    const data: Record<string, string> = await res.json();
+    setTrafficMap(data);
+  } catch { console.error("Failed to fetch traffic map"); }
+  finally { setTrafficMapLoading(false); }
+};
 
-  const fetchTrafficMap = async () => {
-    try {
-      setTrafficMapLoading(true);
-      const res = await fetch("/api/master-traffic");
-      const data: Record<string, string> = await res.json();
-      setTrafficMap(data);
-    } catch { console.error("Failed to fetch traffic map"); }
-    finally { setTrafficMapLoading(false); }
-  };
+const fetchData = useCallback(async () => {
+  try {
+    setLoading(true);
+    const params = new URLSearchParams({ from: dateFrom, to: dateTo });
+    const res = await fetch(`/api/shopify-analytics?${params}`);
+    const data = await res.json();
+    setRows(Array.isArray(data) ? data : []);
+    const uniq = [...new Set((Array.isArray(data) ? data : [])
+      .map((r: Row) => cleanLocationName(r.Location))
+      .filter(Boolean))] as string[];
+    setStores(uniq.sort());
+  } catch { showMessage("Failed to fetch analytics data", "error"); }
+  finally { setLoading(false); }
+}, [dateFrom, dateTo]);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/shopify-analytics");
-      const data = await res.json();
-      setRows(Array.isArray(data) ? data : []);
-      const uniq = [...new Set((Array.isArray(data) ? data : []).map((r: Row) => cleanLocationName(r.Location)).filter(Boolean))] as string[];
-      setStores(uniq.sort());
-    } catch { showMessage("Failed to fetch analytics data", "error"); }
-    finally { setLoading(false); }
-  };
+useEffect(() => {
+  const userData = localStorage.getItem("user");
+  if (!userData) { router.push("/login"); return; }
+  const parsedUser = JSON.parse(userData);
+  if (!parsedUser.analytics_order) { router.push("/dashboard"); return; }
+  setUser(parsedUser);
+  fetchTrafficMap();
+}, []);
+
+useEffect(() => {
+  if (user) fetchData();
+}, [user, fetchData]);
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
