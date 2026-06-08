@@ -578,10 +578,10 @@ export default function RequestTrackingPage() {
   const fetchData = async () => {
     try {
       const params = new URLSearchParams({
-  username: user?.user_name || "",
-  userName: user?.name || "",          // ← tambah ini
-  isTrackingEdit: String(!!user?.tracking_edit),
-});
+        username: user?.user_name || "",
+        userName: user?.name || "",
+        isTrackingEdit: String(!!user?.tracking_edit),
+      });
 
       const res = await fetch(`/api/request-tracking?${params}`);
       if (res.ok) {
@@ -992,43 +992,105 @@ export default function RequestTrackingPage() {
                   ) : (
                     <>
                       <div className="overflow-x-auto">
-                        <table className="w-full text-[11px] table-fixed">
-                          <thead className="bg-gray-100 border-b">
-                            <tr>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[80px]">Tanggal</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[85px]">Assigned To</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[65px]">Ekspedisi</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[90px]">Pengirim</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[130px]">Penerima</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[140px]">No. Resi</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[40px]">KG</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[100px]">Tipe</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[100px]">Sales Order</th>
+                        <table className="w-full text-[10px] border-collapse" style={{ tableLayout: "fixed" }}>
+                          <thead>
+                            {/* ── Group header row ── */}
+                            <tr className="bg-gray-100 border-b border-gray-200">
+                              <th colSpan={5} className="border-r border-gray-200" />
+                              <th colSpan={1} className="px-1 py-0.5 text-center border-r border-gray-200 bg-gray-100">
+                                <span className="text-[8px] font-bold text-gray-500 uppercase tracking-widest">Penerima</span>
+                              </th>
+                              <th colSpan={1} className="px-1 py-0.5 text-center border-r border-gray-200 bg-gray-100">
+                                <span className="text-[8px] font-bold text-gray-500 uppercase tracking-widest">Resi</span>
+                              </th>
+                              <th colSpan={3} className="px-1 py-0.5 text-center border-r border-gray-200 bg-gray-50">
+                                <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Detail</span>
+                              </th>
                               {canEdit && (
-                                <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[80px]">Request By</th>
+                                <th colSpan={1} className="border-r border-gray-200 bg-gray-100" />
                               )}
-                              <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-[55px]">Status</th>
+                              <th colSpan={(canEdit || canUpload) ? 3 : 2} className="px-1 py-0.5 text-center bg-gray-50">
+                                <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Action</span>
+                              </th>
+                            </tr>
+
+                            {/* ── Column header row ── */}
+                            <tr className="bg-gray-50 border-b border-gray-200">
+                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[66px]">
+                                <span className="text-[8px] uppercase tracking-wide">Tanggal</span>
+                              </th>
+                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[72px]">
+                                <span className="text-[8px] uppercase tracking-wide">Assigned To</span>
+                              </th>
+                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[50px]">
+                                <span className="text-[8px] uppercase tracking-wide">Eksp.</span>
+                              </th>
+                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[72px]">
+                                <span className="text-[8px] uppercase tracking-wide">Pengirim</span>
+                              </th>
+                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[24px]">
+                                <span className="text-[8px] uppercase tracking-wide">KG</span>
+                              </th>
+                              <th className="px-1.5 py-1 text-center font-semibold text-gray-600 border-r border-gray-200 w-[110px] bg-gray-100">
+                                <span className="text-[8px] uppercase tracking-wide">Penerima</span>
+                              </th>
+                              <th className="px-1.5 py-1 text-center font-semibold text-gray-600 border-r border-gray-200 w-[115px] bg-gray-100">
+                                <span className="text-[8px] uppercase tracking-wide">No. Resi</span>
+                              </th>
+                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[80px]">
+                                <span className="text-[8px] uppercase tracking-wide">Tipe</span>
+                              </th>
+                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[62px]">
+                                <span className="text-[8px] uppercase tracking-wide">SO</span>
+                              </th>
+                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[90px]">
+                                <span className="text-[8px] uppercase tracking-wide">Alasan</span>
+                              </th>
+                              {canEdit && (
+                                <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[62px]">
+                                  <span className="text-[8px] uppercase tracking-wide">Req. By</span>
+                                </th>
+                              )}
+                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[48px]">
+                                <span className="text-[8px] uppercase tracking-wide">Status</span>
+                              </th>
                               {(canEdit || canUpload) && (
-                                <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-[55px]">Proses</th>
+                                <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[36px]">
+                                  <span className="text-[8px] uppercase tracking-wide">Proses</span>
+                                </th>
                               )}
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[125px]">Action</th>
+                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 w-[96px]">
+                                <span className="text-[8px] uppercase tracking-wide">Aksi</span>
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
-                            {currentItems.map((item, idx) => {
+                            {currentItems.map((item) => {
                               const status = getStatus(item);
                               const waLink = item.link_tracking ? buildWhatsappLink(item) : null;
+                              const isProcessed = item.has_processed === 'TRUE';
                               return (
-                                <tr key={item.id}
-                                  className={`border-b cursor-pointer ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-blue-50 transition-colors`}
-                                  onClick={() => setDetailItem(item)}>
-                                  <td className="px-2 py-1 text-gray-600">{item.date}</td>
-                                  <td className="px-2 py-1 text-gray-700 truncate">{item.assigned_to}</td>
-                                  <td className="px-2 py-1"><ExpeditionBadge expedition={item.expedition} /></td>
-                                  <td className="px-2 py-1 text-gray-700 truncate">{item.sender}</td>
-                                  <td className="px-2 py-1 text-gray-600">
-                                    <div className="flex items-start gap-1">
-                                      <div className="truncate flex-1" title={item.receiver}>
+                                <tr
+                                  key={item.id}
+                                  className={`border-b border-gray-100 cursor-pointer transition-colors
+                                    ${isProcessed
+                                      ? 'bg-green-50 hover:bg-green-100'
+                                      : 'bg-red-50 hover:bg-red-100'
+                                    }`}
+                                  onClick={() => setDetailItem(item)}
+                                >
+                                  <td className="px-1.5 py-1 text-gray-600 border-r border-gray-200 text-center">{item.date}</td>
+                                  <td className="px-1.5 py-1 text-gray-700 border-r border-gray-200 truncate">{item.assigned_to}</td>
+                                  <td className="px-1 py-1 border-r border-gray-200 text-center">
+                                    <ExpeditionBadge expedition={item.expedition} />
+                                  </td>
+                                  <td className="px-1.5 py-1 text-gray-700 border-r border-gray-200 truncate">{item.sender}</td>
+                                  <td className="px-1.5 py-1 text-gray-600 border-r border-gray-200 text-center">{item.weight}</td>
+
+                                  {/* Penerima */}
+                                  <td className="px-1.5 py-1 border-r border-gray-200">
+                                    <div className="flex items-center gap-0.5">
+                                      <div className="truncate flex-1 text-gray-600" title={item.receiver}>
                                         {hasActiveSearch
                                           ? highlightText(item.receiver.split("\n")[0], searchReceiver)
                                           : item.receiver.split("\n")[0]}
@@ -1040,90 +1102,97 @@ export default function RequestTrackingPage() {
                                       )}
                                     </div>
                                   </td>
-                                  <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
+
+                                  {/* No. Resi */}
+                                  <td className="px-1.5 py-1 border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
                                     {item.tracking_number ? (
-                                      <div className="flex items-center gap-1">
-                                        <span
-                                          className="font-mono text-[10px] font-semibold text-blue-700 truncate flex-1"
-                                          title={item.tracking_number}
-                                        >
+                                      <div className="flex items-center gap-0.5">
+                                        <span className="font-mono text-[9px] font-semibold text-blue-700 truncate flex-1" title={item.tracking_number}>
                                           {hasActiveSearch
                                             ? highlightText(item.tracking_number, searchReceiver)
                                             : item.tracking_number}
                                         </span>
-                                        <CopyButton
-                                          text={item.tracking_number}
-                                          id={`resi-${item.id}`}
-                                          copiedId={copiedId}
-                                          onCopy={handleCopyReceiver}
-                                        />
-                                        <CheckResiButton
-                                          trackingNumber={item.tracking_number}
-                                          onCheck={handleCheckResi}
-                                        />
+                                        <CopyButton text={item.tracking_number} id={`resi-${item.id}`} copiedId={copiedId} onCopy={handleCopyReceiver} />
+                                        <CheckResiButton trackingNumber={item.tracking_number} onCheck={handleCheckResi} />
                                       </div>
                                     ) : (
-                                      <span className="text-gray-300 text-[10px]">—</span>
+                                      <span className="text-gray-300">—</span>
                                     )}
                                   </td>
-                                  <td className="px-2 py-1 text-gray-600">{item.weight}</td>
-                                  <td className="px-2 py-1">
+
+                                  {/* Tipe */}
+                                  <td className="px-1.5 py-1 border-r border-gray-200 text-center">
                                     <TypeReasonBadge typeReason={item.type_reason} />
                                   </td>
-                                  <td className="px-2 py-1 text-gray-600 truncate" title={item.sales_order}>
+
+                                  {/* Sales Order */}
+                                  <td className="px-1.5 py-1 border-r border-gray-200 truncate text-center" title={item.sales_order}>
                                     {item.sales_order ? (
-                                      <span className="font-mono text-[10px]">
+                                      <span className="font-mono text-[9px] text-gray-600">
                                         {hasActiveSearch
                                           ? highlightText(item.sales_order, searchReceiver)
                                           : item.sales_order}
                                       </span>
                                     ) : (
-                                      <span className="text-gray-300 text-[10px]">—</span>
+                                      <span className="text-gray-300">—</span>
                                     )}
                                   </td>
+
+                                  {/* Alasan */}
+                                  <td className="px-1.5 py-1 border-r border-gray-200 truncate text-gray-600" title={item.reason}>
+                                    {item.reason || <span className="text-gray-300">—</span>}
+                                  </td>
+
+                                  {/* Request By */}
                                   {canEdit && (
-                                    <td className="px-2 py-1 text-gray-500 truncate">{item.request_by}</td>
+                                    <td className="px-1.5 py-1 text-gray-500 border-r border-gray-200 truncate text-center">{item.request_by}</td>
                                   )}
-                                  <td className="px-2 py-1 text-center">
-                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+
+                                  {/* Status */}
+                                  <td className="px-1 py-1 border-r border-gray-200 text-center">
+                                    <span className={`px-1 py-0.5 rounded text-[8px] font-medium ${
                                       status === "completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
                                     }`}>
                                       {status === "completed" ? "Selesai" : "Pending"}
                                     </span>
                                   </td>
+
+                                  {/* Proses toggle */}
                                   {(canEdit || canUpload) && (
-                                    <td className="px-2 py-1 text-center" onClick={(e) => e.stopPropagation()}>
+                                    <td className="px-1 py-1 border-r border-gray-200 text-center" onClick={(e) => e.stopPropagation()}>
                                       <button
                                         type="button"
                                         onClick={() => handleToggleProcessed(item)}
-                                        title={item.has_processed === 'TRUE' ? 'Tandai belum diproses' : 'Tandai sudah diproses'}
-                                        className="inline-flex items-center justify-center w-5 h-5 rounded transition-colors hover:bg-gray-100"
+                                        title={isProcessed ? 'Tandai belum diproses' : 'Tandai sudah diproses'}
+                                        className="inline-flex items-center justify-center w-4 h-4 rounded transition-colors hover:bg-white/50"
                                       >
-                                        {item.has_processed === 'TRUE' ? (
-                                          <svg className="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        {isProcessed ? (
+                                          <svg className="w-3.5 h-3.5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                                               d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                           </svg>
                                         ) : (
-                                          <svg className="w-4 h-4 text-gray-300 hover:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <svg className="w-3.5 h-3.5 text-gray-300 hover:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <circle cx="12" cy="12" r="9" strokeWidth={2} />
                                           </svg>
                                         )}
                                       </button>
                                     </td>
                                   )}
-                                  <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
-                                    <div className="flex flex-wrap gap-1">
+
+                                  {/* Aksi */}
+                                  <td className="px-1 py-1 text-center" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex flex-wrap gap-0.5 justify-center">
                                       {canUpload && status === "pending" && (
                                         <button onClick={() => openUpload(item)}
-                                          className="px-1.5 py-0.5 bg-blue-600 text-white rounded text-[10px] hover:bg-blue-700">
+                                          className="px-1 py-0.5 bg-blue-600 text-white rounded text-[9px] hover:bg-blue-700">
                                           Upload
                                         </button>
                                       )}
                                       {status === "completed" && waLink && (
                                         <a href={waLink} target="_blank" rel="noopener noreferrer"
-                                          className="px-1.5 py-0.5 bg-green-500 text-white rounded text-[10px] hover:bg-green-600 inline-flex items-center gap-0.5">
-                                          <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24">
+                                          className="px-1 py-0.5 bg-green-500 text-white rounded text-[9px] hover:bg-green-600 inline-flex items-center gap-0.5">
+                                          <svg className="w-2 h-2" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                                           </svg>
                                           WA
@@ -1131,16 +1200,16 @@ export default function RequestTrackingPage() {
                                       )}
                                       {item.link_tracking && (
                                         <a href={item.link_tracking} target="_blank" rel="noopener noreferrer"
-                                          className="px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded text-[10px] hover:bg-gray-300">
+                                          className="px-1 py-0.5 bg-gray-200 text-gray-700 rounded text-[9px] hover:bg-gray-300">
                                           Resi
                                         </a>
                                       )}
                                       {canEdit && !canUpload && item.request_by === user.user_name && status === "pending" && (
                                         <>
                                           <button onClick={() => openEdit(item)}
-                                            className="px-1.5 py-0.5 bg-yellow-500 text-white rounded text-[10px] hover:bg-yellow-600">Edit</button>
+                                            className="px-1 py-0.5 bg-yellow-500 text-white rounded text-[9px] hover:bg-yellow-600">Edit</button>
                                           <button onClick={() => handleDelete(item)}
-                                            className="px-1.5 py-0.5 bg-red-500 text-white rounded text-[10px] hover:bg-red-600">Hapus</button>
+                                            className="px-1 py-0.5 bg-red-500 text-white rounded text-[9px] hover:bg-red-600">Hapus</button>
                                         </>
                                       )}
                                     </div>
