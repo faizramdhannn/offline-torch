@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'edge';
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   
@@ -16,9 +17,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing file ID' }, { status: 400 });
   }
 
+const sz = searchParams.get('sz') || 'w400';
+
   const urls = [
-    `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`,
-    `https://lh3.googleusercontent.com/d/${fileId}=w400`,
+    `https://drive.google.com/thumbnail?id=${fileId}&sz=${sz}`,
+    `https://lh3.googleusercontent.com/d/${fileId}=${sz}`,
     `https://drive.google.com/uc?export=view&id=${fileId}`,
   ];
 
@@ -39,7 +42,9 @@ export async function GET(request: NextRequest) {
           return new NextResponse(buffer, {
             headers: {
               'Content-Type': contentType,
-              'Cache-Control': 'public, max-age=3600',
+              'Cache-Control': 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=604800',
+              'CDN-Cache-Control': 'public, max-age=604800',
+              'Vercel-CDN-Cache-Control': 'public, max-age=604800',
             },
           });
         }

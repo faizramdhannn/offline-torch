@@ -98,7 +98,11 @@ export async function GET(request: NextRequest) {
       }));
     }
 
-    return NextResponse.json(filtered);
+    return NextResponse.json(filtered, {
+  headers: {
+    'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+  },
+});
   } catch (error) {
     console.error('GET attendance error:', error);
     return NextResponse.json({ error: 'Failed to fetch attendance' }, { status: 500 });

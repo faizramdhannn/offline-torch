@@ -1,182 +1,120 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 
 // ─── Helper: Drive URL → proxy ────────────────────────────────────────────────
-function toDriveProxyUrl(url: string): string {
+function toDriveProxyUrl(url: string, sz = 'w400'): string {
   if (!url) return '';
   if (url.startsWith('data:')) return url;
   const m = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-  if (m) return `/api/drive-image?id=${m[1]}`;
-  // Jika sudah berbentuk /api/drive-image, biarkan
+  if (m) return `/api/drive-image?id=${m[1]}&sz=${sz}`;
   if (url.startsWith('/api/')) return url;
   return url;
 }
 
-// ─── AttCard sub-component ────────────────────────────────────────────────────
-function AttCard({ row }: { row: any }) {
+function AttCardSmall({ row }: { row: any }) {
   const hasClose = !!row.close_timestamp;
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  const [popup, setPopup] = useState<{
+  storeName: string;
+  open: { src: string; time: string } | null;
+  close: { src: string; time: string } | null;
+} | null>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.disconnect(); } },
+      { rootMargin: '100px' }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   const fmtTime = (ts: string) => {
-    if (!ts) return "";
+    if (!ts) return '';
     const d = new Date(ts);
-    if (isNaN(d.getTime())) return ts.match(/\d{2}:\d{2}/)?.[0] ?? "";
-    return d.toLocaleTimeString("id-ID", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    if (isNaN(d.getTime())) return ts.match(/\d{2}:\d{2}/)?.[0] ?? '';
+    return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
   };
 
-  const fmtDate = (ts: string) => {
-    if (!ts) return "-";
-    const d = new Date(ts);
-    if (isNaN(d.getTime())) return ts.split(" ").slice(0, 3).join(" ");
-    return d.toLocaleDateString("id-ID", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-    });
-  };
-
-  const photoBase: React.CSSProperties = {
-    width: "100%",
-    aspectRatio: "1",
-    borderRadius: 6,
-    background: "#f3f4f6",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
+  const photoBox: React.CSSProperties = {
+    width: '100%', aspectRatio: '1', borderRadius: 5,
+    background: '#f3f4f6', display: 'flex',
+    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   };
 
   return (
     <div
+      ref={ref}
       style={{
-        background: "#f9fafb",
-        border: "0.5px solid #e5e7eb",
-        borderRadius: 10,
-        padding: "8px 10px",
-        minWidth: 192,
-        maxWidth: 212,
-        flexShrink: 0,
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
+        background: '#f9fafb', border: '0.5px solid #e5e7eb',
+        borderRadius: 8, padding: '5px 6px',
+        minWidth: 120, maxWidth: 132, flexShrink: 0,
+        display: 'flex', flexDirection: 'column', gap: 5,
       }}
     >
-      {/* Header */}
-      <div>
-        <p
-          style={{
-            margin: 0,
-            fontSize: 11,
-            fontWeight: 500,
-            color: "#111827",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            fontFamily: "'IBM Plex Sans', sans-serif",
-          }}
-        >
-          {row.store_name}
-        </p>
-        <p
-          style={{
-            margin: 0,
-            fontSize: 9,
-            color: "#9ca3af",
-            fontFamily: "'IBM Plex Mono', monospace",
-            letterSpacing: "0.03em",
-          }}
-        >
-          {fmtDate(row.open_timestamp)}
-        </p>
-      </div>
+      {/* Store name */}
+      <p style={{
+        margin: 0, fontSize: 8, fontWeight: 500, color: '#111827', textTransform: 'capitalize',
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        fontFamily: "'IBM Plex Sans', sans-serif",
+      }}>
+        {row.store_name}
+      </p>
 
-      {/* Photos row */}
-      <div style={{ display: "flex", gap: 6 }}>
-        {(["open", "close"] as const).map((type) => {
-          const ts =
-            type === "open" ? row.open_timestamp : row.close_timestamp;
-          const selfieRaw =
-            type === "open" ? row.open_selfie : row.close_selfie;
-          const selfie = selfieRaw ? toDriveProxyUrl(selfieRaw) : "";
+      {/* Photos */}
+      <div style={{ display: 'flex', gap: 5 }}>
+        {(['open', 'close'] as const).map((type) => {
+          const ts = type === 'open' ? row.open_timestamp : row.close_timestamp;
+          const selfieRaw = type === 'open' ? row.open_selfie : row.close_selfie;
+          const selfie = (visible && selfieRaw) ? toDriveProxyUrl(selfieRaw, 'w80') : '';
           const time = fmtTime(ts);
           const present = !!ts;
 
           return (
-            <div
-              key={type}
-              style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}
-            >
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 9,
-                  color: "#9ca3af",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                  fontFamily: "'IBM Plex Mono', monospace",
-                }}
-              >
-                {type === "open"
-                  ? `Open${time ? ` · ${time}` : ""}`
-                  : `Close${time ? ` · ${time}` : ""}`}
+            <div key={type} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <p style={{
+                margin: 0, fontSize: 6, color: '#9ca3af',
+                textTransform: 'uppercase', letterSpacing: '0.04em',
+                fontFamily: "'IBM Plex Mono', monospace",
+              }}>
+                {type === 'open' ? `O${time ? `·${time}` : ''}` : `C${time ? `·${time}` : ''}`}
               </p>
-
               {selfie ? (
                 <img
                   src={selfie}
-                  alt={`${type} selfie`}
+                  alt=""
+                  loading="lazy"
+                  onClick={() => {
+    const openRaw = row.open_selfie;
+    const closeRaw = row.close_selfie;
+    const openTime = fmtTime(row.open_timestamp);
+    const closeTime = fmtTime(row.close_timestamp);
+    setPopup({
+      storeName: row.store_name,
+      open: openRaw ? { src: toDriveProxyUrl(openRaw, 'w800'), time: openTime } : null,
+      close: closeRaw ? { src: toDriveProxyUrl(closeRaw, 'w800'), time: closeTime } : null,
+    });
+  }}
                   style={{
-                    ...photoBase,
-                    objectFit: "cover",
-                    border: "0.5px solid #e5e7eb",
+                    ...photoBox,
+                    objectFit: 'cover',
+                    border: '0.5px solid #e5e7eb',
+                    cursor: 'pointer',
                   }}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
               ) : (
-                <div
-                  style={{
-                    ...photoBase,
-                    border: present
-                      ? "0.5px solid #e5e7eb"
-                      : "0.5px dashed #e5e7eb",
-                  }}
-                >
-                  {present ? (
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#9ca3af"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <circle cx="12" cy="8" r="4" />
-                      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-                    </svg>
-                  ) : (
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#d1d5db"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <circle cx="12" cy="12" r="9" />
-                      <polyline points="12 7 12 12 15 14" />
-                    </svg>
-                  )}
+                <div style={{ ...photoBox, border: present ? '0.5px solid #e5e7eb' : '0.5px dashed #e5e7eb' }}>
+                  {present
+                    ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                    : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
+                  }
                 </div>
               )}
             </div>
@@ -184,84 +122,136 @@ function AttCard({ row }: { row: any }) {
         })}
       </div>
 
-      {/* Status row */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <span
-          style={{
-            fontSize: 10,
-            color: "#6b7280",
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            fontFamily: "'IBM Plex Sans', sans-serif",
-          }}
-        >
-          <span
-            style={{
-              width: 5,
-              height: 5,
-              borderRadius: "50%",
-              background: hasClose ? "#9ca3af" : "#10b981",
-              display: "inline-block",
-              flexShrink: 0,
-              boxShadow: hasClose ? "none" : "0 0 5px #10b981",
-            }}
-          />
-          {row.open_staff_name || "-"}
+      {/* Status */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 6, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 3, fontFamily: "'IBM Plex Sans', sans-serif" }}>
+          <span style={{
+            width: 4, height: 4, borderRadius: '50%',
+            background: hasClose ? '#9ca3af' : '#10b981',
+            display: 'inline-block', flexShrink: 0,
+            boxShadow: hasClose ? 'none' : '0 0 4px #10b981',
+          }} />
+          {row.open_staff_name || '-'}
         </span>
-        <span
-          style={{
-            fontSize: 9,
-            fontWeight: 500,
-            padding: "2px 7px",
-            borderRadius: 100,
-            background: hasClose ? "#f3f4f6" : "#dcfce7",
-            color: hasClose ? "#6b7280" : "#166534",
-            fontFamily: "'IBM Plex Mono', monospace",
-            letterSpacing: "0.04em",
-          }}
-        >
-          {hasClose ? "Closed" : "Open"}
+        <span style={{
+          fontSize: 5, fontWeight: 500, padding: '1px 6px', borderRadius: 100,
+          background: hasClose ? '#f3f4f6' : '#dcfce7',
+          color: hasClose ? '#6b7280' : '#166534',
+          fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.04em',
+        }}>
+          {hasClose ? 'Closed' : 'Open'}
         </span>
       </div>
+
+      {/* Popup via Portal */}
+      {popup && createPortal(
+  <div
+    onClick={() => setPopup(null)}
+    style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.82)',
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      cursor: 'zoom-out', padding: '2rem',
+    }}
+  >
+    {/* Store name header */}
+    <p style={{
+      color: '#fff', fontSize: 13, fontWeight: 600,
+      marginBottom: 16, textTransform: 'capitalize',
+      fontFamily: "'IBM Plex Sans', sans-serif",
+      letterSpacing: '0.02em',
+    }}>
+      {popup.storeName}
+    </p>
+
+    {/* Two photos side by side */}
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}
+    >
+      {(['open', 'close'] as const).map((type) => {
+        const data = popup[type];
+        return (
+          <div key={type} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <p style={{
+              color: '#9ca3af', fontSize: 9,
+              fontFamily: "'IBM Plex Mono', monospace",
+              letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0,
+            }}>
+              {type === 'open' ? `Open${data?.time ? ` · ${data.time}` : ''}` : `Close${data?.time ? ` · ${data.time}` : ''}`}
+            </p>
+            {data ? (
+              <img
+                src={data.src}
+                alt=""
+                style={{
+                  width: 'min(38vw, 260px)', aspectRatio: '1',
+                  borderRadius: 10, objectFit: 'cover',
+                  boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                }}
+              />
+            ) : (
+              <div style={{
+                width: 'min(38vw, 260px)', aspectRatio: '1',
+                borderRadius: 10, border: '1px dashed rgba(255,255,255,0.15)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'rgba(255,255,255,0.04)',
+              }}>
+                <p style={{ color: '#4b5563', fontSize: 10, fontFamily: "'IBM Plex Mono', monospace" }}>
+                  No photo
+                </p>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+
+    <p style={{
+      color: '#4b5563', fontSize: 10, marginTop: 20,
+      fontFamily: "'IBM Plex Sans', sans-serif",
+    }}>
+      Tap di luar untuk tutup
+    </p>
+  </div>,
+  document.body
+)}
     </div>
   );
 }
 
 // ─── AttendanceTicker component ───────────────────────────────────────────────
 function AttendanceTicker() {
-  const [rows, setRows] = useState<any[]>([]);
+  const [yesterday, setYesterday] = useState<any[]>([]);
+  const [dayBefore, setDayBefore] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       const now = new Date();
-      const dates: string[] = [];
-      for (let i = 0; i < 3; i++) {
-        const d = new Date(now);
-        d.setDate(d.getDate() - i);
-        dates.push(
-          `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-        );
-      }
+      const jakartaNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+
+      const getISO = (daysAgo: number) => {
+        const d = new Date(jakartaNow);
+        d.setDate(d.getDate() - daysAgo);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      };
+
+      const [d1, d2] = [getISO(1), getISO(2)];
+
       try {
-        const results = await Promise.all(
-          dates.map((date) =>
-            fetch(`/api/capture-attendance/capture?date=${date}&all=false`)
-              .then((r) => (r.ok ? r.json() : []))
-              .catch(() => [])
-          )
-        );
-        const flat = results.flat();
-        if (flat.length > 0) {
-          setRows(flat.slice(0, 16));
-        }
+        const [r1, r2] = await Promise.all([
+          fetch(`/api/capture-attendance/capture?date=${d1}&all=false`)
+            .then((r) => (r.ok ? r.json() : []))
+            .catch(() => []),
+          fetch(`/api/capture-attendance/capture?date=${d2}&all=false`)
+            .then((r) => (r.ok ? r.json() : []))
+            .catch(() => []),
+        ]);
+        setYesterday((r1 as any[]).slice(0, 8));
+        setDayBefore((r2 as any[]).slice(0, 8));
       } catch {
         // silently fail
       } finally {
@@ -271,10 +261,15 @@ function AttendanceTicker() {
     fetchData();
   }, []);
 
-  if (loading || rows.length === 0) return null;
+  if (loading || (yesterday.length === 0 && dayBefore.length === 0)) return null;
 
-  const doubled = [...rows, ...rows];
-  const tickerDuration = Math.max(20, rows.length * 5);
+  const fmtLabel = (daysAgo: number) => {
+    const now = new Date();
+    const jakartaNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+    const d = new Date(jakartaNow);
+    d.setDate(d.getDate() - daysAgo);
+    return d.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
+  };
 
   return (
     <>
@@ -283,70 +278,55 @@ function AttendanceTicker() {
           from { transform: translateX(0); }
           to   { transform: translateX(-50%); }
         }
-        .att-ticker-inner {
+        .att-row {
           display: flex;
-          gap: 10px;
+          gap: 8px;
           width: max-content;
-          animation: att-ticker-scroll ${tickerDuration}s linear infinite;
+          animation: att-ticker-scroll 30s linear infinite;
         }
-        .att-ticker-inner:hover {
-          animation-play-state: paused;
-        }
+        .att-row:hover { animation-play-state: paused; }
       `}</style>
 
-      <div
-        style={{
-          borderTop: "1px solid #e5e7eb",
-          paddingTop: 12,
-          marginTop: 12,
-        }}
-      >
-        <p
-          style={{
-            fontFamily: "'IBM Plex Mono', monospace",
-            fontSize: "0.6rem",
-            color: "#9ca3af",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            marginBottom: 8,
-          }}
-        >
-          Absensi toko · 3 hari terakhir
-        </p>
-
-        <div style={{ position: "relative" }}>
-          <div
-            style={{
-              position: "absolute",
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 36,
-              background: "linear-gradient(to right, #ffffff, transparent)",
-              zIndex: 2,
-              pointerEvents: "none",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              right: 0,
-              top: 0,
-              bottom: 0,
-              width: 36,
-              background: "linear-gradient(to left, #ffffff, transparent)",
-              zIndex: 2,
-              pointerEvents: "none",
-            }}
-          />
-          <div style={{ overflow: "hidden" }}>
-            <div className="att-ticker-inner">
-              {doubled.map((row, i) => (
-                <AttCard key={i} row={row} />
-              ))}
+      <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 10, marginTop: 10 }}>
+        {([
+          { label: fmtLabel(1), rows: yesterday },
+          { label: fmtLabel(2), rows: dayBefore },
+        ] as const).map(({ label, rows }, gi) => {
+          if (rows.length === 0) return null;
+          const doubled = [...rows, ...rows];
+          const duration = Math.max(15, rows.length * 4);
+          return (
+            <div key={gi} style={{ marginBottom: gi === 0 ? 8 : 0 }}>
+              <p style={{
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: '0.5rem', color: '#9ca3af',
+                letterSpacing: '0.08em', textTransform: 'uppercase',
+                marginBottom: 5,
+              }}>
+                {label}
+              </p>
+              <div style={{ position: 'relative' }}>
+                {['left', 'right'].map((side) => (
+                  <div key={side} style={{
+                    position: 'absolute', [side]: 0, top: 0, bottom: 0, width: 28,
+                    background: `linear-gradient(to ${side === 'left' ? 'right' : 'left'}, #ffffff, transparent)`,
+                    zIndex: 2, pointerEvents: 'none',
+                  }} />
+                ))}
+                <div style={{ overflow: 'hidden' }}>
+                  <div
+                    className="att-row"
+                    style={{ animationDuration: `${duration}s` }}
+                  >
+                    {doubled.map((row, i) => (
+                      <AttCardSmall key={i} row={row} />
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          );
+        })}
       </div>
     </>
   );
@@ -613,9 +593,7 @@ function LoginPageContent() {
           object-fit: cover; object-position: center;
           z-index: 0;
         }
-        .sl-right::before {
-          display: none;
-        }
+        .sl-right::before { display: none; }
         .sl-right::after {
           content: ''; position: absolute; inset: 0;
           background: rgba(37,99,235,0.18);
