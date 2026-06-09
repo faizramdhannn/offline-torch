@@ -42,8 +42,9 @@ export function useAttendanceGate(): AttendanceGateState {
       if (!user.attendance_store && !user.attendance_store_all) return;
 
       // ── Step 1: Is this user a store PIC? ─────────────────────────────────
-      const storeRes = await fetch("/api/capture-attendance/meta?type=store_list");
-      if (!storeRes.ok) return;
+     const storeRes = await fetch("/api/capture-attendance/meta?type=store_list",
+  { cache: 'no-store' }
+);
 
       const stores: { id: string; store_name: string }[] = await storeRes.json();
 
@@ -66,8 +67,9 @@ export function useAttendanceGate(): AttendanceGateState {
       const todayISO = `${wib.getFullYear()}-${String(wib.getMonth() + 1).padStart(2, "0")}-${String(wib.getDate()).padStart(2, "0")}`;
 
       const attendRes = await fetch(
-        `/api/capture-attendance/capture?store_name=${encodeURIComponent(matchedStore.store_name)}&date=${todayISO}`
-      );
+  `/api/capture-attendance/capture?store_name=${encodeURIComponent(matchedStore.store_name)}&date=${todayISO}`,
+  { cache: 'no-store' }
+);
       if (!attendRes.ok) return;
 
       const records: { open_timestamp?: string; close_timestamp?: string }[] = await attendRes.json();
