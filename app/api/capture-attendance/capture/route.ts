@@ -5,18 +5,25 @@ import { uploadAttendanceSelfie } from '@/lib/attendanceDrive';
 // ─── Helper: parse Indonesian locale timestamp to YYYY-MM-DD ─────────────────
 function tsToISO(ts: string): string {
   const monthMap: Record<string, string> = {
-    Jan: '01', Feb: '02', Mar: '03', Apr: '04',
-    Mei: '05', Jun: '06', Jul: '07', Agu: '08',
-    Sep: '09', Okt: '10', Nov: '11', Des: '12',
+    'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
+    'mei': '05', 'may': '05',
+    'jun': '06', 'juni': '06',
+    'jul': '07', 'juli': '07',
+    'agu': '08', 'aug': '08',
+    'sep': '09', 'okt': '10', 'oct': '10',
+    'nov': '11', 'des': '12', 'dec': '12',
   };
-  const m = ts.match(/^(\d{2})\s+(\w{3})\s+(\d{4})/);
+  const m = ts.match(/^(\d{1,2})\s+(\w+\.?)\s+(\d{4})/);
   if (!m) return ts;
-  return `${m[3]}-${monthMap[m[2]] || '00'}-${m[1]}`;
+  const day = m[1].padStart(2, '0');
+  const monthKey = m[2].replace('.', '').toLowerCase();
+  const month = monthMap[monthKey] || '00';
+  return `${m[3]}-${month}-${day}`;
 }
 
 function matchesDate(ts: string, date: string): boolean {
   if (!ts) return false;
-  if (ts.includes(date)) return true;
+  if (ts.startsWith(date)) return true;
   return tsToISO(ts) === date;
 }
 

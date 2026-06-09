@@ -5,12 +5,14 @@ import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 
 // ─── Helper: Drive URL → proxy ────────────────────────────────────────────────
-function toDriveProxyUrl(url: string, sz = 'w400'): string {
-  if (!url) return '';
-  if (url.startsWith('data:')) return url;
-  const m = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+function toDriveProxyUrl(url: string, sz = "w400"): string {
+  if (!url) return "";
+  if (url.startsWith("data:")) return url;
+  const m =
+    url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
+    url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
   if (m) return `/api/drive-image?id=${m[1]}&sz=${sz}`;
-  if (url.startsWith('/api/')) return url;
+  if (url.startsWith("/api/")) return url;
   return url;
 }
 
@@ -19,71 +21,116 @@ function AttCardSmall({ row }: { row: any }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [popup, setPopup] = useState<{
-  storeName: string;
-  open: { src: string; time: string } | null;
-  close: { src: string; time: string } | null;
-} | null>(null);
+    storeName: string;
+    open: { src: string; time: string } | null;
+    close: { src: string; time: string } | null;
+  } | null>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.disconnect(); } },
-      { rootMargin: '100px' }
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          obs.disconnect();
+        }
+      },
+      { rootMargin: "100px" },
     );
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
 
   const fmtTime = (ts: string) => {
-    if (!ts) return '';
+    if (!ts) return "";
     const d = new Date(ts);
-    if (isNaN(d.getTime())) return ts.match(/\d{2}:\d{2}/)?.[0] ?? '';
-    return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+    if (isNaN(d.getTime())) return ts.match(/\d{2}:\d{2}/)?.[0] ?? "";
+    return d.toLocaleTimeString("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
   };
 
   const photoBox: React.CSSProperties = {
-    width: '100%', aspectRatio: '1', borderRadius: 5,
-    background: '#f3f4f6', display: 'flex',
-    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+    width: "100%",
+    aspectRatio: "1",
+    borderRadius: 5,
+    background: "#f3f4f6",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   };
 
   return (
     <div
       ref={ref}
       style={{
-        background: '#f9fafb', border: '0.5px solid #e5e7eb',
-        borderRadius: 8, padding: '5px 6px',
-        minWidth: 120, maxWidth: 132, flexShrink: 0,
-        display: 'flex', flexDirection: 'column', gap: 5,
+        background: "#f9fafb",
+        border: "0.5px solid #e5e7eb",
+        borderRadius: 8,
+        padding: "5px 6px",
+        minWidth: 120,
+        maxWidth: 132,
+        flexShrink: 0,
+        display: "flex",
+        flexDirection: "column",
+        gap: 5,
       }}
     >
       {/* Store name */}
-      <p style={{
-        margin: 0, fontSize: 8, fontWeight: 500, color: '#111827', textTransform: 'capitalize',
-        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        fontFamily: "'IBM Plex Sans', sans-serif",
-      }}>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 8,
+          fontWeight: 500,
+          color: "#111827",
+          textTransform: "capitalize",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          fontFamily: "'IBM Plex Sans', sans-serif",
+        }}
+      >
         {row.store_name}
       </p>
 
       {/* Photos */}
-      <div style={{ display: 'flex', gap: 5 }}>
-        {(['open', 'close'] as const).map((type) => {
-          const ts = type === 'open' ? row.open_timestamp : row.close_timestamp;
-          const selfieRaw = type === 'open' ? row.open_selfie : row.close_selfie;
-          const selfie = (visible && selfieRaw) ? toDriveProxyUrl(selfieRaw, 'w80') : '';
+      <div style={{ display: "flex", gap: 5 }}>
+        {(["open", "close"] as const).map((type) => {
+          const ts = type === "open" ? row.open_timestamp : row.close_timestamp;
+          const selfieRaw =
+            type === "open" ? row.open_selfie : row.close_selfie;
+          const selfie =
+            visible && selfieRaw ? toDriveProxyUrl(selfieRaw, "w80") : "";
           const time = fmtTime(ts);
           const present = !!ts;
 
           return (
-            <div key={type} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <p style={{
-                margin: 0, fontSize: 6, color: '#9ca3af',
-                textTransform: 'uppercase', letterSpacing: '0.04em',
-                fontFamily: "'IBM Plex Mono', monospace",
-              }}>
-                {type === 'open' ? `O${time ? `·${time}` : ''}` : `C${time ? `·${time}` : ''}`}
+            <div
+              key={type}
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 6,
+                  color: "#9ca3af",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  fontFamily: "'IBM Plex Mono', monospace",
+                }}
+              >
+                {type === "open"
+                  ? `O${time ? `·${time}` : ""}`
+                  : `C${time ? `·${time}` : ""}`}
               </p>
               {selfie ? (
                 <img
@@ -91,30 +138,74 @@ function AttCardSmall({ row }: { row: any }) {
                   alt=""
                   loading="lazy"
                   onClick={() => {
-    const openRaw = row.open_selfie;
-    const closeRaw = row.close_selfie;
-    const openTime = fmtTime(row.open_timestamp);
-    const closeTime = fmtTime(row.close_timestamp);
-    setPopup({
-      storeName: row.store_name,
-      open: openRaw ? { src: toDriveProxyUrl(openRaw, 'w800'), time: openTime } : null,
-      close: closeRaw ? { src: toDriveProxyUrl(closeRaw, 'w800'), time: closeTime } : null,
-    });
-  }}
+                    const openRaw = row.open_selfie;
+                    const closeRaw = row.close_selfie;
+                    const openTime = fmtTime(row.open_timestamp);
+                    const closeTime = fmtTime(row.close_timestamp);
+                    setPopup({
+                      storeName: row.store_name,
+                      open: openRaw
+                        ? {
+                            src: toDriveProxyUrl(openRaw, "w800"),
+                            time: openTime,
+                          }
+                        : null,
+                      close: closeRaw
+                        ? {
+                            src: toDriveProxyUrl(closeRaw, "w800"),
+                            time: closeTime,
+                          }
+                        : null,
+                    });
+                  }}
                   style={{
                     ...photoBox,
-                    objectFit: 'cover',
-                    border: '0.5px solid #e5e7eb',
-                    cursor: 'pointer',
+                    objectFit: "cover",
+                    border: "0.5px solid #e5e7eb",
+                    cursor: "pointer",
                   }}
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
                 />
               ) : (
-                <div style={{ ...photoBox, border: present ? '0.5px solid #e5e7eb' : '0.5px dashed #e5e7eb' }}>
-                  {present
-                    ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-                    : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
-                  }
+                <div
+                  style={{
+                    ...photoBox,
+                    border: present
+                      ? "0.5px solid #e5e7eb"
+                      : "0.5px dashed #e5e7eb",
+                  }}
+                >
+                  {present ? (
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#9ca3af"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="8" r="4" />
+                      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                    </svg>
+                  ) : (
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#d1d5db"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <polyline points="12 7 12 12 15 14" />
+                    </svg>
+                  )}
                 </div>
               )}
             </div>
@@ -123,101 +214,171 @@ function AttCardSmall({ row }: { row: any }) {
       </div>
 
       {/* Status */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 6, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 3, fontFamily: "'IBM Plex Sans', sans-serif" }}>
-          <span style={{
-            width: 4, height: 4, borderRadius: '50%',
-            background: hasClose ? '#9ca3af' : '#10b981',
-            display: 'inline-block', flexShrink: 0,
-            boxShadow: hasClose ? 'none' : '0 0 4px #10b981',
-          }} />
-          {row.open_staff_name || '-'}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <span
+          style={{
+            fontSize: 6,
+            color: "#6b7280",
+            display: "flex",
+            alignItems: "center",
+            gap: 3,
+            fontFamily: "'IBM Plex Sans', sans-serif",
+          }}
+        >
+          <span
+            style={{
+              width: 4,
+              height: 4,
+              borderRadius: "50%",
+              background: hasClose ? "#9ca3af" : "#10b981",
+              display: "inline-block",
+              flexShrink: 0,
+              boxShadow: hasClose ? "none" : "0 0 4px #10b981",
+            }}
+          />
+          {row.open_staff_name || "-"}
         </span>
-        <span style={{
-          fontSize: 5, fontWeight: 500, padding: '1px 6px', borderRadius: 100,
-          background: hasClose ? '#f3f4f6' : '#dcfce7',
-          color: hasClose ? '#6b7280' : '#166534',
-          fontFamily: "'IBM Plex Mono', monospace", letterSpacing: '0.04em',
-        }}>
-          {hasClose ? 'Closed' : 'Open'}
+        <span
+          style={{
+            fontSize: 5,
+            fontWeight: 500,
+            padding: "1px 6px",
+            borderRadius: 100,
+            background: hasClose ? "#f3f4f6" : "#dcfce7",
+            color: hasClose ? "#6b7280" : "#166534",
+            fontFamily: "'IBM Plex Mono', monospace",
+            letterSpacing: "0.04em",
+          }}
+        >
+          {hasClose ? "Closed" : "Open"}
         </span>
       </div>
 
       {/* Popup via Portal */}
-      {popup && createPortal(
-  <div
-    onClick={() => setPopup(null)}
-    style={{
-      position: 'fixed', inset: 0, zIndex: 9999,
-      background: 'rgba(0,0,0,0.82)',
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      cursor: 'zoom-out', padding: '2rem',
-    }}
-  >
-    {/* Store name header */}
-    <p style={{
-      color: '#fff', fontSize: 13, fontWeight: 600,
-      marginBottom: 16, textTransform: 'capitalize',
-      fontFamily: "'IBM Plex Sans', sans-serif",
-      letterSpacing: '0.02em',
-    }}>
-      {popup.storeName}
-    </p>
-
-    {/* Two photos side by side */}
-    <div
-      onClick={(e) => e.stopPropagation()}
-      style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}
-    >
-      {(['open', 'close'] as const).map((type) => {
-        const data = popup[type];
-        return (
-          <div key={type} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-            <p style={{
-              color: '#9ca3af', fontSize: 9,
-              fontFamily: "'IBM Plex Mono', monospace",
-              letterSpacing: '0.08em', textTransform: 'uppercase', margin: 0,
-            }}>
-              {type === 'open' ? `Open${data?.time ? ` · ${data.time}` : ''}` : `Close${data?.time ? ` · ${data.time}` : ''}`}
+      {popup &&
+        createPortal(
+          <div
+            onClick={() => setPopup(null)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 9999,
+              background: "rgba(0,0,0,0.82)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "zoom-out",
+              padding: "2rem",
+            }}
+          >
+            {/* Store name header */}
+            <p
+              style={{
+                color: "#fff",
+                fontSize: 13,
+                fontWeight: 600,
+                marginBottom: 16,
+                textTransform: "capitalize",
+                fontFamily: "'IBM Plex Sans', sans-serif",
+                letterSpacing: "0.02em",
+              }}
+            >
+              {popup.storeName}
             </p>
-            {data ? (
-              <img
-                src={data.src}
-                alt=""
-                style={{
-                  width: 'min(38vw, 260px)', aspectRatio: '1',
-                  borderRadius: 10, objectFit: 'cover',
-                  boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                }}
-              />
-            ) : (
-              <div style={{
-                width: 'min(38vw, 260px)', aspectRatio: '1',
-                borderRadius: 10, border: '1px dashed rgba(255,255,255,0.15)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'rgba(255,255,255,0.04)',
-              }}>
-                <p style={{ color: '#4b5563', fontSize: 10, fontFamily: "'IBM Plex Mono', monospace" }}>
-                  No photo
-                </p>
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
 
-    <p style={{
-      color: '#4b5563', fontSize: 10, marginTop: 20,
-      fontFamily: "'IBM Plex Sans', sans-serif",
-    }}>
-      Tap di luar untuk tutup
-    </p>
-  </div>,
-  document.body
-)}
+            {/* Two photos side by side */}
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ display: "flex", gap: 16, alignItems: "flex-start" }}
+            >
+              {(["open", "close"] as const).map((type) => {
+                const data = popup[type];
+                return (
+                  <div
+                    key={type}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <p
+                      style={{
+                        color: "#9ca3af",
+                        fontSize: 9,
+                        fontFamily: "'IBM Plex Mono', monospace",
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        margin: 0,
+                      }}
+                    >
+                      {type === "open"
+                        ? `Open${data?.time ? ` · ${data.time}` : ""}`
+                        : `Close${data?.time ? ` · ${data.time}` : ""}`}
+                    </p>
+                    {data ? (
+                      <img
+                        src={data.src}
+                        alt=""
+                        style={{
+                          width: "min(38vw, 260px)",
+                          aspectRatio: "1",
+                          borderRadius: 10,
+                          objectFit: "cover",
+                          boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: "min(38vw, 260px)",
+                          aspectRatio: "1",
+                          borderRadius: 10,
+                          border: "1px dashed rgba(255,255,255,0.15)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "rgba(255,255,255,0.04)",
+                        }}
+                      >
+                        <p
+                          style={{
+                            color: "#4b5563",
+                            fontSize: 10,
+                            fontFamily: "'IBM Plex Mono', monospace",
+                          }}
+                        >
+                          No photo
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <p
+              style={{
+                color: "#4b5563",
+                fontSize: 10,
+                marginTop: 20,
+                fontFamily: "'IBM Plex Sans', sans-serif",
+              }}
+            >
+              Tap di luar untuk tutup
+            </p>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -231,12 +392,14 @@ function AttendanceTicker() {
   useEffect(() => {
     const fetchData = async () => {
       const now = new Date();
-      const jakartaNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+      const jakartaNow = new Date(
+        now.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }),
+      );
 
       const getISO = (daysAgo: number) => {
         const d = new Date(jakartaNow);
         d.setDate(d.getDate() - daysAgo);
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       };
 
       const [d1, d2] = [getISO(1), getISO(2)];
@@ -261,14 +424,21 @@ function AttendanceTicker() {
     fetchData();
   }, []);
 
-  if (loading || (yesterday.length === 0 && dayBefore.length === 0)) return null;
+  if (loading || (yesterday.length === 0 && dayBefore.length === 0))
+    return null;
 
   const fmtLabel = (daysAgo: number) => {
     const now = new Date();
-    const jakartaNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+    const jakartaNow = new Date(
+      now.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }),
+    );
     const d = new Date(jakartaNow);
     d.setDate(d.getDate() - daysAgo);
-    return d.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
+    return d.toLocaleDateString("id-ID", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
   };
 
   return (
@@ -287,33 +457,53 @@ function AttendanceTicker() {
         .att-row:hover { animation-play-state: paused; }
       `}</style>
 
-      <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 10, marginTop: 10 }}>
-        {([
-          { label: fmtLabel(1), rows: yesterday },
-          { label: fmtLabel(2), rows: dayBefore },
-        ] as const).map(({ label, rows }, gi) => {
+      <div
+        style={{
+          borderTop: "1px solid #e5e7eb",
+          paddingTop: 10,
+          marginTop: 10,
+        }}
+      >
+        {(
+          [
+            { label: fmtLabel(1), rows: yesterday },
+            { label: fmtLabel(2), rows: dayBefore },
+          ] as const
+        ).map(({ label, rows }, gi) => {
           if (rows.length === 0) return null;
           const doubled = [...rows, ...rows];
           const duration = Math.max(15, rows.length * 4);
           return (
             <div key={gi} style={{ marginBottom: gi === 0 ? 8 : 0 }}>
-              <p style={{
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: '0.5rem', color: '#9ca3af',
-                letterSpacing: '0.08em', textTransform: 'uppercase',
-                marginBottom: 5,
-              }}>
+              <p
+                style={{
+                  fontFamily: "'IBM Plex Mono', monospace",
+                  fontSize: "0.5rem",
+                  color: "#9ca3af",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  marginBottom: 5,
+                }}
+              >
                 {label}
               </p>
-              <div style={{ position: 'relative' }}>
-                {['left', 'right'].map((side) => (
-                  <div key={side} style={{
-                    position: 'absolute', [side]: 0, top: 0, bottom: 0, width: 28,
-                    background: `linear-gradient(to ${side === 'left' ? 'right' : 'left'}, #ffffff, transparent)`,
-                    zIndex: 2, pointerEvents: 'none',
-                  }} />
+              <div style={{ position: "relative" }}>
+                {["left", "right"].map((side) => (
+                  <div
+                    key={side}
+                    style={{
+                      position: "absolute",
+                      [side]: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: 28,
+                      background: `linear-gradient(to ${side === "left" ? "right" : "left"}, #ffffff, transparent)`,
+                      zIndex: 2,
+                      pointerEvents: "none",
+                    }}
+                  />
                 ))}
-                <div style={{ overflow: 'hidden' }}>
+                <div style={{ overflow: "hidden" }}>
                   <div
                     className="att-row"
                     style={{ animationDuration: `${duration}s` }}
@@ -361,14 +551,21 @@ function LoginPageContent() {
 
   const switchMode = (m: "login" | "register") => {
     setMode(m);
-    setError(""); setRegError(""); setRegSuccess(false);
-    setUsername(""); setPassword("");
-    setRegName(""); setRegUsername(""); setRegPassword("");
+    setError("");
+    setRegError("");
+    setRegSuccess(false);
+    setUsername("");
+    setPassword("");
+    setRegName("");
+    setRegUsername("");
+    setRegPassword("");
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(""); setSessionExpired(false); setLoading(true);
+    setError("");
+    setSessionExpired(false);
+    setLoading(true);
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
@@ -389,12 +586,17 @@ function LoginPageContent() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setRegError(""); setRegLoading(true);
+    setRegError("");
+    setRegLoading(true);
     try {
       const response = await fetch("/api/registration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: regName, user_name: regUsername, password: regPassword }),
+        body: JSON.stringify({
+          name: regName,
+          user_name: regUsername,
+          password: regPassword,
+        }),
       });
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
@@ -620,9 +822,17 @@ function LoginPageContent() {
           {/* Brand */}
           <div className="sl-brand">
             <div className="sl-logo-box">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
                 <path d="M12 3L4 9v12h16V9L12 3z" fill="white" />
-                <path d="M12 7l-5 3.5V19h10v-8.5L12 7z" fill="#2563eb" opacity="0.2" />
+                <path
+                  d="M12 7l-5 3.5V19h10v-8.5L12 7z"
+                  fill="#2563eb"
+                  opacity="0.2"
+                />
                 <rect x="9" y="14" width="6" height="5" rx="1" fill="#2563eb" />
               </svg>
             </div>
@@ -637,9 +847,17 @@ function LoginPageContent() {
 
                 {sessionExpired && (
                   <div className="sl-alert sl-alert-warn">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-                      strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ flexShrink: 0, marginTop: 1 }}
+                    >
                       <circle cx="12" cy="12" r="10" />
                       <polyline points="12 6 12 12 16 14" />
                     </svg>
@@ -650,30 +868,60 @@ function LoginPageContent() {
                 <form onSubmit={handleLogin}>
                   <div className="sl-field">
                     <label className="sl-label">Username</label>
-                    <input type="text" value={username}
+                    <input
+                      type="text"
+                      value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Enter username" className="sl-input"
-                      required autoComplete="username" />
+                      placeholder="Enter username"
+                      className="sl-input"
+                      required
+                      autoComplete="username"
+                    />
                   </div>
                   <div className="sl-field">
                     <label className="sl-label">Password</label>
                     <div className="sl-iw">
-                      <input type={showPassword ? "text" : "password"} value={password}
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••" className="sl-input pw"
-                        required autoComplete="current-password" />
-                      <button type="button" className="sl-eye"
-                        onClick={() => setShowPassword(!showPassword)} tabIndex={-1}>
+                        placeholder="••••••••"
+                        className="sl-input pw"
+                        required
+                        autoComplete="current-password"
+                      />
+                      <button
+                        type="button"
+                        className="sl-eye"
+                        onClick={() => setShowPassword(!showPassword)}
+                        tabIndex={-1}
+                      >
                         {showPassword ? (
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <svg
+                            width="15"
+                            height="15"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
                             <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
                             <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
                             <line x1="1" y1="1" x2="23" y2="23" />
                           </svg>
                         ) : (
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <svg
+                            width="15"
+                            height="15"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                             <circle cx="12" cy="12" r="3" />
                           </svg>
@@ -684,9 +932,17 @@ function LoginPageContent() {
 
                   {error && (
                     <div className="sl-error">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-                        strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ flexShrink: 0 }}
+                      >
                         <circle cx="12" cy="12" r="10" />
                         <line x1="12" y1="8" x2="12" y2="12" />
                         <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -701,10 +957,14 @@ function LoginPageContent() {
                   </button>
                 </form>
 
-                <div className="sl-divider"><span>or</span></div>
+                <div className="sl-divider">
+                  <span>or</span>
+                </div>
                 <p className="sl-switch-link">
                   Don't have an account?&nbsp;
-                  <button onClick={() => switchMode("register")}>Register here</button>
+                  <button onClick={() => switchMode("register")}>
+                    Register here
+                  </button>
                 </p>
               </>
             )}
@@ -712,50 +972,96 @@ function LoginPageContent() {
             {mode === "register" && (
               <>
                 <h1 className="sl-heading">Registration</h1>
-                <p className="sl-subheading">The request will be approved by the admin</p>
+                <p className="sl-subheading">
+                  The request will be approved by the admin
+                </p>
 
                 {regSuccess ? (
                   <div className="sl-alert sl-alert-success">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-                      strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ flexShrink: 0, marginTop: 1 }}
+                    >
                       <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                       <polyline points="22 4 12 14.01 9 11.01" />
                     </svg>
-                    Registration request successfully submitted. Please wait for admin approval.
+                    Registration request successfully submitted. Please wait for
+                    admin approval.
                   </div>
                 ) : (
                   <form onSubmit={handleRegister}>
                     <div className="sl-field">
                       <label className="sl-label">Full Name</label>
-                      <input type="text" value={regName}
+                      <input
+                        type="text"
+                        value={regName}
                         onChange={(e) => setRegName(e.target.value)}
-                        placeholder="Enter full name" className="sl-input" required />
+                        placeholder="Enter full name"
+                        className="sl-input"
+                        required
+                      />
                     </div>
                     <div className="sl-field">
                       <label className="sl-label">Username</label>
-                      <input type="text" value={regUsername}
+                      <input
+                        type="text"
+                        value={regUsername}
                         onChange={(e) => setRegUsername(e.target.value)}
-                        placeholder="Buat username" className="sl-input" required />
+                        placeholder="Buat username"
+                        className="sl-input"
+                        required
+                      />
                     </div>
                     <div className="sl-field">
                       <label className="sl-label">Password</label>
                       <div className="sl-iw">
-                        <input type={regShowPassword ? "text" : "password"} value={regPassword}
+                        <input
+                          type={regShowPassword ? "text" : "password"}
+                          value={regPassword}
                           onChange={(e) => setRegPassword(e.target.value)}
-                          placeholder="••••••••" className="sl-input pw" required />
-                        <button type="button" className="sl-eye"
-                          onClick={() => setRegShowPassword(!regShowPassword)} tabIndex={-1}>
+                          placeholder="••••••••"
+                          className="sl-input pw"
+                          required
+                        />
+                        <button
+                          type="button"
+                          className="sl-eye"
+                          onClick={() => setRegShowPassword(!regShowPassword)}
+                          tabIndex={-1}
+                        >
                           {regShowPassword ? (
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg
+                              width="15"
+                              height="15"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
                               <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
                               <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
                               <line x1="1" y1="1" x2="23" y2="23" />
                             </svg>
                           ) : (
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg
+                              width="15"
+                              height="15"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
                               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                               <circle cx="12" cy="12" r="3" />
                             </svg>
@@ -766,9 +1072,17 @@ function LoginPageContent() {
 
                     {regError && (
                       <div className="sl-error">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                          stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-                          strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          style={{ flexShrink: 0 }}
+                        >
                           <circle cx="12" cy="12" r="10" />
                           <line x1="12" y1="8" x2="12" y2="12" />
                           <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -777,17 +1091,25 @@ function LoginPageContent() {
                       </div>
                     )}
 
-                    <button type="submit" className="sl-btn" disabled={regLoading}>
+                    <button
+                      type="submit"
+                      className="sl-btn"
+                      disabled={regLoading}
+                    >
                       {regLoading && <div className="sl-spin" />}
                       {regLoading ? "Sending..." : "Send Request"}
                     </button>
                   </form>
                 )}
 
-                <div className="sl-divider"><span>or</span></div>
+                <div className="sl-divider">
+                  <span>or</span>
+                </div>
                 <p className="sl-switch-link">
                   Already have an account?&nbsp;
-                  <button onClick={() => switchMode("login")}>Log in here</button>
+                  <button onClick={() => switchMode("login")}>
+                    Log in here
+                  </button>
                 </p>
               </>
             )}
