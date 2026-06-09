@@ -88,16 +88,12 @@ export function useAttendanceGate(): AttendanceGateState {
   }, [pathname]);
 
   useEffect(() => {
+  if (!EXEMPT_PATHS.some((p) => pathname?.startsWith(p))) {
     checkAttendance();
-  }, [checkAttendance]);
-
-  useEffect(() => {
-    if (!EXEMPT_PATHS.some((p) => pathname?.startsWith(p))) {
-      checkAttendance();
-    } else {
-      setShowGate(false);
-    }
-  }, [pathname]);
+  } else {
+    setShowGate(false);
+  }
+}, [pathname]);
 
   const dismissGate = useCallback(() => {
     setShowGate(false);
