@@ -60,7 +60,6 @@ function generateId(): string {
 
 function parseHpj(val: string | number): number {
   if (typeof val === "number") return val;
-  // Strip leading apostrophe (Google Sheets text-force prefix), currency symbols, dots, spaces
   const cleaned = String(val).replace(/^'/, "").replace(/[^0-9,.-]/g, "").replace(/\./g, "").replace(",", ".");
   return parseFloat(cleaned) || 0;
 }
@@ -118,7 +117,6 @@ function ProcessedBadge({ value }: { value: string }) {
 }
 
 // ─── Group Detail Popup ────────────────────────────────────────────────────────
-// Shows ALL rows that share the same ID
 function GroupDetailPopup({
   groupId,
   items,
@@ -138,7 +136,6 @@ function GroupDetailPopup({
     return () => window.removeEventListener("keydown", h);
   }, [onClose]);
 
-  // All rows share the same meta — take from first
   const meta = items[0];
 
   return (
@@ -248,11 +245,21 @@ function SkuScannerSection({
   const [skuInput, setSkuInput] = useState("");
   const [error, setError] = useState("");
   const [cameraActive, setCameraActive] = useState(false);
+
+  // ✅ Flash: ref for blocking logic, state for visual
+  const [showFlash, setShowFlash] = useState(false);
+  const scanFlashRef = useRef(false);
+
   const skuInputRef = useRef<HTMLInputElement>(null);
   const html5QrRef = useRef<any>(null);
   const isScanningRef = useRef(false);
 
-  // Focus SKU input when modal opens or mode switches to manual
+  // Keep a ref of scannedItems so camera callback always reads latest value
+  const scannedItemsRef = useRef<ScannedItem[]>(scannedItems);
+  useEffect(() => {
+    scannedItemsRef.current = scannedItems;
+  }, [scannedItems]);
+
   useEffect(() => {
     if (scanMode === "manual") {
       setTimeout(() => skuInputRef.current?.focus(), 50);
@@ -299,8 +306,12 @@ function SkuScannerSection({
     };
   }, [scanMode]);
 
+  // ✅ FIXED: scanFlashRef (not state) used for blocking — no re-render loop
   const processSku = useCallback(
     (sku: string) => {
+      // Block if flash is active (cooldown period)
+      if (scanFlashRef.current) return;
+
       const trimmed = sku.trim().toUpperCase();
       if (!trimmed) return;
 
@@ -313,18 +324,26 @@ function SkuScannerSection({
 
       setError("");
       const itemName = toCapitalEachWord(found.Product_name || "");
-      // Strip Google Sheets text-prefix apostrophe from HPJ
       const hpj = (found.HPJ || "0").replace(/^'/, "");
 
-      onItemsChange((() => {
-        const existing = scannedItems.find((i) => i.sku === trimmed);
-        if (existing) {
-          return scannedItems.map((i) => i.sku === trimmed ? { ...i, qty: i.qty + 1 } : i);
-        }
-        return [...scannedItems, { sku: trimmed, name: itemName, qty: 1, hpj }];
-      })());
+      // Read from ref so camera callback always sees latest state
+      const current = scannedItemsRef.current;
+      const existing = current.find((i) => i.sku === trimmed);
+      if (existing) {
+        onItemsChange(current.map((i) => i.sku === trimmed ? { ...i, qty: i.qty + 1 } : i));
+      } else {
+        onItemsChange([...current, { sku: trimmed, name: itemName, qty: 1, hpj }]);
+      }
+
+      // ✅ Trigger flash: ref blocks next scan, state shows visual overlay
+      scanFlashRef.current = true;
+      setShowFlash(true);
+      setTimeout(() => {
+        scanFlashRef.current = false;
+        setShowFlash(false);
+      }, 1000);
     },
-    [masterItems, scannedItems, onItemsChange]
+    [masterItems, onItemsChange]
   );
 
   const handleSkuSubmit = (e?: React.FormEvent) => {
@@ -336,7 +355,6 @@ function SkuScannerSection({
     }
   };
 
-  // Handle Enter key & barcode scanner (fast typing ends with Enter)
   const handleSkuKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -354,7 +372,6 @@ function SkuScannerSection({
         <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
           Item <span className="text-red-500">*</span>
         </label>
-        {/* Mode toggle */}
         <div className="flex gap-1 p-0.5 bg-gray-100 rounded-lg">
           <button
             type="button"
@@ -383,7 +400,6 @@ function SkuScannerSection({
         </div>
       </div>
 
-      {/* Manual / barcode scanner mode: visible SKU input */}
       {scanMode === "manual" && (
         <div className="flex gap-2">
           <input
@@ -408,10 +424,18 @@ function SkuScannerSection({
         </div>
       )}
 
-      {/* Camera mode */}
       {scanMode === "camera" && (
-        <div className="rounded-lg overflow-hidden border border-gray-200 bg-black">
+        <div className="rounded-lg overflow-hidden border border-gray-200 bg-black relative">
           <div id="mi-qr-reader" className="w-full" />
+
+          {/* ✅ Green flash overlay — shown for 1 second after successful scan */}
+          {showFlash && (
+            <div
+              className="absolute inset-0 pointer-events-none transition-opacity duration-300"
+              style={{ backgroundColor: "rgba(74, 222, 128, 0.5)" }}
+            />
+          )}
+
           {!cameraActive && (
             <div className="flex items-center justify-center py-8 text-[11px] text-gray-400">
               Memuat kamera...
@@ -420,7 +444,6 @@ function SkuScannerSection({
         </div>
       )}
 
-      {/* Error */}
       {error && (
         <p className="text-[11px] text-red-500 flex items-center gap-1">
           <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -430,7 +453,6 @@ function SkuScannerSection({
         </p>
       )}
 
-      {/* Scanned item list */}
       {scannedItems.length > 0 && (
         <div className="space-y-1.5">
           {scannedItems.map((item) => (
@@ -589,21 +611,26 @@ export default function MaterialIssuePage() {
   };
 
   // ── Toggle processed ────────────────────────────────────────────────────────
-  const handleToggleProcessed = async (item: MIItem) => {
-    const newVal = item.has_processed === "TRUE" ? "FALSE" : "TRUE";
-    setData((prev) => prev.map((d) => d.id === item.id ? { ...d, has_processed: newVal } : d));
+  const handleToggleProcessed = async (groupId: string, currentValue: string) => {
+    const newVal = currentValue === "TRUE" ? "FALSE" : "TRUE";
+    setData((prev) => prev.map((d) => d.id === groupId ? { ...d, has_processed: newVal } : d));
     try {
-      const res = await fetch("/api/material-issue", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: item.id, update_by: user.user_name, has_processed: newVal }),
-      });
-      if (!res.ok) {
-        setData((prev) => prev.map((d) => d.id === item.id ? { ...d, has_processed: item.has_processed } : d));
+      const groupItems = data.filter((d) => d.id === groupId);
+      const results = await Promise.all(
+        groupItems.map((item) =>
+          fetch("/api/material-issue", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: item.id, update_by: user.user_name, has_processed: newVal }),
+          })
+        )
+      );
+      if (results.some((r) => !r.ok)) {
+        setData((prev) => prev.map((d) => d.id === groupId ? { ...d, has_processed: currentValue } : d));
         showMessage("Gagal update status", "error");
       }
     } catch {
-      setData((prev) => prev.map((d) => d.id === item.id ? { ...d, has_processed: item.has_processed } : d));
+      setData((prev) => prev.map((d) => d.id === groupId ? { ...d, has_processed: currentValue } : d));
       showMessage("Gagal update status", "error");
     }
   };
@@ -698,20 +725,42 @@ export default function MaterialIssuePage() {
   };
 
   // ── Delete ──────────────────────────────────────────────────────────────────
-  const handleDelete = async (item: MIItem) => {
-    if (!confirm("Hapus item ini?")) return;
+  const handleDelete = async (groupId: string) => {
+    const groupItems = data.filter((d) => d.id === groupId);
+    const label = groupItems.length > 1
+      ? `Hapus semua ${groupItems.length} item dalam group ini?`
+      : "Hapus item ini?";
+    if (!confirm(label)) return;
     try {
-      const res = await fetch(`/api/material-issue?id=${item.id}`, { method: "DELETE" });
-      if (res.ok) {
-        setData((prev) => prev.filter((d) => d.id !== item.id));
+      const results = await Promise.all(
+        groupItems.map((item) =>
+          fetch(`/api/material-issue?id=${item.id}&sku=${encodeURIComponent(item.item_sku)}`, { method: "DELETE" })
+        )
+      );
+      if (results.every((r) => r.ok)) {
+        setData((prev) => prev.filter((d) => d.id !== groupId));
         showMessage("Dihapus", "success");
         try { new Audio("/delete.mp3").play(); } catch {}
       } else {
-        showMessage("Gagal menghapus", "error");
+        showMessage("Gagal menghapus sebagian item", "error");
+        fetchData();
       }
     } catch {
       showMessage("Gagal menghapus", "error");
     }
+  };
+
+  // ── Helpers: group data by ID ───────────────────────────────────────────────
+  const getGroupItems = (groupId: string): MIItem[] =>
+    data.filter((d) => d.id === groupId);
+
+  const getGroupedRows = (rows: MIItem[]): MIItem[] => {
+    const seen = new Set<string>();
+    return rows.filter((d) => {
+      if (seen.has(d.id)) return false;
+      seen.add(d.id);
+      return true;
+    });
   };
 
   // ── Filter & pagination ─────────────────────────────────────────────────────
@@ -728,9 +777,11 @@ export default function MaterialIssuePage() {
     );
   })();
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const groupedRows = getGroupedRows(filteredData);
+
+  const totalPages = Math.ceil(groupedRows.length / itemsPerPage);
   const indexOfFirst = (currentPage - 1) * itemsPerPage;
-  const currentItems = filteredData.slice(indexOfFirst, indexOfFirst + itemsPerPage);
+  const currentItems = groupedRows.slice(indexOfFirst, indexOfFirst + itemsPerPage);
   const hasSearch = search.trim().length > 0;
 
   const highlightText = (text: string, query: string) => {
@@ -745,9 +796,6 @@ export default function MaterialIssuePage() {
       </>
     );
   };
-
-  // Group items by ID for detail popup
-  const getGroupItems = (groupId: string) => data.filter((d) => d.id === groupId);
 
   if (!user) return null;
 
@@ -793,7 +841,7 @@ export default function MaterialIssuePage() {
                 </svg>
                 Clear
               </button>
-              <span className="text-[10px] text-gray-400">{filteredData.length} result{filteredData.length !== 1 ? "s" : ""}</span>
+              <span className="text-[10px] text-gray-400">{groupedRows.length} result{groupedRows.length !== 1 ? "s" : ""}</span>
             </>
           )}
         </div>
@@ -811,17 +859,11 @@ export default function MaterialIssuePage() {
                       <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[90px]">
                         <span className="text-[8px] uppercase tracking-wide">ID / Tgl</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[80px]">
-                        <span className="text-[8px] uppercase tracking-wide">SKU</span>
+                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[160px]">
+                        <span className="text-[8px] uppercase tracking-wide">Item</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[130px]">
-                        <span className="text-[8px] uppercase tracking-wide">Nama Item</span>
-                      </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[30px]">
+                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[40px]">
                         <span className="text-[8px] uppercase tracking-wide">Qty</span>
-                      </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[75px]">
-                        <span className="text-[8px] uppercase tracking-wide">HPJ</span>
                       </th>
                       <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[70px]">
                         <span className="text-[8px] uppercase tracking-wide">Req By</span>
@@ -844,34 +886,51 @@ export default function MaterialIssuePage() {
                       <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[36px]">
                         <span className="text-[8px] uppercase tracking-wide">Proses</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 w-[80px]">
+                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 w-[50px]">
                         <span className="text-[8px] uppercase tracking-wide">Aksi</span>
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {currentItems.map((item) => {
+                      const groupItems = getGroupItems(item.id);
+                      const totalQty = groupItems.reduce((sum, g) => sum + Number(g.item_qty || 0), 0);
+                      const itemCount = groupItems.length;
                       const isProcessed = item.has_processed === "TRUE";
+
                       return (
                         <tr
-                          key={`${item.id}-${item.item_sku}`}
+                          key={item.id}
                           onClick={() => setDetailGroupId(item.id)}
                           className={`border-b border-gray-100 cursor-pointer transition-colors ${
                             isProcessed ? "bg-green-50 hover:bg-green-100" : "bg-red-50 hover:bg-red-100"
                           }`}
                         >
+                          {/* ID + Date */}
                           <td className="px-1.5 py-1 border-r border-gray-200">
                             <div className="truncate font-mono text-[9px] text-gray-600 font-bold">{item.id}</div>
                             <div className="text-[8px] text-gray-400">{item.created_at?.split(" ")[0]}</div>
                           </td>
-                          <td className="px-1.5 py-1 border-r border-gray-200 truncate font-mono text-blue-700 font-semibold">
-                            {hasSearch ? highlightText(item.item_sku, search) : item.item_sku}
+
+                          {/* Item summary */}
+                          <td className="px-1.5 py-1 border-r border-gray-200">
+                            <div className="flex items-center gap-1 mb-0.5">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-blue-100 text-blue-700 shrink-0">
+                                {itemCount} item
+                              </span>
+                            </div>
+                            <p className="text-[9px] text-gray-600 truncate leading-tight">
+                              {hasSearch
+                                ? highlightText(groupItems.map((g) => g.item_name).join(", "), search)
+                                : groupItems.map((g) => g.item_name).join(", ")}
+                            </p>
                           </td>
-                          <td className="px-1.5 py-1 border-r border-gray-200 truncate text-gray-700">
-                            {hasSearch ? highlightText(item.item_name, search) : item.item_name}
+
+                          {/* Total qty */}
+                          <td className="px-1.5 py-1 border-r border-gray-200 text-center font-bold text-gray-800">
+                            {totalQty}
                           </td>
-                          <td className="px-1.5 py-1 border-r border-gray-200 text-center font-bold text-gray-800">{item.item_qty}</td>
-                          <td className="px-1.5 py-1 border-r border-gray-200 text-right text-green-700">{formatRupiah(item.item_hpj)}</td>
+
                           <td className="px-1.5 py-1 border-r border-gray-200 truncate text-gray-600">
                             {hasSearch ? highlightText(item.request_by, search) : item.request_by}
                           </td>
@@ -881,7 +940,7 @@ export default function MaterialIssuePage() {
                                 {hasSearch ? highlightText(item.request_number, search) : item.request_number}
                               </span>
                               {item.request_number && (
-                                <CopyButton text={item.request_number} id={`rn-${item.id}-${item.item_sku}`} copiedId={copiedId} onCopy={handleCopy} />
+                                <CopyButton text={item.request_number} id={`rn-${item.id}`} copiedId={copiedId} onCopy={handleCopy} />
                               )}
                             </div>
                           </td>
@@ -891,7 +950,7 @@ export default function MaterialIssuePage() {
                                 {hasSearch ? highlightText(item.issue_number, search) : item.issue_number}
                               </span>
                               {item.issue_number && (
-                                <CopyButton text={item.issue_number} id={`in-${item.id}-${item.item_sku}`} copiedId={copiedId} onCopy={handleCopy} />
+                                <CopyButton text={item.issue_number} id={`in-${item.id}`} copiedId={copiedId} onCopy={handleCopy} />
                               )}
                             </div>
                           </td>
@@ -903,7 +962,7 @@ export default function MaterialIssuePage() {
                           <td className="px-1 py-1 border-r border-gray-200 text-center" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
-                              onClick={() => handleToggleProcessed(item)}
+                              onClick={() => handleToggleProcessed(item.id, item.has_processed)}
                               title={isProcessed ? "Tandai belum diproses" : "Tandai sudah diproses"}
                               className="inline-flex items-center justify-center w-4 h-4 rounded transition-colors hover:bg-white/50"
                             >
@@ -920,10 +979,16 @@ export default function MaterialIssuePage() {
                           </td>
                           <td className="px-1 py-1 text-center" onClick={(e) => e.stopPropagation()}>
                             <div className="flex flex-wrap gap-0.5 justify-center">
-                              <button onClick={() => openEdit(item)} className="px-1 py-0.5 bg-yellow-500 text-white rounded text-[9px] hover:bg-yellow-600">
+                              <button
+                                onClick={() => openEdit(item)}
+                                className="px-1 py-0.5 bg-yellow-500 text-white rounded text-[9px] hover:bg-yellow-600"
+                              >
                                 Edit
                               </button>
-                              <button onClick={() => handleDelete(item)} className="px-1 py-0.5 bg-red-500 text-white rounded text-[9px] hover:bg-red-600">
+                              <button
+                                onClick={() => handleDelete(item.id)}
+                                className="px-1 py-0.5 bg-red-500 text-white rounded text-[9px] hover:bg-red-600"
+                              >
                                 Hapus
                               </button>
                             </div>
@@ -933,7 +998,7 @@ export default function MaterialIssuePage() {
                     })}
                   </tbody>
                 </table>
-                {filteredData.length === 0 && (
+                {groupedRows.length === 0 && (
                   <div className="p-8 text-center text-gray-500 text-sm">
                     {hasSearch ? "Tidak ada hasil yang sesuai" : "Belum ada data material issue"}
                   </div>
@@ -943,7 +1008,7 @@ export default function MaterialIssuePage() {
               {totalPages > 1 && (
                 <div className="flex justify-between items-center px-4 py-2.5 border-t">
                   <div className="text-xs text-gray-500">
-                    {indexOfFirst + 1}–{Math.min(indexOfFirst + itemsPerPage, filteredData.length)} dari {filteredData.length}
+                    {indexOfFirst + 1}–{Math.min(indexOfFirst + itemsPerPage, groupedRows.length)} dari {groupedRows.length}
                   </div>
                   <div className="flex gap-1">
                     <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-2.5 py-1 text-xs border rounded disabled:opacity-40 hover:bg-gray-50">
