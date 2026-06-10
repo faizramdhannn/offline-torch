@@ -41,6 +41,8 @@ const SPREADSHEET_MAP: Record<string, string> = {
   channel_traffic: process.env.SPREADSHEET_SALES || "",
   attendance_store: process.env.SPREADSHEET_ATTENDANCE || "",
   attendance_store_all: process.env.SPREADSHEET_ATTENDANCE || "",
+  material_issue: process.env.SPREADSHEET_MATERIAL_ISSUE || "",
+  material_issue_all: process.env.SPREADSHEET_MATERIAL_ISSUE || "",
   "Torch Cirebon": process.env.SPREADSHEET_CUSTOMER || "",
   "Torch Jogja": process.env.SPREADSHEET_CUSTOMER || "",
   "Torch Karawaci": process.env.SPREADSHEET_CUSTOMER || "",

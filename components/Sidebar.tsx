@@ -33,6 +33,8 @@ interface SidebarProps {
     attendance_store?: boolean;       // ← NEW
     attendance_store_all?: boolean;   // ← NEW
     invoice?: boolean;
+    material_issue?: boolean;
+    material_issue_all?: boolean;
     sales_view?: boolean;
     sales_view_all?: boolean;
   };
@@ -78,7 +80,8 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     const isRequestPath =
       pathname === "/request-store" ||
       pathname === "/request-tracking" ||
-      pathname === "/invoice";
+      pathname === "/invoice" ||
+      pathname === "/material-issue";
     const isOrderPath =
       pathname === "/analytics-order" ||
       pathname === "/order-report" ||
@@ -87,7 +90,8 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     const wasRequestPath =
       prev === "/request-store" ||
       prev === "/request-tracking" ||
-      prev === "/invoice";
+      prev === "/invoice" ||
+      prev === "/material-issue";
     const wasOrderPath =
       prev === "/analytics-order" ||
       prev === "/order-report" ||
@@ -193,12 +197,14 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     permissions.request_tracking || permissions.tracking_edit
   );
   const hasInvoiceAccess = !!permissions.invoice;
+  const hasMaterialIssueAccess = !!permissions.material_issue;
   const showRequestGroup =
-    hasRequestAccess || hasTrackingAccess || hasInvoiceAccess;
+    hasRequestAccess || hasTrackingAccess || hasInvoiceAccess || hasMaterialIssueAccess;
   const isRequestActive =
     pathname === "/request-store" ||
     pathname === "/request-tracking" ||
-    pathname === "/invoice";
+    pathname === "/invoice" ||
+    pathname === "/material-issue";
 
   const hasAnalyticsAccess = !!permissions.analytics_order;
   const hasOrderReportAccess = !!permissions.order_report;
@@ -524,6 +530,11 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
     </svg>
   );
+  const materialIssueIcon = (
+    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h1a2 2 0 002-2v-3a2 2 0 00-2-2h-1m-16 0h1a2 2 0 012 2v3a2 2 0 01-2 2H4m16 0v1a2 2 0 01-2 2h-3a2 2 0 01-2-2v-1m6 0H9" />
+    </svg>
+  );
   const shipmentIcon = (
     <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
@@ -548,6 +559,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
   const requestItems = [
     { path: "/request-store", label: "Cancel Order", icon: cancelOrderIcon, show: hasRequestAccess },
     { path: "/invoice", label: "Invoice", icon: invoiceIcon, show: hasInvoiceAccess },
+    { path: "/material-issue", label: "Material Issue", icon: materialIssueIcon, show: hasMaterialIssueAccess },
     { path: "/request-tracking", label: "Shipment", icon: shipmentIcon, show: hasTrackingAccess },
   ];
 

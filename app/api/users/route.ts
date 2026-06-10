@@ -130,6 +130,8 @@ export async function PUT(request: NextRequest) {
       permissions.sales_view_all ? "TRUE" : "FALSE",
       permissions.attendance_store ? "TRUE" : "FALSE",
       permissions.attendance_store_all ? "TRUE" : "FALSE",
+      permissions.material_issue ? "TRUE" : "FALSE",
+      permissions.material_issue_all ? "TRUE" : "FALSE",
       timestamp, // AM
     ];
 
