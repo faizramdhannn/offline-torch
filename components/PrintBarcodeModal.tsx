@@ -244,7 +244,8 @@ export default function PrintBarcodeModal({ items, onClose }: Props) {
     if (totalLabels === 0) return;
     setGenerating(true);
     try {
-      const { jsPDF } = await import("jspdf");
+      const jsPDFModule = await import("jspdf");
+      const jsPDF = jsPDFModule.default;
       const orientation = selectedPaper.h > selectedPaper.w ? "portrait" : "landscape";
       const doc = new jsPDF({ orientation, unit: "mm", format: [selectedPaper.w, selectedPaper.h] });
       const { cols, rows } = calcGrid(selectedPaper);
