@@ -17,6 +17,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
+import PrintBarcodeModal from "@/components/PrintBarcodeModal";
 
 interface StockItem {
   link_url?: string;
@@ -501,6 +502,8 @@ export default function StockPage() {
 
   const [qrItem, setQrItem] = useState<StockItem | null>(null);
 
+  const [showBarcodeModal, setShowBarcodeModal] = useState(false);
+
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const gradeDropdownRef = useRef<HTMLDivElement>(null);
   const warehouseDropdownRef = useRef<HTMLDivElement>(null);
@@ -857,6 +860,12 @@ export default function StockPage() {
                       {refreshing ? "Refreshing..." : "Refresh Javelin"}
                     </button>
                   )}
+                  <button
+  onClick={() => setShowBarcodeModal(true)}
+  className="px-4 py-1.5 bg-gray-700 text-white rounded text-xs hover:bg-gray-300 hover:text-black"
+>
+  Print Barcode
+</button>
                 </div>
                 <div className="text-xs text-gray-600">
                   {lastUpdate.map((lu) => (
@@ -1173,7 +1182,7 @@ export default function StockPage() {
                       </thead>
                       <tbody>
                         {currentItems.map((item, index) => (
-                          <tr key={index} className="border-b hover:bg-gray-50 cursor-pointer" onClick={() => setQrItem(item)}>
+                          <tr key={`${item.sku}-${item.warehouse ?? ''}-${index}`} className="border-b hover:bg-gray-50 cursor-pointer" onClick={() => setQrItem(item)}>
                             <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
                               {item.link_url || item.image_url ? (
                                 <img
@@ -1286,6 +1295,12 @@ export default function StockPage() {
         )}
 
         {qrItem && <QRLabelPopup item={qrItem} onClose={() => setQrItem(null)} />}
+          {showBarcodeModal && (
+  <PrintBarcodeModal
+    items={data}
+    onClose={() => setShowBarcodeModal(false)}
+  />
+)}
         <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
       </div>
     </div>

@@ -1279,7 +1279,7 @@ export default function MaterialIssuePage() {
                           : "border-gray-200 bg-gray-50 text-gray-500 hover:bg-white"
                       }`}
                     >
-                      {v === "TRUE" ? "✓ Sudah Diproses" : "✗ Belum Diproses"}
+                      {v === "TRUE" ? "Sudah Diproses" : "Belum Diproses"}
                     </button>
                   ))}
                 </div>
