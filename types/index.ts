@@ -23,6 +23,7 @@ export interface User {
   edit_request: boolean;
   stock_opname: boolean;
   stock_opname_report: boolean;
+  asset_store: boolean;
   analytics_order: boolean;
   attendance?: boolean;
   attendance_report: boolean;

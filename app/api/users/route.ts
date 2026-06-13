@@ -132,6 +132,7 @@ export async function PUT(request: NextRequest) {
       permissions.attendance_store_all ? "TRUE" : "FALSE",
       permissions.material_issue ? "TRUE" : "FALSE",
       permissions.material_issue_all ? "TRUE" : "FALSE",
+      permissions.asset_store ? "TRUE" : "FALSE",
       timestamp, // AM
     ];
 

@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
       attendance_store_all: user.attendance_store_all === 'TRUE',
       material_issue: user.material_issue === 'TRUE',
       material_issue_all: user.material_issue_all === 'TRUE',
+      asset_store: user.asset_store === 'TRUE',
     });
   } catch (error) {
     return NextResponse.json({ error: 'Authentication failed' }, { status: 500 });
