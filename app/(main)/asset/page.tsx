@@ -40,6 +40,7 @@ function getTypeBadge(type: string, isDark: boolean) {
   const map: Record<string, { bg: string; color: string; dot: string }> = {
     SOP: { bg: isDark ? "rgba(59,130,246,0.15)" : "#eff6ff", color: isDark ? "#93c5fd" : "#1d4ed8", dot: "#3b82f6" },
     Media: { bg: isDark ? "rgba(168,85,247,0.15)" : "#faf5ff", color: isDark ? "#d8b4fe" : "#7c3aed", dot: "#a855f7" },
+    Picture: { bg: isDark ? "rgba(16,185,129,0.15)" : "#ecfdf5", color: isDark ? "#6ee7b7" : "#10b981", dot: "#10b981" },
   };
   return map[type] || { bg: isDark ? "rgba(100,116,139,0.15)" : "#f8fafc", color: isDark ? "#94a3b8" : "#475569", dot: "#64748b" };
 }
@@ -227,6 +228,7 @@ function AssetModal({
               <option value="">-- Pilih Tipe --</option>
               <option value="SOP">SOP</option>
               <option value="Media">Media</option>
+            <option value="Picture">Picture</option>
             </select>
           </div>
           <div>
