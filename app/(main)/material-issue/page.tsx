@@ -24,6 +24,7 @@ interface MIItem {
   update_by: string;
   created_at: string;
   update_at: string;
+  assigned_to: string;
 }
 
 interface MasterItem {
@@ -33,9 +34,15 @@ interface MasterItem {
   [key: string]: string;
 }
 
+interface AssignedToOption {
+  id: string;
+  label: string;
+}
+
 interface DropdownData {
   request_by: string[];
   type_reason: string[];
+  assigned_to: AssignedToOption[];
 }
 
 interface ScannedItem {
@@ -98,7 +105,7 @@ function CopyButton({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
         </svg>
       ) : (
-        <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
         </svg>
       )}
@@ -164,6 +171,8 @@ function GroupDetailPopup({
           <div className="space-y-2.5">
             {[
               { label: "Status", content: <ProcessedBadge value={meta.has_processed} /> },
+              { label: "Store", content: <span className="text-xs text-gray-800">{toCapitalEachWord(meta.name || "-")}</span> },
+              { label: "Assigned To", content: <span className="text-xs text-gray-800">{meta.assigned_to || "-"}</span> },
               { label: "Request By", content: <span className="text-xs text-gray-800">{meta.request_by || "-"}</span> },
               {
                 label: "No. Request",
@@ -205,15 +214,15 @@ function GroupDetailPopup({
             </p>
             <div className="space-y-2">
               {items.map((item, idx) => (
-                <div key={`${item.item_sku}-${idx}`} className="flex items-center gap-3 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg">
+                <div key={`${item.item_sku}-${idx}`} className="flex items-center gap-3 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-blue-900 truncate">{item.item_name}</p>
-                    <p className="text-[10px] font-mono text-blue-600">{item.item_sku}</p>
-                    <p className="text-[10px] text-green-700">{formatRupiah(item.item_hpj)}</p>
+                    <p className="text-xs font-semibold text-gray-800 truncate">{item.item_name}</p>
+                    <p className="text-[10px] font-mono text-gray-500">{item.item_sku}</p>
+                    <p className="text-[10px] text-gray-500">{formatRupiah(item.item_hpj)}</p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <span className="text-sm font-bold text-blue-900">{item.item_qty}</span>
-                    <p className="text-[10px] text-blue-500">pcs</p>
+                    <span className="text-sm font-bold text-gray-800">{item.item_qty}</span>
+                    <p className="text-[10px] text-gray-400">pcs</p>
                   </div>
                 </div>
               ))}
@@ -246,7 +255,6 @@ function SkuScannerSection({
   const [error, setError] = useState("");
   const [cameraActive, setCameraActive] = useState(false);
 
-  // ✅ Flash: ref for blocking logic, state for visual
   const [showFlash, setShowFlash] = useState(false);
   const scanFlashRef = useRef(false);
 
@@ -254,7 +262,6 @@ function SkuScannerSection({
   const html5QrRef = useRef<any>(null);
   const isScanningRef = useRef(false);
 
-  // Keep a ref of scannedItems so camera callback always reads latest value
   const scannedItemsRef = useRef<ScannedItem[]>(scannedItems);
   useEffect(() => {
     scannedItemsRef.current = scannedItems;
@@ -266,7 +273,6 @@ function SkuScannerSection({
     }
   }, [scanMode]);
 
-  // Camera lifecycle
   useEffect(() => {
     if (scanMode !== "camera") return;
     let cancelled = false;
@@ -306,10 +312,8 @@ function SkuScannerSection({
     };
   }, [scanMode]);
 
-  // ✅ FIXED: scanFlashRef (not state) used for blocking — no re-render loop
   const processSku = useCallback(
     (sku: string) => {
-      // Block if flash is active (cooldown period)
       if (scanFlashRef.current) return;
 
       const trimmed = sku.trim().toUpperCase();
@@ -326,7 +330,6 @@ function SkuScannerSection({
       const itemName = toCapitalEachWord(found.Product_name || "");
       const hpj = (found.HPJ || "0").replace(/^'/, "");
 
-      // Read from ref so camera callback always sees latest state
       const current = scannedItemsRef.current;
       const existing = current.find((i) => i.sku === trimmed);
       if (existing) {
@@ -335,7 +338,6 @@ function SkuScannerSection({
         onItemsChange([...current, { sku: trimmed, name: itemName, qty: 1, hpj }]);
       }
 
-      // ✅ Trigger flash: ref blocks next scan, state shows visual overlay
       scanFlashRef.current = true;
       setShowFlash(true);
       setTimeout(() => {
@@ -427,15 +429,12 @@ function SkuScannerSection({
       {scanMode === "camera" && (
         <div className="rounded-lg overflow-hidden border border-gray-200 bg-black relative">
           <div id="mi-qr-reader" className="w-full" />
-
-          {/* ✅ Green flash overlay — shown for 1 second after successful scan */}
           {showFlash && (
             <div
               className="absolute inset-0 pointer-events-none transition-opacity duration-300"
               style={{ backgroundColor: "rgba(74, 222, 128, 0.5)" }}
             />
           )}
-
           {!cameraActive && (
             <div className="flex items-center justify-center py-8 text-[11px] text-gray-400">
               Memuat kamera...
@@ -456,32 +455,32 @@ function SkuScannerSection({
       {scannedItems.length > 0 && (
         <div className="space-y-1.5">
           {scannedItems.map((item) => (
-            <div key={item.sku} className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+            <div key={item.sku} className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-blue-900 truncate">{item.name}</p>
-                <p className="text-[10px] text-blue-600 font-mono">{item.sku}</p>
-                <p className="text-[10px] text-green-700">{formatRupiah(item.hpj)}</p>
+                <p className="text-xs font-semibold text-gray-800 truncate">{item.name}</p>
+                <p className="text-[10px] text-gray-500 font-mono">{item.sku}</p>
+                <p className="text-[10px] text-gray-500">{formatRupiah(item.hpj)}</p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => adjustQty(item.sku, -1)}
-                  className="w-6 h-6 rounded-full border border-blue-300 flex items-center justify-center text-blue-700 hover:bg-blue-100 text-xs font-bold"
+                  className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-100 text-xs font-bold"
                 >
                   −
                 </button>
-                <span className="w-6 text-center text-sm font-bold text-blue-900">{item.qty}</span>
+                <span className="w-6 text-center text-sm font-bold text-gray-800">{item.qty}</span>
                 <button
                   type="button"
                   onClick={() => adjustQty(item.sku, 1)}
-                  className="w-6 h-6 rounded-full border border-blue-300 flex items-center justify-center text-blue-700 hover:bg-blue-100 text-xs font-bold"
+                  className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 hover:bg-gray-100 text-xs font-bold"
                 >
                   +
                 </button>
                 <button
                   type="button"
                   onClick={() => removeItem(item.sku)}
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-red-500 hover:bg-red-50 ml-1"
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-red-400 hover:bg-red-50 ml-1"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -504,7 +503,7 @@ export default function MaterialIssuePage() {
   const [user, setUser] = useState<any>(null);
   const [data, setData] = useState<MIItem[]>([]);
   const [masterItems, setMasterItems] = useState<MasterItem[]>([]);
-  const [dropdownData, setDropdownData] = useState<DropdownData>({ request_by: [], type_reason: [] });
+  const [dropdownData, setDropdownData] = useState<DropdownData>({ request_by: [], type_reason: [], assigned_to: [] });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -528,20 +527,21 @@ export default function MaterialIssuePage() {
     issue_number: "",
     type_reason: "",
     reason: "",
+    assigned_to: "",
     scannedItems: [] as ScannedItem[],
   };
   const [form, setForm] = useState(emptyForm);
+
+  // Edit form now includes scannedItems for multi-item editing
   const [editForm, setEditForm] = useState({
-    item_sku: "",
-    item_name: "",
-    item_qty: "",
-    item_hpj: "",
     request_by: "",
     request_number: "",
     issue_number: "",
     type_reason: "",
     reason: "",
     has_processed: "FALSE",
+    assigned_to: "",
+    scannedItems: [] as ScannedItem[],
   });
 
   // ── Init ────────────────────────────────────────────────────────────────────
@@ -569,7 +569,18 @@ export default function MaterialIssuePage() {
       );
       if (res.ok) {
         const rows: MIItem[] = await res.json();
-        setData(rows.filter((r) => r.id));
+        setData(
+          rows
+            .filter((r) => r.id)
+            .sort((a, b) => {
+              const parseDate = (str: string) => {
+                if (!str) return 0;
+                const cleaned = str.replace(",", "").replace(/\./g, ":");
+                return new Date(cleaned).getTime();
+              };
+              return parseDate(b.created_at) - parseDate(a.created_at);
+            })
+        );
         setLoading(false);
       }
     } catch {}
@@ -608,6 +619,21 @@ export default function MaterialIssuePage() {
     }
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  // ── Push notification ───────────────────────────────────────────────────────
+  const sendPushNotification = async (params: {
+    assignedTo?: string;
+    title: string;
+    body: string;
+  }) => {
+    try {
+      await fetch("/api/push-notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+      });
+    } catch {}
   };
 
   // ── Toggle processed ────────────────────────────────────────────────────────
@@ -657,6 +683,7 @@ export default function MaterialIssuePage() {
         issue_number: form.issue_number,
         type_reason: form.type_reason,
         reason: form.reason,
+        assigned_to: form.assigned_to,
         created_by: user.user_name,
       }));
 
@@ -667,6 +694,13 @@ export default function MaterialIssuePage() {
       });
 
       if (res.ok) {
+        if (form.assigned_to) {
+          await sendPushNotification({
+            assignedTo: form.assigned_to,
+            title: "Material Issue Baru",
+            body: `${toCapitalEachWord(user.name)}: ${form.reason} (${form.scannedItems.length} item)`,
+          });
+        }
         showMessage("Material issue berhasil dibuat", "success");
         setShowAddModal(false);
         setForm(emptyForm);
@@ -685,40 +719,101 @@ export default function MaterialIssuePage() {
   // ── Edit ────────────────────────────────────────────────────────────────────
   const openEdit = (item: MIItem) => {
     setSelectedItem(item);
+
+    // Load all items in this group as scannedItems
+    const groupItems = data.filter((d) => d.id === item.id);
+    const scannedItems: ScannedItem[] = groupItems.map((g) => ({
+      sku: g.item_sku || "",
+      name: g.item_name || "",
+      qty: Number(g.item_qty) || 1,
+      hpj: g.item_hpj || "",
+    }));
+
     setEditForm({
-      item_sku: item.item_sku,
-      item_name: item.item_name,
-      item_qty: item.item_qty,
-      item_hpj: item.item_hpj,
-      request_by: item.request_by,
-      request_number: item.request_number,
-      issue_number: item.issue_number,
-      type_reason: item.type_reason,
-      reason: item.reason,
-      has_processed: item.has_processed,
+      request_by: item.request_by || "",
+      request_number: item.request_number || "",
+      issue_number: item.issue_number || "",
+      type_reason: item.type_reason || "",
+      reason: item.reason || "",
+      has_processed: item.has_processed || "FALSE",
+      assigned_to: item.assigned_to || "",
+      scannedItems,
     });
     setShowEditModal(true);
   };
 
   const handleEdit = async () => {
     if (!selectedItem) return;
+    if (editForm.scannedItems.length === 0) {
+      showMessage("Minimal 1 item harus ada", "error");
+      return;
+    }
     setSubmitting(true);
     try {
+      const groupId = selectedItem.id;
+      const existingGroupItems = data.filter((d) => d.id === groupId);
+
+      // Delete all existing items in the group
+      await Promise.all(
+        existingGroupItems.map((item) =>
+          fetch(`/api/material-issue?id=${item.id}&sku=${encodeURIComponent(item.item_sku)}`, { method: "DELETE" })
+        )
+      );
+
+      // Re-create all items with updated data
+      const payload = editForm.scannedItems.map((si) => ({
+        id: groupId,
+        name: selectedItem.name,
+        user_name: selectedItem.user_name,
+        item_sku: si.sku,
+        item_name: si.name,
+        item_qty: String(si.qty),
+        item_hpj: si.hpj,
+        request_by: editForm.request_by,
+        request_number: editForm.request_number,
+        issue_number: editForm.issue_number,
+        type_reason: editForm.type_reason,
+        reason: editForm.reason,
+        has_processed: editForm.has_processed,
+        assigned_to: editForm.assigned_to,
+        created_by: selectedItem.created_by,
+        update_by: user.user_name,
+      }));
+
       const res = await fetch("/api/material-issue", {
-        method: "PUT",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: selectedItem.id, update_by: user.user_name, ...editForm }),
+        body: JSON.stringify(payload),
       });
+
       if (res.ok) {
+        // Notify if assigned_to changed
+        if (editForm.assigned_to && editForm.assigned_to !== selectedItem.assigned_to) {
+          await sendPushNotification({
+            assignedTo: editForm.assigned_to,
+            title: "Material Issue Ditugaskan",
+            body: `${editForm.reason} dari ${toCapitalEachWord(selectedItem.name || "")}`,
+          });
+        }
+        // Notify creator if status changed to selesai
+        if (editForm.has_processed === "TRUE" && selectedItem.has_processed !== "TRUE") {
+          await sendPushNotification({
+            assignedTo: selectedItem.created_by,
+            title: "Material Issue Selesai",
+            body: `Issue ${selectedItem.id} sudah diselesaikan`,
+          });
+        }
         showMessage("Berhasil diupdate", "success");
         setShowEditModal(false);
         setSelectedItem(null);
         fetchData();
       } else {
         showMessage("Gagal update", "error");
+        fetchData(); // Re-fetch to restore state if delete succeeded but post failed
       }
     } catch {
       showMessage("Gagal update", "error");
+      fetchData();
     } finally {
       setSubmitting(false);
     }
@@ -773,7 +868,9 @@ export default function MaterialIssuePage() {
         (d.item_name || "").toLowerCase().includes(q) ||
         (d.request_number || "").toLowerCase().includes(q) ||
         (d.issue_number || "").toLowerCase().includes(q) ||
-        (d.request_by || "").toLowerCase().includes(q)
+        (d.request_by || "").toLowerCase().includes(q) ||
+        (d.name || "").toLowerCase().includes(q) ||
+        (d.assigned_to || "").toLowerCase().includes(q)
     );
   })();
 
@@ -826,8 +923,8 @@ export default function MaterialIssuePage() {
               type="text"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-              placeholder="Cari SKU / nama item / no. request / issue..."
-              className="pl-6 pr-2 py-1 border border-gray-300 rounded text-[11px] w-72 focus:outline-none focus:ring-1 focus:ring-primary"
+              placeholder="Cari SKU / nama / store / assigned / no. request..."
+              className="pl-6 pr-2 py-1 border border-gray-300 rounded text-[11px] w-80 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
           {hasSearch && (
@@ -856,17 +953,20 @@ export default function MaterialIssuePage() {
                 <table className="w-full text-[10px] border-collapse" style={{ tableLayout: "fixed" }}>
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[90px]">
-                        <span className="text-[8px] uppercase tracking-wide">ID / Tgl</span>
+                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[40px]">
+                        <span className="text-[8px] uppercase tracking-wide">Tanggal</span>
+                      </th>
+                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[60px]">
+                        <span className="text-[8px] uppercase tracking-wide">Store</span>
+                      </th>
+                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[50px]">
+                        <span className="text-[8px] uppercase tracking-wide">Assigned To</span>
                       </th>
                       <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[160px]">
                         <span className="text-[8px] uppercase tracking-wide">Item</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[40px]">
+                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[36px]">
                         <span className="text-[8px] uppercase tracking-wide">Qty</span>
-                      </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[70px]">
-                        <span className="text-[8px] uppercase tracking-wide">Req By</span>
                       </th>
                       <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[80px]">
                         <span className="text-[8px] uppercase tracking-wide">No. Request</span>
@@ -874,7 +974,10 @@ export default function MaterialIssuePage() {
                       <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[80px]">
                         <span className="text-[8px] uppercase tracking-wide">No. Issue</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[70px]">
+                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[50px]">
+                        <span className="text-[8px] uppercase tracking-wide">Req By</span>
+                      </th>
+                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[65px]">
                         <span className="text-[8px] uppercase tracking-wide">Tipe</span>
                       </th>
                       <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[70px]">
@@ -895,31 +998,33 @@ export default function MaterialIssuePage() {
                     {currentItems.map((item) => {
                       const groupItems = getGroupItems(item.id);
                       const totalQty = groupItems.reduce((sum, g) => sum + Number(g.item_qty || 0), 0);
-                      const itemCount = groupItems.length;
                       const isProcessed = item.has_processed === "TRUE";
+                      const storeName = toCapitalEachWord(item.name || "");
 
                       return (
                         <tr
                           key={item.id}
                           onClick={() => setDetailGroupId(item.id)}
-                          className={`border-b border-gray-100 cursor-pointer transition-colors ${
-                            isProcessed ? "bg-green-50 hover:bg-green-100" : "bg-red-50 hover:bg-red-100"
-                          }`}
+                          className={`border-b border-gray-100 cursor-pointer transition-colors ${isProcessed ? "bg-green-50 hover:bg-green-100" : "bg-red-50 hover:bg-red-100"}`}
                         >
-                          {/* ID + Date */}
-                          <td className="px-1.5 py-1 border-r border-gray-200">
-                            <div className="truncate font-mono text-[9px] text-gray-600 font-bold">{item.id}</div>
-                            <div className="text-[8px] text-gray-400">{item.created_at?.split(" ")[0]}</div>
+                          {/* Tanggal */}
+                          <td className="px-1.5 py-1.5 text-center border-r border-gray-200">
+                            <div className="text-[9px] text-gray-600">{item.created_at?.split(",")[0]}</div>
                           </td>
 
-                          {/* Item summary */}
-                          <td className="px-1.5 py-1 border-r border-gray-200">
-                            <div className="flex items-center gap-1 mb-0.5">
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-blue-100 text-blue-700 shrink-0">
-                                {itemCount} item
-                              </span>
-                            </div>
-                            <p className="text-[9px] text-gray-600 truncate leading-tight">
+                          {/* Store */}
+                          <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate text-gray-700">
+                            {hasSearch ? highlightText(storeName, search) : storeName}
+                          </td>
+
+                          {/* Assigned To */}
+                          <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate text-gray-600">
+                            {hasSearch ? highlightText(item.assigned_to || "-", search) : (item.assigned_to || "-")}
+                          </td>
+
+                          {/* Item */}
+                          <td className="px-1.5 py-1.5 border-r border-gray-200">
+                            <p className="text-[9px] text-gray-700 truncate leading-tight">
                               {hasSearch
                                 ? highlightText(groupItems.map((g) => g.item_name).join(", "), search)
                                 : groupItems.map((g) => g.item_name).join(", ")}
@@ -927,47 +1032,53 @@ export default function MaterialIssuePage() {
                           </td>
 
                           {/* Total qty */}
-                          <td className="px-1.5 py-1 border-r border-gray-200 text-center font-bold text-gray-800">
+                          <td className="px-1.5 py-1.5 border-r border-gray-200 text-center font-bold text-gray-800">
                             {totalQty}
                           </td>
 
-                          <td className="px-1.5 py-1 border-r border-gray-200 truncate text-gray-600">
-                            {hasSearch ? highlightText(item.request_by, search) : item.request_by}
-                          </td>
-                          <td className="px-1.5 py-1 border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
+                          {/* No. Request */}
+                          <td className="px-1.5 py-1.5 border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-0.5">
-                              <span className="font-mono text-[9px] truncate flex-1">
-                                {hasSearch ? highlightText(item.request_number, search) : item.request_number}
+                              <span className="font-mono text-[9px] truncate flex-1 text-gray-600">
+                                {hasSearch ? highlightText(item.request_number, search) : item.request_number || "-"}
                               </span>
                               {item.request_number && (
                                 <CopyButton text={item.request_number} id={`rn-${item.id}`} copiedId={copiedId} onCopy={handleCopy} />
                               )}
                             </div>
                           </td>
-                          <td className="px-1.5 py-1 border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
+
+                          {/* No. Issue */}
+                          <td className="px-1.5 py-1.5 border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-0.5">
-                              <span className="font-mono text-[9px] truncate flex-1">
-                                {hasSearch ? highlightText(item.issue_number, search) : item.issue_number}
+                              <span className="font-mono text-[9px] truncate flex-1 text-gray-600">
+                                {hasSearch ? highlightText(item.issue_number, search) : item.issue_number || "-"}
                               </span>
                               {item.issue_number && (
                                 <CopyButton text={item.issue_number} id={`in-${item.id}`} copiedId={copiedId} onCopy={handleCopy} />
                               )}
                             </div>
                           </td>
-                          <td className="px-1.5 py-1 border-r border-gray-200 truncate text-gray-600">{item.type_reason || "-"}</td>
-                          <td className="px-1.5 py-1 border-r border-gray-200 truncate text-gray-600" title={item.reason}>{item.reason || "-"}</td>
-                          <td className="px-1 py-1 border-r border-gray-200 text-center">
+
+                          <td className="px-1.5 py-1.5 border-r border-gray-200 truncate text-gray-600">{item.request_by || "-"}</td>
+                          <td className="px-1.5 py-1.5 border-r border-gray-200 truncate text-gray-600">{item.type_reason || "-"}</td>
+                          <td className="px-1.5 py-1.5 border-r border-gray-200 truncate text-gray-600" title={item.reason}>{item.reason || "-"}</td>
+
+                          {/* Status badge */}
+                          <td className="px-1 py-1.5 border-r border-gray-200 text-center">
                             <ProcessedBadge value={item.has_processed} />
                           </td>
-                          <td className="px-1 py-1 border-r border-gray-200 text-center" onClick={(e) => e.stopPropagation()}>
+
+                          {/* Toggle proses */}
+                          <td className="px-1 py-1.5 border-r border-gray-200 text-center" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
                               onClick={() => handleToggleProcessed(item.id, item.has_processed)}
                               title={isProcessed ? "Tandai belum diproses" : "Tandai sudah diproses"}
-                              className="inline-flex items-center justify-center w-4 h-4 rounded transition-colors hover:bg-white/50"
+                              className="inline-flex items-center justify-center w-4 h-4 rounded transition-colors hover:bg-gray-100"
                             >
                               {isProcessed ? (
-                                <svg className="w-3.5 h-3.5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                               ) : (
@@ -977,7 +1088,9 @@ export default function MaterialIssuePage() {
                               )}
                             </button>
                           </td>
-                          <td className="px-1 py-1 text-center" onClick={(e) => e.stopPropagation()}>
+
+                          {/* Aksi */}
+                          <td className="px-1 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
                             <div className="flex flex-wrap gap-0.5 justify-center">
                               <button
                                 onClick={() => openEdit(item)}
@@ -1103,6 +1216,20 @@ export default function MaterialIssuePage() {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  Assigned To
+                </label>
+                <select
+                  value={form.assigned_to}
+                  onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 bg-gray-50"
+                >
+                  <option value="">Pilih (opsional)</option>
+                  {dropdownData.assigned_to.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">No. Request</label>
@@ -1132,14 +1259,14 @@ export default function MaterialIssuePage() {
                 </label>
                 <textarea
                   value={form.reason}
-                  onChange={(e) => setForm({ ...form, reason: e.target.value.slice(0, 50) })}
+                  onChange={(e) => setForm({ ...form, reason: e.target.value.slice(0, 100) })}
                   rows={2}
-                  maxLength={50}
-                  placeholder="Maks 50 karakter"
+                  maxLength={100}
+                  placeholder="Maks 100 karakter"
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none bg-gray-50"
                 />
-                <p className={`text-[10px] mt-0.5 text-right ${form.reason.length >= 50 ? "text-red-500 font-semibold" : "text-gray-400"}`}>
-                  {form.reason.length}/50
+                <p className={`text-[10px] mt-0.5 text-right ${form.reason.length >= 100 ? "text-red-500 font-semibold" : "text-gray-400"}`}>
+                  {form.reason.length}/100
                 </p>
               </div>
             </div>
@@ -1173,37 +1300,14 @@ export default function MaterialIssuePage() {
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">SKU</label>
-                  <input
-                    type="text"
-                    value={editForm.item_sku}
-                    onChange={(e) => setEditForm({ ...editForm, item_sku: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 bg-gray-50 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Qty</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={editForm.item_qty}
-                    onChange={(e) => setEditForm({ ...editForm, item_qty: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 bg-gray-50"
-                  />
-                </div>
-              </div>
+              {/* SKU Scanner for edit — same component */}
+              <SkuScannerSection
+                masterItems={masterItems}
+                scannedItems={editForm.scannedItems}
+                onItemsChange={(items) => setEditForm((prev) => ({ ...prev, scannedItems: items }))}
+              />
 
-              <div>
-                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Nama Item</label>
-                <input
-                  type="text"
-                  value={editForm.item_name}
-                  onChange={(e) => setEditForm({ ...editForm, item_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 bg-gray-50"
-                />
-              </div>
+              <div className="border-t border-dashed border-gray-200" />
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -1228,6 +1332,18 @@ export default function MaterialIssuePage() {
                     {dropdownData.type_reason.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Assigned To</label>
+                <select
+                  value={editForm.assigned_to}
+                  onChange={(e) => setEditForm({ ...editForm, assigned_to: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 bg-gray-50"
+                >
+                  <option value="">Pilih (opsional)</option>
+                  {dropdownData.assigned_to.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1255,13 +1371,13 @@ export default function MaterialIssuePage() {
                 <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Alasan</label>
                 <textarea
                   value={editForm.reason}
-                  onChange={(e) => setEditForm({ ...editForm, reason: e.target.value.slice(0, 50) })}
+                  onChange={(e) => setEditForm({ ...editForm, reason: e.target.value.slice(0, 100) })}
                   rows={2}
-                  maxLength={50}
+                  maxLength={100}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none bg-gray-50"
                 />
-                <p className={`text-[10px] mt-0.5 text-right ${editForm.reason.length >= 50 ? "text-red-500 font-semibold" : "text-gray-400"}`}>
-                  {editForm.reason.length}/50
+                <p className={`text-[10px] mt-0.5 text-right ${editForm.reason.length >= 100 ? "text-red-500 font-semibold" : "text-gray-400"}`}>
+                  {editForm.reason.length}/100
                 </p>
               </div>
 

@@ -23,23 +23,28 @@ export async function GET(request: NextRequest) {
       ? rows
       : rows.filter((r: any) => r.created_by === userName);
 
-    return NextResponse.json(filtered);
+    // Sort newest first by created_at
+    const sorted = [...filtered].sort((a: any, b: any) => {
+      const tA = new Date(a.created_at || 0).getTime();
+      const tB = new Date(b.created_at || 0).getTime();
+      return tB - tA;
+    });
+
+    return NextResponse.json(sorted);
   } catch (error) {
     console.error('GET material_issue error:', error);
     return NextResponse.json({ error: 'Failed to fetch data' }, { status: 500 });
   }
 }
 
-
-
 // ── POST ──────────────────────────────────────────────────────────────────────
-// Body: array of items (same request_number, different rows)
+// Body: array of items (same group id, different rows)
 // [{ id, name, user_name, item_sku, item_name, item_qty, item_hpj,
-//    request_by, request_number, issue_number, type_reason, reason, created_by }]
+//    request_by, request_number, issue_number, type_reason, reason,
+//    assigned_to, created_by }]
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    // Accept either a single item or array
     const items: any[] = Array.isArray(body) ? body : [body];
 
     const now = toJakartaTimestamp();
@@ -61,6 +66,7 @@ export async function POST(request: NextRequest) {
       '',             // update_by
       now,            // created_at
       now,            // update_at
+      item.assigned_to || '', // assigned_to (col 18)
     ]);
 
     await appendSheetData('material_issue', rows);
@@ -72,7 +78,6 @@ export async function POST(request: NextRequest) {
 }
 
 // ── PUT ───────────────────────────────────────────────────────────────────────
-// Body: { id, update_by, ...fields }
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
@@ -86,7 +91,7 @@ export async function PUT(request: NextRequest) {
 
     const existing = rows[idx];
     const now = toJakartaTimestamp();
-    const rowIndex = idx + 2; // 1-based + header row
+    const rowIndex = idx + 2;
 
     const updatedRow = [
       existing.id,
@@ -106,6 +111,7 @@ export async function PUT(request: NextRequest) {
       update_by,
       existing.created_at,
       now,
+      fields.assigned_to ?? existing.assigned_to ?? '', // col 18
     ];
 
     await updateSheetRow('material_issue', rowIndex, updatedRow);
@@ -127,12 +133,8 @@ export async function DELETE(request: NextRequest) {
     const idx = rows.findIndex((r: any) => r.id === id);
     if (idx === -1) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    // Overwrite row with empty values (soft-delete via blank row isn't ideal;
-    // here we clear the id so the app ignores it, then the user can clean up the sheet).
-    // A better approach: mark as deleted. But to keep it simple and consistent
-    // with the codebase pattern, we just blank out the row.
     const rowIndex = idx + 2;
-    const emptyRow = Array(17).fill('');
+    const emptyRow = Array(18).fill('');
     await updateSheetRow('material_issue', rowIndex, emptyRow);
 
     return NextResponse.json({ success: true });

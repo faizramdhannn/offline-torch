@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { getSheetData } from '@/lib/sheets';
 
 async function getMasterDropdown() {
   const auth = new google.auth.GoogleAuth({
@@ -26,7 +27,10 @@ async function getMasterDropdown() {
 
 export async function GET() {
   try {
-    const rows = await getMasterDropdown();
+    const [rows, users] = await Promise.all([
+      getMasterDropdown(),
+      getSheetData('users'),
+    ]);
 
     const request_by = [...new Set(
       rows.map((r: any) => r.request_by?.trim()).filter(Boolean)
@@ -36,9 +40,29 @@ export async function GET() {
       rows.map((r: any) => r.type_reason?.trim()).filter(Boolean)
     )];
 
-    return NextResponse.json({ request_by, type_reason });
+    // Mapping id → user_name dari sheet users
+    const userMap = new Map<string, string>();
+    users.forEach((u: any) => {
+      if (u.id && u.user_name) userMap.set(u.id.trim(), u.user_name.trim());
+    });
+
+    const seen = new Set<string>();
+    const assigned_to = rows
+      .map((r: any) => r.assigned_to?.trim())
+      .filter(Boolean)
+      .filter((id: string) => {
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      })
+      .map((id: string) => ({
+        id,
+        label: userMap.get(id) || id, // fallback ke id kalau tidak ketemu
+      }));
+
+    return NextResponse.json({ request_by, type_reason, assigned_to });
   } catch (error) {
     console.error('GET material-issue-dropdown error:', error);
-    return NextResponse.json({ request_by: [], type_reason: [] }, { status: 500 });
+    return NextResponse.json({ request_by: [], type_reason: [], assigned_to: [] }, { status: 500 });
   }
 }
