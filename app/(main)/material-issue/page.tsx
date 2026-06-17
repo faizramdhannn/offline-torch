@@ -24,7 +24,7 @@ interface MIItem {
   update_by: string;
   created_at: string;
   update_at: string;
-  assigned_to: string;
+  assigned_to: string; // disimpan di sheet sebagai user_name
 }
 
 interface MasterItem {
@@ -36,7 +36,7 @@ interface MasterItem {
 
 interface AssignedToOption {
   id: string;
-  label: string;
+  label: string; // label === user_name
 }
 
 interface DropdownData {
@@ -527,7 +527,7 @@ export default function MaterialIssuePage() {
     issue_number: "",
     type_reason: "",
     reason: "",
-    assigned_to: "",
+    assigned_to: "", // id dropdown (bukan user_name)
     scannedItems: [] as ScannedItem[],
   };
   const [form, setForm] = useState(emptyForm);
@@ -540,9 +540,22 @@ export default function MaterialIssuePage() {
     type_reason: "",
     reason: "",
     has_processed: "FALSE",
-    assigned_to: "",
+    assigned_to: "", // id dropdown (bukan user_name)
     scannedItems: [] as ScannedItem[],
   });
+
+  // ── assigned_to mapping helpers (id ↔ user_name) ────────────────────────────
+  // Dropdown value selalu pakai `id` (cocok dengan master_dropdown).
+  // Yang disimpan ke sheet material_issue adalah `user_name` (label).
+  const getUserNameById = useCallback(
+    (id: string): string => dropdownData.assigned_to.find((a) => a.id === id)?.label || id,
+    [dropdownData.assigned_to]
+  );
+
+  const getIdByUserName = useCallback(
+    (userName: string): string => dropdownData.assigned_to.find((a) => a.label === userName)?.id || "",
+    [dropdownData.assigned_to]
+  );
 
   // ── Init ────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -670,6 +683,9 @@ export default function MaterialIssuePage() {
     setSubmitting(true);
     try {
       const sharedId = generateId();
+      // Dropdown menyimpan id, tapi sheet material_issue menyimpan user_name
+      const assignedToUserName = form.assigned_to ? getUserNameById(form.assigned_to) : "";
+
       const payload = form.scannedItems.map((si) => ({
         id: sharedId,
         name: user.name,
@@ -683,7 +699,7 @@ export default function MaterialIssuePage() {
         issue_number: form.issue_number,
         type_reason: form.type_reason,
         reason: form.reason,
-        assigned_to: form.assigned_to,
+        assigned_to: assignedToUserName,
         created_by: user.user_name,
       }));
 
@@ -696,7 +712,7 @@ export default function MaterialIssuePage() {
       if (res.ok) {
         if (form.assigned_to) {
           await sendPushNotification({
-            assignedTo: form.assigned_to,
+            assignedTo: form.assigned_to, // id, dibutuhkan backend push-notify
             title: "Material Issue Baru",
             body: `${toCapitalEachWord(user.name)}: ${form.reason} (${form.scannedItems.length} item)`,
           });
@@ -736,7 +752,8 @@ export default function MaterialIssuePage() {
       type_reason: item.type_reason || "",
       reason: item.reason || "",
       has_processed: item.has_processed || "FALSE",
-      assigned_to: item.assigned_to || "",
+      // item.assigned_to dari sheet adalah user_name → convert balik ke id utk dropdown
+      assigned_to: item.assigned_to ? getIdByUserName(item.assigned_to) : "",
       scannedItems,
     });
     setShowEditModal(true);
@@ -760,6 +777,9 @@ export default function MaterialIssuePage() {
         )
       );
 
+      // Dropdown menyimpan id, tapi sheet material_issue menyimpan user_name
+      const assignedToUserName = editForm.assigned_to ? getUserNameById(editForm.assigned_to) : "";
+
       // Re-create all items with updated data
       const payload = editForm.scannedItems.map((si) => ({
         id: groupId,
@@ -775,7 +795,7 @@ export default function MaterialIssuePage() {
         type_reason: editForm.type_reason,
         reason: editForm.reason,
         has_processed: editForm.has_processed,
-        assigned_to: editForm.assigned_to,
+        assigned_to: assignedToUserName,
         created_by: selectedItem.created_by,
         update_by: user.user_name,
       }));
@@ -787,10 +807,10 @@ export default function MaterialIssuePage() {
       });
 
       if (res.ok) {
-        // Notify if assigned_to changed
-        if (editForm.assigned_to && editForm.assigned_to !== selectedItem.assigned_to) {
+        // Notify if assigned_to changed (bandingkan user_name vs user_name)
+        if (editForm.assigned_to && assignedToUserName !== selectedItem.assigned_to) {
           await sendPushNotification({
-            assignedTo: editForm.assigned_to,
+            assignedTo: editForm.assigned_to, // id, dibutuhkan backend push-notify
             title: "Material Issue Ditugaskan",
             body: `${editForm.reason} dari ${toCapitalEachWord(selectedItem.name || "")}`,
           });
