@@ -207,25 +207,65 @@ function GroupDetailPopup({
             ))}
           </div>
 
-          {/* Items list */}
+          {/* Items table — bisa di-block & copy-paste langsung ke spreadsheet */}
           <div className="border-t border-gray-100 pt-3">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">
-              Item ({items.length})
-            </p>
-            <div className="space-y-2">
-              {items.map((item, idx) => (
-                <div key={`${item.item_sku}-${idx}`} className="flex items-center gap-3 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-gray-800 truncate">{item.item_name}</p>
-                    <p className="text-[10px] font-mono text-gray-500">{item.item_sku}</p>
-                    <p className="text-[10px] text-gray-500">{formatRupiah(item.item_hpj)}</p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <span className="text-sm font-bold text-gray-800">{item.item_qty}</span>
-                    <p className="text-[10px] text-gray-400">pcs</p>
-                  </div>
-                </div>
-              ))}
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+                Item ({items.length})
+              </p>
+              <p className="text-[9px] text-gray-400">Blok manual atau klik ikon copy per kolom</p>
+            </div>
+            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+              <table className="w-full text-xs border-collapse select-text">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-10">No</th>
+                    <th className="px-2 py-1.5 text-left font-semibold text-gray-500 border-r border-gray-200">
+                      <div className="flex items-center justify-between gap-1">
+                        <span>SKU</span>
+                        <CopyButton
+                          text={items.map((i) => i.item_sku).join("\n")}
+                          id={`col-sku-${groupId}`}
+                          copiedId={copiedId}
+                          onCopy={onCopy}
+                        />
+                      </div>
+                    </th>
+                    <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-16">
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Qty</span>
+                        <CopyButton
+                          text={items.map((i) => i.item_qty).join("\n")}
+                          id={`col-qty-${groupId}`}
+                          copiedId={copiedId}
+                          onCopy={onCopy}
+                        />
+                      </div>
+                    </th>
+                    <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
+                      <div className="flex items-center justify-between gap-1">
+                        <span>Reason</span>
+                        <CopyButton
+                          text={items.map(() => meta.reason || "").join("\n")}
+                          id={`col-reason-${groupId}`}
+                          copiedId={copiedId}
+                          onCopy={onCopy}
+                        />
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item, idx) => (
+                    <tr key={`${item.item_sku}-${idx}`} className="border-b border-gray-100 last:border-b-0">
+                      <td className="px-2 py-1.5 text-center text-gray-600 border-r border-gray-200">{idx + 1}</td>
+                      <td className="px-2 py-1.5 font-mono text-gray-800 border-r border-gray-200">{item.item_sku}</td>
+                      <td className="px-2 py-1.5 text-center font-semibold text-gray-800 border-r border-gray-200">{item.item_qty}</td>
+                      <td className="px-2 py-1.5 text-gray-700">{meta.reason || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 
