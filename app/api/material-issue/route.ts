@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
     const rows = items.map((item) => [
       item.id,
       item.name,
+      item.assigned_to || '', // assigned_to (col 3)
       item.user_name,
       item.item_sku,
       item.item_name,
@@ -66,8 +67,15 @@ export async function POST(request: NextRequest) {
       '',             // update_by
       now,            // created_at
       now,            // update_at
-      item.assigned_to || '', // assigned_to (col 18)
     ]);
+
+    await appendSheetData('material_issue', rows);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('POST material_issue error:', error);
+    return NextResponse.json({ error: 'Failed to create' }, { status: 500 });
+  }
+}
 
     await appendSheetData('material_issue', rows);
     return NextResponse.json({ success: true });
@@ -96,6 +104,7 @@ export async function PUT(request: NextRequest) {
     const updatedRow = [
       existing.id,
       fields.name ?? existing.name,
+      fields.assigned_to ?? existing.assigned_to ?? '', // assigned_to (col 3)
       fields.user_name ?? existing.user_name,
       fields.item_sku ?? existing.item_sku,
       fields.item_name ?? existing.item_name,
@@ -111,7 +120,6 @@ export async function PUT(request: NextRequest) {
       update_by,
       existing.created_at,
       now,
-      fields.assigned_to ?? existing.assigned_to ?? '', // col 18
     ];
 
     await updateSheetRow('material_issue', rowIndex, updatedRow);
