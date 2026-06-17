@@ -23,7 +23,6 @@ export async function GET(request: NextRequest) {
       ? rows
       : rows.filter((r: any) => r.created_by === userName);
 
-    // Sort newest first by created_at
     const sorted = [...filtered].sort((a: any, b: any) => {
       const tA = new Date(a.created_at || 0).getTime();
       const tB = new Date(b.created_at || 0).getTime();
@@ -38,7 +37,6 @@ export async function GET(request: NextRequest) {
 }
 
 // ── POST ──────────────────────────────────────────────────────────────────────
-// Body: array of items (same group id, different rows)
 // Kolom spreadsheet: id, name, assigned_to, user_name, item_sku, item_name,
 // item_qty, item_hpj, request_by, request_number, issue_number, type_reason,
 // reason, has_processed, created_by, update_by, created_at, update_at
@@ -51,7 +49,7 @@ export async function POST(request: NextRequest) {
     const rows = items.map((item) => [
       item.id,
       item.name,
-      item.assigned_to || '', // assigned_to (col 3)
+      item.assigned_to || '',
       item.user_name,
       item.item_sku,
       item.item_name,
@@ -62,11 +60,11 @@ export async function POST(request: NextRequest) {
       item.issue_number,
       item.type_reason,
       item.reason,
-      'FALSE',        // has_processed
+      'FALSE',
       item.created_by,
-      '',             // update_by
-      now,            // created_at
-      now,            // update_at
+      '',
+      now,
+      now,
     ]);
 
     await appendSheetData('material_issue', rows);
@@ -96,7 +94,7 @@ export async function PUT(request: NextRequest) {
     const updatedRow = [
       existing.id,
       fields.name ?? existing.name,
-      fields.assigned_to ?? existing.assigned_to ?? '', // assigned_to (col 3)
+      fields.assigned_to ?? existing.assigned_to ?? '',
       fields.user_name ?? existing.user_name,
       fields.item_sku ?? existing.item_sku,
       fields.item_name ?? existing.item_name,
