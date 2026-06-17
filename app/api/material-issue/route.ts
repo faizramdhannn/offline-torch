@@ -39,9 +39,9 @@ export async function GET(request: NextRequest) {
 
 // ── POST ──────────────────────────────────────────────────────────────────────
 // Body: array of items (same group id, different rows)
-// [{ id, name, user_name, item_sku, item_name, item_qty, item_hpj,
-//    request_by, request_number, issue_number, type_reason, reason,
-//    assigned_to, created_by }]
+// Kolom spreadsheet: id, name, assigned_to, user_name, item_sku, item_name,
+// item_qty, item_hpj, request_by, request_number, issue_number, type_reason,
+// reason, has_processed, created_by, update_by, created_at, update_at
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -68,14 +68,6 @@ export async function POST(request: NextRequest) {
       now,            // created_at
       now,            // update_at
     ]);
-
-    await appendSheetData('material_issue', rows);
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('POST material_issue error:', error);
-    return NextResponse.json({ error: 'Failed to create' }, { status: 500 });
-  }
-}
 
     await appendSheetData('material_issue', rows);
     return NextResponse.json({ success: true });
