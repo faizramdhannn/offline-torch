@@ -690,21 +690,25 @@ export default function MaterialIssuePage() {
   };
 
   // ── Toggle processed ────────────────────────────────────────────────────────
+  // Satu request PUT mode "group-status": backend yang loop semua baris
+  // dalam group dan men-set has_processed yang sama untuk semuanya (TRUE
+  // semua atau FALSE semua). Tidak ada lagi banyak request paralel dari
+  // client per item.
   const handleToggleProcessed = async (groupId: string, currentValue: string) => {
     const newVal = currentValue === "TRUE" ? "FALSE" : "TRUE";
     setData((prev) => prev.map((d) => d.id === groupId ? { ...d, has_processed: newVal } : d));
     try {
-      const groupItems = data.filter((d) => d.id === groupId);
-      const results = await Promise.all(
-        groupItems.map((item) =>
-          fetch("/api/material-issue", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: item.id, update_by: user.user_name, has_processed: newVal }),
-          })
-        )
-      );
-      if (results.some((r) => !r.ok)) {
+      const res = await fetch("/api/material-issue", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: groupId,
+          mode: "group-status",
+          update_by: user.user_name,
+          has_processed: newVal,
+        }),
+      });
+      if (!res.ok) {
         setData((prev) => prev.map((d) => d.id === groupId ? { ...d, has_processed: currentValue } : d));
         showMessage("Gagal update status", "error");
       }
@@ -808,14 +812,20 @@ export default function MaterialIssuePage() {
     setSubmitting(true);
     try {
       const groupId = selectedItem.id;
-      const existingGroupItems = data.filter((d) => d.id === groupId);
 
-      // Delete all existing items in the group
-      await Promise.all(
-        existingGroupItems.map((item) =>
-          fetch(`/api/material-issue?id=${item.id}&sku=${encodeURIComponent(item.item_sku)}`, { method: "DELETE" })
-        )
+      // Clear seluruh group dalam SATU request (tanpa parameter sku).
+      // Backend akan menghapus semua baris dengan id ini, apapun SKU-nya saat
+      // ini di sheet — jadi tidak bergantung pada state browser yang mungkin
+      // sudah stale, dan aman walau SKU salah satu item diganti saat edit.
+      const deleteRes = await fetch(
+        `/api/material-issue?id=${encodeURIComponent(groupId)}`,
+        { method: "DELETE" }
       );
+      if (!deleteRes.ok) {
+        showMessage("Gagal menghapus data lama, perubahan dibatalkan", "error");
+        setSubmitting(false);
+        return;
+      }
 
       // Dropdown menyimpan id, tapi sheet material_issue menyimpan user_name
       const assignedToUserName = editForm.assigned_to ? getUserNameById(editForm.assigned_to) : "";
@@ -887,17 +897,14 @@ export default function MaterialIssuePage() {
       : "Hapus item ini?";
     if (!confirm(label)) return;
     try {
-      const results = await Promise.all(
-        groupItems.map((item) =>
-          fetch(`/api/material-issue?id=${item.id}&sku=${encodeURIComponent(item.item_sku)}`, { method: "DELETE" })
-        )
-      );
-      if (results.every((r) => r.ok)) {
+      // Clear seluruh group dalam satu request, sama seperti pada handleEdit.
+      const res = await fetch(`/api/material-issue?id=${encodeURIComponent(groupId)}`, { method: "DELETE" });
+      if (res.ok) {
         setData((prev) => prev.filter((d) => d.id !== groupId));
         showMessage("Dihapus", "success");
         try { new Audio("/delete.mp3").play(); } catch {}
       } else {
-        showMessage("Gagal menghapus sebagian item", "error");
+        showMessage("Gagal menghapus", "error");
         fetchData();
       }
     } catch {
