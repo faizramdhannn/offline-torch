@@ -1,10 +1,87 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, updateSheetDataWithHeader, appendSheetData } from '@/lib/sheets';
 
+// Semua kolom dari CSV Shopify — urutan sesuai header asli
 const REQUIRED_COLUMNS = [
-  'Name', 'Created at', 'Paid at', 'Financial Status', 'Subtotal',
-  'Notes', 'Discount Code', 'Discount Amount', 'Lineitem name',
-  'Lineitem quantity', 'Lineitem price', 'Lineitem sku', 'Employee', 'Location',
+  'Name',
+  'Email',
+  'Financial Status',
+  'Paid at',
+  'Fulfillment Status',
+  'Fulfilled at',
+  'Accepts Marketing',
+  'Currency',
+  'Subtotal',
+  'Shipping',
+  'Taxes',
+  'Total',
+  'Discount Code',
+  'Discount Amount',
+  'Shipping Method',
+  'Created at',
+  'Lineitem quantity',
+  'Lineitem name',
+  'Lineitem price',
+  'Lineitem compare at price',
+  'Lineitem sku',
+  'Lineitem requires shipping',
+  'Lineitem taxable',
+  'Lineitem fulfillment status',
+  'Billing Name',
+  'Billing Street',
+  'Billing Address1',
+  'Billing Address2',
+  'Billing Company',
+  'Billing City',
+  'Billing Zip',
+  'Billing Province',
+  'Billing Country',
+  'Billing Phone',
+  'Shipping Name',
+  'Shipping Street',
+  'Shipping Address1',
+  'Shipping Address2',
+  'Shipping Company',
+  'Shipping City',
+  'Shipping Zip',
+  'Shipping Province',
+  'Shipping Country',
+  'Shipping Phone',
+  'Notes',
+  'Note Attributes',
+  'Cancelled at',
+  'Payment Method',
+  'Payment Reference',
+  'Refunded Amount',
+  'Vendor',
+  'Outstanding Balance',
+  'Employee',
+  'Location',
+  'Device ID',
+  'Id',
+  'Tags',
+  'Risk Level',
+  'Source',
+  'Lineitem discount',
+  'Tax 1 Name',
+  'Tax 1 Value',
+  'Tax 2 Name',
+  'Tax 2 Value',
+  'Tax 3 Name',
+  'Tax 3 Value',
+  'Tax 4 Name',
+  'Tax 4 Value',
+  'Tax 5 Name',
+  'Tax 5 Value',
+  'Phone',
+  'Receipt Number',
+  'Duties',
+  'Billing Province Name',
+  'Shipping Province Name',
+  'Payment ID',
+  'Payment Terms Name',
+  'Next Payment Due At',
+  'Payment References',
 ];
 
 export async function GET(request: NextRequest) {
@@ -46,7 +123,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No valid data to import' }, { status: 400 });
     }
 
-    // Parse CSV sederhana (handle quoted commas)
+    // Parse CSV — handle quoted commas & quoted newlines
     const parseCSVLine = (line: string): string[] => {
       const result: string[] = [];
       let current = "";
@@ -54,7 +131,13 @@ export async function POST(request: NextRequest) {
       for (let i = 0; i < line.length; i++) {
         const ch = line[i];
         if (ch === '"') {
-          inQuotes = !inQuotes;
+          // Handle escaped quote ""
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
         } else if (ch === ',' && !inQuotes) {
           result.push(current.trim());
           current = "";
@@ -69,12 +152,16 @@ export async function POST(request: NextRequest) {
     const originalHeaders = parseCSVLine(lines[0]);
     const originalRows = lines.slice(1).map(parseCSVLine);
 
+    // Map setiap kolom REQUIRED ke index di CSV asli
+    // Jika kolom tidak ada di CSV, isi dengan string kosong
     const colIndexes = REQUIRED_COLUMNS.map(col => originalHeaders.indexOf(col));
 
+    // Filter baris kosong, lalu petakan ke kolom yang diinginkan
     const filteredRows = originalRows
       .filter(row => row.some(cell => cell !== ''))
-      .map(row => colIndexes.map(i => (i === -1 ? '' : row[i] ?? '')));
+      .map(row => colIndexes.map(i => (i === -1 ? '' : (row[i] ?? ''))));
 
+    // Index untuk dedup: Name + Lineitem name
     const nameIdx = REQUIRED_COLUMNS.indexOf('Name');
     const lineitemIdx = REQUIRED_COLUMNS.indexOf('Lineitem name');
 
@@ -87,7 +174,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Append mode
+    // ── Append mode: deduplikasi berdasarkan Name + Lineitem name ────────────
     let existingData: any[] = [];
     try { existingData = await getSheetData('shopify_import'); } catch { existingData = []; }
 
