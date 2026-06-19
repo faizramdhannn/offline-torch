@@ -265,24 +265,21 @@ const CategoryTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-// ── Helper: parse harga dari string seperti "Rp 1.000.000" atau "1000000" ──
 function parseHarga(val: string | undefined | null): number {
   if (!val) return 0;
   return parseInt(String(val).replace(/[^0-9]/g, "")) || 0;
 }
 
-// ── Helper: parse diskon dari string seperti "10" atau "10%" ─────────────
 function parseDiscount(val: string | undefined | null): number {
   if (!val) return 0;
   return parseFloat(String(val).replace(/[^0-9.]/g, "")) || 0;
 }
 
-// ── Helper: format rupiah ─────────────────────────────────────────────────
 function formatRupiah(val: number): string {
   return "Rp " + val.toLocaleString("id-ID");
 }
 
-// ── QR Label Popup dengan gambar ──────────────────────────────────────────
+// ── QR Label Popup — mobile responsive ───────────────────────────────────
 const QRLabelPopup = ({ item, onClose }: { item: StockItem; onClose: () => void }) => {
   const toProperCase = (str: string) => {
     if (!str) return "";
@@ -299,11 +296,11 @@ const QRLabelPopup = ({ item, onClose }: { item: StockItem; onClose: () => void 
     : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: "500px",
+          width: "min(500px, 100%)",
           background: "#fff",
           border: "1px solid #d1d5db",
           borderRadius: "10px",
@@ -312,22 +309,22 @@ const QRLabelPopup = ({ item, onClose }: { item: StockItem; onClose: () => void 
         }}
       >
         {imageUrl && !imgError ? (
-          <div style={{ width: "100%", height: "200px", background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", borderBottom: "1px solid #e5e7eb" }}>
+          <div style={{ width: "100%", height: "160px", background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", borderBottom: "1px solid #e5e7eb" }}>
             <img
               src={imageUrl}
               alt={item.sku}
-              style={{ maxWidth: "100%", maxHeight: "200px", objectFit: "contain" }}
+              style={{ maxWidth: "100%", maxHeight: "160px", objectFit: "contain" }}
               onError={() => setImgError(true)}
             />
           </div>
         ) : (
-          <div style={{ width: "100%", height: "80px", background: "#f9fafb", display: "flex", alignItems: "center", justifyContent: "center", borderBottom: "1px solid #e5e7eb" }}>
+          <div style={{ width: "100%", height: "60px", background: "#f9fafb", display: "flex", alignItems: "center", justifyContent: "center", borderBottom: "1px solid #e5e7eb" }}>
             <span style={{ fontSize: 11, color: "#9ca3af" }}>Tidak ada gambar</span>
           </div>
         )}
 
-        <div style={{ display: "flex", alignItems: "stretch", minHeight: "160px" }}>
-          <div style={{ flex: 1, padding: "16px", display: "flex", flexDirection: "column", justifyContent: "center", gap: "6px", borderRight: "1px solid #e5e7eb" }}>
+        <div style={{ display: "flex", alignItems: "stretch", minHeight: "140px" }}>
+          <div style={{ flex: 1, padding: "14px", display: "flex", flexDirection: "column", justifyContent: "center", gap: "6px", borderRight: "1px solid #e5e7eb", minWidth: 0 }}>
             <div style={{ fontSize: "13px", fontWeight: 700, color: "#111827", letterSpacing: "0.04em" }}>{item.sku}</div>
             <div style={{ fontSize: "11px", color: "#374151", fontWeight: 500, lineHeight: 1.4, wordBreak: "break-word" }}>{toProperCase(item.item_name)}</div>
             {item.hpj && (
@@ -351,8 +348,8 @@ const QRLabelPopup = ({ item, onClose }: { item: StockItem; onClose: () => void 
             )}
           </div>
 
-          <div style={{ width: "180px", display: "flex", alignItems: "center", justifyContent: "center", background: "#f9fafb", padding: "12px", flexShrink: 0 }}>
-            <QRCodeSVG value={item.sku} size={140} level="H" includeMargin={false} />
+          <div style={{ width: "130px", display: "flex", alignItems: "center", justifyContent: "center", background: "#f9fafb", padding: "12px", flexShrink: 0 }}>
+            <QRCodeSVG value={item.sku} size={106} level="H" includeMargin={false} />
           </div>
         </div>
       </div>
@@ -430,7 +427,7 @@ function HpjCell({ item }: { item: StockItem }) {
   return <td className="px-2 py-1">{item.hpj}</td>;
 }
 
-// ── Threshold Cell — warna merah bila stock ≤ threshold ──────────────────
+// ── Threshold Cell ────────────────────────────────────────────────────────
 function ThresholdCell({ item }: { item: StockItem }) {
   const thresholdVal = parseInt(String(item.threshold ?? "").replace(/[^0-9]/g, "")) || 0;
   const stockVal = parseInt(String(item.stock ?? "").replace(/[^0-9-]/g, "")) || 0;
@@ -501,7 +498,6 @@ export default function StockPage() {
   const itemsPerPage = 25;
 
   const [qrItem, setQrItem] = useState<StockItem | null>(null);
-
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
 
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
@@ -821,7 +817,7 @@ export default function StockPage() {
   if (!canSeeAnyView) {
     return (
       <div className="flex-1 overflow-auto">
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center text-gray-500">
               <p className="text-lg font-semibold mb-2">No View Access</p>
@@ -835,121 +831,156 @@ export default function StockPage() {
 
   return (
     <div className="flex-1 overflow-auto">
-      <div className="p-6">
+      <div className="p-3 sm:p-6">
 
-        <div className="flex-1 overflow-auto">
-          <div className="p-6">
-            <h1 className="text-2xl font-bold text-primary mb-6">Stock Management</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-primary mb-4 sm:mb-6">Stock Management</h1>
 
-            {/* Import/Export & Last Update */}
-            <div className="bg-white rounded-lg shadow p-4 mb-4">
-              <div className="flex justify-between items-center">
-                <div className="flex gap-2">
-                  {user.stock_import && (
-                    <button onClick={() => setShowImportModal(true)} className="px-4 py-1.5 bg-gray-700 text-white rounded text-xs hover:bg-gray-300 hover:text-black">
-                      Import Data
-                    </button>
-                  )}
-                  {user.stock_export && (
-                    <button onClick={exportToExcel} className="px-4 py-1.5 bg-gray-700 text-white rounded text-xs hover:bg-gray-300 hover:text-black">
-                      Export Stock
-                    </button>
-                  )}
-                  {user.stock_refresh_javelin && (
-                    <button onClick={handleRefreshJavelin} disabled={refreshing} className="px-4 py-1.5 bg-gray-700 text-white rounded text-xs hover:bg-gray-300 hover:text-black disabled:opacity-50 disabled:cursor-not-allowed">
-                      {refreshing ? "Refreshing..." : "Refresh Javelin"}
-                    </button>
-                  )}
-                  <button
-  onClick={() => setShowBarcodeModal(true)}
-  className="px-4 py-1.5 bg-gray-700 text-white rounded text-xs hover:bg-gray-300 hover:text-black"
->
-  Print Barcode
-</button>
+        {/* ── Import/Export & Last Update ── */}
+        <div className="bg-white rounded-lg shadow p-3 sm:p-4 mb-3 sm:mb-4">
+          {/* Tombol aksi — scroll horizontal di mobile */}
+          <div className="flex gap-2 overflow-x-auto pb-1 -mb-1 flex-nowrap">
+            {user.stock_import && (
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="px-3 py-2 sm:px-4 sm:py-1.5 bg-gray-700 text-white rounded text-xs hover:bg-gray-300 hover:text-black whitespace-nowrap flex-shrink-0 min-h-[36px] sm:min-h-0"
+              >
+                Import Data
+              </button>
+            )}
+            {user.stock_export && (
+              <button
+                onClick={exportToExcel}
+                className="px-3 py-2 sm:px-4 sm:py-1.5 bg-gray-700 text-white rounded text-xs hover:bg-gray-300 hover:text-black whitespace-nowrap flex-shrink-0 min-h-[36px] sm:min-h-0"
+              >
+                Export Stock
+              </button>
+            )}
+            {user.stock_refresh_javelin && (
+              <button
+                onClick={handleRefreshJavelin}
+                disabled={refreshing}
+                className="px-3 py-2 sm:px-4 sm:py-1.5 bg-gray-700 text-white rounded text-xs hover:bg-gray-300 hover:text-black disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex-shrink-0 min-h-[36px] sm:min-h-0"
+              >
+                {refreshing ? "Refreshing..." : "Refresh Javelin"}
+              </button>
+            )}
+            <button
+              onClick={() => setShowBarcodeModal(true)}
+              className="px-3 py-2 sm:px-4 sm:py-1.5 bg-gray-700 text-white rounded text-xs hover:bg-gray-300 hover:text-black whitespace-nowrap flex-shrink-0 min-h-[36px] sm:min-h-0"
+            >
+              Print Barcode
+            </button>
+          </div>
+          {/* Last update — di bawah tombol di mobile */}
+          {lastUpdate.length > 0 && (
+            <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-100 flex flex-col sm:flex-row sm:gap-3">
+              {lastUpdate.map((lu) => (
+                <div key={lu.type}>
+                  <span className="font-semibold text-gray-600">{lu.type}:</span> {lu.last_update}
                 </div>
-                <div className="text-xs text-gray-600">
-                  {lastUpdate.map((lu) => (
-                    <div key={lu.type}><span className="font-semibold">{lu.type}:</span> {lu.last_update}</div>
-                  ))}
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── View Selection ── */}
+        <div className="bg-white rounded-lg shadow p-3 sm:p-4 mb-3 sm:mb-4">
+          <label className="block text-xs font-medium text-gray-700 mb-2">Select View</label>
+          <div className="flex gap-2 overflow-x-auto pb-1 flex-nowrap">
+            {user.stock_view_store && (
+              <button
+                onClick={() => setSelectedView("store")}
+                className={`px-4 py-2 rounded text-xs transition-colors whitespace-nowrap flex-shrink-0 min-h-[36px] ${
+                  selectedView === "store" ? "bg-primary text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                Store
+              </button>
+            )}
+            {user.stock_view_pca && (
+              <button
+                onClick={() => setSelectedView("pca")}
+                className={`px-4 py-2 rounded text-xs transition-colors whitespace-nowrap flex-shrink-0 min-h-[36px] ${
+                  selectedView === "pca" ? "bg-primary text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                PCA
+              </button>
+            )}
+            {user.stock_view_master && (
+              <button
+                onClick={() => setSelectedView("master")}
+                className={`px-4 py-2 rounded text-xs transition-colors whitespace-nowrap flex-shrink-0 min-h-[36px] ${
+                  selectedView === "master" ? "bg-primary text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                Master
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ── Chart + Filters ── */}
+        <div className="bg-white rounded-lg shadow p-3 sm:p-4 mb-3 sm:mb-4">
+
+          {/* ── STORE CHART ── */}
+          {selectedView === "store" && (
+            <div className="mb-5">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700">Stock Summary</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Total Stock:{" "}
+                    <span className="font-bold text-gray-800">
+                      {chartData.reduce((s, d) => s + d.stock, 0).toLocaleString()}
+                    </span>
+                  </p>
                 </div>
-              </div>
-            </div>
-
-            {/* View Selection */}
-            <div className="bg-white rounded-lg shadow p-4 mb-4">
-              <label className="block text-xs font-medium text-gray-700 mb-2">Select View</label>
-              <div className="flex gap-2">
-                {user.stock_view_store && (
-                  <button onClick={() => setSelectedView("store")} className={`px-4 py-1.5 rounded text-xs transition-colors ${selectedView === "store" ? "bg-primary text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}>Store</button>
-                )}
-                {user.stock_view_pca && (
-                  <button onClick={() => setSelectedView("pca")} className={`px-4 py-1.5 rounded text-xs transition-colors ${selectedView === "pca" ? "bg-primary text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}>PCA</button>
-                )}
-                {user.stock_view_master && (
-                  <button onClick={() => setSelectedView("master")} className={`px-4 py-1.5 rounded text-xs transition-colors ${selectedView === "master" ? "bg-primary text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}>Master</button>
-                )}
-              </div>
-            </div>
-
-            {/* Chart + Filters */}
-            <div className="bg-white rounded-lg shadow p-4 mb-4">
-
-              {/* ── STORE CHART ── */}
-              {selectedView === "store" && (
-                <div className="mb-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-700">Stock Summary</h3>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        Total Stock:{" "}
-                        <span className="font-bold text-gray-800">
-                          {chartData.reduce((s, d) => s + d.stock, 0).toLocaleString()}
-                        </span>
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {storeChartOpen && (
-                        <div className="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
-                          <button
-                            onClick={() => setChartMode("store")}
-                            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${chartMode === "store" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-                          >
-                            Store
-                          </button>
-                          <button
-                            onClick={() => setChartMode("category")}
-                            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${chartMode === "category" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-                          >
-                            Category
-                          </button>
-                        </div>
-                      )}
+                <div className="flex items-center gap-2">
+                  {storeChartOpen && (
+                    <div className="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
                       <button
-                        onClick={() => setStoreChartOpen((v) => !v)}
-                        className="flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
-                        title={storeChartOpen ? "Hide chart" : "Show chart"}
+                        onClick={() => setChartMode("store")}
+                        className={`px-2 sm:px-3 py-1 rounded text-xs font-medium transition-colors ${chartMode === "store" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          className="w-4 h-4 transition-transform duration-200"
-                          style={{ transform: storeChartOpen ? "rotate(0deg)" : "rotate(180deg)" }}
-                        >
-                          <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                        </svg>
+                        Store
+                      </button>
+                      <button
+                        onClick={() => setChartMode("category")}
+                        className={`px-2 sm:px-3 py-1 rounded text-xs font-medium transition-colors ${chartMode === "category" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                      >
+                        Category
                       </button>
                     </div>
-                  </div>
+                  )}
+                  <button
+                    onClick={() => setStoreChartOpen((v) => !v)}
+                    className="flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                    title={storeChartOpen ? "Hide chart" : "Show chart"}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      className="w-4 h-4 transition-transform duration-200"
+                      style={{ transform: storeChartOpen ? "rotate(0deg)" : "rotate(180deg)" }}
+                    >
+                      <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
 
-                  {storeChartOpen && (
-                    <>
-                      {chartMode === "store" && (
-                        <ResponsiveContainer width="100%" height={200}>
+              {storeChartOpen && (
+                <>
+                  {chartMode === "store" && (
+                    <div className="overflow-x-auto">
+                      <div style={{ minWidth: "320px" }}>
+                        <ResponsiveContainer width="100%" height={180}>
                           <BarChart data={chartData} margin={{ top: 16, right: 4, left: 0, bottom: 0 }} barCategoryGap="30%">
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                             <XAxis dataKey="name" tick={<CustomXTick />} axisLine={false} tickLine={false} interval={0} height={24} />
-                            <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={32} />
+                            <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={28} />
                             <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                             <Bar dataKey="stock" radius={[3, 3, 0, 0]} maxBarSize={32} label={{ position: "top", fontSize: 8, fill: "#6b7280", formatter: (v: any) => Number(v) > 0 ? Number(v).toLocaleString() : "" }}>
                               {chartData.map((entry, index) => {
@@ -960,102 +991,106 @@ export default function StockPage() {
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
-                      )}
-
-                      {chartMode === "category" && (
-                        <>
-                          <div className="overflow-x-auto">
-                            <div style={{ width: Math.max(900, categoryChartData.length * 60), minWidth: "100%" }}>
-                              <BarChart
-                                width={Math.max(900, categoryChartData.length * 60)}
-                                height={220}
-                                data={categoryChartData}
-                                margin={{ top: 8, right: 4, left: 0, bottom: 0 }}
-                                barCategoryGap="20%"
-                                barGap={1}
-                              >
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                                <XAxis dataKey="name" tick={<CustomXTick />} axisLine={false} tickLine={false} interval={0} height={24} />
-                                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={32} />
-                                <Tooltip content={<CategoryTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-                                {WAREHOUSES.map((wh, i) => (
-                                  <Bar key={wh.name} dataKey={wh.name} fill={WAREHOUSE_COLORS[i % WAREHOUSE_COLORS.length]} radius={[2, 2, 0, 0]} maxBarSize={8} />
-                                ))}
-                              </BarChart>
-                            </div>
-                          </div>
-                          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-                            {WAREHOUSES.map((wh, i) => (
-                              <div key={wh.name} className="flex items-center gap-1">
-                                <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: WAREHOUSE_COLORS[i % WAREHOUSE_COLORS.length] }} />
-                                <span className="text-[10px] text-gray-500">{wh.name}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </>
+                      </div>
+                    </div>
                   )}
 
-                  <div className="border-t border-gray-100 mt-3 mb-4" />
-                </div>
+                  {chartMode === "category" && (
+                    <>
+                      <div className="overflow-x-auto">
+                        <div style={{ width: Math.max(600, categoryChartData.length * 60), minWidth: "100%" }}>
+                          <BarChart
+                            width={Math.max(600, categoryChartData.length * 60)}
+                            height={200}
+                            data={categoryChartData}
+                            margin={{ top: 8, right: 4, left: 0, bottom: 0 }}
+                            barCategoryGap="20%"
+                            barGap={1}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                            <XAxis dataKey="name" tick={<CustomXTick />} axisLine={false} tickLine={false} interval={0} height={24} />
+                            <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={28} />
+                            <Tooltip content={<CategoryTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                            {WAREHOUSES.map((wh, i) => (
+                              <Bar key={wh.name} dataKey={wh.name} fill={WAREHOUSE_COLORS[i % WAREHOUSE_COLORS.length]} radius={[2, 2, 0, 0]} maxBarSize={8} />
+                            ))}
+                          </BarChart>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                        {WAREHOUSES.map((wh, i) => (
+                          <div key={wh.name} className="flex items-center gap-1">
+                            <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: WAREHOUSE_COLORS[i % WAREHOUSE_COLORS.length] }} />
+                            <span className="text-[10px] text-gray-500">{wh.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
               )}
 
-              {/* ── PCA CHART ── */}
-              {selectedView === "pca" && (
-                <div className="mb-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-700">PCA Stock Summary</h3>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        Total Stock:{" "}
-                        <span className="font-bold text-gray-800">
-                          {pcaTotalStock.toLocaleString()}
-                        </span>
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {pcaChartOpen && (
-                        <div className="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
-                          <button
-                            onClick={() => setPcaChartMode("category")}
-                            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${pcaChartMode === "category" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-                          >
-                            Category
-                          </button>
-                          <button
-                            onClick={() => setPcaChartMode("grade")}
-                            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${pcaChartMode === "grade" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-                          >
-                            Grade
-                          </button>
-                        </div>
-                      )}
+              <div className="border-t border-gray-100 mt-3 mb-4" />
+            </div>
+          )}
+
+          {/* ── PCA CHART ── */}
+          {selectedView === "pca" && (
+            <div className="mb-5">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700">PCA Stock Summary</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Total Stock:{" "}
+                    <span className="font-bold text-gray-800">
+                      {pcaTotalStock.toLocaleString()}
+                    </span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {pcaChartOpen && (
+                    <div className="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
                       <button
-                        onClick={() => setPcaChartOpen((v) => !v)}
-                        className="flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
-                        title={pcaChartOpen ? "Hide chart" : "Show chart"}
+                        onClick={() => setPcaChartMode("category")}
+                        className={`px-2 sm:px-3 py-1 rounded text-xs font-medium transition-colors ${pcaChartMode === "category" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          className="w-4 h-4 transition-transform duration-200"
-                          style={{ transform: pcaChartOpen ? "rotate(0deg)" : "rotate(180deg)" }}
-                        >
-                          <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                        </svg>
+                        Category
+                      </button>
+                      <button
+                        onClick={() => setPcaChartMode("grade")}
+                        className={`px-2 sm:px-3 py-1 rounded text-xs font-medium transition-colors ${pcaChartMode === "grade" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                      >
+                        Grade
                       </button>
                     </div>
-                  </div>
+                  )}
+                  <button
+                    onClick={() => setPcaChartOpen((v) => !v)}
+                    className="flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                    title={pcaChartOpen ? "Hide chart" : "Show chart"}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      className="w-4 h-4 transition-transform duration-200"
+                      style={{ transform: pcaChartOpen ? "rotate(0deg)" : "rotate(180deg)" }}
+                    >
+                      <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
 
-                  {pcaChartOpen && (
-                    <>
-                      <ResponsiveContainer width="100%" height={200}>
+              {pcaChartOpen && (
+                <>
+                  <div className="overflow-x-auto">
+                    <div style={{ minWidth: "300px" }}>
+                      <ResponsiveContainer width="100%" height={180}>
                         <BarChart data={pcaActiveData} margin={{ top: 16, right: 4, left: 0, bottom: 0 }} barCategoryGap="30%">
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                           <XAxis dataKey="name" tick={<CustomXTick />} axisLine={false} tickLine={false} interval={0} height={24} />
-                          <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={32} />
+                          <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={28} />
                           <Tooltip content={<PCATooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                           <Bar dataKey="stock" radius={[3, 3, 0, 0]} maxBarSize={36} label={{ position: "top", fontSize: 8, fill: "#6b7280", formatter: (v: any) => Number(v) > 0 ? Number(v).toLocaleString() : "" }}>
                             {pcaActiveData.map((_, index) => (
@@ -1064,209 +1099,289 @@ export default function StockPage() {
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>
+                    </div>
+                  </div>
 
-                      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-                        {pcaActiveData.map((entry, i) => (
-                          <div key={entry.name} className="flex items-center gap-1">
-                            <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: pcaActiveColors[i % pcaActiveColors.length] }} />
-                            <span className="text-[10px] text-gray-500">{entry.name}</span>
-                          </div>
-                        ))}
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                    {pcaActiveData.map((entry, i) => (
+                      <div key={entry.name} className="flex items-center gap-1">
+                        <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: pcaActiveColors[i % pcaActiveColors.length] }} />
+                        <span className="text-[10px] text-gray-500">{entry.name}</span>
                       </div>
-                    </>
-                  )}
+                    ))}
+                  </div>
+                </>
+              )}
 
-                  <div className="border-t border-gray-100 mt-3 mb-4" />
+              <div className="border-t border-gray-100 mt-3 mb-4" />
+            </div>
+          )}
+
+          {/* ── Filters ── */}
+          <div>
+            {/* Grid filter: 2 kolom di mobile, 3 di tablet, 6 di desktop */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 mb-3">
+
+              {/* Category */}
+              <div className="relative" ref={categoryDropdownRef}>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
+                <button
+                  onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                  className="w-full px-2 py-2 sm:py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center min-h-[36px]"
+                >
+                  <span className="text-gray-500 truncate">{categoryFilter.length === 0 ? "All" : `${categoryFilter.length} selected`}</span>
+                  <span className="text-gray-400 ml-1 flex-shrink-0">▼</span>
+                </button>
+                {showCategoryDropdown && (
+                  <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                    {categories.map((c) => (
+                      <label key={c} className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50">
+                        <input type="checkbox" checked={categoryFilter.includes(c)} onChange={() => toggleCategory(c)} className="mr-2" />{c}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Grade */}
+              <div className="relative" ref={gradeDropdownRef}>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Grade</label>
+                <button
+                  onClick={() => setShowGradeDropdown(!showGradeDropdown)}
+                  className="w-full px-2 py-2 sm:py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center min-h-[36px]"
+                >
+                  <span className="text-gray-500 truncate">{gradeFilter.length === 0 ? "All" : `${gradeFilter.length} selected`}</span>
+                  <span className="text-gray-400 ml-1 flex-shrink-0">▼</span>
+                </button>
+                {showGradeDropdown && (
+                  <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                    {grades.map((g) => (
+                      <label key={g} className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50">
+                        <input type="checkbox" checked={gradeFilter.includes(g)} onChange={() => toggleGrade(g)} className="mr-2" />{g}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Warehouse — hanya store view */}
+              {selectedView === "store" && (
+                <div className="relative" ref={warehouseDropdownRef}>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Warehouse</label>
+                  <button
+                    onClick={() => setShowWarehouseDropdown(!showWarehouseDropdown)}
+                    className="w-full px-2 py-2 sm:py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center min-h-[36px]"
+                  >
+                    <span className="text-gray-500 truncate">{warehouseFilter.length === 0 ? "All" : `${warehouseFilter.length} selected`}</span>
+                    <span className="text-gray-400 ml-1 flex-shrink-0">▼</span>
+                  </button>
+                  {showWarehouseDropdown && (
+                    <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
+                      {warehouses.map((w) => (
+                        <label key={w} className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50">
+                          <input type="checkbox" checked={warehouseFilter.includes(w)} onChange={() => toggleWarehouse(w)} className="mr-2" />{w}
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Filters */}
-              <div>
-                <div className="grid grid-cols-6 gap-3 mb-3">
-                  <div className="relative" ref={categoryDropdownRef}>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
-                    <button onClick={() => setShowCategoryDropdown(!showCategoryDropdown)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center">
-                      <span className="text-gray-500">{categoryFilter.length === 0 ? "All" : `${categoryFilter.length} selected`}</span>
-                      <span className="text-gray-400">▼</span>
-                    </button>
-                    {showCategoryDropdown && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
-                        {categories.map((c) => (
-                          <label key={c} className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50">
-                            <input type="checkbox" checked={categoryFilter.includes(c)} onChange={() => toggleCategory(c)} className="mr-2" />{c}
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="relative" ref={gradeDropdownRef}>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Grade</label>
-                    <button onClick={() => setShowGradeDropdown(!showGradeDropdown)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center">
-                      <span className="text-gray-500">{gradeFilter.length === 0 ? "All" : `${gradeFilter.length} selected`}</span>
-                      <span className="text-gray-400">▼</span>
-                    </button>
-                    {showGradeDropdown && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
-                        {grades.map((g) => (
-                          <label key={g} className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50">
-                            <input type="checkbox" checked={gradeFilter.includes(g)} onChange={() => toggleGrade(g)} className="mr-2" />{g}
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {selectedView === "store" && (
-                    <div className="relative" ref={warehouseDropdownRef}>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Warehouse</label>
-                      <button onClick={() => setShowWarehouseDropdown(!showWarehouseDropdown)} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center">
-                        <span className="text-gray-500">{warehouseFilter.length === 0 ? "All" : `${warehouseFilter.length} selected`}</span>
-                        <span className="text-gray-400">▼</span>
-                      </button>
-                      {showWarehouseDropdown && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
-                          {warehouses.map((w) => (
-                            <label key={w} className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50">
-                              <input type="checkbox" checked={warehouseFilter.includes(w)} onChange={() => toggleWarehouse(w)} className="mr-2" />{w}
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {user.stock_view_hpj && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Max HPJ</label>
-                      <input type="text" value={hpjFilter} onChange={(e) => setHpjFilter(e.target.value.replace(/[^0-9]/g, ""))} placeholder="Filter by max HPJ" className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
-                    </div>
-                  )}
-
-                  <div className={selectedView === "store" ? "col-span-2" : "col-span-3"}>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
-                    <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search by SKU or Product Name..." className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
-                  </div>
+              {/* Max HPJ */}
+              {user.stock_view_hpj && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Max HPJ</label>
+                  <input
+                    type="text"
+                    value={hpjFilter}
+                    onChange={(e) => setHpjFilter(e.target.value.replace(/[^0-9]/g, ""))}
+                    placeholder="e.g. 500000"
+                    className="w-full px-2 py-2 sm:py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary min-h-[36px]"
+                  />
                 </div>
-                <button onClick={resetFilters} className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600">Reset Filters</button>
+              )}
+
+              {/* Search — full width di mobile */}
+              <div className="col-span-2 sm:col-span-3 lg:col-span-2">
+                <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cari SKU atau nama produk..."
+                  className="w-full px-2 py-2 sm:py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary min-h-[36px]"
+                />
               </div>
             </div>
 
-            {/* Data Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              {loading ? (
-                <div className="p-8 text-center">Loading...</div>
-              ) : (
-                <>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-[11px]">
-                      <thead className="bg-gray-100 border-b">
-                        <tr>
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Image</th>
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700">SKU</th>
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Product Name</th>
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Category</th>
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Grade</th>
-                          {selectedView !== "master" && <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Stock</th>}
-                          {/* Kolom Threshold — hanya di PCA view */}
-                          {selectedView === "pca" && (
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">
-                              Threshold
-                            </th>
-                          )}
-                          {selectedView === "store" && <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Warehouse</th>}
-                          {user.stock_view_hpp && <th className="px-2 py-1.5 text-left font-semibold text-gray-700">HPP</th>}
-                          {user.stock_view_hpt && <th className="px-2 py-1.5 text-left font-semibold text-gray-700">HPT</th>}
-                          {user.stock_view_hpj && <th className="px-2 py-1.5 text-left font-semibold text-gray-700">HPJ</th>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {currentItems.map((item, index) => (
-                          <tr key={`${item.sku}-${item.warehouse ?? ''}-${index}`} className="border-b hover:bg-gray-50 cursor-pointer" onClick={() => setQrItem(item)}>
-                            <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
-                              {item.link_url || item.image_url ? (
-                                <img
-                                  src={item.link_url || item.image_url}
-                                  alt={item.sku}
-                                  className="w-7 h-7 object-cover rounded"
-                                  onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="28" height="28"%3E%3Crect fill="%23ddd" width="28" height="28"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="9"%3ENo Img%3C/text%3E%3C/svg%3E'; }}
-                                />
-                              ) : (
-                                <div className="w-7 h-7 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-[7px]">No Img</div>
-                              )}
-                            </td>
-                            <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
-                              <SkuCell sku={item.sku} />
-                            </td>
-                            <td className="px-2 py-1">{toProperCase(item.item_name)}</td>
-                            <td className="px-2 py-1">{toProperCase(item.category)}</td>
-                            <td className="px-2 py-1">{toProperCase(item.grade)}</td>
-                            {selectedView !== "master" && <td className="px-2 py-1">{item.stock}</td>}
-                            {/* Threshold cell — hanya di PCA */}
-                            {selectedView === "pca" && <ThresholdCell item={item} />}
-                            {selectedView === "store" && <td className="px-2 py-1">{item.warehouse}</td>}
-                            {user.stock_view_hpp && <td className="px-2 py-1">{item.hpp}</td>}
-                            {user.stock_view_hpt && <td className="px-2 py-1">{item.hpt}</td>}
-                            {user.stock_view_hpj && <HpjCell item={item} />}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {filteredData.length === 0 && <div className="p-8 text-center text-gray-500">No data available</div>}
-                  </div>
-
-                  {totalPages > 1 && (
-                    <div className="flex justify-between items-center px-4 py-3 border-t">
-                      <div className="text-xs text-gray-600">
-                        Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredData.length)} of {filteredData.length} entries
-                      </div>
-                      <div className="flex gap-1">
-                        <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">Previous</button>
-                        {[...Array(totalPages)].map((_, i) => {
-                          const page = i + 1;
-                          if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
-                            return <button key={page} onClick={() => setCurrentPage(page)} className={`px-3 py-1 text-xs border rounded ${currentPage === page ? "bg-primary text-white" : "hover:bg-gray-50"}`}>{page}</button>;
-                          } else if (page === currentPage - 2 || page === currentPage + 2) {
-                            return <span key={page} className="px-2">...</span>;
-                          }
-                          return null;
-                        })}
-                        <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50">Next</button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+            <button
+              onClick={resetFilters}
+              className="px-4 py-2 sm:py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600 min-h-[36px]"
+            >
+              Reset Filter
+            </button>
           </div>
         </div>
 
-        {/* ── Import Modal ──────────────────────────────────────────────────── */}
+        {/* ── Data Table ── */}
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          {loading ? (
+            <div className="p-8 text-center text-gray-500">Loading...</div>
+          ) : (
+            <>
+              {/* Tabel scroll horizontal di mobile */}
+              <div className="overflow-x-auto -webkit-overflow-scrolling-touch">
+                <table className="w-full text-[11px] min-w-[480px]">
+                  <thead className="bg-gray-100 border-b">
+                    <tr>
+                      <th className="px-2 py-2 text-left font-semibold text-gray-700 w-8">Img</th>
+                      <th className="px-2 py-2 text-left font-semibold text-gray-700">SKU</th>
+                      <th className="px-2 py-2 text-left font-semibold text-gray-700">Product Name</th>
+                      <th className="px-2 py-2 text-left font-semibold text-gray-700">Category</th>
+                      <th className="px-2 py-2 text-left font-semibold text-gray-700">Grade</th>
+                      {selectedView !== "master" && (
+                        <th className="px-2 py-2 text-left font-semibold text-gray-700">Stock</th>
+                      )}
+                      {selectedView === "pca" && (
+                        <th className="px-2 py-2 text-left font-semibold text-gray-700">Threshold</th>
+                      )}
+                      {selectedView === "store" && (
+                        <th className="px-2 py-2 text-left font-semibold text-gray-700">Warehouse</th>
+                      )}
+                      {user.stock_view_hpp && (
+                        <th className="px-2 py-2 text-left font-semibold text-gray-700">HPP</th>
+                      )}
+                      {user.stock_view_hpt && (
+                        <th className="px-2 py-2 text-left font-semibold text-gray-700">HPT</th>
+                      )}
+                      {user.stock_view_hpj && (
+                        <th className="px-2 py-2 text-left font-semibold text-gray-700">HPJ</th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentItems.map((item, index) => (
+                      <tr
+                        key={`${item.sku}-${item.warehouse ?? ""}-${index}`}
+                        className="border-b hover:bg-gray-50 active:bg-gray-100 cursor-pointer"
+                        onClick={() => setQrItem(item)}
+                      >
+                        <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+                          {item.link_url || item.image_url ? (
+                            <img
+                              src={item.link_url || item.image_url}
+                              alt={item.sku}
+                              className="w-7 h-7 object-cover rounded"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src =
+                                  'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="28" height="28"%3E%3Crect fill="%23ddd" width="28" height="28"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="9"%3ENo%3C/text%3E%3C/svg%3E';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-7 h-7 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-[7px]">
+                              No
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+                          <SkuCell sku={item.sku} />
+                        </td>
+                        <td className="px-2 py-1.5 max-w-[120px] sm:max-w-none">
+                          <span className="block truncate">{toProperCase(item.item_name)}</span>
+                        </td>
+                        <td className="px-2 py-1.5 whitespace-nowrap">{toProperCase(item.category)}</td>
+                        <td className="px-2 py-1.5 whitespace-nowrap">{toProperCase(item.grade)}</td>
+                        {selectedView !== "master" && (
+                          <td className="px-2 py-1.5 whitespace-nowrap">{item.stock}</td>
+                        )}
+                        {selectedView === "pca" && <ThresholdCell item={item} />}
+                        {selectedView === "store" && (
+                          <td className="px-2 py-1.5 whitespace-nowrap text-gray-600">{item.warehouse}</td>
+                        )}
+                        {user.stock_view_hpp && (
+                          <td className="px-2 py-1.5 whitespace-nowrap">{item.hpp}</td>
+                        )}
+                        {user.stock_view_hpt && (
+                          <td className="px-2 py-1.5 whitespace-nowrap">{item.hpt}</td>
+                        )}
+                        {user.stock_view_hpj && <HpjCell item={item} />}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {filteredData.length === 0 && (
+                  <div className="p-8 text-center text-gray-500">No data available</div>
+                )}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-2 px-3 sm:px-4 py-3 border-t">
+                  <div className="text-xs text-gray-600">
+                    {indexOfFirstItem + 1}–{Math.min(indexOfLastItem, filteredData.length)} dari {filteredData.length}
+                  </div>
+                  <div className="flex gap-1 flex-wrap justify-center">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 min-h-[32px]"
+                    >
+                      ‹
+                    </button>
+                    {[...Array(totalPages)].map((_, i) => {
+                      const page = i + 1;
+                      if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                        return (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`px-3 py-1.5 text-xs border rounded min-h-[32px] min-w-[32px] ${
+                              currentPage === page ? "bg-primary text-white" : "hover:bg-gray-50"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        );
+                      } else if (page === currentPage - 2 || page === currentPage + 2) {
+                        return <span key={page} className="px-1 py-1.5 text-xs">…</span>;
+                      }
+                      return null;
+                    })}
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 min-h-[32px]"
+                    >
+                      ›
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* ── Import Modal ── */}
         {showImportModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
-              <h2 className="text-lg font-bold text-primary mb-1">Import Stock Data</h2>
-              <p className="text-xs text-gray-500 mb-5">Upload file untuk ERP Stock Balance, Javelin, dan/atau Threshold. Format: CSV, XLSX, atau XLS.</p>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+            <div className="bg-white rounded-t-2xl sm:rounded-lg p-5 sm:p-6 w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-base sm:text-lg font-bold text-primary">Import Stock Data</h2>
+                <button
+                  onClick={() => { setShowImportModal(false); setErpFile(null); setJavelinFile(null); setThresholdFile(null); }}
+                  className="p-1 rounded hover:bg-gray-100 text-gray-400"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mb-4">Upload file untuk ERP Stock Balance, Javelin, dan/atau Threshold. Format: CSV, XLSX, atau XLS.</p>
 
               <div className="space-y-4">
-                <DropZone
-                  label="ERP Stock Balance"
-                  file={erpFile}
-                  onFile={setErpFile}
-                  disabled={importing}
-                />
-                <DropZone
-                  label="Javelin"
-                  file={javelinFile}
-                  onFile={setJavelinFile}
-                  disabled={importing}
-                />
-                <DropZone
-                  label="Threshold (PowerBI)"
-                  file={thresholdFile}
-                  onFile={setThresholdFile}
-                  disabled={importing}
-                />
+                <DropZone label="ERP Stock Balance" file={erpFile} onFile={setErpFile} disabled={importing} />
+                <DropZone label="Javelin" file={javelinFile} onFile={setJavelinFile} disabled={importing} />
+                <DropZone label="Threshold (PowerBI)" file={thresholdFile} onFile={setThresholdFile} disabled={importing} />
                 {importing && (
                   <div className="text-sm text-gray-600 text-center py-3">
                     <div className="animate-pulse">Importing files... Please wait.</div>
@@ -1274,20 +1389,20 @@ export default function StockPage() {
                 )}
               </div>
 
-              <div className="flex gap-2 mt-6">
+              <div className="flex gap-2 mt-5">
                 <button
                   onClick={() => { setShowImportModal(false); setErpFile(null); setJavelinFile(null); setThresholdFile(null); }}
                   disabled={importing}
-                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
+                  className="flex-1 px-4 py-2.5 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50 min-h-[44px]"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleImport}
                   disabled={importing || (!erpFile && !javelinFile && !thresholdFile)}
-                  className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
+                  className="flex-1 px-4 py-2.5 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50 min-h-[44px]"
                 >
-                  {importing ? "Importing..." : "Import Selected Files"}
+                  {importing ? "Importing..." : "Import"}
                 </button>
               </div>
             </div>
@@ -1295,12 +1410,11 @@ export default function StockPage() {
         )}
 
         {qrItem && <QRLabelPopup item={qrItem} onClose={() => setQrItem(null)} />}
-          {showBarcodeModal && (
-  <PrintBarcodeModal
-    items={data}
-    onClose={() => setShowBarcodeModal(false)}
-  />
-)}
+
+        {showBarcodeModal && (
+          <PrintBarcodeModal items={data} onClose={() => setShowBarcodeModal(false)} />
+        )}
+
         <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
       </div>
     </div>
