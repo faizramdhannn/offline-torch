@@ -1,7 +1,7 @@
 "use client";
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -38,12 +38,23 @@ interface MasterItem {
   HPJ: string;
 }
 
+function formatRupiah(value: string | number): string {
+  const number = parseInt(String(value).replace(/[^0-9]/g, "") || "0");
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format(number);
+}
+
 export default function BundlingPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const userRef = useRef<any>(null);
   const [data, setData] = useState<Bundling[]>([]);
   const [filteredData, setFilteredData] = useState<Bundling[]>([]);
   const [masterItems, setMasterItems] = useState<MasterItem[]>([]);
+  const masterItemsRef = useRef<MasterItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
@@ -54,25 +65,24 @@ export default function BundlingPage() {
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [submitting, setSubmitting] = useState(false);
   useSessionGuard();
-  // Filters
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
-
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
-  // Form data
-  const [formData, setFormData] = useState({
+  const emptyForm = {
     bundling_name: "",
     option_1: "", option_2: "", option_3: "", option_4: "", option_5: "", option_6: "",
     discount_1: "0", discount_2: "0", discount_3: "0", discount_4: "0", discount_5: "0", discount_6: "0",
-    total_value: "",
-    discount_percentage: "",
-    discount_value: "",
-    value: "",
+    total_value: "0",
+    discount_percentage: "0",
+    discount_value: "0",
+    value: "0",
     status: "active",
-  });
+  };
+
+  const [formData, setFormData] = useState(emptyForm);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -80,6 +90,7 @@ export default function BundlingPage() {
     const parsedUser = JSON.parse(userData);
     if (!parsedUser.bundling) { router.push("/dashboard"); return; }
     setUser(parsedUser);
+    userRef.current = parsedUser;
     fetchData();
     fetchMasterItems();
   }, []);
@@ -88,15 +99,9 @@ export default function BundlingPage() {
     applyFilters();
   }, [searchQuery, statusFilter, data]);
 
-  // Recalculate totals whenever options or discounts change
   useEffect(() => {
-    recalculateTotals(formData);
-  }, [
-    formData.option_1, formData.option_2, formData.option_3,
-    formData.option_4, formData.option_5, formData.option_6,
-    formData.discount_1, formData.discount_2, formData.discount_3,
-    formData.discount_4, formData.discount_5, formData.discount_6,
-  ]);
+    masterItemsRef.current = masterItems;
+  }, [masterItems]);
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);
@@ -106,10 +111,12 @@ export default function BundlingPage() {
 
   const logActivity = async (method: string, activity: string) => {
     try {
+      const currentUser = userRef.current;
+      if (!currentUser) return;
       await fetch("/api/activity-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user: user.user_name, method, activity_log: activity }),
+        body: JSON.stringify({ user: currentUser.user_name, method, activity_log: activity }),
       });
     } catch (error) {
       console.error("Failed to log activity:", error);
@@ -135,6 +142,7 @@ export default function BundlingPage() {
       const response = await fetch("/api/master-item");
       const result = await response.json();
       setMasterItems(result);
+      masterItemsRef.current = result;
     } catch (error) {
       console.error("Failed to fetch master items:", error);
     }
@@ -142,22 +150,13 @@ export default function BundlingPage() {
 
   const getHPJ = (artikel: string): number => {
     if (!artikel) return 0;
-    const item = masterItems.find((i) => i.Artikel === artikel);
+    const items = masterItemsRef.current;
+    const item = items.find((i) => i.Artikel === artikel);
     if (!item) return 0;
-    // Format: "Rp269.000" — strip semua non-digit
     return parseInt(String(item.HPJ).replace(/[^0-9]/g, "") || "0");
   };
 
-  /**
-   * Recalculate total_value, discount_value, discount_percentage, value
-   * based on selected options and their individual discounts.
-   *
-   * total_value   = sum of HPJ for each selected option
-   * discount_value = sum of (HPJ * discount% / 100) per option
-   * discount_percentage = (discount_value / total_value) * 100
-   * value         = total_value - discount_value
-   */
-  const recalculateTotals = (fd: typeof formData) => {
+  const calcTotals = (fd: typeof formData) => {
     let totalHPJ = 0;
     let totalDiscount = 0;
 
@@ -174,13 +173,28 @@ export default function BundlingPage() {
     const finalValue = totalHPJ - totalDiscount;
     const overallDiscPct = totalHPJ > 0 ? (totalDiscount / totalHPJ) * 100 : 0;
 
-    setFormData((prev) => ({
-      ...prev,
-      total_value: formatRupiah(totalHPJ.toString()),
-      discount_value: formatRupiah(totalDiscount.toString()),
+    return {
+      total_value: String(totalHPJ),
+      discount_value: String(totalDiscount),
       discount_percentage: overallDiscPct.toFixed(2),
-      value: formatRupiah(finalValue.toString()),
-    }));
+      value: String(finalValue),
+    };
+  };
+
+  const handleOptionChange = (optionKey: string, val: string) => {
+    setFormData((prev) => {
+      const updated = { ...prev, [optionKey]: val };
+      const totals = calcTotals(updated);
+      return { ...updated, ...totals };
+    });
+  };
+
+  const handleDiscountOptionChange = (discountKey: string, val: string) => {
+    setFormData((prev) => {
+      const updated = { ...prev, [discountKey]: val };
+      const totals = calcTotals(updated);
+      return { ...updated, ...totals };
+    });
   };
 
   const applyFilters = () => {
@@ -208,15 +222,6 @@ export default function BundlingPage() {
     setCurrentPage(1);
   };
 
-  const formatRupiah = (value: string) => {
-    const number = parseInt(value.replace(/[^0-9]/g, "") || "0");
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(number);
-  };
-
   const handleOpenModal = (bundling?: Bundling) => {
     if (bundling) {
       setEditingId(bundling.id);
@@ -234,24 +239,15 @@ export default function BundlingPage() {
         discount_4: bundling.discount_4 || "0",
         discount_5: bundling.discount_5 || "0",
         discount_6: bundling.discount_6 || "0",
-        total_value: bundling.total_value,
-        discount_percentage: bundling.discount_percentage,
-        discount_value: bundling.discount_value,
-        value: bundling.value,
+        total_value: bundling.total_value || "0",
+        discount_percentage: bundling.discount_percentage || "0",
+        discount_value: bundling.discount_value || "0",
+        value: bundling.value || "0",
         status: bundling.status,
       });
     } else {
       setEditingId(null);
-      setFormData({
-        bundling_name: "",
-        option_1: "", option_2: "", option_3: "", option_4: "", option_5: "", option_6: "",
-        discount_1: "0", discount_2: "0", discount_3: "0", discount_4: "0", discount_5: "0", discount_6: "0",
-        total_value: "",
-        discount_percentage: "",
-        discount_value: "",
-        value: "",
-        status: "active",
-      });
+      setFormData(emptyForm);
     }
     setShowModal(true);
   };
@@ -259,6 +255,7 @@ export default function BundlingPage() {
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingId(null);
+    setFormData(emptyForm);
   };
 
   const handleViewStock = (bundling: Bundling) => {
@@ -266,23 +263,23 @@ export default function BundlingPage() {
     setShowStockModal(true);
   };
 
-  const handleOptionChange = (optionKey: string, value: string) => {
-    const updated = { ...formData, [optionKey]: value };
-    setFormData(updated);
-    // recalculate will fire via useEffect
-  };
-
-  const handleDiscountOptionChange = (discountKey: string, value: string) => {
-    const updated = { ...formData, [discountKey]: value };
-    setFormData(updated);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
+    if (!formData.bundling_name.trim()) {
+      showMessage("Bundling name wajib diisi", "error");
+      return;
+    }
 
+    setSubmitting(true);
     try {
-      const payload: any = { ...formData };
+      const totals = calcTotals(formData);
+      const payload: any = {
+        ...formData,
+        total_value: formatRupiah(totals.total_value),
+        discount_value: formatRupiah(totals.discount_value),
+        discount_percentage: totals.discount_percentage,
+        value: formatRupiah(totals.value),
+      };
       if (editingId) payload.id = editingId;
 
       const method = editingId ? "PUT" : "POST";
@@ -297,34 +294,35 @@ export default function BundlingPage() {
         const action = editingId ? "Updated" : "Created";
         await logActivity(method, `${action} bundling: ${formData.bundling_name}`);
         showMessage(
-          editingId ? "Bundling updated successfully" : "Bundling created successfully",
+          editingId ? "Bundling berhasil diperbarui" : "Bundling berhasil dibuat",
           "success"
         );
         handleCloseModal();
         fetchData();
       } else {
-        showMessage("Failed to save bundling", "error");
+        const err = await response.json().catch(() => ({}));
+        showMessage(err.error || "Gagal menyimpan bundling", "error");
       }
     } catch (error) {
-      showMessage("Failed to save bundling", "error");
+      showMessage("Gagal menyimpan bundling", "error");
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this bundling?")) return;
+    if (!confirm("Yakin ingin menghapus bundling ini?")) return;
     try {
       const response = await fetch(`/api/bundling?id=${id}`, { method: "DELETE" });
       if (response.ok) {
         await logActivity("DELETE", `Deleted bundling ID: ${id}`);
-        showMessage("Bundling deleted successfully", "success");
+        showMessage("Bundling berhasil dihapus", "success");
         fetchData();
       } else {
-        showMessage("Failed to delete bundling", "error");
+        showMessage("Gagal menghapus bundling", "error");
       }
     } catch (error) {
-      showMessage("Failed to delete bundling", "error");
+      showMessage("Gagal menghapus bundling", "error");
     }
   };
 
@@ -342,225 +340,243 @@ export default function BundlingPage() {
 
   if (!user) return null;
 
-return (
-  <div className="flex-1 overflow-auto">
-    <div className="p-6">
+  return (
+    <div className="flex-1 overflow-auto">
+      <div className="p-6">
 
-      <div className="flex-1 overflow-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-primary">Bundling Management</h1>
-            <button
-              onClick={() => handleOpenModal()}
-              className="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90"
-            >
-              Add Bundling
-            </button>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold text-primary">Bundling Management</h1>
+          <button
+            onClick={() => handleOpenModal()}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Bundling
+          </button>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white rounded-lg shadow px-3 py-2 mb-3 flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <svg className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Cari nama bundling atau item..."
+              className="pl-6 pr-2 py-1 border border-gray-300 rounded text-[11px] w-64 focus:outline-none focus:ring-1 focus:ring-primary"
+            />
           </div>
+          <select
+            value={statusFilter[0] || ""}
+            onChange={(e) => setStatusFilter(e.target.value ? [e.target.value] : [])}
+            className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary bg-white"
+          >
+            <option value="">Semua Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          {(searchQuery || statusFilter.length > 0) && (
+            <>
+              <button
+                onClick={resetFilters}
+                className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 border border-gray-200 rounded text-[11px] hover:bg-gray-200"
+              >
+                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Reset
+              </button>
+              <span className="text-[10px] text-gray-400">{filteredData.length} hasil</span>
+            </>
+          )}
+        </div>
 
-          {/* Filters */}
-          <div className="bg-white rounded-lg shadow p-4 mb-4">
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by name or options..."
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
-                <select
-                  value={statusFilter[0] || ""}
-                  onChange={(e) => setStatusFilter(e.target.value ? [e.target.value] : [])}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="">All Status</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-            </div>
-            <button
-              onClick={resetFilters}
-              className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"
-            >
-              Reset Filters
-            </button>
-          </div>
+        {/* Table */}
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          {loading ? (
+            <div className="p-8 text-center text-sm text-gray-500">Loading...</div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[11px] border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-3 py-2 text-left font-semibold text-gray-600">Bundling Name</th>
+                      <th className="px-3 py-2 text-left font-semibold text-gray-600">Options</th>
+                      <th className="px-3 py-2 text-right font-semibold text-gray-600">Total HPJ</th>
+                      <th className="px-3 py-2 text-right font-semibold text-gray-600">Diskon</th>
+                      <th className="px-3 py-2 text-right font-semibold text-gray-600">Harga Final</th>
+                      <th className="px-3 py-2 text-center font-semibold text-gray-600">Stock</th>
+                      <th className="px-3 py-2 text-center font-semibold text-gray-600">Status</th>
+                      <th className="px-3 py-2 text-center font-semibold text-gray-600">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentItems.map((item, index) => {
+                      const options = [
+                        item.option_1, item.option_2, item.option_3,
+                        item.option_4, item.option_5, item.option_6,
+                      ].filter(Boolean);
+                      const totalStock = getTotalStock(item);
 
-          {/* Data Table */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            {loading ? (
-              <div className="p-8 text-center">Loading...</div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-gray-100 border-b">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Bundling Name</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Options</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Total Value</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Discount</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Final Value</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Total Stock</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Status</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentItems.map((item, index) => {
-                        const options = [
-                          item.option_1, item.option_2, item.option_3,
-                          item.option_4, item.option_5, item.option_6,
-                        ].filter(Boolean);
-                        const totalStock = getTotalStock(item);
-
-                        return (
-                          <tr key={index} className="border-b hover:bg-gray-50">
-                            <td className="px-3 py-2 font-medium">{item.bundling_name}</td>
-                            <td className="px-3 py-2">
-                              <div className="text-xs">
-                                {options.slice(0, 2).join(", ")}
-                                {options.length > 2 && ` +${options.length - 2} more`}
-                              </div>
-                            </td>
-                            <td className="px-3 py-2">{item.total_value}</td>
-                            <td className="px-3 py-2">
-                              {item.discount_percentage}% ({item.discount_value})
-                            </td>
-                            <td className="px-3 py-2 font-semibold text-green-600">{item.value}</td>
-                            <td className="px-3 py-2">
-                              <button
-                                onClick={() => handleViewStock(item)}
-                                className="text-blue-600 hover:text-blue-800 font-semibold"
-                              >
-                                {totalStock} units
-                              </button>
-                            </td>
-                            <td className="px-3 py-2">
-                              <span
-                                className={`px-2 py-1 rounded text-xs ${
-                                  item.status === "active"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {item.status}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2">
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleOpenModal(item)}
-                                  className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(item.id)}
-                                  className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  {filteredData.length === 0 && (
-                    <div className="p-8 text-center text-gray-500">No bundling data available</div>
-                  )}
-                </div>
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex justify-between items-center px-4 py-3 border-t">
-                    <div className="text-xs text-gray-600">
-                      Showing {indexOfFirstItem + 1} to{" "}
-                      {Math.min(indexOfLastItem, filteredData.length)} of {filteredData.length} entries
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                        className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                      >
-                        Previous
-                      </button>
-                      {[...Array(totalPages)].map((_, i) => {
-                        const page = i + 1;
-                        if (
-                          page === 1 || page === totalPages ||
-                          (page >= currentPage - 1 && page <= currentPage + 1)
-                        ) {
-                          return (
+                      return (
+                        <tr key={item.id || index} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                          <td className="px-3 py-2 font-medium text-gray-800">{item.bundling_name}</td>
+                          <td className="px-3 py-2 text-gray-600">
+                            {options.slice(0, 2).join(", ")}
+                            {options.length > 2 && (
+                              <span className="ml-1 text-[10px] text-primary font-medium">+{options.length - 2} lagi</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right text-gray-700">{item.total_value}</td>
+                          <td className="px-3 py-2 text-right">
+                            <span className="text-red-500">{item.discount_percentage}%</span>
+                            <span className="text-gray-400 ml-1">({item.discount_value})</span>
+                          </td>
+                          <td className="px-3 py-2 text-right font-semibold text-green-600">{item.value}</td>
+                          <td className="px-3 py-2 text-center">
                             <button
-                              key={page}
-                              onClick={() => setCurrentPage(page)}
-                              className={`px-3 py-1 text-xs border rounded ${
-                                currentPage === page ? "bg-primary text-white" : "hover:bg-gray-50"
-                              }`}
+                              onClick={() => handleViewStock(item)}
+                              className="text-blue-600 hover:text-blue-800 font-semibold hover:underline"
                             >
-                              {page}
+                              {totalStock} unit
                             </button>
-                          );
-                        } else if (page === currentPage - 2 || page === currentPage + 2) {
-                          return <span key={page} className="px-2">...</span>;
-                        }
-                        return null;
-                      })}
-                      <button
-                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                      >
-                        Next
-                      </button>
-                    </div>
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              item.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
+                            }`}>
+                              {item.status === "active" ? "Active" : "Inactive"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex justify-center gap-1.5">
+                              <button
+                                onClick={() => handleOpenModal(item)}
+                                className="px-2.5 py-1 bg-blue-500 text-white rounded text-[10px] font-medium hover:bg-blue-600 transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDelete(item.id)}
+                                className="px-2.5 py-1 bg-red-500 text-white rounded text-[10px] font-medium hover:bg-red-600 transition-colors"
+                              >
+                                Hapus
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {filteredData.length === 0 && (
+                  <div className="p-8 text-center text-sm text-gray-500">
+                    {searchQuery || statusFilter.length > 0 ? "Tidak ada hasil yang sesuai" : "Belum ada data bundling"}
                   </div>
                 )}
-              </>
-            )}
-          </div>
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex justify-between items-center px-4 py-2.5 border-t">
+                  <span className="text-[11px] text-gray-400">
+                    {indexOfFirstItem + 1}&#x2013;{Math.min(indexOfLastItem, filteredData.length)} dari {filteredData.length}
+                  </span>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-2.5 py-1 text-[11px] border rounded disabled:opacity-40 hover:bg-gray-50"
+                    >
+                      Prev
+                    </button>
+                    {[...Array(totalPages)].map((_, i) => {
+                      const page = i + 1;
+                      if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                        return (
+                          <button key={page} onClick={() => setCurrentPage(page)}
+                            className={`px-2.5 py-1 text-[11px] border rounded ${currentPage === page ? "bg-primary text-white border-primary" : "hover:bg-gray-50"}`}>
+                            {page}
+                          </button>
+                        );
+                      } else if (page === currentPage - 2 || page === currentPage + 2) {
+                        return <span key={page} className="px-1 text-[11px] text-gray-400 self-center">&#x2026;</span>;
+                      }
+                      return null;
+                    })}
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-2.5 py-1 text-[11px] border rounded disabled:opacity-40 hover:bg-gray-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-          <div className="bg-white rounded-lg p-6 max-w-3xl w-full mx-4 my-8 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-bold text-primary mb-4">
-              {editingId ? "Edit Bundling" : "Add New Bundling"}
-            </h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div>
+                <h2 className="text-base font-bold text-gray-900">
+                  {editingId ? "Edit Bundling" : "Bundling Baru"}
+                </h2>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  {editingId ? "Perbarui data bundling" : "Tambah bundling baru ke master"}
+                </p>
+              </div>
+              <button
+                onClick={handleCloseModal}
+                disabled={submitting}
+                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form id="bundling-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
               {/* Bundling Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Bundling Name*
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  Nama Bundling <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.bundling_name}
                   onChange={(e) => setFormData({ ...formData, bundling_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="Contoh: Paket Starter Pack"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 bg-gray-50"
                   required
                 />
               </div>
 
-              {/* Options 1–6 dengan layout 2 kolom */}
+              <div className="border-t border-dashed border-gray-200" />
+
+              {/* Options */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Options (Item &amp; Diskon per Item)
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                  Item &amp; Diskon per Item
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {OPTION_KEYS.map(({ option, discount }, idx) => {
                     const selectedArtikel = formData[option as keyof typeof formData] as string;
                     const hpj = getHPJ(selectedArtikel);
@@ -569,22 +585,24 @@ return (
                     const afterDisc = hpj - discVal;
 
                     return (
-                      <div key={option} className="border border-gray-200 rounded-lg p-2 bg-gray-50">
-                        <p className="text-xs font-semibold text-gray-500 mb-1.5">Option {idx + 1}</p>
+                      <div key={option} className="border border-gray-200 rounded-xl p-3 bg-gray-50/60">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">
+                          Option {idx + 1}
+                        </p>
 
-                        {/* Item dropdown */}
                         <SearchableSelect
-                          options={masterItems.map((item) => ({
-                            value: item.Artikel,
-                            label: item.Artikel,
-                          }))}
+                          options={masterItems
+                            .filter((item) => item.Artikel != null && item.Artikel !== "")
+                            .map((item) => ({
+                              value: item.Artikel,
+                              label: item.Artikel,
+                            }))}
                           value={selectedArtikel}
                           onChange={(val) => handleOptionChange(option, val)}
                           placeholder="-- Pilih Item --"
                         />
 
-                        {/* Diskon % */}
-                        <div className="mt-1.5">
+                        <div className="mt-2">
                           <input
                             type="number"
                             value={formData[discount as keyof typeof formData] as string}
@@ -594,24 +612,23 @@ return (
                             max="100"
                             step="0.01"
                             disabled={!selectedArtikel}
-                            className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-gray-200 disabled:cursor-not-allowed"
+                            className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
                           />
                         </div>
 
-                        {/* Info HPJ */}
                         {selectedArtikel && hpj > 0 && (
-                          <div className="mt-1.5 text-xs text-gray-500 space-y-0.5">
+                          <div className="mt-2 text-[10px] text-gray-500 space-y-0.5 bg-white rounded-lg px-2.5 py-2 border border-gray-100">
                             <div className="flex justify-between">
                               <span>HPJ</span>
-                              <span className="font-medium text-gray-700">{formatRupiah(hpj.toString())}</span>
+                              <span className="font-semibold text-gray-700">{formatRupiah(hpj)}</span>
                             </div>
                             <div className="flex justify-between">
                               <span>Diskon</span>
-                              <span className="text-red-500">-{formatRupiah(discVal.toString())}</span>
+                              <span className="text-red-500">-{formatRupiah(discVal)}</span>
                             </div>
-                            <div className="flex justify-between border-t border-gray-200 pt-0.5">
-                              <span>Harga</span>
-                              <span className="font-semibold text-green-600">{formatRupiah(afterDisc.toString())}</span>
+                            <div className="flex justify-between border-t border-gray-100 pt-0.5 mt-0.5">
+                              <span className="font-semibold">Harga</span>
+                              <span className="font-bold text-green-600">{formatRupiah(afterDisc)}</span>
                             </div>
                           </div>
                         )}
@@ -621,125 +638,120 @@ return (
                 </div>
               </div>
 
-              {/* Summary: Total Value, Discount, Final Value */}
-              <div className="border border-blue-200 rounded-lg p-4">
-                <div className="grid grid-cols-2 gap-3">
+              <div className="border-t border-dashed border-gray-200" />
+
+              {/* Summary */}
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                  Ringkasan Harga
+                </label>
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Total HPJ</label>
-                    <input
-                      type="text"
-                      value={formData.total_value}
-                      readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white font-medium"
-                    />
+                    <p className="text-[10px] text-gray-500 mb-0.5">Total HPJ</p>
+                    <p className="text-sm font-semibold text-gray-800">{formatRupiah(formData.total_value)}</p>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Total Diskon (%)
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.discount_percentage ? `${formData.discount_percentage}%` : "0%"}
-                      readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white"
-                    />
+                    <p className="text-[10px] text-gray-500 mb-0.5">Total Diskon (%)</p>
+                    <p className="text-sm font-semibold text-red-500">
+                      {formData.discount_percentage ? `${parseFloat(formData.discount_percentage).toFixed(1)}%` : "0%"}
+                    </p>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Total Diskon (Rp)</label>
-                    <input
-                      type="text"
-                      value={formData.discount_value}
-                      readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white text-red-500"
-                    />
+                    <p className="text-[10px] text-gray-500 mb-0.5">Total Diskon (Rp)</p>
+                    <p className="text-sm font-semibold text-red-500">-{formatRupiah(formData.discount_value)}</p>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Harga Final</label>
-                    <input
-                      type="text"
-                      value={formData.value}
-                      readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded text-sm bg-white font-semibold text-green-600"
-                    />
+                    <p className="text-[10px] text-gray-500 mb-0.5">Harga Final</p>
+                    <p className="text-base font-bold text-green-600">{formatRupiah(formData.value)}</p>
                   </div>
                 </div>
               </div>
 
               {/* Status */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status*</label>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  Status <span className="text-red-500">*</span>
+                </label>
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 bg-gray-50"
                   required
                 >
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>
               </div>
-
-              <div className="flex gap-2 pt-4">
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  disabled={submitting}
-                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {submitting ? "Saving..." : editingId ? "Update Bundling" : "Create Bundling"}
-                </button>
-              </div>
             </form>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                disabled={submitting}
+                className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-semibold hover:bg-gray-200 disabled:opacity-50 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                form="bundling-form"
+                disabled={submitting}
+                className="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {submitting ? "Menyimpan..." : editingId ? "Update Bundling" : "Simpan Bundling"}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Stock Detail Modal */}
       {showStockModal && selectedBundling && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
-            <h2 className="text-lg font-bold text-primary mb-4">
-              Stock Details - {selectedBundling.bundling_name}
-            </h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div>
+                <h2 className="text-base font-bold text-gray-900">Stock per Toko</h2>
+                <p className="text-[11px] text-gray-400 mt-0.5">{selectedBundling.bundling_name}</p>
+              </div>
+              <button
+                onClick={() => setShowStockModal(false)}
+                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
-            <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+            <div className="px-6 py-4 max-h-80 overflow-y-auto space-y-1">
               {STORE_LIST.map((store) => {
                 const stock = parseInt(
                   (selectedBundling[store.key as keyof Bundling] as string) || "0"
                 );
                 return (
-                  <div key={store.key} className="flex justify-between items-center border-b border-gray-200 py-2">
-                    <span className="text-sm text-gray-700">{store.label}</span>
-                    <span className={`text-sm font-semibold ${stock > 0 ? "text-green-600" : "text-gray-400"}`}>
-                      {stock} units
+                  <div key={store.key} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+                    <span className="text-xs text-gray-700">{store.label}</span>
+                    <span className={`text-xs font-semibold ${stock > 0 ? "text-green-600" : "text-gray-300"}`}>
+                      {stock} unit
                     </span>
                   </div>
                 );
               })}
             </div>
 
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-semibold text-gray-700">Total Stock:</span>
-                <span className="text-lg font-bold text-primary">
-                  {getTotalStock(selectedBundling)} units
-                </span>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-between items-center">
+              <div>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide">Total Stock</p>
+                <p className="text-xl font-bold text-primary">{getTotalStock(selectedBundling)} unit</p>
               </div>
-            </div>
-
-            <div className="flex justify-end mt-4">
               <button
                 onClick={() => setShowStockModal(false)}
-                className="px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-xs font-semibold hover:bg-gray-200 transition-colors"
               >
-                Close
+                Tutup
               </button>
             </div>
           </div>
@@ -753,6 +765,5 @@ return (
         onClose={() => setShowPopup(false)}
       />
     </div>
-  </div>
   );
 }

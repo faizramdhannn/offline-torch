@@ -46,6 +46,21 @@ async function updateSheetRow(
   }
 }
 
+// Helper: resolve permission value — merges existing user value with incoming change.
+// If the key exists in `changes`, use the new value; otherwise keep the existing
+// sheet value (which is already "TRUE" or "FALSE" or any truthy string).
+function resolvePermission(
+  changes: Record<string, boolean>,
+  existing: string | null | undefined,
+  key: string,
+): string {
+  if (key in changes) {
+    return changes[key] ? "TRUE" : "FALSE";
+  }
+  // Keep existing sheet value as-is; treat anything that isn't "TRUE" as FALSE
+  return existing === "TRUE" ? "TRUE" : "FALSE";
+}
+
 export async function GET(request: NextRequest) {
   try {
     const data = await getSheetData("users");
@@ -80,60 +95,65 @@ export async function PUT(request: NextRequest) {
       timeZone: "Asia/Jakarta",
     });
 
+    // `permissions` only contains the changed keys (partial update from frontend).
+    // We merge with existing user data so unchanged permissions are preserved.
+    const p = permissions as Record<string, boolean>;
+    const r = (key: string) => resolvePermission(p, user[key], key);
+
     const updatedRow = [
-      user.id, // A
-      user.name, // B
-      user.user_name, // C
-      user.password, // D
-      permissions.dashboard ? "TRUE" : "FALSE", // E
-      permissions.order_report ? "TRUE" : "FALSE", // F
-      permissions.stock ? "TRUE" : "FALSE", // G
-      permissions.registration_request ? "TRUE" : "FALSE", // H
-      permissions.user_setting ? "TRUE" : "FALSE", // I
-      permissions.petty_cash ? "TRUE" : "FALSE", // J
-      permissions.petty_cash_add ? "TRUE" : "FALSE", // K
-      permissions.petty_cash_export ? "TRUE" : "FALSE", // L
-      permissions.petty_cash_balance ? "TRUE" : "FALSE", // M
-      permissions.order_report_import ? "TRUE" : "FALSE", // N
-      permissions.order_report_export ? "TRUE" : "FALSE", // O
-      permissions.customer ? "TRUE" : "FALSE", // P
-      permissions.voucher ? "TRUE" : "FALSE", // Q
-      permissions.bundling ? "TRUE" : "FALSE", // R
-      permissions.canvasing ? "TRUE" : "FALSE", // S
-      permissions.canvasing_export ? "TRUE" : "FALSE", // T
-      permissions.request ? "TRUE" : "FALSE", // U
-      permissions.edit_request ? "TRUE" : "FALSE", // V
-      permissions.analytics_order ? "TRUE" : "FALSE", // W
-      permissions.stock_opname ? "TRUE" : "FALSE", // X
-      permissions.stock_import ? "TRUE" : "FALSE", // Y
-      permissions.stock_export ? "TRUE" : "FALSE", // Z
-      permissions.stock_view_store ? "TRUE" : "FALSE", // AA
-      permissions.stock_view_pca ? "TRUE" : "FALSE", // AB
-      permissions.stock_view_master ? "TRUE" : "FALSE", // AC
-      permissions.stock_view_hpp ? "TRUE" : "FALSE", // AD
-      permissions.stock_view_hpt ? "TRUE" : "FALSE", // AE
-      permissions.stock_view_hpj ? "TRUE" : "FALSE", // AF
-      permissions.stock_refresh_javelin ? "TRUE" : "FALSE", // AG
-      permissions.traffic_store ? "TRUE" : "FALSE", // AH
-      permissions.report_store ? "TRUE" : "FALSE", // AI
-      permissions.request_tracking ? "TRUE" : "FALSE", // AJ ← baru
-      permissions.tracking_edit ? "TRUE" : "FALSE", // AK ← baru
-      permissions.stock_opname_report ? "TRUE" : "FALSE", // AL ← baru
-      permissions.attendance ? "TRUE" : "FALSE", // AN ← baru
-      permissions.attendance_report ? "TRUE" : "FALSE", // AM ← baru
-      permissions.invoice ? "TRUE" : "FALSE",          // invoice
-      permissions.invoice_create ? "TRUE" : "FALSE",   // invoice_create
-      permissions.invoice_edit ? "TRUE" : "FALSE",      // invoice_edit
-      permissions.invoice_delete ? "TRUE" : "FALSE",    // invoice_delete
-      permissions.invoice_master ? "TRUE" : "FALSE",
-      permissions.sales_view ? "TRUE" : "FALSE",
-      permissions.sales_view_all ? "TRUE" : "FALSE",
-      permissions.attendance_store ? "TRUE" : "FALSE",
-      permissions.attendance_store_all ? "TRUE" : "FALSE",
-      permissions.material_issue ? "TRUE" : "FALSE",
-      permissions.material_issue_all ? "TRUE" : "FALSE",
-      permissions.asset_store ? "TRUE" : "FALSE",
-      timestamp, // AM
+      user.id,                      // A
+      user.name,                    // B
+      user.user_name,               // C
+      user.password,                // D
+      r("dashboard"),               // E
+      r("order_report"),            // F
+      r("stock"),                   // G
+      r("registration_request"),    // H
+      r("user_setting"),            // I
+      r("petty_cash"),              // J
+      r("petty_cash_add"),          // K
+      r("petty_cash_export"),       // L
+      r("petty_cash_balance"),      // M
+      r("order_report_import"),     // N
+      r("order_report_export"),     // O
+      r("customer"),                // P
+      r("voucher"),                 // Q
+      r("bundling"),                // R
+      r("canvasing"),               // S
+      r("canvasing_export"),        // T
+      r("request"),                 // U
+      r("edit_request"),            // V
+      r("analytics_order"),         // W
+      r("stock_opname"),            // X
+      r("stock_import"),            // Y
+      r("stock_export"),            // Z
+      r("stock_view_store"),        // AA
+      r("stock_view_pca"),          // AB
+      r("stock_view_master"),       // AC
+      r("stock_view_hpp"),          // AD
+      r("stock_view_hpt"),          // AE
+      r("stock_view_hpj"),          // AF
+      r("stock_refresh_javelin"),   // AG
+      r("traffic_store"),           // AH
+      r("report_store"),            // AI
+      r("request_tracking"),        // AJ
+      r("tracking_edit"),           // AK
+      r("stock_opname_report"),     // AL
+      r("attendance"),              // AM
+      r("attendance_report"),       // AN
+      r("invoice"),                 // AO
+      r("invoice_create"),          // AP
+      r("invoice_edit"),            // AQ
+      r("invoice_delete"),          // AR
+      r("invoice_master"),          // AS
+      r("sales_view"),              // AT
+      r("sales_view_all"),          // AU
+      r("attendance_store"),        // AV
+      r("attendance_store_all"),    // AW
+      r("material_issue"),          // AX
+      r("material_issue_all"),      // AY
+      r("asset_store"),             // AZ
+      timestamp,                    // BA
     ];
 
     console.log(`Updating row ${rowIndex} with ${updatedRow.length} columns`);
