@@ -169,7 +169,7 @@ function GroupDetailPopup({
       className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b bg-gray-50 rounded-t-xl">
           <div className="flex items-center gap-2 min-w-0">
@@ -235,11 +235,11 @@ function GroupDetailPopup({
               <p className="text-[9px] text-gray-400">Blok manual atau klik ikon copy per kolom</p>
             </div>
             <div className="overflow-x-auto border border-gray-200 rounded-lg">
-              <table className="w-full text-xs border-collapse select-text">
+              <table className="w-full text-[11px] border-collapse select-text">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-10">No</th>
-                    <th className="px-2 py-1.5 text-left font-semibold text-gray-500 border-r border-gray-200">
+                    <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-8">No</th>
+                    <th className="px-1.5 py-1 text-left font-semibold text-gray-500 border-r border-gray-200">
                       <div className="flex items-center justify-between gap-1">
                         <span>SKU</span>
                         <CopyButton
@@ -250,7 +250,7 @@ function GroupDetailPopup({
                         />
                       </div>
                     </th>
-                    <th className="px-2 py-1.5 text-left font-semibold text-gray-500 border-r border-gray-200">
+                    <th className="px-1.5 py-1 text-left font-semibold text-gray-500 border-r border-gray-200">
                       <div className="flex items-center justify-between gap-1">
                         <span>Item Name</span>
                         <CopyButton
@@ -261,7 +261,7 @@ function GroupDetailPopup({
                         />
                       </div>
                     </th>
-                    <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-16">
+                    <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-14">
                       <div className="flex items-center justify-center gap-1">
                         <span>Qty</span>
                         <CopyButton
@@ -272,7 +272,7 @@ function GroupDetailPopup({
                         />
                       </div>
                     </th>
-                    <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
+                    <th className="px-1.5 py-1 text-left font-semibold text-gray-500">
                       <div className="flex items-center justify-between gap-1">
                         <span>Reason</span>
                         <CopyButton
@@ -288,11 +288,11 @@ function GroupDetailPopup({
                 <tbody>
                   {items.map((item, idx) => (
                     <tr key={`${item.item_sku}-${idx}`} className="border-b border-gray-100 last:border-b-0">
-                      <td className="px-2 py-1.5 text-center text-gray-600 border-r border-gray-200">{idx + 1}</td>
-                      <td className="px-2 py-1.5 font-mono text-gray-800 border-r border-gray-200">{item.item_sku}</td>
-                      <td className="px-2 py-1.5 text-gray-800 border-r border-gray-200">{item.item_name}</td>
-                      <td className="px-2 py-1.5 text-center font-semibold text-gray-800 border-r border-gray-200">{item.item_qty}</td>
-                      <td className="px-2 py-1.5 text-gray-700">{meta.reason || "-"}</td>
+                      <td className="px-1.5 py-1 text-center text-gray-600 border-r border-gray-200">{idx + 1}</td>
+                      <td className="px-1.5 py-1 font-mono text-gray-800 border-r border-gray-200">{item.item_sku}</td>
+                      <td className="px-1.5 py-1 text-gray-800 border-r border-gray-200">{item.item_name}</td>
+                      <td className="px-1.5 py-1 text-center font-semibold text-gray-800 border-r border-gray-200">{item.item_qty}</td>
+                      <td className="px-1.5 py-1 text-gray-700">{meta.reason || "-"}</td>
                     </tr>
                   ))}
                 </tbody>

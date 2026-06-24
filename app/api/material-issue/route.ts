@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSheetData, appendSheetData, updateSheetRow } from '@/lib/sheets';
+import { getSheetData, appendSheetData, updateSheetRow, updateMultipleSheetRows } from '@/lib/sheets';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function toJakartaTimestamp(): string {
@@ -192,12 +192,14 @@ export async function PUT(request: NextRequest) {
       if (fields.has_processed === undefined) {
         return NextResponse.json({ error: 'Missing has_processed' }, { status: 400 });
       }
-      await Promise.all(
-        groupIndexes.map((idx) => {
-          const updatedRow = buildRow(rows[idx], { has_processed: fields.has_processed }, update_by, now);
-          return updateSheetRow('material_issue', idx + 2, updatedRow);
-        })
-      );
+      // Satu request batchUpdate untuk semua baris dalam group, bukan banyak
+      // request paralel — supaya tidak kena rate limit Sheets API saat
+      // group berisi banyak baris (puluhan item).
+      const updates = groupIndexes.map((idx) => ({
+        rowIndex: idx + 2,
+        data: buildRow(rows[idx], { has_processed: fields.has_processed }, update_by, now),
+      }));
+      await updateMultipleSheetRows('material_issue', updates);
       return NextResponse.json({ success: true, updated: groupIndexes.length });
     }
 
@@ -211,12 +213,11 @@ export async function PUT(request: NextRequest) {
         reason: fields.reason,
         assigned_to: fields.assigned_to,
       };
-      await Promise.all(
-        groupIndexes.map((idx) => {
-          const updatedRow = buildRow(rows[idx], metaFields, update_by, now);
-          return updateSheetRow('material_issue', idx + 2, updatedRow);
-        })
-      );
+      const updates = groupIndexes.map((idx) => ({
+        rowIndex: idx + 2,
+        data: buildRow(rows[idx], metaFields, update_by, now),
+      }));
+      await updateMultipleSheetRows('material_issue', updates);
       return NextResponse.json({ success: true, updated: groupIndexes.length });
     }
 
@@ -257,8 +258,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
-    await Promise.all(
-      groupIndexes.map((idx) => updateSheetRow('material_issue', idx + 2, emptyRow))
+    await updateMultipleSheetRows(
+      'material_issue',
+      groupIndexes.map((idx) => ({ rowIndex: idx + 2, data: emptyRow }))
     );
 
     return NextResponse.json({ success: true, deleted: groupIndexes.length });

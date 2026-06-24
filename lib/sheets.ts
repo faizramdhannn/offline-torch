@@ -262,6 +262,46 @@ export async function updateSheetRow(
   );
 }
 
+// ✅ Update banyak baris dalam SATU request batchUpdate, bukan banyak request
+// values.update paralel. Dipakai ketika satu "group" (id sama) berisi banyak
+// baris (misal puluhan item dalam satu material issue) — supaya tidak kena
+// rate limit Google Sheets API saat toggle status / update metadata group.
+export async function updateMultipleSheetRows(
+  sheetName: string,
+  updates: { rowIndex: number; data: any[] }[]
+) {
+  const spreadsheetId = getSpreadsheetId(sheetName);
+  if (!spreadsheetId) {
+    throw new Error(`No spreadsheet ID configured for sheet: ${sheetName}`);
+  }
+  if (updates.length === 0) return { success: true, updated: 0 };
+
+  return withRetry(
+    async () => {
+      const sheets = getSheetsClient();
+      const data = updates.map(({ rowIndex, data: rowData }) => {
+        const endColumn = getColumnLetter(rowData.length);
+        return {
+          range: `${sheetName}!A${rowIndex}:${endColumn}${rowIndex}`,
+          values: [rowData],
+        };
+      });
+      console.log(`Batch updating ${data.length} row(s) on sheet ${sheetName}`);
+      await withTimeout(
+        sheets.spreadsheets.values.batchUpdate({
+          spreadsheetId,
+          requestBody: { valueInputOption: "RAW", data },
+        }),
+        20000,
+        `updateMultipleSheetRows(${sheetName}, rows=${updates.length})`
+      );
+      return { success: true, updated: updates.length };
+    },
+    3,
+    `updateMultipleSheetRows(${sheetName})`
+  );
+}
+
 export async function updateSheetRowSkipColumns(
   sheetName: string,
   rowIndex: number,
