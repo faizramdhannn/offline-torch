@@ -4,6 +4,7 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
+import SearchableSelect from "@/components/SearchableSelect";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface MIItem {
@@ -79,6 +80,24 @@ function formatRupiah(val: string | number): string {
     currency: "IDR",
     minimumFractionDigits: 0,
   }).format(num);
+}
+
+// `created_at` disimpan dalam format locale id-ID, contoh: "24 Jun 2026, 14.54.19".
+// Helper ini menormalkan format tersebut supaya bisa diparse jadi timestamp,
+// dipakai bersama untuk sorting maupun filter rentang tanggal.
+function parseCreatedAt(str: string): number {
+  if (!str) return 0;
+  const cleaned = str.replace(",", "").replace(/\./g, ":");
+  const t = new Date(cleaned).getTime();
+  return isNaN(t) ? 0 : t;
+}
+
+// Konversi value <input type="date"> ("YYYY-MM-DD") jadi timestamp awal/akhir hari.
+function parseDateInput(dateInput: string, endOfDay = false): number {
+  const [y, m, d] = dateInput.split("-").map(Number);
+  return endOfDay
+    ? new Date(y, m - 1, d, 23, 59, 59, 999).getTime()
+    : new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
 }
 
 // ─── CopyButton ───────────────────────────────────────────────────────────────
@@ -231,6 +250,17 @@ function GroupDetailPopup({
                         />
                       </div>
                     </th>
+                    <th className="px-2 py-1.5 text-left font-semibold text-gray-500 border-r border-gray-200">
+                      <div className="flex items-center justify-between gap-1">
+                        <span>Item Name</span>
+                        <CopyButton
+                          text={items.map((i) => i.item_name).join("\n")}
+                          id={`col-itemname-${groupId}`}
+                          copiedId={copiedId}
+                          onCopy={onCopy}
+                        />
+                      </div>
+                    </th>
                     <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-16">
                       <div className="flex items-center justify-center gap-1">
                         <span>Qty</span>
@@ -260,6 +290,7 @@ function GroupDetailPopup({
                     <tr key={`${item.item_sku}-${idx}`} className="border-b border-gray-100 last:border-b-0">
                       <td className="px-2 py-1.5 text-center text-gray-600 border-r border-gray-200">{idx + 1}</td>
                       <td className="px-2 py-1.5 font-mono text-gray-800 border-r border-gray-200">{item.item_sku}</td>
+                      <td className="px-2 py-1.5 text-gray-800 border-r border-gray-200">{item.item_name}</td>
                       <td className="px-2 py-1.5 text-center font-semibold text-gray-800 border-r border-gray-200">{item.item_qty}</td>
                       <td className="px-2 py-1.5 text-gray-700">{meta.reason || "-"}</td>
                     </tr>
@@ -552,6 +583,10 @@ export default function MaterialIssuePage() {
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [search, setSearch] = useState("");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [filterStore, setFilterStore] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -615,6 +650,10 @@ export default function MaterialIssuePage() {
     return () => clearInterval(interval);
   }, [user]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sortOrder, filterStore, dateFrom, dateTo]);
+
   const fetchData = async () => {
     try {
       const res = await fetch(
@@ -625,14 +664,7 @@ export default function MaterialIssuePage() {
         setData(
           rows
             .filter((r) => r.id)
-            .sort((a, b) => {
-              const parseDate = (str: string) => {
-                if (!str) return 0;
-                const cleaned = str.replace(",", "").replace(/\./g, ":");
-                return new Date(cleaned).getTime();
-              };
-              return parseDate(b.created_at) - parseDate(a.created_at);
-            })
+            .sort((a, b) => parseCreatedAt(b.created_at) - parseCreatedAt(a.created_at))
         );
         setLoading(false);
       }
@@ -925,20 +957,43 @@ export default function MaterialIssuePage() {
     });
   };
 
-  // ── Filter & pagination ─────────────────────────────────────────────────────
+  // ── Filter, sort & pagination ───────────────────────────────────────────────
+  const storeOptions = Array.from(new Set(data.map((d) => d.name).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b))
+    .map((name) => ({ value: name, label: toCapitalEachWord(name) }));
+
   const filteredData = (() => {
-    if (!search.trim()) return data;
-    const q = search.trim().toLowerCase();
-    return data.filter(
-      (d) =>
-        (d.item_sku || "").toLowerCase().includes(q) ||
-        (d.item_name || "").toLowerCase().includes(q) ||
-        (d.request_number || "").toLowerCase().includes(q) ||
-        (d.issue_number || "").toLowerCase().includes(q) ||
-        (d.request_by || "").toLowerCase().includes(q) ||
-        (d.name || "").toLowerCase().includes(q) ||
-        (d.assigned_to || "").toLowerCase().includes(q)
-    );
+    let rows = data;
+
+    if (filterStore) {
+      rows = rows.filter((d) => d.name === filterStore);
+    }
+    if (dateFrom) {
+      const fromTime = parseDateInput(dateFrom);
+      rows = rows.filter((d) => parseCreatedAt(d.created_at) >= fromTime);
+    }
+    if (dateTo) {
+      const toTime = parseDateInput(dateTo, true);
+      rows = rows.filter((d) => parseCreatedAt(d.created_at) <= toTime);
+    }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      rows = rows.filter(
+        (d) =>
+          (d.item_sku || "").toLowerCase().includes(q) ||
+          (d.item_name || "").toLowerCase().includes(q) ||
+          (d.request_number || "").toLowerCase().includes(q) ||
+          (d.issue_number || "").toLowerCase().includes(q) ||
+          (d.request_by || "").toLowerCase().includes(q) ||
+          (d.name || "").toLowerCase().includes(q) ||
+          (d.assigned_to || "").toLowerCase().includes(q)
+      );
+    }
+
+    return [...rows].sort((a, b) => {
+      const diff = parseCreatedAt(a.created_at) - parseCreatedAt(b.created_at);
+      return sortOrder === "newest" ? -diff : diff;
+    });
   })();
 
   const groupedRows = getGroupedRows(filteredData);
@@ -947,6 +1002,16 @@ export default function MaterialIssuePage() {
   const indexOfFirst = (currentPage - 1) * itemsPerPage;
   const currentItems = groupedRows.slice(indexOfFirst, indexOfFirst + itemsPerPage);
   const hasSearch = search.trim().length > 0;
+  const hasActiveFilter = hasSearch || !!filterStore || !!dateFrom || !!dateTo;
+
+  const resetFilters = () => {
+    setSearch("");
+    setFilterStore("");
+    setDateFrom("");
+    setDateTo("");
+    setSortOrder("newest");
+    setCurrentPage(1);
+  };
 
   const highlightText = (text: string, query: string) => {
     if (!query || !text) return text || "-";
@@ -994,16 +1059,53 @@ export default function MaterialIssuePage() {
               className="pl-6 pr-2 py-1 border border-gray-300 rounded text-[11px] w-80 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
-          {hasSearch && (
+
+          {/* Sort */}
+          <select
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}
+            className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary bg-white"
+          >
+            <option value="newest">Terbaru</option>
+            <option value="oldest">Terlama</option>
+          </select>
+
+          {/* Filter store */}
+          <SearchableSelect
+            options={storeOptions}
+            value={filterStore}
+            onChange={setFilterStore}
+            placeholder="Semua store"
+            className="w-40"
+          />
+
+          {/* Filter tanggal dari - ke */}
+          <div className="flex items-center gap-1">
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            <span className="text-[10px] text-gray-400">–</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          {hasActiveFilter && (
             <>
               <button
-                onClick={() => { setSearch(""); setCurrentPage(1); }}
+                onClick={resetFilters}
                 className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 border border-gray-200 rounded text-[11px] hover:bg-gray-200"
               >
                 <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Clear
+                Reset
               </button>
               <span className="text-[10px] text-gray-400">{groupedRows.length} result{groupedRows.length !== 1 ? "s" : ""}</span>
             </>
@@ -1180,7 +1282,7 @@ export default function MaterialIssuePage() {
                 </table>
                 {groupedRows.length === 0 && (
                   <div className="p-8 text-center text-gray-500 text-sm">
-                    {hasSearch ? "Tidak ada hasil yang sesuai" : "Belum ada data material issue"}
+                    {hasActiveFilter ? "Tidak ada hasil yang sesuai" : "Belum ada data material issue"}
                   </div>
                 )}
               </div>
