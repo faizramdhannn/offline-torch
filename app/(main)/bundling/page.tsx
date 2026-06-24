@@ -591,16 +591,17 @@ export default function BundlingPage() {
                         </p>
 
                         <SearchableSelect
-                          options={masterItems
-                            .filter((item) => item.Artikel != null && item.Artikel !== "")
-                            .map((item) => ({
-                              value: item.Artikel,
-                              label: item.Artikel,
-                            }))}
-                          value={selectedArtikel}
-                          onChange={(val) => handleOptionChange(option, val)}
-                          placeholder="-- Pilih Item --"
-                        />
+  options={Array.from(
+    new Map(
+      masterItems
+        .filter((item) => item.Artikel != null && item.Artikel !== "")
+        .map((item) => [item.Artikel, { value: item.Artikel, label: item.Artikel }])
+    ).values()
+  )}
+  value={selectedArtikel}
+  onChange={(val) => handleOptionChange(option, val)}
+  placeholder="-- Pilih Item --"
+/>
 
                         <div className="mt-2">
                           <input
