@@ -13,6 +13,7 @@ import {
 
 interface TrafficEntry {
   id: string;
+  date: string;
   store_location: string;
   taft_name: string;
   customer_convert: string;
@@ -131,12 +132,24 @@ const PieLegend = ({ data }: { data: { name: string; value: number; color: strin
   </div>
 );
 
-function formatDate(iso: string) {
-  if (!iso) return "-";
-  const d = new Date(iso);
+// formatDate now formats a date value that may be either:
+//  - a plain date string "YYYY-MM-DD" (the new `date` field, no time component), or
+//  - a full ISO datetime string (legacy created_at fallback)
+// It renders date-only values without a time portion.
+function formatDate(value: string) {
+  if (!value) return "-";
   const months = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getDate())} ${months[d.getMonth()]} ${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const hasTime = value.includes("T");
+  if (hasTime) {
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return "-";
+    return `${pad(d.getDate())} ${months[d.getMonth()]} ${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  // date-only "YYYY-MM-DD" — parse manually to avoid timezone shifting the day
+  const [y, m, day] = value.split("-").map(Number);
+  if (!y || !m || !day) return "-";
+  return `${pad(day)} ${months[m - 1]} ${y}`;
 }
 
 function formatShortDate(isoOrDate: string): string {
@@ -157,6 +170,12 @@ function parseValue(val: string | undefined): number {
   return parseFloat(String(val).replace(/[^0-9.]/g, "")) || 0;
 }
 
+function todayStr(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 const STORE_NAME_MAP: Record<string, string> = {
   cirebon: "Cirebon", jogja: "Jogja", karawaci: "Karawaci", karawang: "Karawang",
   lampung: "Lampung", lembong: "Lembong", makassar: "Makassar", malang: "Malang",
@@ -170,6 +189,7 @@ function toTitleCase(str: string) {
 }
 
 const EMPTY_FORM = {
+  date: "",
   taft_name: "",
   customer_convert: "",
   traffic_source: "",
@@ -191,7 +211,6 @@ function exportReportXLSX(
   dateLabel: string
 ) {
   const wb = XLSX.utils.book_new();
-
   const allSources = [...new Set(filteredData.map(r => r.traffic_source).filter(Boolean))].sort();
   const allStores = [...new Set(filteredData.map(r => r.store_location).filter(Boolean))].sort();
 
@@ -309,10 +328,10 @@ function exportReportXLSX(
   wsBrand["!cols"] = [{ wch: 30 }, { wch: 10 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(wb, wsBrand, "Brand Competitor");
 
-  // Sheet 7: Daily Trend
+  // Sheet 7: Daily Trend (based on the user-selected `date` field)
   const dailyMap: Record<string, Record<string, number>> = {};
   filteredData.forEach(r => {
-    const date = r.created_at?.split("T")[0];
+    const date = r.date?.split("T")[0];
     if (!date) return;
     if (!dailyMap[date]) dailyMap[date] = {};
     dailyMap[date][r.traffic_source] = (dailyMap[date][r.traffic_source] || 0) + 1;
@@ -330,7 +349,7 @@ function exportReportXLSX(
   // Sheet 8: Raw Data
   const rawHeader = ["Tanggal", "Store", "Taft", "Beli?", "Sales Order", "Traffic Source", "WAG Addition", "Eiger Addition", "Organic Addition", "Brand Competitor", "Intensi", "Case", "Notes", "Value Order", "Discount Code"];
   const rawRows = filteredData.map(r => [
-    formatDate(r.created_at),
+    formatDate(r.date),
     toTitleCase(r.store_location),
     r.taft_name,
     r.customer_convert,
@@ -369,6 +388,7 @@ export default function TrafficStorePage() {
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
+
   useSessionGuard();
 
   // Filters
@@ -448,26 +468,32 @@ export default function TrafficStorePage() {
     () => [...new Set(master.map(m => m.traffic_source).filter(Boolean))],
     [master]
   );
+
   const intentions = useMemo(
     () => [...new Set(master.map(m => m.intention).filter(Boolean))],
     [master]
   );
+
   const wagAdditions = useMemo(
     () => [...new Set(master.map(m => m.wag_addition).filter(Boolean))],
     [master]
   );
+
   const eigerAdditions = useMemo(
     () => [...new Set(master.map(m => m.eiger_addition).filter(Boolean))],
     [master]
   );
+
   const organicAdditions = useMemo(
     () => [...new Set(master.map(m => m.organic_addition).filter(Boolean))],
     [master]
   );
+
   const brandCompetitors = useMemo(
     () => [...new Set(master.map(m => m.brand_competitor).filter(Boolean))],
     [master]
   );
+
   const casesForIntention = useMemo(() => {
     if (!form.intention) return [];
     return [...new Set(
@@ -491,8 +517,8 @@ export default function TrafficStorePage() {
     }
     if (filterTraffic !== "all") rows = rows.filter(r => r.traffic_source === filterTraffic);
     if (filterConvert !== "all") rows = rows.filter(r => r.customer_convert === filterConvert);
-    if (filterDateFrom) rows = rows.filter(r => r.created_at >= filterDateFrom);
-    if (filterDateTo) rows = rows.filter(r => r.created_at <= filterDateTo + "T23:59:59");
+    if (filterDateFrom) rows = rows.filter(r => (r.date || "") >= filterDateFrom);
+    if (filterDateTo) rows = rows.filter(r => (r.date || "") <= filterDateTo);
     return rows;
   }, [data, filterStore, filterTraffic, filterConvert, filterDateFrom, filterDateTo, isStoreUser, userStore]);
 
@@ -668,7 +694,7 @@ export default function TrafficStorePage() {
     const top6 = trafficChartData.slice(0, 6).map(d => d.name);
     const map: Record<string, Record<string, number>> = {};
     fd.forEach(r => {
-      const date = r.created_at?.split("T")[0];
+      const date = r.date?.split("T")[0];
       if (!date) return;
       const src = r.traffic_source?.trim() || "Lainnya";
       if (!map[date]) map[date] = {};
@@ -686,7 +712,7 @@ export default function TrafficStorePage() {
     const storeNames = [...new Set(fd.map(r => r.store_location).filter(Boolean))].sort();
     const map: Record<string, Record<string, number>> = {};
     fd.forEach(r => {
-      const date = r.created_at?.split("T")[0];
+      const date = r.date?.split("T")[0];
       if (!date) return;
       if (!map[date]) map[date] = {};
       map[date][r.store_location] = (map[date][r.store_location] || 0) + 1;
@@ -702,7 +728,7 @@ export default function TrafficStorePage() {
   const dailyConversionData = useMemo(() => {
     const map: Record<string, { beli: number; tidakBeli: number }> = {};
     fd.forEach(r => {
-      const date = r.created_at?.split("T")[0];
+      const date = r.date?.split("T")[0];
       if (!date) return;
       if (!map[date]) map[date] = { beli: 0, tidakBeli: 0 };
       if (r.customer_convert === "Beli") map[date].beli++;
@@ -733,7 +759,7 @@ export default function TrafficStorePage() {
 
   const openAdd = () => {
     setEditEntry(null);
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM, date: todayStr() });
     setShowForm(true);
   };
 
@@ -741,6 +767,7 @@ export default function TrafficStorePage() {
     setEditEntry(entry);
     const isCustomBrand = entry.brand_competitor && !brandCompetitors.includes(entry.brand_competitor) && entry.brand_competitor !== "Lainnya";
     setForm({
+      date: entry.date ? entry.date.split("T")[0] : todayStr(),
       taft_name: entry.taft_name,
       customer_convert: entry.customer_convert || "",
       traffic_source: entry.traffic_source,
@@ -768,6 +795,9 @@ export default function TrafficStorePage() {
       !/^#\d+$/.test(form.sales_order.trim());
     const needsNotes = form.customer_convert === "Tidak Beli" && !form.notes?.trim();
 
+    if (!form.date) {
+      showMessage("Tanggal wajib diisi", "error"); return;
+    }
     if (!form.taft_name || !form.traffic_source || !form.intention || !form.case || !form.customer_convert) {
       showMessage("Taft, Status Beli, Traffic Source, Intensi, dan Case wajib diisi", "error"); return;
     }
@@ -831,14 +861,13 @@ export default function TrafficStorePage() {
   };
 
   const exportList = () => {
-    const headers = ["ID", "Store", "Taft", "Beli?", "Sales Order", "Traffic Source", "WAG Addition", "Eiger Addition", "Organic Addition", "Brand Competitor", "Intensi", "Case", "Notes", "Value Order", "Discount Code", "Tanggal"];
+    const headers = ["ID", "Tanggal", "Store", "Taft", "Beli?", "Sales Order", "Traffic Source", "WAG Addition", "Eiger Addition", "Organic Addition", "Brand Competitor", "Intensi", "Case", "Notes", "Value Order", "Discount Code"];
     const rows = fd.map(r => [
-      r.id, r.store_location, r.taft_name, r.customer_convert,
+      r.id, formatDate(r.date), r.store_location, r.taft_name, r.customer_convert,
       r.sales_order || "",
       r.traffic_source, r.wag_addition, r.eiger_addition, r.organic_addition,
       r.brand_competitor, r.intention, r.case, r.notes,
       r.value_order || "", r.discount_code || "",
-      formatDate(r.created_at),
     ]);
     const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -962,7 +991,6 @@ export default function TrafficStorePage() {
 return (
   <div className="flex-1 overflow-auto">
     <div className="p-6">
-
       <div className="flex-1 overflow-auto">
         <div className="p-6">
           {/* Header */}
@@ -1052,7 +1080,7 @@ return (
                               : "";
                             return (
                               <tr key={row.id || i} className="border-b hover:bg-gray-50">
-                                <td className="px-2 py-1 whitespace-nowrap text-gray-500">{formatDate(row.created_at)}</td>
+                                <td className="px-2 py-1 whitespace-nowrap text-gray-500">{formatDate(row.date)}</td>
                                 {!isStoreUser && <td className="px-2 py-1 font-medium">{toTitleCase(row.store_location)}</td>}
                                 <td className="px-2 py-1">{row.taft_name}</td>
                                 <td className="px-2 py-1">
@@ -1146,7 +1174,6 @@ return (
                     )}
                   </div>
                 </div>
-
                 <div className="p-6">
                   {loading ? (
                     <div className="text-center py-16 text-gray-400">Loading data...</div>
@@ -1157,7 +1184,6 @@ return (
                     </div>
                   ) : (
                     <div className="space-y-10">
-
                       {/* ── ALL VIEW ── */}
                       {chartView === "all" && (
                         <>
@@ -1199,7 +1225,6 @@ return (
                               </ResponsiveContainer>
                               <PieLegend data={trafficChartData.map((d, i) => ({ name: d.name, value: d.value, color: COLORS[i % COLORS.length] }))} />
                             </div>
-
                             <div>
                               <h3 className="text-sm font-semibold text-gray-700 mb-4">Jumlah per Survey Source</h3>
                               <ResponsiveContainer width="100%" height={300}>
@@ -1227,7 +1252,6 @@ return (
                                 <div className="w-1 h-5 bg-green-500 rounded-full" />
                                 <h3 className="text-sm font-bold text-gray-700">Sales (Value Order) — Hanya Transaksi Beli</h3>
                               </div>
-
                               <div className="space-y-6">
                                 {/* Sales per Traffic Source */}
                                 <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -1267,7 +1291,6 @@ return (
                                         </BarChart>
                                       </ResponsiveContainer>
                                     </div>
-
                                     {/* Table */}
                                     <SalesTable
                                       title="Detail Sales per Traffic Source"
@@ -1413,7 +1436,6 @@ return (
                                     </BarChart>
                                   </ResponsiveContainer>
                                 </div>
-
                                 {/* Table: discount detail */}
                                 <div>
                                   <p className="text-xs text-gray-500 mb-3">Detail per Kode</p>
@@ -1481,7 +1503,6 @@ return (
                                   </ResponsiveContainer>
                                 </div>
                               )}
-
                               <div className="space-y-6">
                                 {wagChartData.length > 0 && (
                                   <div>
@@ -1731,7 +1752,6 @@ return (
                           </div>
                         </>
                       )}
-
                     </div>
                   )}
                 </div>
@@ -1756,6 +1776,16 @@ return (
                   className="w-full px-2 py-1.5 border border-gray-200 rounded text-xs bg-gray-50 text-gray-500" />
               </div>
             )}
+
+            {/* Tanggal */}
+            <div className="mb-3">
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Tanggal <span className="text-red-500">*</span>
+              </label>
+              <input type="date" value={form.date}
+                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary" />
+            </div>
 
             {/* Taft */}
             <div className="mb-3">
