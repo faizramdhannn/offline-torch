@@ -158,7 +158,7 @@ function StatusApprovalBadge({
   const badge = (
     <span
       className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
-        isApproved ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
+        isApproved ? "bg-green-100 text-green-800" : "bg-[#FFEB3B] text-amber-800"
       } ${onToggle ? "cursor-pointer hover:opacity-80" : ""}`}
     >
       {isApproved ? "Approved" : "Need Approval"}
@@ -1299,26 +1299,29 @@ export default function MaterialIssuePage() {
                         <tr
                           key={item.id}
                           onClick={() => setDetailGroupId(item.id)}
-                          className={`border-b border-gray-100 cursor-pointer transition-colors ${isProcessed ? "bg-green-50 hover:bg-green-100" : "bg-red-50 hover:bg-red-100"}`}
+                          className={`border-b border-gray-100 cursor-pointer transition-colors ${isProcessed
+                            ? "bg-[#39FF14] hover:bg-[#32e612]"
+                            : "bg-[#FF6EC7] hover:bg-[#ff5ccd] text-black"
+                          }`}
                         >
                           {/* Tanggal */}
                           <td className="px-1.5 py-1.5 text-center border-r border-gray-200">
-                            <div className="text-[9px] text-gray-600">{item.created_at?.split(",")[0]}</div>
+                            <div className="text-[9px] font-bold text-black">{item.created_at?.split(",")[0]}</div>
                           </td>
 
                           {/* Store */}
-                          <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate text-gray-700">
+                          <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate text-black">
                             {hasSearch ? highlightText(storeName, search) : storeName}
                           </td>
 
                           {/* Assigned To */}
-                          <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate text-gray-600">
+                          <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate text-black">
                             {hasSearch ? highlightText(item.assigned_to || "-", search) : (item.assigned_to || "-")}
                           </td>
 
                           {/* Item */}
-                          <td className="px-1.5 py-1.5 border-r border-gray-200">
-                            <p className="text-[9px] text-gray-700 truncate leading-tight">
+                          <td className="px-1.5 py-1.5 border-r border-black truncate text-black">
+                            <p className="text-[9px] text-black truncate leading-tight">
                               {hasSearch
                                 ? highlightText(groupItems.map((g) => g.item_name).join(", "), search)
                                 : groupItems.map((g) => g.item_name).join(", ")}
@@ -1326,14 +1329,14 @@ export default function MaterialIssuePage() {
                           </td>
 
                           {/* Total qty */}
-                          <td className="px-1.5 py-1.5 border-r border-gray-200 text-center font-bold text-gray-800">
+                          <td className="px-1.5 py-1.5 border-r border-gray-200 text-center font-bold text-black">
                             {totalQty}
                           </td>
 
                           {/* No. Request */}
                           <td className="px-1.5 py-1.5 border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-0.5">
-                              <span className="font-mono text-[9px] truncate flex-1 text-gray-600">
+                              <span className="font-mono text-[9px] truncate flex-1 text-black">
                                 {hasSearch ? highlightText(item.request_number, search) : item.request_number || "-"}
                               </span>
                               {item.request_number && (
@@ -1353,7 +1356,7 @@ export default function MaterialIssuePage() {
                           {/* No. Issue */}
                           <td className="px-1.5 py-1.5 border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-0.5">
-                              <span className="font-mono text-[9px] truncate flex-1 text-gray-600">
+                              <span className="font-mono text-[9px] truncate flex-1 text-black">
                                 {hasSearch ? highlightText(item.issue_number, search) : item.issue_number || "-"}
                               </span>
                               {item.issue_number && (
@@ -1370,9 +1373,11 @@ export default function MaterialIssuePage() {
                             />
                           </td>
 
-                          <td className="px-1.5 py-1.5 border-r border-gray-200 truncate text-gray-600">{item.request_by || "-"}</td>
-                          <td className="px-1.5 py-1.5 border-r border-gray-200 truncate text-gray-600">{item.type_reason || "-"}</td>
-                          <td className="px-1.5 py-1.5 border-r border-gray-200 truncate text-gray-600" title={item.reason}>{item.reason || "-"}</td>
+                          <td className="px-1.5 py-1.5 border-r border-gray-200 truncate text-black">{item.request_by || "-"}</td>
+                          <td className="px-1.5 py-1.5 border-r border-gray-200 truncate text-black">{item.type_reason || "-"}</td>
+                          <td className="px-1.5 py-1.5 border-r border-gray-200 truncate text-black" title={item.reason}>
+                            {item.reason || "-"}
+                          </td>
 
                           {/* Status badge */}
                           <td className="px-1 py-1.5 border-r border-gray-200 text-center">
