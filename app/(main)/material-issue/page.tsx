@@ -17,7 +17,9 @@ interface MIItem {
   item_hpj: string;
   request_by: string;
   request_number: string;
+  status_request: string;
   issue_number: string;
+  status_issue: string;
   type_reason: string;
   reason: string;
   has_processed: string;
@@ -142,7 +144,54 @@ function ProcessedBadge({ value }: { value: string }) {
   );
 }
 
-// ─── Group Detail Popup ────────────────────────────────────────────────────────
+// ─── StatusApprovalBadge ──────────────────────────────────────────────────────
+// Badge untuk status_request / status_issue. Bisa diklik untuk toggle
+// (Need Approval ↔ Approved) jika onToggle disediakan.
+function StatusApprovalBadge({
+  value,
+  onToggle,
+}: {
+  value: string;
+  onToggle?: () => void;
+}) {
+  const isApproved = value === "Approved";
+  const badge = (
+    <span
+      className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+        isApproved ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
+      } ${onToggle ? "cursor-pointer hover:opacity-80" : ""}`}
+    >
+      {isApproved ? "Approved" : "Need Approval"}
+    </span>
+  );
+  if (!onToggle) return badge;
+  return (
+    <button type="button" onClick={onToggle} className="inline-block">
+      {badge}
+    </button>
+  );
+}
+
+// ─── StatusSelect ─────────────────────────────────────────────────────────────
+// Dropdown kecil untuk pilih status approval (dipakai di form create & edit).
+function StatusSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 bg-gray-50"
+    >
+      <option value="Need Approval">Need Approval</option>
+      <option value="Approved">Approved</option>
+    </select>
+  );
+}
 function GroupDetailPopup({
   groupId,
   items,
@@ -205,6 +254,10 @@ function GroupDetailPopup({
                 ),
               },
               {
+                label: "Status Request",
+                content: <StatusApprovalBadge value={meta.status_request} />,
+              },
+              {
                 label: "No. Issue",
                 content: (
                   <div className="flex items-center gap-1">
@@ -214,6 +267,10 @@ function GroupDetailPopup({
                     )}
                   </div>
                 ),
+              },
+              {
+                label: "Status Issue",
+                content: <StatusApprovalBadge value={meta.status_issue} />,
               },
               { label: "Tipe", content: <span className="text-xs text-gray-800">{meta.type_reason || "-"}</span> },
               { label: "Alasan", content: <span className="text-xs text-gray-800">{meta.reason || "-"}</span> },
@@ -599,7 +656,9 @@ export default function MaterialIssuePage() {
   const emptyForm = {
     request_by: "",
     request_number: "",
+    status_request: "Need Approval",
     issue_number: "",
+    status_issue: "Need Approval",
     type_reason: "",
     reason: "",
     assigned_to: "", // id dropdown (bukan user_name)
@@ -611,7 +670,9 @@ export default function MaterialIssuePage() {
   const [editForm, setEditForm] = useState({
     request_by: "",
     request_number: "",
+    status_request: "Need Approval",
     issue_number: "",
+    status_issue: "Need Approval",
     type_reason: "",
     reason: "",
     has_processed: "FALSE",
@@ -750,6 +811,58 @@ export default function MaterialIssuePage() {
     }
   };
 
+  // ── Toggle approval status (request / issue) ────────────────────────────────
+  // Pakai mode "group-meta" karena ini field metadata (bukan has_processed),
+  // tapi cuma kirim 1 field yang berubah — backend akan fallback ke nilai
+  // existing untuk field metadata lain (lihat buildRow di route.ts).
+  const handleToggleStatusRequest = async (groupId: string, currentValue: string) => {
+    const newVal = currentValue === "Approved" ? "Need Approval" : "Approved";
+    setData((prev) => prev.map((d) => d.id === groupId ? { ...d, status_request: newVal } : d));
+    try {
+      const res = await fetch("/api/material-issue", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: groupId,
+          mode: "group-meta",
+          update_by: user.user_name,
+          status_request: newVal,
+        }),
+      });
+      if (!res.ok) {
+        setData((prev) => prev.map((d) => d.id === groupId ? { ...d, status_request: currentValue } : d));
+        showMessage("Gagal update status request", "error");
+      }
+    } catch {
+      setData((prev) => prev.map((d) => d.id === groupId ? { ...d, status_request: currentValue } : d));
+      showMessage("Gagal update status request", "error");
+    }
+  };
+
+  const handleToggleStatusIssue = async (groupId: string, currentValue: string) => {
+    const newVal = currentValue === "Approved" ? "Need Approval" : "Approved";
+    setData((prev) => prev.map((d) => d.id === groupId ? { ...d, status_issue: newVal } : d));
+    try {
+      const res = await fetch("/api/material-issue", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: groupId,
+          mode: "group-meta",
+          update_by: user.user_name,
+          status_issue: newVal,
+        }),
+      });
+      if (!res.ok) {
+        setData((prev) => prev.map((d) => d.id === groupId ? { ...d, status_issue: currentValue } : d));
+        showMessage("Gagal update status issue", "error");
+      }
+    } catch {
+      setData((prev) => prev.map((d) => d.id === groupId ? { ...d, status_issue: currentValue } : d));
+      showMessage("Gagal update status issue", "error");
+    }
+  };
+
   // ── Add ─────────────────────────────────────────────────────────────────────
   const handleAdd = async () => {
     if (!form.request_by || !form.type_reason || !form.reason || form.scannedItems.length === 0) {
@@ -772,7 +885,9 @@ export default function MaterialIssuePage() {
         item_hpj: si.hpj,
         request_by: form.request_by,
         request_number: form.request_number,
+        status_request: form.status_request,
         issue_number: form.issue_number,
+        status_issue: form.status_issue,
         type_reason: form.type_reason,
         reason: form.reason,
         assigned_to: assignedToUserName,
@@ -824,7 +939,9 @@ export default function MaterialIssuePage() {
     setEditForm({
       request_by: item.request_by || "",
       request_number: item.request_number || "",
+      status_request: item.status_request || "Need Approval",
       issue_number: item.issue_number || "",
+      status_issue: item.status_issue || "Need Approval",
       type_reason: item.type_reason || "",
       reason: item.reason || "",
       has_processed: item.has_processed || "FALSE",
@@ -873,7 +990,9 @@ export default function MaterialIssuePage() {
         item_hpj: si.hpj,
         request_by: editForm.request_by,
         request_number: editForm.request_number,
+        status_request: editForm.status_request,
         issue_number: editForm.issue_number,
+        status_issue: editForm.status_issue,
         type_reason: editForm.type_reason,
         reason: editForm.reason,
         has_processed: editForm.has_processed,
@@ -1140,8 +1259,14 @@ export default function MaterialIssuePage() {
                       <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[80px]">
                         <span className="text-[8px] uppercase tracking-wide">No. Request</span>
                       </th>
+                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[70px]">
+                        <span className="text-[8px] uppercase tracking-wide">Status Request</span>
+                      </th>
                       <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[80px]">
                         <span className="text-[8px] uppercase tracking-wide">No. Issue</span>
+                      </th>
+                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[70px]">
+                        <span className="text-[8px] uppercase tracking-wide">Status Issue</span>
                       </th>
                       <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[50px]">
                         <span className="text-[8px] uppercase tracking-wide">Req By</span>
@@ -1217,6 +1342,14 @@ export default function MaterialIssuePage() {
                             </div>
                           </td>
 
+                          {/* Status Request */}
+                          <td className="px-1 py-1.5 border-r border-gray-200 text-center" onClick={(e) => e.stopPropagation()}>
+                            <StatusApprovalBadge
+                              value={item.status_request}
+                              onToggle={() => handleToggleStatusRequest(item.id, item.status_request)}
+                            />
+                          </td>
+
                           {/* No. Issue */}
                           <td className="px-1.5 py-1.5 border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-0.5">
@@ -1227,6 +1360,14 @@ export default function MaterialIssuePage() {
                                 <CopyButton text={item.issue_number} id={`in-${item.id}`} copiedId={copiedId} onCopy={handleCopy} />
                               )}
                             </div>
+                          </td>
+
+                          {/* Status Issue */}
+                          <td className="px-1 py-1.5 border-r border-gray-200 text-center" onClick={(e) => e.stopPropagation()}>
+                            <StatusApprovalBadge
+                              value={item.status_issue}
+                              onToggle={() => handleToggleStatusIssue(item.id, item.status_issue)}
+                            />
                           </td>
 
                           <td className="px-1.5 py-1.5 border-r border-gray-200 truncate text-gray-600">{item.request_by || "-"}</td>
@@ -1411,6 +1552,16 @@ export default function MaterialIssuePage() {
                   />
                 </div>
                 <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Status Request</label>
+                  <StatusSelect
+                    value={form.status_request}
+                    onChange={(v) => setForm({ ...form, status_request: v })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">No. Issue</label>
                   <input
                     type="text"
@@ -1418,6 +1569,13 @@ export default function MaterialIssuePage() {
                     onChange={(e) => setForm({ ...form, issue_number: e.target.value })}
                     placeholder="Opsional"
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 bg-gray-50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Status Issue</label>
+                  <StatusSelect
+                    value={form.status_issue}
+                    onChange={(v) => setForm({ ...form, status_issue: v })}
                   />
                 </div>
               </div>
@@ -1526,12 +1684,29 @@ export default function MaterialIssuePage() {
                   />
                 </div>
                 <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Status Request</label>
+                  <StatusSelect
+                    value={editForm.status_request}
+                    onChange={(v) => setEditForm({ ...editForm, status_request: v })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
                   <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">No. Issue</label>
                   <input
                     type="text"
                     value={editForm.issue_number}
                     onChange={(e) => setEditForm({ ...editForm, issue_number: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 bg-gray-50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Status Issue</label>
+                  <StatusSelect
+                    value={editForm.status_issue}
+                    onChange={(v) => setEditForm({ ...editForm, status_issue: v })}
                   />
                 </div>
               </div>

@@ -25,25 +25,7 @@ function findGroupIndexes(rows: any[], id: string): number[] {
     .filter((i: number) => i !== -1);
 }
 
-// Kolom spreadsheet (urutan tetap, dipakai di semua operasi):
-// 0  id
-// 1  name
-// 2  assigned_to
-// 3  user_name
-// 4  item_sku
-// 5  item_name
-// 6  item_qty
-// 7  item_hpj
-// 8  request_by
-// 9  request_number
-// 10 issue_number
-// 11 type_reason
-// 12 reason
-// 13 has_processed
-// 14 created_by
-// 15 update_by
-// 16 created_at
-// 17 update_at
+
 function buildRow(existing: any, fields: any, update_by: string | undefined, now: string): any[] {
   return [
     existing.id,
@@ -56,7 +38,9 @@ function buildRow(existing: any, fields: any, update_by: string | undefined, now
     fields.item_hpj ?? existing.item_hpj,
     fields.request_by ?? existing.request_by,
     fields.request_number ?? existing.request_number,
+    fields.status_request ?? existing.status_request ?? 'Need Approval',
     fields.issue_number ?? existing.issue_number,
+    fields.status_issue ?? existing.status_issue ?? 'Need Approval',
     fields.type_reason ?? existing.type_reason,
     fields.reason ?? existing.reason,
     fields.has_processed ?? existing.has_processed,
@@ -117,7 +101,9 @@ export async function POST(request: NextRequest) {
       item.item_hpj,
       item.request_by,
       item.request_number,
+      item.status_request || 'Need Approval',
       item.issue_number,
+      item.status_issue || 'Need Approval',
       item.type_reason,
       item.reason,
       item.has_processed || 'FALSE',
@@ -149,13 +135,13 @@ export async function POST(request: NextRequest) {
 //    atau FALSE semua). Dipakai oleh toggle status di tabel utama.
 //
 // 3) mode: "group-meta"
-//    Body: { id, update_by, request_by?, request_number?, issue_number?,
-//            type_reason?, reason?, assigned_to? }
+//    Body: { id, update_by, request_by?, request_number?, status_request?,
+//            issue_number?, status_issue?, type_reason?, reason?, assigned_to? }
 //    Update field METADATA yang sama di semua baris group (request_by,
-//    request_number, issue_number, type_reason, reason, assigned_to) TANPA
-//    menyentuh item_sku / item_name / item_qty / item_hpj / has_processed
-//    per baris. Dipakai ketika hanya field-field ini yang berubah, tanpa
-//    perlu delete+recreate seluruh item.
+//    request_number, status_request, issue_number, status_issue, type_reason,
+//    reason, assigned_to) TANPA menyentuh item_sku / item_name / item_qty /
+//    item_hpj / has_processed per baris. Dipakai ketika hanya field-field ini
+//    yang berubah, tanpa perlu delete+recreate seluruh item.
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
@@ -208,7 +194,9 @@ export async function PUT(request: NextRequest) {
       const metaFields = {
         request_by: fields.request_by,
         request_number: fields.request_number,
+        status_request: fields.status_request,
         issue_number: fields.issue_number,
+        status_issue: fields.status_issue,
         type_reason: fields.type_reason,
         reason: fields.reason,
         assigned_to: fields.assigned_to,
@@ -243,7 +231,7 @@ export async function DELETE(request: NextRequest) {
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
     const rows = await getSheetData('material_issue');
-    const emptyRow = Array(18).fill('');
+    const emptyRow = Array(20).fill('');
 
     if (sku) {
       const idx = findRowIndex(rows, id, sku);
