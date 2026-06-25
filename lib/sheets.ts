@@ -302,6 +302,66 @@ export async function updateMultipleSheetRows(
   );
 }
 
+// ✅ Menghapus baris secara nyata (shift-up), bukan sekadar mengosongkan
+// nilainya. Dipakai saat jumlah item dalam sebuah group berkurang, supaya
+// tidak menyisakan baris kosong di tengah sheet. rowIndexes adalah index
+// 1-based sesuai posisi baris di sheet (header = baris 1).
+export async function deleteSheetRows(sheetName: string, rowIndexes: number[]) {
+  const spreadsheetId = getSpreadsheetId(sheetName);
+  if (!spreadsheetId) {
+    throw new Error(`No spreadsheet ID configured for sheet: ${sheetName}`);
+  }
+  if (rowIndexes.length === 0) return { success: true, deleted: 0 };
+
+  return withRetry(
+    async () => {
+      const sheets = getSheetsClient();
+
+      // Ambil sheetId numerik (bukan nama sheet) — dibutuhkan oleh deleteDimension.
+      const meta = await withTimeout(
+        sheets.spreadsheets.get({ spreadsheetId }),
+        15000,
+        `getSheetId(${sheetName})`
+      ) as { data: { sheets?: any[] } };
+      const sheetMeta = (meta.data.sheets || []).find(
+        (s: any) => s.properties?.title === sheetName
+      );
+      if (!sheetMeta) {
+        throw new Error(`Sheet not found: ${sheetName}`);
+      }
+      const sheetId = sheetMeta.properties.sheetId;
+
+      // Urutkan descending dan hapus dari bawah ke atas supaya index baris
+      // yang belum dihapus tidak bergeser saat proses delete berjalan.
+      const sortedDesc = [...rowIndexes].sort((a, b) => b - a);
+      const requests = sortedDesc.map((rowIndex) => ({
+        deleteDimension: {
+          range: {
+            sheetId,
+            dimension: "ROWS",
+            // rowIndex 1-based (header=1) → API butuh 0-based, exclusive end
+            startIndex: rowIndex - 1,
+            endIndex: rowIndex,
+          },
+        },
+      }));
+
+      await withTimeout(
+        sheets.spreadsheets.batchUpdate({
+          spreadsheetId,
+          requestBody: { requests },
+        }),
+        20000,
+        `deleteSheetRows(${sheetName}, rows=${rowIndexes.length})`
+      );
+
+      return { success: true, deleted: rowIndexes.length };
+    },
+    3,
+    `deleteSheetRows(${sheetName})`
+  );
+}
+
 export async function updateSheetRowSkipColumns(
   sheetName: string,
   rowIndex: number,

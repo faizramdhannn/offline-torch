@@ -962,49 +962,38 @@ export default function MaterialIssuePage() {
     try {
       const groupId = selectedItem.id;
 
-      // Clear seluruh group dalam SATU request (tanpa parameter sku).
-      // Backend akan menghapus semua baris dengan id ini, apapun SKU-nya saat
-      // ini di sheet — jadi tidak bergantung pada state browser yang mungkin
-      // sudah stale, dan aman walau SKU salah satu item diganti saat edit.
-      const deleteRes = await fetch(
-        `/api/material-issue?id=${encodeURIComponent(groupId)}`,
-        { method: "DELETE" }
-      );
-      if (!deleteRes.ok) {
-        showMessage("Gagal menghapus data lama, perubahan dibatalkan", "error");
-        setSubmitting(false);
-        return;
-      }
-
       // Dropdown menyimpan id, tapi sheet material_issue menyimpan user_name
       const assignedToUserName = editForm.assigned_to ? getUserNameById(editForm.assigned_to) : "";
 
-      // Re-create all items with updated data
-      const payload = editForm.scannedItems.map((si) => ({
-        id: groupId,
-        name: selectedItem.name,
-        user_name: selectedItem.user_name,
-        item_sku: si.sku,
-        item_name: si.name,
-        item_qty: String(si.qty),
-        item_hpj: si.hpj,
-        request_by: editForm.request_by,
-        request_number: editForm.request_number,
-        status_request: editForm.status_request,
-        issue_number: editForm.issue_number,
-        status_issue: editForm.status_issue,
-        type_reason: editForm.type_reason,
-        reason: editForm.reason,
-        has_processed: editForm.has_processed,
-        assigned_to: assignedToUserName,
-        created_by: selectedItem.created_by,
-        update_by: user.user_name,
-      }));
-
+      // Mode "group-items": update in-place. Baris yang masih kepakai ditulis
+      // ulang di posisi yang sama (created_at tidak berubah, baris tidak
+      // pindah ke bawah sheet). Tidak ada lagi DELETE-seluruh-group lalu
+      // POST-ulang — pola lama itu yang menyebabkan baris pindah & created_at
+      // hilang setiap kali edit (termasuk edit yang cuma ganti request
+      // number / issue number / ceklis, tanpa mengubah item sama sekali).
       const res = await fetch("/api/material-issue", {
-        method: "POST",
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          id: groupId,
+          mode: "group-items",
+          update_by: user.user_name,
+          items: editForm.scannedItems.map((si) => ({
+            item_sku: si.sku,
+            item_name: si.name,
+            item_qty: String(si.qty),
+            item_hpj: si.hpj,
+          })),
+          request_by: editForm.request_by,
+          request_number: editForm.request_number,
+          status_request: editForm.status_request,
+          issue_number: editForm.issue_number,
+          status_issue: editForm.status_issue,
+          type_reason: editForm.type_reason,
+          reason: editForm.reason,
+          has_processed: editForm.has_processed,
+          assigned_to: assignedToUserName,
+        }),
       });
 
       if (res.ok) {
@@ -1030,11 +1019,9 @@ export default function MaterialIssuePage() {
         fetchData();
       } else {
         showMessage("Gagal update", "error");
-        fetchData(); // Re-fetch to restore state if delete succeeded but post failed
       }
     } catch {
       showMessage("Gagal update", "error");
-      fetchData();
     } finally {
       setSubmitting(false);
     }

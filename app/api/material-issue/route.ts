@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSheetData, appendSheetData, updateSheetRow, updateMultipleSheetRows } from '@/lib/sheets';
+import { getSheetData, appendSheetData, updateSheetRow, updateMultipleSheetRows, deleteSheetRows } from '@/lib/sheets';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function toJakartaTimestamp(): string {
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
 }
 
 // ── PUT ───────────────────────────────────────────────────────────────────────
-// Tiga mode, dibedakan lewat field `mode` di body:
+// Empat mode, dibedakan lewat field `mode` di body:
 //
 // 1) mode: "row" (default kalau item_sku diisi)
 //    Body: { id, item_sku, update_by, ...fields }
@@ -142,6 +142,15 @@ export async function POST(request: NextRequest) {
 //    reason, assigned_to) TANPA menyentuh item_sku / item_name / item_qty /
 //    item_hpj / has_processed per baris. Dipakai ketika hanya field-field ini
 //    yang berubah, tanpa perlu delete+recreate seluruh item.
+//
+// 4) mode: "group-items"
+//    Body: { id, update_by, items: [...], ...metaFields, has_processed? }
+//    Update SUSUNAN ITEM dalam group (tambah/kurang/ganti SKU) sekaligus
+//    metadata-nya, tetapi IN-PLACE — baris yang masih kepakai ditulis ulang
+//    di posisi yang sama (created_at tidak berubah), bukan dihapus lalu
+//    di-append ulang di akhir sheet. Dipakai oleh form edit di halaman utama
+//    sebagai pengganti pola lama DELETE-seluruh-group lalu POST-ulang, yang
+//    menyebabkan baris pindah ke bawah sheet dan created_at hilang.
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
@@ -207,6 +216,90 @@ export async function PUT(request: NextRequest) {
       }));
       await updateMultipleSheetRows('material_issue', updates);
       return NextResponse.json({ success: true, updated: groupIndexes.length });
+    }
+
+    // ── Mode 4: replace seluruh item dalam group, TAPI in-place ─────────────
+    // Dipakai saat proses edit yang mengubah susunan item (tambah/kurang/ganti
+    // SKU). Berbeda dari pola lama (DELETE seluruh group lalu POST ulang),
+    // mode ini:
+    //   - menulis ulang baris yang masih ada di POSISI YANG SAMA (tidak pindah
+    //     ke bawah sheet), dan created_at baris itu dipertahankan dari data
+    //     existing — TIDAK ikut berubah hanya karena item di baris itu diganti.
+    //   - kalau item baru lebih BANYAK dari slot lama → sisanya di-append di
+    //     akhir sheet (baris baru memang baris baru, created_at = sekarang).
+    //   - kalau item baru lebih SEDIKIT dari slot lama → slot sisa benar-benar
+    //     dihapus (shift-up), bukan cuma dikosongkan, supaya tidak ada baris
+    //     kosong nyangkut di tengah sheet.
+    // Body: { id, update_by, items: [{ item_sku, item_name, item_qty, item_hpj }],
+    //         request_by?, request_number?, status_request?, issue_number?,
+    //         status_issue?, type_reason?, reason?, assigned_to?, has_processed? }
+    if (resolvedMode === 'group-items') {
+      const items: any[] = Array.isArray(fields.items) ? fields.items : [];
+      if (items.length === 0) {
+        return NextResponse.json({ error: 'Missing items' }, { status: 400 });
+      }
+
+      const metaFields = {
+        request_by: fields.request_by,
+        request_number: fields.request_number,
+        status_request: fields.status_request,
+        issue_number: fields.issue_number,
+        status_issue: fields.status_issue,
+        type_reason: fields.type_reason,
+        reason: fields.reason,
+        assigned_to: fields.assigned_to,
+        has_processed: fields.has_processed,
+      };
+
+      // Baris existing dalam group ini, urut sesuai posisi asli di sheet.
+      const existingRows = groupIndexes.map((idx) => ({ idx, row: rows[idx] }));
+
+      const updates: { rowIndex: number; data: any[] }[] = [];
+      const toAppend: any[][] = [];
+      const reused = Math.min(existingRows.length, items.length);
+
+      // Tulis ulang slot lama yang masih kepakai — in-place, created_at tetap.
+      for (let i = 0; i < reused; i++) {
+        const { idx, row: existingRow } = existingRows[i];
+        const itemFields = { ...metaFields, ...items[i] };
+        updates.push({
+          rowIndex: idx + 2,
+          data: buildRow(existingRow, itemFields, update_by, now),
+        });
+      }
+
+      if (items.length > existingRows.length) {
+        // Item baru lebih banyak → sisanya jadi baris baru (append).
+        const base = existingRows[0]?.row ?? {};
+        for (let i = existingRows.length; i < items.length; i++) {
+          const itemFields = { ...metaFields, ...items[i] };
+          const newRow = buildRow(
+            { ...base, id, created_at: now, created_by: base.created_by ?? update_by },
+            itemFields,
+            update_by,
+            now
+          );
+          toAppend.push(newRow);
+        }
+      } else if (existingRows.length > items.length) {
+        // Item baru lebih sedikit → slot sisa dihapus beneran (shift-up).
+        const toDelete = existingRows.slice(reused).map(({ idx }) => idx + 2);
+        await deleteSheetRows('material_issue', toDelete);
+      }
+
+      if (updates.length > 0) {
+        await updateMultipleSheetRows('material_issue', updates);
+      }
+      if (toAppend.length > 0) {
+        await appendSheetData('material_issue', toAppend);
+      }
+
+      return NextResponse.json({
+        success: true,
+        updated: updates.length,
+        appended: toAppend.length,
+        deleted: Math.max(0, existingRows.length - items.length),
+      });
     }
 
     return NextResponse.json({ error: 'Unknown mode' }, { status: 400 });
