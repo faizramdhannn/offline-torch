@@ -66,12 +66,14 @@ export default function BundlingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectionBusy, setSelectionBusy] = useState(false);
   useSessionGuard();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const itemsPerPage = 25;
 
   const emptyForm = {
     bundling_name: "",
@@ -114,6 +116,11 @@ export default function BundlingPage() {
       setCurrentPage(maxPage);
     }
   }, [filteredData]);
+
+  // Seleksi checkbox di-scope per halaman, jadi reset saat pindah halaman
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [currentPage]);
 
   useEffect(() => {
     masterItemsRef.current = masterItems;
@@ -439,10 +446,129 @@ export default function BundlingPage() {
     }
   };
 
+  // Susun payload PUT yang hanya mengubah status, harga lama dipertahankan apa adanya
+  // (dipakai untuk bulk set Active/Inactive — tidak perlu hitung ulang HPJ)
+  const buildStatusOnlyPayload = (item: Bundling, newStatus: string) => ({
+    id: item.id,
+    bundling_name: item.bundling_name,
+    option_1: item.option_1 || "",
+    option_2: item.option_2 || "",
+    option_3: item.option_3 || "",
+    option_4: item.option_4 || "",
+    option_5: item.option_5 || "",
+    option_6: item.option_6 || "",
+    discount_1: item.discount_1 || "0",
+    discount_2: item.discount_2 || "0",
+    discount_3: item.discount_3 || "0",
+    discount_4: item.discount_4 || "0",
+    discount_5: item.discount_5 || "0",
+    discount_6: item.discount_6 || "0",
+    status: newStatus,
+    total_value: item.total_value,
+    discount_value: item.discount_value,
+    discount_percentage: item.discount_percentage,
+    value: item.value,
+  });
+
+  // Update harga untuk SEMUA bundling yang dicentang (checkbox)
+  const handleBulkUpdatePrice = async () => {
+    const targets = data.filter((item) => selectedIds.includes(item.id));
+    if (targets.length === 0) return;
+    setSelectionBusy(true);
+    try {
+      await fetchLatestMasterItems();
+      for (const item of targets) {
+        const totals = calcTotals(item);
+        const payload = buildSyncPayload(item, totals);
+        await fetch("/api/bundling", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
+      await logActivity("PUT", `Update harga ${targets.length} bundling terpilih (sync HPJ)`);
+      showMessage(`Harga ${targets.length} bundling terpilih berhasil diupdate`, "success");
+      setSelectedIds([]);
+      fetchData();
+    } catch (error) {
+      showMessage("Gagal update harga bundling terpilih", "error");
+    } finally {
+      setSelectionBusy(false);
+    }
+  };
+
+  // Ubah status (Active/Inactive) untuk bundling yang dicentang, tanpa menyentuh harga
+  const handleBulkSetStatus = async (newStatus: "active" | "inactive") => {
+    const targets = data.filter((item) => selectedIds.includes(item.id));
+    if (targets.length === 0) return;
+    setSelectionBusy(true);
+    try {
+      for (const item of targets) {
+        const payload = buildStatusOnlyPayload(item, newStatus);
+        await fetch("/api/bundling", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
+      await logActivity("PUT", `Set status ${newStatus} untuk ${targets.length} bundling terpilih`);
+      showMessage(
+        `Status ${targets.length} bundling terpilih berhasil diubah ke ${newStatus === "active" ? "Active" : "Inactive"}`,
+        "success"
+      );
+      setSelectedIds([]);
+      fetchData();
+    } catch (error) {
+      showMessage("Gagal mengubah status bundling terpilih", "error");
+    } finally {
+      setSelectionBusy(false);
+    }
+  };
+
+  // Hapus semua bundling yang dicentang
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`Yakin ingin menghapus ${selectedIds.length} bundling terpilih?`)) return;
+    setSelectionBusy(true);
+    try {
+      for (const id of selectedIds) {
+        await fetch(`/api/bundling?id=${id}`, { method: "DELETE" });
+      }
+      await logActivity("DELETE", `Hapus ${selectedIds.length} bundling terpilih`);
+      showMessage(`${selectedIds.length} bundling terpilih berhasil dihapus`, "success");
+      setSelectedIds([]);
+      fetchData();
+    } catch (error) {
+      showMessage("Gagal menghapus bundling terpilih", "error");
+    } finally {
+      setSelectionBusy(false);
+    }
+  };
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+  // Seleksi checkbox hanya berlaku untuk baris yang sedang ditampilkan (halaman aktif)
+  const isAllCurrentSelected =
+    currentItems.length > 0 && currentItems.every((item) => selectedIds.includes(item.id));
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const toggleSelectAllCurrentPage = () => {
+    if (isAllCurrentSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !currentItems.some((item) => item.id === id)));
+    } else {
+      setSelectedIds((prev) => {
+        const merged = new Set(prev);
+        currentItems.forEach((item) => merged.add(item.id));
+        return Array.from(merged);
+      });
+    }
+  };
 
   if (!user) return null;
 
@@ -516,6 +642,50 @@ export default function BundlingPage() {
           )}
         </div>
 
+        {/* Bulk Action Toolbar */}
+        {selectedIds.length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-3 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold text-blue-700">{selectedIds.length} dipilih</span>
+            <div className="flex items-center gap-1.5 ml-auto">
+              <button
+                onClick={handleBulkUpdatePrice}
+                disabled={selectionBusy}
+                title="Update harga bundling terpilih berdasarkan HPJ master item terbaru"
+                className="px-2 py-1 bg-amber-500 text-white rounded text-[10px] font-medium hover:bg-amber-600 disabled:opacity-50 transition-colors"
+              >
+                {selectionBusy ? "..." : "Update Harga"}
+              </button>
+              <button
+                onClick={() => handleBulkSetStatus("active")}
+                disabled={selectionBusy}
+                className="px-2 py-1 bg-green-500 text-white rounded text-[10px] font-medium hover:bg-green-600 disabled:opacity-50 transition-colors"
+              >
+                Set Active
+              </button>
+              <button
+                onClick={() => handleBulkSetStatus("inactive")}
+                disabled={selectionBusy}
+                className="px-2 py-1 bg-gray-400 text-white rounded text-[10px] font-medium hover:bg-gray-500 disabled:opacity-50 transition-colors"
+              >
+                Set Inactive
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                disabled={selectionBusy}
+                className="px-2 py-1 bg-red-500 text-white rounded text-[10px] font-medium hover:bg-red-600 disabled:opacity-50 transition-colors"
+              >
+                Hapus
+              </button>
+              <button
+                onClick={() => setSelectedIds([])}
+                className="px-2 py-1 bg-white border border-gray-300 text-gray-600 rounded text-[10px] font-medium hover:bg-gray-50 transition-colors"
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Table */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
           {loading ? (
@@ -526,14 +696,22 @@ export default function BundlingPage() {
                 <table className="w-full text-[11px] border-collapse">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="px-3 py-2 text-left font-semibold text-gray-600">Bundling Name</th>
-                      <th className="px-3 py-2 text-left font-semibold text-gray-600">Options</th>
-                      <th className="px-3 py-2 text-right font-semibold text-gray-600">Total HPJ</th>
-                      <th className="px-3 py-2 text-right font-semibold text-gray-600">Diskon</th>
-                      <th className="px-3 py-2 text-right font-semibold text-gray-600">Harga Final</th>
-                      <th className="px-3 py-2 text-center font-semibold text-gray-600">Stock</th>
-                      <th className="px-3 py-2 text-center font-semibold text-gray-600">Status</th>
-                      <th className="px-3 py-2 text-center font-semibold text-gray-600">Aksi</th>
+                      <th className="px-2 py-1.5 text-center w-[32px]">
+                        <input
+                          type="checkbox"
+                          checked={isAllCurrentSelected}
+                          onChange={toggleSelectAllCurrentPage}
+                          className="w-3.5 h-3.5 cursor-pointer accent-primary"
+                        />
+                      </th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-gray-600">Bundling Name</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-gray-600">Options</th>
+                      <th className="px-2 py-1.5 text-right font-semibold text-gray-600">Total HPJ</th>
+                      <th className="px-2 py-1.5 text-right font-semibold text-gray-600">Diskon</th>
+                      <th className="px-2 py-1.5 text-right font-semibold text-gray-600">Harga Final</th>
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-600">Stock</th>
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-600">Status</th>
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-600">Aksi</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -545,21 +723,33 @@ export default function BundlingPage() {
                       const totalStock = getTotalStock(item);
 
                       return (
-                        <tr key={item.id || index} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                          <td className="px-3 py-2 font-medium text-gray-800">{item.bundling_name}</td>
-                          <td className="px-3 py-2 text-gray-600">
+                        <tr
+                          key={item.id || index}
+                          onClick={() => handleOpenModal(item)}
+                          className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
+                        >
+                          <td className="px-2 py-1 text-center" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(item.id)}
+                              onChange={() => toggleSelectOne(item.id)}
+                              className="w-3.5 h-3.5 cursor-pointer accent-primary"
+                            />
+                          </td>
+                          <td className="px-2 py-1 font-medium text-gray-800">{item.bundling_name}</td>
+                          <td className="px-2 py-1 text-gray-600">
                             {options.slice(0, 2).join(", ")}
                             {options.length > 2 && (
                               <span className="ml-1 text-[10px] text-primary font-medium">+{options.length - 2} lagi</span>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-right text-gray-700">{item.total_value}</td>
-                          <td className="px-3 py-2 text-right">
+                          <td className="px-2 py-1 text-right text-gray-700">{item.total_value}</td>
+                          <td className="px-2 py-1 text-right">
                             <span className="text-red-500">{item.discount_percentage}%</span>
                             <span className="text-gray-400 ml-1">({item.discount_value})</span>
                           </td>
-                          <td className="px-3 py-2 text-right font-semibold text-green-600">{item.value}</td>
-                          <td className="px-3 py-2 text-center">
+                          <td className="px-2 py-1 text-right font-semibold text-green-600">{item.value}</td>
+                          <td className="px-2 py-1 text-center" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={() => handleViewStock(item)}
                               className="text-blue-600 hover:text-blue-800 font-semibold hover:underline"
@@ -567,18 +757,18 @@ export default function BundlingPage() {
                               {totalStock} unit
                             </button>
                           </td>
-                          <td className="px-3 py-2 text-center">
+                          <td className="px-2 py-1 text-center">
                             <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                               item.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
                             }`}>
                               {item.status === "active" ? "Active" : "Inactive"}
                             </span>
                           </td>
-                          <td className="px-3 py-2">
-                            <div className="flex justify-center gap-1.5">
+                          <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex justify-center gap-1">
                               <button
                                 onClick={() => handleOpenModal(item)}
-                                className="px-2.5 py-1 bg-blue-500 text-white rounded text-[10px] font-medium hover:bg-blue-600 transition-colors"
+                                className="px-1.5 py-0.5 bg-blue-500 text-white rounded text-[10px] font-medium hover:bg-blue-600 transition-colors"
                               >
                                 Edit
                               </button>
@@ -586,13 +776,13 @@ export default function BundlingPage() {
                                 onClick={() => handleUpdatePrice(item)}
                                 disabled={updatingId === item.id}
                                 title="Update harga berdasarkan HPJ master item terbaru"
-                                className="px-2.5 py-1 bg-amber-500 text-white rounded text-[10px] font-medium hover:bg-amber-600 transition-colors disabled:opacity-50"
+                                className="px-1.5 py-0.5 bg-amber-500 text-white rounded text-[10px] font-medium hover:bg-amber-600 transition-colors disabled:opacity-50"
                               >
                                 {updatingId === item.id ? "..." : "Update"}
                               </button>
                               <button
                                 onClick={() => handleDelete(item.id)}
-                                className="px-2.5 py-1 bg-red-500 text-white rounded text-[10px] font-medium hover:bg-red-600 transition-colors"
+                                className="px-1.5 py-0.5 bg-red-500 text-white rounded text-[10px] font-medium hover:bg-red-600 transition-colors"
                               >
                                 Hapus
                               </button>
