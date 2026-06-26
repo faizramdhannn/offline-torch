@@ -64,6 +64,8 @@ export default function BundlingPage() {
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [submitting, setSubmitting] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
   useSessionGuard();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -98,6 +100,20 @@ export default function BundlingPage() {
   useEffect(() => {
     applyFilters();
   }, [searchQuery, statusFilter, data]);
+
+  // Reset ke halaman 1 hanya kalau user mengubah pencarian/filter,
+  // BUKAN saat data ter-refresh (misal setelah edit atau update harga)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
+
+  // Jaga-jaga: kalau halaman aktif jadi out-of-range (misal setelah data terhapus)
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(filteredData.length / itemsPerPage));
+    if (currentPage > maxPage) {
+      setCurrentPage(maxPage);
+    }
+  }, [filteredData]);
 
   useEffect(() => {
     masterItemsRef.current = masterItems;
@@ -156,13 +172,13 @@ export default function BundlingPage() {
     return parseInt(String(item.HPJ).replace(/[^0-9]/g, "") || "0");
   };
 
-  const calcTotals = (fd: typeof formData) => {
+  const calcTotals = (fd: Record<string, any>) => {
     let totalHPJ = 0;
     let totalDiscount = 0;
 
     OPTION_KEYS.forEach(({ option, discount }) => {
-      const artikel = fd[option as keyof typeof fd] as string;
-      const discPct = parseFloat((fd[discount as keyof typeof fd] as string) || "0");
+      const artikel = fd[option] as string;
+      const discPct = parseFloat((fd[discount] as string) || "0");
       const hpj = getHPJ(artikel);
       if (hpj > 0) {
         totalHPJ += hpj;
@@ -212,7 +228,6 @@ export default function BundlingPage() {
       filtered = filtered.filter((item) => statusFilter.includes(item.status));
     }
     setFilteredData(filtered);
-    setCurrentPage(1);
   };
 
   const resetFilters = () => {
@@ -333,6 +348,97 @@ export default function BundlingPage() {
     }, 0);
   };
 
+  // Susun payload PUT dari item bundling existing + hasil hitung ulang totals.
+  // Field option/discount/status TIDAK berubah, hanya harga (HPJ-based) yang disegarkan.
+  const buildSyncPayload = (item: Bundling, totals: ReturnType<typeof calcTotals>) => ({
+    id: item.id,
+    bundling_name: item.bundling_name,
+    option_1: item.option_1 || "",
+    option_2: item.option_2 || "",
+    option_3: item.option_3 || "",
+    option_4: item.option_4 || "",
+    option_5: item.option_5 || "",
+    option_6: item.option_6 || "",
+    discount_1: item.discount_1 || "0",
+    discount_2: item.discount_2 || "0",
+    discount_3: item.discount_3 || "0",
+    discount_4: item.discount_4 || "0",
+    discount_5: item.discount_5 || "0",
+    discount_6: item.discount_6 || "0",
+    status: item.status,
+    total_value: formatRupiah(totals.total_value),
+    discount_value: formatRupiah(totals.discount_value),
+    discount_percentage: totals.discount_percentage,
+    value: formatRupiah(totals.value),
+  });
+
+  // Ambil HPJ master item paling baru langsung dari sheet (jangan andalkan cache di state)
+  const fetchLatestMasterItems = async (): Promise<MasterItem[]> => {
+    const res = await fetch("/api/master-item");
+    const fresh = await res.json();
+    masterItemsRef.current = fresh;
+    setMasterItems(fresh);
+    return fresh;
+  };
+
+  // Update harga 1 bundling: hitung ulang total_value/discount_value/value
+  // berdasarkan HPJ master item TERBARU, lalu simpan (PUT) tanpa buka modal edit.
+  const handleUpdatePrice = async (item: Bundling) => {
+    setUpdatingId(item.id);
+    try {
+      await fetchLatestMasterItems();
+      const totals = calcTotals(item);
+      const payload = buildSyncPayload(item, totals);
+
+      const response = await fetch("/api/bundling", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        await logActivity("PUT", `Update harga bundling (sync HPJ): ${item.bundling_name}`);
+        showMessage(`Harga "${item.bundling_name}" berhasil diupdate`, "success");
+        fetchData();
+      } else {
+        const err = await response.json().catch(() => ({}));
+        showMessage(err.error || "Gagal update harga bundling", "error");
+      }
+    } catch (error) {
+      showMessage("Gagal update harga bundling", "error");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  // Update harga SEMUA bundling sekaligus (berguna kalau banyak HPJ berubah bersamaan)
+  const handleUpdateAllPrices = async () => {
+    if (!confirm("Update harga SEMUA bundling berdasarkan HPJ master item terbaru?")) return;
+    setBulkUpdating(true);
+    try {
+      const freshMaster = await fetchLatestMasterItems();
+      masterItemsRef.current = freshMaster;
+
+      for (const item of data) {
+        const totals = calcTotals(item);
+        const payload = buildSyncPayload(item, totals);
+        await fetch("/api/bundling", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      await logActivity("PUT", "Update semua harga bundling (sync HPJ)");
+      showMessage("Semua harga bundling berhasil diupdate", "success");
+      fetchData();
+    } catch (error) {
+      showMessage("Gagal update semua harga bundling", "error");
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
@@ -347,15 +453,28 @@ export default function BundlingPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-primary">Bundling Management</h1>
-          <button
-            onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add Bundling
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleUpdateAllPrices}
+              disabled={bulkUpdating}
+              title="Update harga semua bundling berdasarkan HPJ master item terbaru"
+              className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded text-sm hover:bg-amber-600 disabled:opacity-50 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {bulkUpdating ? "Mengupdate..." : "Update Semua Harga"}
+            </button>
+            <button
+              onClick={() => handleOpenModal()}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Bundling
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -462,6 +581,14 @@ export default function BundlingPage() {
                                 className="px-2.5 py-1 bg-blue-500 text-white rounded text-[10px] font-medium hover:bg-blue-600 transition-colors"
                               >
                                 Edit
+                              </button>
+                              <button
+                                onClick={() => handleUpdatePrice(item)}
+                                disabled={updatingId === item.id}
+                                title="Update harga berdasarkan HPJ master item terbaru"
+                                className="px-2.5 py-1 bg-amber-500 text-white rounded text-[10px] font-medium hover:bg-amber-600 transition-colors disabled:opacity-50"
+                              >
+                                {updatingId === item.id ? "..." : "Update"}
                               </button>
                               <button
                                 onClick={() => handleDelete(item.id)}
