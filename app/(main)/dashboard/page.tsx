@@ -1,8 +1,26 @@
 "use client";
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import {
+  UserCheck,
+  Store as StoreIcon,
+  Users,
+  Activity,
+  CircleAlert,
+  Clock3,
+} from "lucide-react";
+
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { SummaryCard } from "@/components/dashboard/SummaryCard";
+import { SectionCard } from "@/components/dashboard/SectionCard";
+import { ShiftCard } from "@/components/dashboard/ShiftCard";
+import { QuickAction } from "@/components/dashboard/QuickAction";
+import { StoreTable } from "@/components/dashboard/StoreTable";
+import { ActivityTimeline } from "@/components/dashboard/ActivityTimeline";
+import { EmptyState } from "@/components/dashboard/EmptyState";
+import { CardSkeletonRow, TableSkeletonRows } from "@/components/dashboard/LoadingSkeleton";
 
 interface ActivityLog {
   id: string;
@@ -225,10 +243,53 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
     });
   };
 
+  // ── UI-only state (does not touch business logic) ────────────────────
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefreshAll = async () => {
+    setIsRefreshing(true);
+    await Promise.all([
+      fetchActivityLogs(),
+      fetchStoreAddresses(),
+      fetchTodayAttendance(),
+      fetchTodaySchedule(),
+    ]);
+    setIsRefreshing(false);
+  };
+
+  // Client-side display filter only — does not mutate activityLogs state.
+  const displayedLogs = useMemo(() => {
+    if (!searchQuery.trim()) return activityLogs;
+    const q = searchQuery.toLowerCase();
+    return activityLogs.filter(
+      (log) =>
+        log.user?.toLowerCase().includes(q) ||
+        log.activity_log?.toLowerCase().includes(q) ||
+        log.method?.toLowerCase().includes(q)
+    );
+  }, [activityLogs, searchQuery]);
+
   const indexOfLastItem  = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems     = activityLogs.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages       = Math.ceil(activityLogs.length / itemsPerPage);
+  const currentItems     = displayedLogs.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages       = Math.ceil(displayedLogs.length / itemsPerPage);
+
+  // ── Derived KPI numbers for summary cards (display-only, reuses existing state) ──
+  const attendanceTodayCount = todayReport.reduce(
+    (sum, store) => sum + store.tafts.filter(t => t.code).length,
+    0
+  );
+  const totalTaftToday = todayReport.reduce((sum, store) => sum + store.tafts.length, 0);
+  const activeStoreCount = storeAddresses.length;
+  const todayActivityCount = activityLogs.filter((log) => {
+    // best-effort same-day check without altering original timestamp format assumptions
+    return log.timestamp?.startsWith(todayISO()) || log.timestamp?.includes(todayISO());
+  }).length;
+  const pendingShiftCount = todaySchedules.reduce(
+    (sum, s) => sum + s.tafts.filter((t) => !t.code).length,
+    0
+  );
 
   if (!user) return null;
 
@@ -237,178 +298,181 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
   const MONTHS          = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
   const now             = new Date();
   const todayLabel      = DAY_LABELS_FULL[todayDayIdx];
+  const dateLabel       = `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
 
   return (
-  <div className="flex-1 overflow-auto">
-    <div className="p-6">
+    <div className="flex-1 overflow-auto bg-gray-50/50">
+      <div className="mx-auto max-w-7xl p-4 sm:p-6">
 
-      <div className="flex-1 overflow-auto">
-        <div className="p-6">
-          <h1 className="text-2xl font-bold text-primary mb-6">Dashboard</h1>
-          {/* ── Jadwal Shift Hari Ini — card style ─────────────────────────── */}
-          <div className="bg-white rounded-lg shadow mb-6">
-            <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-800">
-                Jadwal Shift Hari Ini
-                <span className="ml-2 text-xs font-normal text-gray-400">({todayLabel})</span>
-              </h3>
-              {scheduleLoading && <span className="text-xs text-gray-400 animate-pulse">Memuat...</span>}
-            </div>
+        {/* ── Header ─────────────────────────────────────────────── */}
+        <DashboardHeader
+          dayLabel={todayLabel}
+          dateLabel={dateLabel}
+          onRefresh={handleRefreshAll}
+          isRefreshing={isRefreshing}
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+        />
 
-            {!scheduleLoading && todaySchedules.length === 0 ? (
-              <div className="px-4 py-5 text-center text-xs text-gray-400">Tidak ada data jadwal hari ini</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <div className="flex gap-3 px-4 py-3" style={{ minWidth: 'max-content' }}>
-                  {todaySchedules.map(({ store, tafts }) => (
-                    <div
+        {/* ── Summary Cards ──────────────────────────────────────── */}
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <SummaryCard
+            label="Attendance Today"
+            value={attendanceTodayCount}
+            suffix={totalTaftToday ? `/${totalTaftToday}` : ""}
+            icon={UserCheck}
+            accent="green"
+            delay={0}
+          />
+          <SummaryCard
+            label="Store Active"
+            value={activeStoreCount}
+            icon={StoreIcon}
+            accent="blue"
+            delay={0.04}
+          />
+          <SummaryCard
+            label="Total Staff"
+            value={totalTaftToday}
+            icon={Users}
+            accent="purple"
+            delay={0.08}
+          />
+          <SummaryCard
+            label="Pending Shift"
+            value={pendingShiftCount}
+            icon={CircleAlert}
+            accent="orange"
+            delay={0.12}
+          />
+          <SummaryCard
+            label="Activity Today"
+            value={todayActivityCount}
+            icon={Activity}
+            accent="gray"
+            delay={0.16}
+          />
+        </div>
+
+        {/* ── Today's Shift ──────────────────────────────────────── */}
+        <div className="mb-6">
+          <SectionCard
+            title="Jadwal Shift Hari Ini"
+            subtitle={`(${todayLabel})`}
+            badge={
+              scheduleLoading && (
+                <span className="flex items-center gap-1 text-xs text-gray-400">
+                  <Clock3 className="h-3 w-3 animate-pulse" />
+                  Memuat...
+                </span>
+              )
+            }
+            noPadding
+          >
+            <div className="p-4">
+              {scheduleLoading ? (
+                <CardSkeletonRow count={4} />
+              ) : todaySchedules.length === 0 ? (
+                <EmptyState icon={Clock3} message="Tidak ada data jadwal hari ini" />
+              ) : (
+                <div className="flex gap-3 overflow-x-auto pb-1 snap-x sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-4">
+                  {todaySchedules.map(({ store, tafts }, i) => (
+                    <ShiftCard
                       key={store}
-                      className="flex-shrink-0 rounded-lg border border-gray-200 overflow-hidden"
-                      style={{ minWidth: '140px', maxWidth: '180px' }}
-                    >
-                      <div className="px-2.5 py-1.5 bg-primary/5 border-b border-primary/10">
-                        <span className="text-[10px] font-bold text-primary block truncate" title={store}>
-                          {toTitleCase(store)}
-                        </span>
-                      </div>
-                      <div className="divide-y divide-gray-50">
-                        {tafts.map(taft => (
-                          <div key={taft.name} className="flex items-center justify-between px-2.5 py-1 gap-1">
-                            <span className="text-[10px] text-gray-700 shrink-0" title={taft.name}>
-                              {truncateName(taft.name, 10)}
-                            </span>
-                            {taft.code ? (
-                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${CODE_COLORS[taft.code] || 'bg-gray-100 text-gray-700'}`}>
-                                {taft.code}
-                              </span>
-                            ) : (
-                              <span className="text-[9px] text-gray-300 shrink-0">—</span>
-                            )}
-                          </div>
-                        ))}
-                        {tafts.length === 0 && (
-                          <div className="px-2.5 py-1.5 text-[10px] text-gray-300 text-center">-</div>
-                        )}
-                      </div>
-                    </div>
+                      store={store}
+                      tafts={tafts}
+                      toTitleCase={toTitleCase}
+                      truncateName={truncateName}
+                      codeColors={CODE_COLORS}
+                      delay={i * 0.04}
+                    />
                   ))}
                 </div>
-              </div>
-            )}
-          </div>
-
-          {/* ── Store Location ─────────────────────────────────────────────── */}
-          <div className="bg-white rounded-lg shadow mb-6">
-            <div className="px-4 py-3 border-b border-gray-200">
-              <h3 className="text-sm font-semibold text-gray-800">Store Location</h3>
+              )}
             </div>
-            {storeAddresses.length === 0 ? (
-              <div className="p-6 text-center text-sm text-gray-500">No store data available</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">Store</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">Address</th>
-                      <th className="px-3 py-2 w-10"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {storeAddresses.map((store, index) => (
-                      <tr key={store.id} className={`border-b ${index % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}>
-                        <td className="px-3 py-1.5 text-gray-700 font-medium">{store.store_location}</td>
-                        <td className="px-3 py-1.5 text-gray-600">{store.phone_number} {store.address}</td>
-                        <td className="px-3 py-1.5">
-                          <button onClick={() => handleCopy(store)} className="text-gray-400 hover:text-primary transition-colors">
-                            {copiedId === store.id ? (
-                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : (
-                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                              </svg>
-                            )}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* ── Activity Log ──────────────────────────────────────────────────── */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-4 py-3 border-b border-gray-200">
-              <h3 className="text-sm font-semibold text-gray-800">Activity Log</h3>
-            </div>
-            {loading ? (
-              <div className="p-6 text-center text-sm text-gray-500">Loading...</div>
-            ) : activityLogs.length === 0 ? (
-              <div className="p-6 text-center text-sm text-gray-500">No activity logs yet</div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-gray-50 border-b">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600 w-36">Timestamp</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600 w-24">User</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600 w-20">Method</th>
-                        <th className="px-3 py-2 text-left font-medium text-gray-600">Activity</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentItems.map((log, index) => (
-                        <tr key={log.id} className={`border-b ${index % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}>
-                          <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{log.timestamp}</td>
-                          <td className="px-3 py-2 text-gray-700 font-medium">{log.user}</td>
-                          <td className="px-3 py-2">
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                              log.method === "POST"     ? "bg-green-100 text-green-800"
-                              : log.method === "PUT"    ? "bg-blue-100 text-blue-800"
-                              : log.method === "DELETE" ? "bg-red-100 text-red-800"
-                              : "bg-gray-100 text-gray-800"
-                            }`}>
-                              {log.method}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-gray-600">{log.activity_log}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {totalPages > 1 && (
-                  <div className="flex justify-between items-center px-4 py-3 border-t">
-                    <div className="text-xs text-gray-600">
-                      Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, activityLogs.length)} of {activityLogs.length} logs
-                    </div>
-                    <div className="flex gap-1">
-                      <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-3 py-1 text-xs border rounded disabled:opacity-50 hover:bg-gray-50">Previous</button>
-                      {[...Array(totalPages)].map((_, i) => {
-  const page = i + 1;
-  if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
-    return <button key={page} onClick={() => setCurrentPage(page)} className={`px-3 py-1 text-xs border rounded ${currentPage === page ? "bg-primary text-white" : "hover:bg-gray-50"}`}>{page}</button>;
-  } else if (page === currentPage - 2 || page === currentPage + 2) {
-    return <span key={page} className="px-2 text-xs">...</span>;
-  }
-  return <span key={page} />;  // ← pastikan baris ini ada
-})}
-                      <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-3 py-1 text-xs border rounded disabled:opacity-50 hover:bg-gray-50">Next</button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
+          </SectionCard>
         </div>
+
+        {/* ── Quick Action ───────────────────────────────────────── */}
+        <div className="mb-6">
+          <SectionCard title="Quick Action" noPadding>
+            <div className="p-4">
+              <QuickAction />
+            </div>
+          </SectionCard>
+        </div>
+
+        {/* ── Store Location ─────────────────────────────────────── */}
+        <div className="mb-6">
+          <SectionCard title="Store Location">
+            <StoreTable
+              stores={storeAddresses}
+              onCopy={handleCopy}
+              copiedId={copiedId}
+              onRefresh={fetchStoreAddresses}
+            />
+          </SectionCard>
+        </div>
+
+        {/* ── Activity Log (Timeline) ────────────────────────────── */}
+        <SectionCard title="Recent Activity">
+          {loading ? (
+            <TableSkeletonRows count={5} />
+          ) : displayedLogs.length === 0 ? (
+            <EmptyState icon={Activity} message="Belum ada activity log" />
+          ) : (
+            <>
+              <ActivityTimeline logs={currentItems} />
+
+              {totalPages > 1 && (
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4">
+                  <div className="text-xs text-gray-500">
+                    Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, displayedLogs.length)} of {displayedLogs.length} logs
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40"
+                    >
+                      Previous
+                    </button>
+                    {[...Array(totalPages)].map((_, i) => {
+                      const page = i + 1;
+                      if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                        return (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`rounded-lg border px-3 py-1 text-xs font-medium transition-colors ${
+                              currentPage === page
+                                ? "border-primary bg-primary text-white"
+                                : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        );
+                      } else if (page === currentPage - 2 || page === currentPage + 2) {
+                        return <span key={page} className="px-1 text-xs text-gray-400">...</span>;
+                      }
+                      return <span key={page} />;
+                    })}
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </SectionCard>
+
       </div>
     </div>
-  </div>
   );
 }
