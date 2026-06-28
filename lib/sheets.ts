@@ -64,6 +64,54 @@ const SPREADSHEET_MAP: Record<string, string> = {
   catalog_product: process.env.SPREADSHEET_CATALOG || "",
 };
 
+// ✅ Batasi range kolom per sheet — hindari fetch sampai kolom CZ (104 kolom)
+// untuk sheet yang hanya punya sedikit kolom. Ini mempercepat response time
+// secara signifikan, terutama untuk sheet besar seperti result_stock.
+// Sesuaikan nilai ini jika kolom aktual bertambah.
+const SHEET_RANGE: Record<string, string> = {
+  result_stock: "A1:AJ",       // ~36 kolom — sheet stok besar, batasi
+  pca_stock: "A1:Z",           // ~26 kolom
+  erp_stock_balance: "A1:Z",
+  master_item: "A1:Z",
+  javelin: "A1:Z",
+  last_update: "A1:D",         // biasanya cuma timestamp + beberapa kolom
+  powerbi_threshold: "A1:J",
+  invoices: "A1:AJ",
+  invoice_items: "A1:AJ",
+  master_invoice: "A1:AJ",
+  system_config: "A1:D",       // key-value config, kolom sedikit
+  attendance_store: "A1:AJ",
+  attendance_store_all: "A1:AJ",
+  material_issue: "A1:AJ",
+  material_issue_all: "A1:AJ",
+  schedule_report: "A1:AJ",
+  daily_sales: "A1:AJ",
+  target_sales: "A1:AJ",
+};
+
+// ✅ Timeout per sheet — sheet besar / lambat dapat alokasi lebih lama
+const SHEET_TIMEOUT: Record<string, number> = {
+  result_stock: 30000,   // sheet terbesar, butuh waktu paling lama
+  pca_stock: 25000,
+  erp_stock_balance: 25000,
+  master_item: 25000,
+  invoices: 25000,
+  invoice_items: 25000,
+  master_invoice: 25000,
+  system_config: 20000,
+  attendance_store_all: 25000,
+  material_issue_all: 25000,
+};
+const DEFAULT_TIMEOUT = 15000;
+
+function getSheetTimeout(sheetName: string): number {
+  return SHEET_TIMEOUT[sheetName] ?? DEFAULT_TIMEOUT;
+}
+
+function getSheetRange(sheetName: string): string {
+  return SHEET_RANGE[sheetName] ?? "A1:CZ";
+}
+
 function getSpreadsheetId(sheetName: string): string {
   return SPREADSHEET_MAP[sheetName] || "";
 }
@@ -142,8 +190,25 @@ async function withRetry<T>(
 // Cache ini per-instance (hilang saat cold start baru), tapi cukup efektif
 // menahan request berulang dalam jangka pendek — termasuk saat beberapa
 // user/tab membuka sheet yang sama hampir bersamaan.
-const CACHE_TTL_MS = 120_000; // 2 menit — dinaikkan dari 45s karena data stock/master
-// tidak perlu real-time detik-ke-detik, dan supaya lebih tahan terhadap burst traffic.
+const CACHE_TTL_MS = 120_000; // 2 menit
+
+// ✅ Sheet-sheet heavy di SPREADSHEET_STOCK dapat TTL lebih panjang
+// karena data stok tidak berubah detik-ke-detik, dan spreadsheet ini
+// paling sering kena rate limit akibat banyaknya sheet yang berbagi.
+const CACHE_TTL_OVERRIDES: Record<string, number> = {
+  result_stock: 300_000,     // 5 menit
+  pca_stock: 300_000,
+  erp_stock_balance: 300_000,
+  master_item: 300_000,
+  javelin: 300_000,
+  powerbi_threshold: 300_000,
+  last_update: 60_000,       // 1 menit — ini sering di-poll, tapi tetap cache
+};
+
+function getCacheTTL(sheetName: string): number {
+  return CACHE_TTL_OVERRIDES[sheetName] ?? CACHE_TTL_MS;
+}
+
 const _sheetCache = new Map<string, { data: any; expiresAt: number }>();
 
 // ✅ In-flight de-duplication ("single-flight"): kalau ada beberapa request
@@ -151,8 +216,7 @@ const _sheetCache = new Map<string, { data: any; expiresAt: number }>();
 // tab dibuka bareng, atau beberapa user buka halaman yang sama persis dalam
 // hitungan detik), jangan masing-masing bikin call baru ke Sheets API.
 // Request kedua dst cukup "numpang" ke Promise yang sama dari request
-// pertama yang masih berjalan. Ini mengurangi beban di saat-saat paling
-// rawan kena rate limit: traffic yang menumpuk bersamaan.
+// pertama yang masih berjalan.
 const _inFlight = new Map<string, Promise<any>>();
 
 function getCachedSheetData(sheetName: string): any | null {
@@ -166,7 +230,10 @@ function getCachedSheetData(sheetName: string): any | null {
 }
 
 function setCachedSheetData(sheetName: string, data: any) {
-  _sheetCache.set(sheetName, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+  _sheetCache.set(sheetName, {
+    data,
+    expiresAt: Date.now() + getCacheTTL(sheetName),
+  });
 }
 
 // Dipanggil setiap kali ada write (update/append/delete) supaya read
@@ -175,7 +242,10 @@ function invalidateSheetCache(sheetName: string) {
   _sheetCache.delete(sheetName);
 }
 
-export async function getSheetData(sheetName: string, opts?: { skipCache?: boolean }) {
+export async function getSheetData(
+  sheetName: string,
+  opts?: { skipCache?: boolean }
+) {
   if (!opts?.skipCache) {
     const cached = getCachedSheetData(sheetName);
     if (cached !== null) return cached;
@@ -189,16 +259,18 @@ export async function getSheetData(sheetName: string, opts?: { skipCache?: boole
     throw new Error(`No spreadsheet ID configured for sheet: ${sheetName}`);
   }
 
+  const timeout = getSheetTimeout(sheetName);
+  const range = getSheetRange(sheetName);
+
   const fetchPromise = withRetry(
     async () => {
       const sheets = getSheetsClient();
       const response = await withTimeout(
         sheets.spreadsheets.values.get({
           spreadsheetId,
-          range: `${sheetName}!A1:CZ`,
+          range: `${sheetName}!${range}`,
         }),
-        // ✅ system_config kecil, timeout lebih pendek tapi tetap reasonable
-        sheetName === "system_config" ? 20000 : 15000,
+        timeout,
         `getSheetData(${sheetName})`
       ) as { data: { values?: any[][] } };
       const rows = response.data.values || [];
@@ -212,7 +284,7 @@ export async function getSheetData(sheetName: string, opts?: { skipCache?: boole
         return obj;
       });
     },
-    3, // ✅ coba maksimal 3x
+    3,
     `getSheetData(${sheetName})`
   )
     .then((result) => {
@@ -331,8 +403,7 @@ export async function updateSheetRow(
 
 // ✅ Update banyak baris dalam SATU request batchUpdate, bukan banyak request
 // values.update paralel. Dipakai ketika satu "group" (id sama) berisi banyak
-// baris (misal puluhan item dalam satu material issue) — supaya tidak kena
-// rate limit Google Sheets API saat toggle status / update metadata group.
+// baris (misal puluhan item dalam satu material issue).
 export async function updateMultipleSheetRows(
   sheetName: string,
   updates: { rowIndex: number; data: any[] }[]
@@ -370,10 +441,7 @@ export async function updateMultipleSheetRows(
   );
 }
 
-// ✅ Menghapus baris secara nyata (shift-up), bukan sekadar mengosongkan
-// nilainya. Dipakai saat jumlah item dalam sebuah group berkurang, supaya
-// tidak menyisakan baris kosong di tengah sheet. rowIndexes adalah index
-// 1-based sesuai posisi baris di sheet (header = baris 1).
+// ✅ Menghapus baris secara nyata (shift-up), bukan sekadar mengosongkan nilainya.
 export async function deleteSheetRows(sheetName: string, rowIndexes: number[]) {
   const spreadsheetId = getSpreadsheetId(sheetName);
   if (!spreadsheetId) {
@@ -385,7 +453,6 @@ export async function deleteSheetRows(sheetName: string, rowIndexes: number[]) {
     async () => {
       const sheets = getSheetsClient();
 
-      // Ambil sheetId numerik (bukan nama sheet) — dibutuhkan oleh deleteDimension.
       const meta = await withTimeout(
         sheets.spreadsheets.get({ spreadsheetId }),
         15000,
@@ -399,15 +466,12 @@ export async function deleteSheetRows(sheetName: string, rowIndexes: number[]) {
       }
       const sheetId = sheetMeta.properties.sheetId;
 
-      // Urutkan descending dan hapus dari bawah ke atas supaya index baris
-      // yang belum dihapus tidak bergeser saat proses delete berjalan.
       const sortedDesc = [...rowIndexes].sort((a, b) => b - a);
       const requests = sortedDesc.map((rowIndex) => ({
         deleteDimension: {
           range: {
             sheetId,
             dimension: "ROWS",
-            // rowIndex 1-based (header=1) → API butuh 0-based, exclusive end
             startIndex: rowIndex - 1,
             endIndex: rowIndex,
           },
