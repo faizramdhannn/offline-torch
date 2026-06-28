@@ -13,11 +13,5 @@
         }
       ]
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/refresh-stock",
-      "schedule": "*/5 * * * *"
-    }
   ]
 }
