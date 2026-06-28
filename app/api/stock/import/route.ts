@@ -1,51 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateSheetDataWithHeader, getSheetData, updateSheetRow, appendSheetData } from '@/lib/sheets';
+import { updateSheetDataWithHeader, updateSheetRow } from '@/lib/sheets';
 
 const VALID_SHEETS = ['erp_stock_balance', 'javelin', 'powerbi_threshold'];
 
-async function updateLastUpdate(sheetType: string, dateStr: string) {
-  const maxRetries = 3;
+const LABEL_MAP: Record<string, string> = {
+  erp_stock_balance: 'ERP',
+  javelin: 'Javelin',
+  powerbi_threshold: 'Threshold',
+};
 
-  const labelMap: Record<string, string> = {
-    erp_stock_balance: 'ERP',
-    javelin: 'Javelin',
-    powerbi_threshold: 'Threshold',
-  };
-
-  const currentLabel = labelMap[sheetType] ?? sheetType;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const existingData = await getSheetData('last_update');
-
-      const rowIndex = existingData.findIndex((row: any) => {
-        const typeVal =
-          row.type ?? row.Type ?? row.TYPE ??
-          String(Object.values(row)[0] ?? '');
-        return String(typeVal).trim().toLowerCase() === currentLabel.toLowerCase();
-      });
-
-      if (rowIndex !== -1) {
-        await updateSheetRow('last_update', rowIndex + 2, [currentLabel, dateStr]);
-        console.log(`✅ last_update updated: ${currentLabel} at row ${rowIndex + 2}`);
-      } else {
-        await appendSheetData('last_update', [[currentLabel, dateStr]]);
-        console.log(`✅ last_update appended: ${currentLabel} (row not found, new entry)`);
-      }
-
-      return; // sukses, keluar dari loop
-    } catch (err) {
-      console.error(`❌ last_update attempt ${attempt}/${maxRetries} failed for "${currentLabel}":`, err);
-      if (attempt < maxRetries) {
-        const delay = 1000 * attempt; // 1s, 2s
-        console.log(`⏳ Retrying in ${delay}ms...`);
-        await new Promise((res) => setTimeout(res, delay));
-      } else {
-        console.error(`❌ All ${maxRetries} attempts failed for "${currentLabel}". Skipping.`);
-      }
-    }
-  }
-}
+// ✅ Row index di sheet last_update (1-based, header = baris 1).
+// Sesuaikan jika urutan baris di sheet berubah.
+// Dengan hardcode ini, kita skip getSheetData('last_update') sama sekali —
+// yang jadi penyebab timeout karena dipanggil tepat setelah write ribuan baris
+// ke SPREADSHEET_STOCK yang sama, sehingga Google Sheets API throttle.
+const LAST_UPDATE_ROW: Record<string, number> = {
+  erp_stock_balance: 2,  // baris 2 = ERP
+  javelin: 3,            // baris 3 = Javelin
+  powerbi_threshold: 4,  // baris 4 = Threshold
+};
 
 function getJakartaDateStr(): string {
   const now = new Date();
@@ -61,6 +34,30 @@ function getJakartaDateStr(): string {
   const minutes = jakartaTime.getMinutes().toString().padStart(2, '0');
 
   return `${day} ${month} ${year}, ${hours}:${minutes}`;
+}
+
+async function updateLastUpdate(sheetType: string, dateStr: string) {
+  const label = LABEL_MAP[sheetType] ?? sheetType;
+  const rowIndex = LAST_UPDATE_ROW[sheetType];
+
+  if (!rowIndex) {
+    console.warn(`⚠️ No row index configured for last_update: ${label}. Skipping.`);
+    return;
+  }
+
+  // ✅ Langsung update row — tanpa read getSheetData dulu.
+  // Ini menghilangkan 1 round-trip ke Google Sheets API yang selalu timeout
+  // karena dipanggil saat API sedang throttle akibat write besar sebelumnya.
+  try {
+    await updateSheetRow('last_update', rowIndex, [label, dateStr]);
+    console.log(`✅ last_update updated: ${label} at row ${rowIndex}`);
+  } catch (err) {
+    // ✅ Gagal update last_update tidak boleh gagalkan seluruh import.
+    // Data utama (erp_stock_balance / javelin / powerbi_threshold) sudah
+    // berhasil ditulis — hanya timestamp-nya yang belum update.
+    // Cron refresh-stock akan membaca ulang last_update dalam 5 menit.
+    console.error(`❌ Failed to update last_update for "${label}":`, err);
+  }
 }
 
 export async function POST(request: NextRequest) {
