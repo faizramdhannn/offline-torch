@@ -38,6 +38,7 @@ interface SidebarProps {
     material_issue_all?: boolean;
     sales_view?: boolean;
     sales_view_all?: boolean;
+    step_erp?: boolean;
   };
 }
 
@@ -298,6 +299,16 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    {
+      name: "Step ERP",
+      path: "/step-erp",
+      permission: "step_erp",
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 6l1.5 1.5L9 5M5 12l1.5 1.5L9 11M5 18l1.5 1.5L9 17M12 6h7M12 12h7M12 18h7" />
         </svg>
       ),
     },
@@ -776,7 +787,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
             )
           )}
 
-          {/* Petty Cash, Stock, Stock Opname, Survey Store, Voucher, Registration, Settings */}
+          {/* Petty Cash, Step ERP, Stock, Stock Opname, Survey Store, Voucher, Registration, Settings */}
           {menuItems.slice(6).map((item) =>
             checkPermission(item) ? <MenuButton key={item.path} item={item} /> : null
           )}

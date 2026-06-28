@@ -58,6 +58,7 @@ interface UserData {
   material_issue: string;
   material_issue_all: string;
   asset_store: string;
+  step_erp: string;
   last_activity: string;
 }
 
@@ -172,6 +173,13 @@ const PERM_GROUPS: {
     fields: [
       { key: "registration_request", label: "Reg." },
       { key: "user_setting",         label: "Setting" },
+    ],
+  },
+  {
+    label: "ERP",
+    color: "bg-indigo-50",
+    fields: [
+      { key: "step_erp", label: "Step ERP" },
     ],
   },
 ];

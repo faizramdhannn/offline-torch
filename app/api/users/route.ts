@@ -154,6 +154,7 @@ export async function PUT(request: NextRequest) {
       r("material_issue_all"),      // AY
       r("asset_store"),             // AZ
       timestamp,                    // BA
+      r("step_erp"),                 // BB
     ];
 
     console.log(`Updating row ${rowIndex} with ${updatedRow.length} columns`);

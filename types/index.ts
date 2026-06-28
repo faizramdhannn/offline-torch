@@ -48,6 +48,7 @@ export interface User {
   invoice_master: boolean;
   sales_view: boolean;
   sales_view_all: boolean;
+  step_erp?: boolean;
   last_activity: string;
 }
 
@@ -174,6 +175,19 @@ export interface BalanceEntry {
   update_by: string;
   created_at: string;
   update_at: string;
+}
+
+export interface StepErpEntry {
+  id_type: string;
+  id: string;
+  store: string;
+  erp_number: string;
+  created_by: string;
+  created_at: string;
+  update_by: string;
+  update_at: string;
+  // step_1, step_2, ... — count varies per type, read dynamically
+  [key: string]: string;
 }
 
 export interface TrackingRequest {

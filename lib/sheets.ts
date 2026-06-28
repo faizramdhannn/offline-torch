@@ -62,6 +62,15 @@ const SPREADSHEET_MAP: Record<string, string> = {
   master_bundling: process.env.SPREADSHEET_BUNDLING || "",
   canvasing_store: process.env.SPREADSHEET_STORE || "",
   catalog_product: process.env.SPREADSHEET_CATALOG || "",
+  // ✅ Step ERP — satu spreadsheet, satu tab per type (lihat lib/stepErpConfig.ts)
+  material_request_store: process.env.SPREADSHEET_STEP_ERP || "",
+  stock_entry_store: process.env.SPREADSHEET_STEP_ERP || "",
+  end_transit_store: process.env.SPREADSHEET_STEP_ERP || "",
+  allocation_pca: process.env.SPREADSHEET_STEP_ERP || "",
+  material_request_warehouse: process.env.SPREADSHEET_STEP_ERP || "",
+  stock_entry_warehouse: process.env.SPREADSHEET_STEP_ERP || "",
+  material_request_issue: process.env.SPREADSHEET_STEP_ERP || "",
+  stock_entry_issue: process.env.SPREADSHEET_STEP_ERP || "",
 };
 
 // ✅ Batasi range kolom per sheet — hindari fetch sampai kolom CZ (104 kolom)

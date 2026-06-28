@@ -51,6 +51,7 @@ export default function RegistrationPage() {
     tracking_edit: false,
     registration_request: false,
     user_setting: false,
+    step_erp: false,
   });
   useSessionGuard();
 
@@ -133,6 +134,7 @@ export default function RegistrationPage() {
       tracking_edit: false,
       registration_request: false,
       user_setting: false,
+      step_erp: false,
     });
     setShowApprovalModal(true);
   };
@@ -353,6 +355,9 @@ return (
                 <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2 mt-4">Canvasing</h3>
                 <CB label="View Canvasing" k="canvasing" />
                 <CB label="Export Canvasing" k="canvasing_export" sub />
+
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2 mt-4">ERP</h3>
+                <CB label="Step ERP" k="step_erp" />
 
                 <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide border-b pb-1.5 mb-2 mt-4">Admin</h3>
                 <CB label="Registration Request" k="registration_request" />

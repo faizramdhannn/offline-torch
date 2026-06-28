@@ -92,6 +92,7 @@ export async function PUT(request: NextRequest) {
         permissions.request_tracking ? 'TRUE' : 'FALSE',
         permissions.tracking_edit ? 'TRUE' : 'FALSE',
         new Date().toISOString(),
+        permissions.step_erp ? 'TRUE' : 'FALSE',
       ];
 
       await appendSheetData('users', [newUser]);
