@@ -5,11 +5,33 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import * as XLSX from "xlsx";
+import { motion } from "framer-motion";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, PieChart, Pie,
   LineChart, Line, Legend,
 } from "recharts";
+import { MapPin, Plus, FileDown, Target, Users } from "lucide-react";
+
+import { SectionHeader } from "@/components/shared/SectionHeader";
+import { Button } from "@/components/shared/Button";
+import { Badge } from "@/components/shared/Badge";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { TableSkeletonRows } from "@/components/shared/LoadingSkeleton";
+import { Pagination } from "@/components/shared/Pagination";
+import { ConfirmationDialog } from "@/components/shared/ConfirmationDialog";
+import { StatCard } from "@/components/shared/StatCard";
+
+import { FilterBar } from "@/components/traffic-store/FilterBar";
+import { ViewTabs, type TrafficTab } from "@/components/traffic-store/ViewTabs";
+import { ChartViewToggle } from "@/components/traffic-store/ChartViewToggle";
+import { EntryTable } from "@/components/traffic-store/EntryTable";
+import { ChartCard } from "@/components/traffic-store/ChartCard";
+import { DarkTooltip, PieSliceTooltip, PieLegend } from "@/components/traffic-store/ChartHelpers";
+import { SalesByTable } from "@/components/traffic-store/SalesByTable";
+import { SummaryTable } from "@/components/traffic-store/SummaryTable";
+import { MatrixTable } from "@/components/traffic-store/MatrixTable";
+import { EntryFormModal, type TrafficFormData } from "@/components/traffic-store/EntryFormModal";
 
 interface TrafficEntry {
   id: string;
@@ -51,86 +73,6 @@ const COLORS = [
   "#14b8a6","#e11d48","#a855f7","#22c55e","#fb923c",
   "#0ea5e9","#d946ef","#facc15","#4ade80","#fb7185",
 ];
-
-// ─── Pagination ──────────────────────────────────────────────────────────────
-function Pagination({ page, total, pageSize, onChange }: {
-  page: number; total: number; pageSize: number; onChange: (p: number) => void;
-}) {
-  const totalPages = Math.ceil(total / pageSize);
-  if (totalPages <= 1) return null;
-  const pages: (number | "...")[] = [];
-  for (let i = 1; i <= totalPages; i++) {
-    if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) pages.push(i);
-    else if (pages[pages.length - 1] !== "...") pages.push("...");
-  }
-  return (
-    <div className="flex items-center justify-between pt-3 border-t mt-2">
-      <p className="text-xs text-gray-400">
-        {Math.min((page - 1) * pageSize + 1, total)}–{Math.min(page * pageSize, total)} dari {total}
-      </p>
-      <div className="flex gap-1">
-        <button onClick={() => onChange(page - 1)} disabled={page === 1}
-          className="px-2 py-1 text-xs border rounded disabled:opacity-30 hover:bg-gray-50">‹</button>
-        {pages.map((p, i) => p === "..." ? (
-          <span key={i} className="px-2 py-1 text-xs text-gray-400">…</span>
-        ) : (
-          <button key={i} onClick={() => onChange(p as number)}
-            className={`px-2.5 py-1 text-xs border rounded ${page === p ? "bg-primary text-white border-primary" : "hover:bg-gray-50"}`}>
-            {p}
-          </button>
-        ))}
-        <button onClick={() => onChange(page + 1)} disabled={page === totalPages}
-          className="px-2 py-1 text-xs border rounded disabled:opacity-30 hover:bg-gray-50">›</button>
-      </div>
-    </div>
-  );
-}
-
-// ─── View Toggle ──────────────────────────────────────────────────────────────
-function ViewToggle({ view, onChange }: { view: "all" | "daily"; onChange: (v: "all" | "daily") => void }) {
-  return (
-    <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
-      {(["all", "daily"] as const).map((v) => (
-        <button key={v} onClick={() => onChange(v)}
-          className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
-            view === v ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"
-          }`}>
-          {v === "all" ? "All" : "Daily"}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ─── Dark Tooltip ─────────────────────────────────────────────────────────────
-const DarkTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload || !payload.length) return null;
-  return (
-    <div style={{ background: "#1e293b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", minWidth: 160 }}>
-      <p style={{ fontSize: 12, fontWeight: 600, color: "#f1f5f9", marginBottom: 6 }}>{label}</p>
-      {payload.map((p: any, i: number) => (
-        <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 16, marginBottom: 2 }}>
-          <span style={{ fontSize: 11, color: "#94a3b8" }}>{p.name || p.dataKey}</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: p.fill || p.color || p.stroke || "#60a5fa" }}>
-            {p.value?.toLocaleString?.() ?? p.value}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// ─── Pie Legend ───────────────────────────────────────────────────────────────
-const PieLegend = ({ data }: { data: { name: string; value: number; color: string }[] }) => (
-  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
-    {data.map((d, i) => (
-      <div key={i} className="flex items-center gap-1">
-        <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: d.color }} />
-        <span className="text-[10px] text-gray-500">{d.name}</span>
-      </div>
-    ))}
-  </div>
-);
 
 // formatDate now formats a date value that may be either:
 //  - a plain date string "YYYY-MM-DD" (the new `date` field, no time component), or
@@ -188,7 +130,7 @@ function toTitleCase(str: string) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-const EMPTY_FORM = {
+const EMPTY_FORM: TrafficFormData = {
   date: "",
   taft_name: "",
   customer_convert: "",
@@ -381,7 +323,7 @@ export default function TrafficStorePage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editEntry, setEditEntry] = useState<TrafficEntry | null>(null);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState<TrafficFormData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [popupMsg, setPopupMsg] = useState("");
@@ -400,7 +342,10 @@ export default function TrafficStorePage() {
 
   // Report view toggle
   const [chartView, setChartView] = useState<"all" | "daily">("all");
-  const [activeTab, setActiveTab] = useState<"list" | "report">("list");
+  const [activeTab, setActiveTab] = useState<TrafficTab>("list");
+
+  // ── UI-only addition: modern confirm dialog replacing window.confirm() ──
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -850,14 +795,20 @@ export default function TrafficStorePage() {
     finally { setSaving(false); }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Hapus data ini?")) return;
+  // Delete flow: same fetch/logic as before, now routed through a confirm
+  // dialog (deleteTargetId state) instead of window.confirm().
+  const requestDelete = (id: string) => setDeleteTargetId(id);
+
+  const handleDelete = async () => {
+    const id = deleteTargetId;
+    if (!id) return;
     try {
       const res = await fetch(`/api/traffic-store?id=${id}`, { method: "DELETE" });
       const result = await res.json();
       if (result.success) { showMessage("Data dihapus", "success"); fetchAll(); }
       else showMessage(result.error || "Gagal hapus", "error");
     } catch { showMessage("Terjadi kesalahan", "error"); }
+    finally { setDeleteTargetId(null); }
   };
 
   const exportList = () => {
@@ -878,319 +829,145 @@ export default function TrafficStorePage() {
     URL.revokeObjectURL(url);
   };
 
-  if (!user) return null;
-
-  // ─── Shared Filter Bar ────────────────────────────────────────────────────
-  const FilterBar = () => (
-    <div className="bg-white rounded-lg shadow p-4 mb-4">
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        {!isStoreUser && (
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
-            <select value={filterStore} onChange={e => { setFilterStore(e.target.value); setPage(1); }}
-              className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary">
-              <option value="all">Semua Store</option>
-              {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
-            </select>
-          </div>
-        )}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Traffic Source</label>
-          <select value={filterTraffic} onChange={e => { setFilterTraffic(e.target.value); setPage(1); }}
-            className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary">
-            <option value="all">Semua</option>
-            {trafficSources.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Status Beli</label>
-          <select value={filterConvert} onChange={e => { setFilterConvert(e.target.value); setPage(1); }}
-            className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary">
-            <option value="all">Semua</option>
-            <option value="Beli">Beli</option>
-            <option value="Tidak Beli">Tidak Beli</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Dari</label>
-          <input type="date" value={filterDateFrom} onChange={e => { setFilterDateFrom(e.target.value); setPage(1); }}
-            className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Sampai</label>
-          <input type="date" value={filterDateTo} onChange={e => { setFilterDateTo(e.target.value); setPage(1); }}
-            className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
-        </div>
-        <div className="flex items-end">
-          <button onClick={() => { setFilterStore("all"); setFilterTraffic("all"); setFilterConvert("all"); setFilterDateFrom(""); setFilterDateTo(""); setPage(1); }}
-            className="w-full px-3 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600">
-            Reset Filter
-          </button>
-        </div>
-      </div>
-      <p className="text-xs text-gray-400 mt-2">{fd.length} data ditemukan</p>
-    </div>
-  );
-
-  // ─── Reusable Sales Table ─────────────────────────────────────────────────
-  const SalesTable = ({
-    title,
-    data: tableData,
-    colorOffset = 0,
-  }: {
-    title: string;
-    data: { name: string; count: number; value: number }[];
-    colorOffset?: number;
-  }) => {
-    if (tableData.length === 0) return null;
-    const totalCount = tableData.reduce((s, d) => s + d.count, 0);
-    const totalValue = tableData.reduce((s, d) => s + d.value, 0);
-    return (
-      <div>
-        <h4 className="text-xs font-semibold text-gray-600 mb-2">{title}</h4>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="bg-gray-50 border-b">
-                <th className="px-3 py-2 text-left font-semibold text-gray-700">Nama</th>
-                <th className="px-3 py-2 text-right font-semibold text-gray-700">Transaksi</th>
-                <th className="px-3 py-2 text-right font-semibold text-gray-700">Total Sales</th>
-                <th className="px-3 py-2 text-right font-semibold text-gray-700">Avg/Transaksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tableData.map((d, i) => (
-                <tr key={i} className="border-b hover:bg-gray-50">
-                  <td className="px-3 py-2 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: COLORS[(i + colorOffset) % COLORS.length] }} />
-                    <span className="font-medium">{d.name}</span>
-                  </td>
-                  <td className="px-3 py-2 text-right font-semibold text-blue-700">{d.count}</td>
-                  <td className="px-3 py-2 text-right text-green-700 font-semibold">{formatRupiah(d.value)}</td>
-                  <td className="px-3 py-2 text-right text-gray-500">
-                    {d.count > 0 ? formatRupiah(d.value / d.count) : "-"}
-                  </td>
-                </tr>
-              ))}
-              <tr className="bg-primary/5 font-bold border-t-2">
-                <td className="px-3 py-2 text-primary">TOTAL</td>
-                <td className="px-3 py-2 text-right text-primary">{totalCount}</td>
-                <td className="px-3 py-2 text-right text-green-700">{formatRupiah(totalValue)}</td>
-                <td className="px-3 py-2 text-right text-gray-500">
-                  {totalCount > 0 ? formatRupiah(totalValue / totalCount) : "-"}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
+  const resetFilters = () => {
+    setFilterStore("all"); setFilterTraffic("all"); setFilterConvert("all");
+    setFilterDateFrom(""); setFilterDateTo(""); setPage(1);
   };
 
-return (
-  <div className="flex-1 overflow-auto">
-    <div className="p-6">
-      <div className="flex-1 overflow-auto">
-        <div className="p-6">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-primary">Traffic Store</h1>
-              {userStore && (
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Store: <span className="font-medium text-gray-700">{toTitleCase(userStore)}</span>
-                </p>
-              )}
-            </div>
-            <div className="flex gap-2">
+  if (!user) return null;
+
+  return (
+    <div className="flex-1 overflow-auto bg-[#F8FAFC]">
+      <div className="mx-auto max-w-[1400px] p-4 sm:p-6">
+        {/* ── Section header ──────────────────────────────────────────── */}
+        <SectionHeader
+          icon={MapPin}
+          title="Traffic Store"
+          description={
+            userStore
+              ? `Survey traffic dan konversi customer — Store: ${toTitleCase(userStore)}`
+              : "Survey traffic toko dan analisis konversi customer."
+          }
+          actions={
+            <>
               {activeTab === "list" && (
-                <button onClick={exportList}
-                  className="px-4 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700 transition-colors">
-                  ↓ Export List CSV
-                </button>
+                <Button variant="outline" icon={FileDown} onClick={exportList}>
+                  Export CSV
+                </Button>
               )}
               {user?.traffic_store && (
-                <button onClick={openAdd}
-                  className="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 transition-colors">
-                  + Tambah Traffic
-                </button>
+                <Button icon={Plus} onClick={openAdd}>
+                  Tambah Traffic
+                </Button>
               )}
-            </div>
+            </>
+          }
+        />
+
+        {/* ── Tabs ─────────────────────────────────────────────────────── */}
+        {user?.report_store && (
+          <div className="mt-5">
+            <ViewTabs active={activeTab} onChange={setActiveTab} />
           </div>
+        )}
 
-          {/* Tabs */}
-          {user?.report_store && (
-            <div className="flex gap-1 mb-4 border-b">
-              {[
-                { id: "list", label: "Data List" },
-                { id: "report", label: "Report" },
-              ].map(t => (
-                <button key={t.id} onClick={() => setActiveTab(t.id as any)}
-                  className={`px-5 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px ${
-                    activeTab === t.id
-                      ? "border-primary text-primary"
-                      : "border-transparent text-gray-500 hover:text-gray-700"
-                  }`}>
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Shared filter bar */}
-          <FilterBar />
+        <div className="mt-4 space-y-4">
+          {/* ── Shared filter bar ── */}
+          <FilterBar
+            isStoreUser={isStoreUser}
+            allStores={allStores}
+            trafficSources={trafficSources}
+            filterStore={filterStore}
+            onFilterStoreChange={(v) => { setFilterStore(v); setPage(1); }}
+            filterTraffic={filterTraffic}
+            onFilterTrafficChange={(v) => { setFilterTraffic(v); setPage(1); }}
+            filterConvert={filterConvert}
+            onFilterConvertChange={(v) => { setFilterConvert(v); setPage(1); }}
+            filterDateFrom={filterDateFrom}
+            onFilterDateFromChange={(v) => { setFilterDateFrom(v); setPage(1); }}
+            filterDateTo={filterDateTo}
+            onFilterDateToChange={(v) => { setFilterDateTo(v); setPage(1); }}
+            onReset={resetFilters}
+            resultCount={fd.length}
+            toTitleCase={toTitleCase}
+          />
 
           {/* ── LIST TAB ── */}
           {activeTab === "list" && (
-            <div className="bg-white rounded-lg shadow">
-              <div className="p-4">
-                {loading ? (
-                  <div className="text-center py-12 text-gray-400">Loading...</div>
-                ) : fd.length === 0 ? (
-                  <div className="text-center py-12 text-gray-400">Belum ada data traffic</div>
-                ) : (
-                  <>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-[11px]">
-                        <thead>
-                          <tr className="bg-gray-50 border-b">
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Tanggal</th>
-                            {!isStoreUser && <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Store</th>}
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Taft</th>
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Beli?</th>
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Sales Order</th>
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Traffic Source</th>
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Detail</th>
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Brand</th>
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Intensi</th>
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Case</th>
-                            <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Notes</th>
-                            {user?.traffic_store && <th className="px-2 py-1.5 text-center font-semibold text-gray-700">Aksi</th>}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {paginated.map((row, i) => {
-                            const detail = row.traffic_source === "Whatsapp Group"
-                              ? row.wag_addition
-                              : row.traffic_source === "Dari Eiger"
-                              ? row.eiger_addition
-                              : row.traffic_source === "Traffic Organic/Walk In"
-                              ? row.organic_addition
-                              : "";
-                            return (
-                              <tr key={row.id || i} className="border-b hover:bg-gray-50">
-                                <td className="px-2 py-1 whitespace-nowrap text-gray-500">{formatDate(row.date)}</td>
-                                {!isStoreUser && <td className="px-2 py-1 font-medium">{toTitleCase(row.store_location)}</td>}
-                                <td className="px-2 py-1">{row.taft_name}</td>
-                                <td className="px-2 py-1">
-                                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                                    row.customer_convert === "Beli"
-                                      ? "bg-green-50 text-green-700"
-                                      : row.customer_convert === "Tidak Beli"
-                                      ? "bg-red-50 text-red-600"
-                                      : "bg-gray-50 text-gray-400"
-                                  }`}>
-                                    {row.customer_convert || "-"}
-                                  </span>
-                                </td>
-                                <td className="px-2 py-1 text-gray-600 font-mono text-[10px]">
-                                  {row.sales_order || "-"}
-                                </td>
-                                <td className="px-2 py-1">
-                                  <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-medium">
-                                    {row.traffic_source}
-                                  </span>
-                                </td>
-                                <td className="px-2 py-1 text-gray-500">{detail || "-"}</td>
-                                <td className="px-2 py-1 text-gray-500">{row.brand_competitor || "-"}</td>
-                                <td className="px-2 py-1 text-gray-600">{row.intention || "-"}</td>
-                                <td className="px-2 py-1 text-gray-600">{row.case || "-"}</td>
-                                <td className="px-2 py-1 text-gray-500 max-w-[120px] truncate">{row.notes || "-"}</td>
-                                {user?.traffic_store && (
-                                  <td className="px-2 py-1 text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                      <button onClick={() => openEdit(row)}
-                                        className="px-1.5 py-0.5 text-[10px] bg-blue-50 text-blue-600 rounded hover:bg-blue-100">
-                                        Edit
-                                      </button>
-                                      <button onClick={() => handleDelete(row.id)}
-                                        className="px-1.5 py-0.5 text-[10px] bg-red-50 text-red-600 rounded hover:bg-red-100">
-                                        Hapus
-                                      </button>
-                                    </div>
-                                  </td>
-                                )}
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                    <Pagination page={page} total={fd.length} pageSize={PAGE_SIZE} onChange={setPage} />
-                  </>
-                )}
-              </div>
-            </div>
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
+              className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+              {loading ? (
+                <TableSkeletonRows />
+              ) : fd.length === 0 ? (
+                <EmptyState
+                  icon={MapPin}
+                  title="Belum ada data traffic"
+                  description="Mulai dengan menambahkan data survey traffic pertama."
+                  action={user?.traffic_store ? <Button icon={Plus} size="sm" onClick={openAdd}>Tambah Traffic</Button> : undefined}
+                />
+              ) : (
+                <>
+                  <EntryTable
+                    items={paginated}
+                    isStoreUser={isStoreUser}
+                    canEdit={!!user?.traffic_store}
+                    onEdit={openEdit}
+                    onDelete={requestDelete}
+                    formatDate={formatDate}
+                    toTitleCase={toTitleCase}
+                  />
+                  <Pagination
+                    currentPage={page}
+                    totalPages={Math.ceil(fd.length / PAGE_SIZE)}
+                    onPageChange={setPage}
+                    rangeLabel={`${Math.min((page - 1) * PAGE_SIZE + 1, fd.length)}–${Math.min(page * PAGE_SIZE, fd.length)} dari ${fd.length}`}
+                  />
+                </>
+              )}
+            </motion.div>
           )}
 
           {/* ── REPORT TAB ── */}
           {activeTab === "report" && user?.report_store && (
             <>
               {/* Summary Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
-                {[
-                  { label: "Total Data", value: totalEntries.toLocaleString(), color: "text-blue-600" },
-                  { label: "Jumlah Store", value: totalStores.toLocaleString(), color: "text-purple-600" },
-                  { label: "Total Beli", value: totalBeli.toLocaleString(), color: "text-green-600" },
-                  { label: "Conv. Rate", value: convRate, color: "text-orange-600" },
-                  { label: "Total Value Beli", value: formatRupiah(valueOrderStats.totalValue), color: "text-teal-600" },
-                ].map((c) => (
-                  <div key={c.label} className="bg-white rounded-lg shadow p-4">
-                    <p className="text-xs text-gray-500 mb-1">{c.label}</p>
-                    <p className={`text-xl font-bold truncate ${c.color}`}>{c.value}</p>
-                  </div>
-                ))}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                <StatCard icon={Users} label="Total Data" value={totalEntries.toLocaleString()} tone="info" />
+                <StatCard icon={MapPin} label="Jumlah Store" value={totalStores.toLocaleString()} tone="default" />
+                <StatCard icon={Target} label="Total Beli" value={totalBeli.toLocaleString()} tone="positive" />
+                <StatCard icon={Target} label="Conv. Rate" value={convRate} tone="warning" />
+                <StatCard icon={Target} label="Total Value Beli" value={formatRupiah(valueOrderStats.totalValue)} tone="positive" />
               </div>
 
               {/* Chart Card */}
-              <div className="bg-white rounded-lg shadow overflow-hidden">
-                {/* Toolbar */}
-                <div className="flex items-center justify-between px-6 py-3 border-b">
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
+                className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
                   <h2 className="text-sm font-semibold text-gray-700">Analitik Survey Store</h2>
                   <div className="flex items-center gap-3">
                     {!loading && fd.length > 0 && (
                       <>
-                        <ViewToggle view={chartView} onChange={setChartView} />
-                        <button onClick={handleExportXLSX}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors">
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
+                        <ChartViewToggle view={chartView} onChange={setChartView} />
+                        <Button variant="primary" size="sm" icon={FileDown} onClick={handleExportXLSX} className="bg-green-600 border-green-600 hover:bg-green-700">
                           Export XLSX
-                        </button>
+                        </Button>
                       </>
                     )}
                   </div>
                 </div>
-                <div className="p-6">
+                <div className="p-5 sm:p-6">
                   {loading ? (
-                    <div className="text-center py-16 text-gray-400">Loading data...</div>
+                    <TableSkeletonRows count={6} />
                   ) : fd.length === 0 ? (
-                    <div className="text-center py-16 text-gray-400">
-                      <p className="text-lg font-semibold">Belum ada data</p>
-                      <p className="text-sm mt-1">Tambah data traffic untuk melihat laporan</p>
-                    </div>
+                    <EmptyState icon={Target} title="Belum ada data" description="Tambah data traffic untuk melihat laporan." />
                   ) : (
                     <div className="space-y-10">
                       {/* ── ALL VIEW ── */}
                       {chartView === "all" && (
                         <>
                           {/* Pie + Bar: Traffic Source */}
-                          <div className="grid grid-cols-2 gap-8">
-                            <div>
-                              <h3 className="text-sm font-semibold text-gray-700 mb-4">Distribusi Survey Source</h3>
+                          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+                            <ChartCard title="Distribusi Survey Source" span="half">
                               <ResponsiveContainer width="100%" height={300}>
                                 <PieChart>
                                   <Pie data={trafficChartData} dataKey="value" nameKey="name"
@@ -1202,447 +979,188 @@ return (
                                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                     ))}
                                   </Pie>
-                                  <Tooltip content={({ active, payload }) => {
-                                    if (!active || !payload?.length) return null;
-                                    const item = payload[0];
-                                    const total = trafficChartData.reduce((s, d) => s + d.value, 0);
-                                    const pct = total ? ((Number(item.value) / total) * 100).toFixed(1) : "0";
-                                    return (
-                                      <div style={{ background: "#1e293b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", minWidth: 180 }}>
-                                        <p style={{ fontSize: 12, fontWeight: 700, color: "#f1f5f9", marginBottom: 6 }}>{item.name}</p>
-                                        <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
-                                          <span style={{ fontSize: 11, color: "#94a3b8" }}>Jumlah</span>
-                                          <span style={{ fontSize: 11, fontWeight: 700, color: item.payload?.fill || "#60a5fa" }}>{Number(item.value).toLocaleString()}</span>
-                                        </div>
-                                        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginTop: 2 }}>
-                                          <span style={{ fontSize: 11, color: "#94a3b8" }}>Persentase</span>
-                                          <span style={{ fontSize: 11, fontWeight: 600, color: "#e2e8f0" }}>{pct}%</span>
-                                        </div>
-                                      </div>
-                                    );
-                                  }} />
+                                  <Tooltip content={(props) => (
+                                    <PieSliceTooltip {...props} total={trafficChartData.reduce((s, d) => s + d.value, 0)} />
+                                  )} />
                                 </PieChart>
                               </ResponsiveContainer>
                               <PieLegend data={trafficChartData.map((d, i) => ({ name: d.name, value: d.value, color: COLORS[i % COLORS.length] }))} />
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-semibold text-gray-700 mb-4">Jumlah per Survey Source</h3>
+                            </ChartCard>
+                            <ChartCard title="Jumlah per Survey Source" span="half">
                               <ResponsiveContainer width="100%" height={300}>
-                                <BarChart data={trafficChartData.slice(0, 12)}
-                                  layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 4 }}>
-                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
-                                  <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }} />
-                                  <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#6b7280" }} width={130} />
-                                  <Tooltip content={<DarkTooltip />} />
-                                  <Bar dataKey="value" name="Jumlah" radius={[0, 4, 4, 0]} maxBarSize={20}
-                                    label={{ position: "right", fontSize: 9, fill: "#6b7280" }}>
-                                    {trafficChartData.slice(0, 12).map((_, i) => (
+                                <BarChart data={trafficChartData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
+                                  <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                  <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                                  <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                                    {trafficChartData.map((_, i) => (
                                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                     ))}
                                   </Bar>
                                 </BarChart>
                               </ResponsiveContainer>
-                            </div>
+                            </ChartCard>
                           </div>
 
-                          {/* ── SALES SECTION ── */}
-                          {salesByTrafficData.length > 0 && (
-                            <div className="border border-green-100 rounded-xl p-5 bg-green-50/30">
-                              <div className="flex items-center gap-2 mb-5">
-                                <div className="w-1 h-5 bg-green-500 rounded-full" />
-                                <h3 className="text-sm font-bold text-gray-700">Sales (Value Order) — Hanya Transaksi Beli</h3>
-                              </div>
-                              <div className="space-y-6">
-                                {/* Sales per Traffic Source */}
-                                <div className="bg-white rounded-lg p-4 shadow-sm">
-                                  <div className="grid grid-cols-2 gap-8">
-                                    {/* Bar chart */}
-                                    <div>
-                                      <h4 className="text-xs font-semibold text-gray-600 mb-3">Sales per Traffic Source</h4>
-                                      <ResponsiveContainer width="100%" height={Math.max(200, salesByTrafficData.length * 36)}>
-                                        <BarChart data={salesByTrafficData.slice(0, 10)}
-                                          layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
-                                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
-                                          <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }}
-                                            tickFormatter={(v) => `${(v / 1_000_000).toFixed(0)}jt`} />
-                                          <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#6b7280" }} width={130} />
-                                          <Tooltip content={({ active, payload }) => {
-                                            if (!active || !payload?.length) return null;
-                                            const p = payload[0];
-                                            return (
-                                              <div style={{ background: "#1e293b", borderRadius: 10, padding: "10px 14px", minWidth: 200 }}>
-                                                <p style={{ fontSize: 11, fontWeight: 700, color: "#f1f5f9", marginBottom: 6 }}>{p.payload.name}</p>
-                                                <div style={{ display: "flex", justifyContent: "space-between", gap: 16, marginBottom: 2 }}>
-                                                  <span style={{ fontSize: 10, color: "#94a3b8" }}>Transaksi</span>
-                                                  <span style={{ fontSize: 10, fontWeight: 700, color: "#60a5fa" }}>{p.payload.count}</span>
-                                                </div>
-                                                <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
-                                                  <span style={{ fontSize: 10, color: "#94a3b8" }}>Total Sales</span>
-                                                  <span style={{ fontSize: 10, fontWeight: 700, color: "#34d399" }}>{formatRupiah(Number(p.value))}</span>
-                                                </div>
-                                              </div>
-                                            );
-                                          }} />
-                                          <Bar dataKey="value" name="Total Sales" radius={[0, 4, 4, 0]} maxBarSize={22}>
-                                            {salesByTrafficData.map((_, i) => (
-                                              <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                                            ))}
-                                          </Bar>
-                                        </BarChart>
-                                      </ResponsiveContainer>
-                                    </div>
-                                    {/* Table */}
-                                    <SalesTable
-                                      title="Detail Sales per Traffic Source"
-                                      data={salesByTrafficData}
-                                      colorOffset={0}
-                                    />
-                                  </div>
-                                </div>
-
-                                {/* WAG, Eiger, Organic sales — side by side if multiple exist */}
-                                {(salesByWagData.length > 0 || salesByEigerData.length > 0 || salesByOrganicData.length > 0) && (
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    {salesByWagData.length > 0 && (
-                                      <div className="bg-white rounded-lg p-4 shadow-sm">
-                                        <div className="flex items-center gap-1.5 mb-3">
-                                          <span className="w-2 h-2 rounded-full bg-blue-400" />
-                                          <span className="text-xs font-semibold text-gray-600">Sales — Whatsapp Group</span>
-                                        </div>
-                                        <SalesTable
-                                          title=""
-                                          data={salesByWagData}
-                                          colorOffset={3}
-                                        />
-                                      </div>
-                                    )}
-                                    {salesByEigerData.length > 0 && (
-                                      <div className="bg-white rounded-lg p-4 shadow-sm">
-                                        <div className="flex items-center gap-1.5 mb-3">
-                                          <span className="w-2 h-2 rounded-full bg-purple-400" />
-                                          <span className="text-xs font-semibold text-gray-600">Sales — Dari Eiger</span>
-                                        </div>
-                                        <SalesTable
-                                          title=""
-                                          data={salesByEigerData}
-                                          colorOffset={7}
-                                        />
-                                      </div>
-                                    )}
-                                    {salesByOrganicData.length > 0 && (
-                                      <div className="bg-white rounded-lg p-4 shadow-sm">
-                                        <div className="flex items-center gap-1.5 mb-3">
-                                          <span className="w-2 h-2 rounded-full bg-green-400" />
-                                          <span className="text-xs font-semibold text-gray-600">Sales — Traffic Organic/Walk In</span>
-                                        </div>
-                                        <SalesTable
-                                          title=""
-                                          data={salesByOrganicData}
-                                          colorOffset={11}
-                                        />
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Conversion Pie + Bar by Traffic */}
-                          <div className="grid grid-cols-2 gap-8">
-                            <div>
-                              <h3 className="text-sm font-semibold text-gray-700 mb-4">Konversi Pembelian</h3>
+                          {/* Pie + Bar: Conversion */}
+                          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+                            <ChartCard title="Konversi Pembelian" span="half">
                               <ResponsiveContainer width="100%" height={260}>
                                 <PieChart>
-                                  <Pie data={conversionData} dataKey="value" nameKey="name"
-                                    cx="50%" cy="50%" outerRadius={100}
-                                    label={(props) => (props.percent ?? 0) > 0.04
-                                      ? `${props.name}: ${((props.percent ?? 0) * 100).toFixed(0)}%` : ""}
-                                    labelLine={false}>
+                                  <Pie data={conversionData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={95}
+                                    label={(props) => `${((props.percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
                                     {conversionData.map((d, i) => (
                                       <Cell key={i} fill={d.name === "Beli" ? "#10b981" : "#ef4444"} />
                                     ))}
                                   </Pie>
-                                  <Tooltip content={<DarkTooltip />} />
+                                  <Tooltip content={(props) => (
+                                    <PieSliceTooltip {...props} total={conversionData.reduce((s, d) => s + d.value, 0)} />
+                                  )} />
                                 </PieChart>
                               </ResponsiveContainer>
-                              <div className="flex justify-center gap-6 mt-2">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="w-3 h-3 rounded-sm bg-green-500" />
-                                  <span className="text-xs text-gray-500">Beli: <strong>{conversionData.find(d => d.name === "Beli")?.value || 0}</strong></span>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  <span className="w-3 h-3 rounded-sm bg-red-500" />
-                                  <span className="text-xs text-gray-500">Tidak Beli: <strong>{conversionData.find(d => d.name === "Tidak Beli")?.value || 0}</strong></span>
-                                </div>
-                              </div>
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-semibold text-gray-700 mb-4">Konversi per Survey Source</h3>
+                              <PieLegend data={conversionData.map((d) => ({ name: d.name, value: d.value, color: d.name === "Beli" ? "#10b981" : "#ef4444" }))} />
+                            </ChartCard>
+                            <ChartCard title="Konversi per Survey Source" span="half">
                               <ResponsiveContainer width="100%" height={260}>
-                                <BarChart data={conversionByTraffic.slice(0, 8)}
-                                  margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
-                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                                  <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-30} textAnchor="end" interval={0} />
-                                  <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
-                                  <Tooltip content={<DarkTooltip />} />
-                                  <Legend wrapperStyle={{ fontSize: 10, paddingTop: 8 }} />
-                                  <Bar dataKey="beli" name="Beli" fill="#10b981" radius={[3, 3, 0, 0]} maxBarSize={28} stackId="a" />
-                                  <Bar dataKey="tidakBeli" name="Tidak Beli" fill="#ef4444" radius={[3, 3, 0, 0]} maxBarSize={28} stackId="a" />
+                                <BarChart data={conversionByTraffic} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
+                                  <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                  <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                                  <Bar dataKey="beli" name="Beli" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                                  <Bar dataKey="tidakBeli" name="Tidak Beli" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={28} />
                                 </BarChart>
                               </ResponsiveContainer>
-                            </div>
+                            </ChartCard>
                           </div>
 
-                          {/* Total per Store */}
-                          <div>
-                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Total Survey per Store</h3>
-                            <ResponsiveContainer width="100%" height={260}>
-                              <BarChart data={storeTrafficMatrix.barData}
-                                margin={{ top: 16, right: 8, left: 0, bottom: 40 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-30} textAnchor="end" interval={0} />
-                                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
-                                <Tooltip content={<DarkTooltip />} />
-                                <Legend wrapperStyle={{ fontSize: 10, paddingTop: 8 }} />
-                                <Bar dataKey="beli" name="Beli" fill="#10b981" radius={[0, 0, 0, 0]} maxBarSize={40} stackId="b" />
-                                <Bar dataKey="tidakBeli" name="Tidak Beli" fill="#ef4444" radius={[3, 3, 0, 0]} maxBarSize={40} stackId="b"
-                                  label={{ position: "top", fontSize: 9, fill: "#6b7280" }} />
+                          {/* Total Survey per Store */}
+                          <ChartCard title="Total Survey per Store">
+                            <ResponsiveContainer width="100%" height={Math.max(260, storeTrafficMatrix.barData.length * 36)}>
+                              <BarChart data={storeTrafficMatrix.barData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={100} axisLine={false} tickLine={false} />
+                                <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                                <Bar dataKey="total" radius={[0, 4, 4, 0]} maxBarSize={20}>
+                                  {storeTrafficMatrix.barData.map((_, i) => (
+                                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                                  ))}
+                                </Bar>
                               </BarChart>
                             </ResponsiveContainer>
-                          </div>
+                          </ChartCard>
 
-                          {/* ── Discount Code Section ── */}
+                          {/* Discount Code */}
                           {discountChartData.length > 0 && (
-                            <div>
-                              <h3 className="text-sm font-semibold text-gray-700 mb-4">Discount Code — Pemakai & Value</h3>
-                              <div className="grid grid-cols-2 gap-8">
-                                {/* Bar: jumlah pemakai */}
-                                <div>
-                                  <p className="text-xs text-gray-500 mb-3">Jumlah Pemakai</p>
-                                  <ResponsiveContainer width="100%" height={Math.max(200, discountChartData.length * 36)}>
-                                    <BarChart data={discountChartData.slice(0, 12)}
-                                      layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 4 }}>
-                                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
-                                      <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }} />
-                                      <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#6b7280" }} width={120} />
-                                      <Tooltip content={<DarkTooltip />} />
-                                      <Bar dataKey="count" name="Pemakai" radius={[0, 4, 4, 0]} maxBarSize={22}
-                                        label={{ position: "right", fontSize: 9, fill: "#6b7280" }}>
-                                        {discountChartData.map((_, i) => (
-                                          <Cell key={i} fill={COLORS[(i + 6) % COLORS.length]} />
-                                        ))}
-                                      </Bar>
-                                    </BarChart>
-                                  </ResponsiveContainer>
-                                </div>
-                                {/* Table: discount detail */}
-                                <div>
-                                  <p className="text-xs text-gray-500 mb-3">Detail per Kode</p>
-                                  <div className="overflow-x-auto">
-                                    <table className="w-full text-xs">
-                                      <thead>
-                                        <tr className="bg-gray-50 border-b">
-                                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Kode Discount</th>
-                                          <th className="px-3 py-2 text-right font-semibold text-gray-700">Pemakai</th>
-                                          <th className="px-3 py-2 text-right font-semibold text-gray-700">Total Value</th>
-                                          <th className="px-3 py-2 text-right font-semibold text-gray-700">Avg/Pemakai</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {discountChartData.map((d, i) => (
-                                          <tr key={i} className="border-b hover:bg-gray-50">
-                                            <td className="px-3 py-2 flex items-center gap-2">
-                                              <span className="w-2 h-2 rounded-full flex-shrink-0"
-                                                style={{ backgroundColor: COLORS[(i + 6) % COLORS.length] }} />
-                                              <span className="font-mono font-medium">{d.name}</span>
-                                            </td>
-                                            <td className="px-3 py-2 text-right font-semibold text-blue-700">{d.count}</td>
-                                            <td className="px-3 py-2 text-right text-green-700 font-semibold">{formatRupiah(d.value)}</td>
-                                            <td className="px-3 py-2 text-right text-gray-500">{formatRupiah(d.count ? d.value / d.count : 0)}</td>
-                                          </tr>
-                                        ))}
-                                        <tr className="bg-primary/5 font-bold border-t-2">
-                                          <td className="px-3 py-2 text-primary">TOTAL</td>
-                                          <td className="px-3 py-2 text-right text-primary">
-                                            {discountChartData.reduce((s, d) => s + d.count, 0)}
-                                          </td>
-                                          <td className="px-3 py-2 text-right text-green-700">
-                                            {formatRupiah(discountChartData.reduce((s, d) => s + d.value, 0))}
-                                          </td>
-                                          <td className="px-3 py-2" />
-                                        </tr>
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Brand Competitor + WAG/Eiger/Organic */}
-                          {(brandChartData.length > 0 || wagChartData.length > 0 || eigerChartData.length > 0 || organicChartData.length > 0) && (
-                            <div className="grid grid-cols-2 gap-8">
-                              {brandChartData.length > 0 && (
-                                <div>
-                                  <h3 className="text-sm font-semibold text-gray-700 mb-4">Brand Competitor (Pernah Beli Di)</h3>
-                                  <ResponsiveContainer width="100%" height={260}>
-                                    <BarChart data={brandChartData.slice(0, 10)}
-                                      layout="vertical" margin={{ top: 4, right: 40, left: 8, bottom: 4 }}>
-                                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
-                                      <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }} />
-                                      <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#6b7280" }} width={100} />
-                                      <Tooltip content={<DarkTooltip />} />
-                                      <Bar dataKey="value" name="Jumlah" radius={[0, 4, 4, 0]} maxBarSize={20}
-                                        label={{ position: "right", fontSize: 9, fill: "#6b7280" }}>
-                                        {brandChartData.map((_, i) => (
-                                          <Cell key={i} fill={COLORS[(i + 8) % COLORS.length]} />
-                                        ))}
-                                      </Bar>
-                                    </BarChart>
-                                  </ResponsiveContainer>
-                                </div>
-                              )}
-                              <div className="space-y-6">
-                                {wagChartData.length > 0 && (
-                                  <div>
-                                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Whatsapp Group</h3>
-                                    <div className="space-y-1.5">
-                                      {wagChartData.map((d, i) => {
-                                        const wagTotal = wagChartData.reduce((s, x) => s + x.value, 0);
-                                        const pct = wagTotal ? ((d.value / wagTotal) * 100).toFixed(0) : 0;
-                                        return (
-                                          <div key={i} className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-600 w-32 truncate">{d.name}</span>
-                                            <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
-                                              <div className="h-3 rounded-full" style={{ width: `${pct}%`, backgroundColor: COLORS[i % COLORS.length] }} />
-                                            </div>
-                                            <span className="text-xs font-semibold text-gray-700 w-8 text-right">{d.value}</span>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                )}
-                                {eigerChartData.length > 0 && (
-                                  <div>
-                                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Dari Eiger</h3>
-                                    <div className="space-y-1.5">
-                                      {eigerChartData.map((d, i) => {
-                                        const eigerTotal = eigerChartData.reduce((s, x) => s + x.value, 0);
-                                        const pct = eigerTotal ? ((d.value / eigerTotal) * 100).toFixed(0) : 0;
-                                        return (
-                                          <div key={i} className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-600 w-32 truncate">{d.name}</span>
-                                            <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
-                                              <div className="h-3 rounded-full" style={{ width: `${pct}%`, backgroundColor: COLORS[(i + 4) % COLORS.length] }} />
-                                            </div>
-                                            <span className="text-xs font-semibold text-gray-700 w-8 text-right">{d.value}</span>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                )}
-                                {organicChartData.length > 0 && (
-                                  <div>
-                                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Traffic Organic/Walk In</h3>
-                                    <div className="space-y-1.5">
-                                      {organicChartData.map((d, i) => {
-                                        const organicTotal = organicChartData.reduce((s, x) => s + x.value, 0);
-                                        const pct = organicTotal ? ((d.value / organicTotal) * 100).toFixed(0) : 0;
-                                        return (
-                                          <div key={i} className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-600 w-32 truncate">{d.name}</span>
-                                            <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
-                                              <div className="h-3 rounded-full" style={{ width: `${pct}%`, backgroundColor: COLORS[(i + 12) % COLORS.length] }} />
-                                            </div>
-                                            <span className="text-xs font-semibold text-gray-700 w-8 text-right">{d.value}</span>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Intention breakdown */}
-                          {intentionData.length > 0 && (
-                            <div>
-                              <h3 className="text-sm font-semibold text-gray-700 mb-4">Distribusi Intensi Kunjungan</h3>
-                              <ResponsiveContainer width="100%" height={220}>
-                                <BarChart data={intentionData} margin={{ top: 16, right: 8, left: 0, bottom: 40 }}>
-                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-30} textAnchor="end" interval={0} />
-                                  <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
-                                  <Tooltip content={<DarkTooltip />} />
-                                  <Bar dataKey="value" name="Jumlah" radius={[4, 4, 0, 0]} maxBarSize={48}
-                                    label={{ position: "top", fontSize: 9, fill: "#6b7280" }}>
-                                    {intentionData.map((_, i) => (
-                                      <Cell key={i} fill={COLORS[(i + 10) % COLORS.length]} />
+                            <ChartCard title="Discount Code — Pemakai & Value">
+                              <ResponsiveContainer width="100%" height={Math.max(240, discountChartData.length * 34)}>
+                                <BarChart data={discountChartData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
+                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                  <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={110} axisLine={false} tickLine={false} />
+                                  <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                                  <Bar dataKey="count" name="Jumlah Pemakai" radius={[0, 4, 4, 0]} maxBarSize={20}>
+                                    {discountChartData.map((_, i) => (
+                                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                     ))}
                                   </Bar>
                                 </BarChart>
                               </ResponsiveContainer>
-                            </div>
+                            </ChartCard>
                           )}
 
-                          {/* Detail table: Store × Source */}
-                          <div>
-                            <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Store × Survey Source</h3>
-                            <div className="overflow-x-auto">
-                              <table className="text-xs border-collapse">
-                                <thead>
-                                  <tr>
-                                    <th className="px-3 py-2 text-left font-semibold bg-gray-50 border border-gray-200 whitespace-nowrap">Store</th>
-                                    {storeTrafficMatrix.sources.map(src => (
-                                      <th key={src} className="px-3 py-2 text-center font-semibold bg-gray-50 border border-gray-200 whitespace-nowrap min-w-[90px]">{src}</th>
+                          {/* Brand Competitor */}
+                          {brandChartData.length > 0 && (
+                            <ChartCard title="Brand Competitor (Pernah Beli Di)">
+                              <ResponsiveContainer width="100%" height={Math.max(240, brandChartData.length * 34)}>
+                                <BarChart data={brandChartData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
+                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                  <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={110} axisLine={false} tickLine={false} />
+                                  <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                                  <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={20}>
+                                    {brandChartData.map((_, i) => (
+                                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                     ))}
-                                    <th className="px-3 py-2 text-center font-semibold bg-green-50 border border-gray-200 whitespace-nowrap">Beli</th>
-                                    <th className="px-3 py-2 text-center font-semibold bg-red-50 border border-gray-200 whitespace-nowrap">Tdk Beli</th>
-                                    <th className="px-3 py-2 text-center font-semibold bg-primary/10 border border-gray-200 whitespace-nowrap">Total</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {storeTrafficMatrix.stores.map((store, i) => {
-                                    const rowTotal = storeTrafficMatrix.sources.reduce((s, src) => s + (storeTrafficMatrix.map[store]?.[src] || 0), 0);
-                                    const storeBeli = fd.filter(r => r.store_location === store && r.customer_convert === "Beli").length;
-                                    const storeTidak = fd.filter(r => r.store_location === store && r.customer_convert === "Tidak Beli").length;
-                                    return (
-                                      <tr key={store} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                                        <td className="px-3 py-2 font-medium border border-gray-200 whitespace-nowrap">{toTitleCase(store)}</td>
-                                        {storeTrafficMatrix.sources.map(src => {
-                                          const val = storeTrafficMatrix.map[store]?.[src] || 0;
-                                          return (
-                                            <td key={src} className="px-3 py-2 text-center border border-gray-200">
-                                              {val > 0 ? <span className="font-semibold text-blue-700">{val}</span> : <span className="text-gray-300">-</span>}
-                                            </td>
-                                          );
-                                        })}
-                                        <td className="px-3 py-2 text-center border border-gray-200 font-semibold text-green-700 bg-green-50/50">{storeBeli || "-"}</td>
-                                        <td className="px-3 py-2 text-center border border-gray-200 font-semibold text-red-600 bg-red-50/50">{storeTidak || "-"}</td>
-                                        <td className="px-3 py-2 text-center border border-gray-200 font-bold text-primary bg-primary/5">{rowTotal}</td>
-                                      </tr>
-                                    );
-                                  })}
-                                  <tr className="bg-primary/10 font-bold">
-                                    <td className="px-3 py-2 border border-gray-200">TOTAL</td>
-                                    {storeTrafficMatrix.sources.map(src => {
-                                      const colTotal = storeTrafficMatrix.stores.reduce((s, store) => s + (storeTrafficMatrix.map[store]?.[src] || 0), 0);
-                                      return (
-                                        <td key={src} className="px-3 py-2 text-center border border-gray-200 text-primary">{colTotal}</td>
-                                      );
-                                    })}
-                                    <td className="px-3 py-2 text-center border border-gray-200 text-green-700">{totalBeli}</td>
-                                    <td className="px-3 py-2 text-center border border-gray-200 text-red-600">{fd.filter(r => r.customer_convert === "Tidak Beli").length}</td>
-                                    <td className="px-3 py-2 text-center border border-gray-200 text-primary">{totalEntries}</td>
-                                  </tr>
-                                </tbody>
-                              </table>
-                            </div>
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </ChartCard>
+                          )}
+
+                          {/* WAG / Eiger / Organic detail + sales tables */}
+                          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+                            {wagChartData.length > 0 && (
+                              <div className="space-y-4">
+                                <h3 className="text-sm font-semibold text-gray-700">Detail Whatsapp Group</h3>
+                                <ResponsiveContainer width="100%" height={220}>
+                                  <BarChart data={wagChartData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
+                                    <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                    <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                                    <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                  </BarChart>
+                                </ResponsiveContainer>
+                                <SalesByTable title="Sales per WAG Addition" data={salesByWagData} formatRupiah={formatRupiah} />
+                              </div>
+                            )}
+                            {eigerChartData.length > 0 && (
+                              <div className="space-y-4">
+                                <h3 className="text-sm font-semibold text-gray-700">Detail Dari Eiger</h3>
+                                <ResponsiveContainer width="100%" height={220}>
+                                  <BarChart data={eigerChartData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
+                                    <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                    <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                                    <Bar dataKey="value" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                  </BarChart>
+                                </ResponsiveContainer>
+                                <SalesByTable title="Sales per Eiger Addition" data={salesByEigerData} colorOffset={2} formatRupiah={formatRupiah} />
+                              </div>
+                            )}
+                            {organicChartData.length > 0 && (
+                              <div className="space-y-4">
+                                <h3 className="text-sm font-semibold text-gray-700">Detail Traffic Organic/Walk In</h3>
+                                <ResponsiveContainer width="100%" height={220}>
+                                  <BarChart data={organicChartData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
+                                    <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                    <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                                    <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                  </BarChart>
+                                </ResponsiveContainer>
+                                <SalesByTable title="Sales per Organic Addition" data={salesByOrganicData} colorOffset={4} formatRupiah={formatRupiah} />
+                              </div>
+                            )}
                           </div>
+
+                          <SalesByTable title="Sales per Survey Source" data={salesByTrafficData} formatRupiah={formatRupiah} />
+
+                          {/* Intention */}
+                          <ChartCard title="Distribusi Intensi Kunjungan">
+                            <ResponsiveContainer width="100%" height={Math.max(220, intentionData.length * 40)}>
+                              <BarChart data={intentionData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={130} axisLine={false} tickLine={false} />
+                                <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                                <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={24}>
+                                  {intentionData.map((_, i) => (
+                                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                                  ))}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </ChartCard>
+
+                          {/* Store x Traffic matrix */}
+                          <MatrixTable matrix={storeTrafficMatrix} fd={fd} totalBeli={totalBeli} totalEntries={totalEntries} toTitleCase={toTitleCase} />
                         </>
                       )}
 
@@ -1651,33 +1169,30 @@ return (
                         <>
                           {/* Daily Conversion trend */}
                           <div>
-                            <h3 className="text-sm font-semibold text-gray-700 mb-1">Tren Konversi Harian</h3>
-                            <p className="text-xs text-gray-400 mb-4">Beli vs Tidak Beli per hari</p>
+                            <h3 className="mb-1 text-sm font-semibold text-gray-700">Tren Konversi Harian</h3>
                             <ResponsiveContainer width="100%" height={280}>
-                              <BarChart data={dailyConversionData} margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end"
-                                  interval={Math.max(0, Math.floor(dailyConversionData.length / 15))} />
-                                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
+                              <LineChart data={dailyConversionData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#6b7280" }} />
+                                <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                 <Tooltip content={<DarkTooltip />} />
-                                <Legend wrapperStyle={{ fontSize: 10, paddingTop: 8 }} />
-                                <Bar dataKey="Beli" fill="#10b981" radius={[0, 0, 0, 0]} maxBarSize={28} stackId="c" />
-                                <Bar dataKey="Tidak Beli" fill="#ef4444" radius={[3, 3, 0, 0]} maxBarSize={28} stackId="c" />
-                              </BarChart>
+                                <Legend wrapperStyle={{ fontSize: 11 }} />
+                                <Line type="monotone" dataKey="Beli" stroke="#10b981" strokeWidth={2} dot={false} />
+                                <Line type="monotone" dataKey="Tidak Beli" stroke="#ef4444" strokeWidth={2} dot={false} />
+                              </LineChart>
                             </ResponsiveContainer>
                           </div>
 
+                          {/* Daily Traffic Source trend */}
                           <div>
-                            <h3 className="text-sm font-semibold text-gray-700 mb-1">Tren Survey Source Harian (Top 6)</h3>
-                            <p className="text-xs text-gray-400 mb-4">Jumlah survey per hari</p>
-                            <ResponsiveContainer width="100%" height={320}>
-                              <LineChart data={dailyTrafficChartData.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end"
-                                  interval={Math.max(0, Math.floor(dailyTrafficChartData.chartData.length / 15))} />
-                                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
+                            <h3 className="mb-1 text-sm font-semibold text-gray-700">Tren Survey Source Harian (Top 6)</h3>
+                            <ResponsiveContainer width="100%" height={280}>
+                              <LineChart data={dailyTrafficChartData.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#6b7280" }} />
+                                <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                 <Tooltip content={<DarkTooltip />} />
-                                <Legend wrapperStyle={{ fontSize: 10, paddingTop: 8 }} />
+                                <Legend wrapperStyle={{ fontSize: 11 }} />
                                 {dailyTrafficChartData.top6.map((t, i) => (
                                   <Line key={t} type="monotone" dataKey={t} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={false} />
                                 ))}
@@ -1685,17 +1200,16 @@ return (
                             </ResponsiveContainer>
                           </div>
 
+                          {/* Daily per Store trend */}
                           <div>
-                            <h3 className="text-sm font-semibold text-gray-700 mb-1">Tren Survey Harian per Store</h3>
-                            <p className="text-xs text-gray-400 mb-4">Jumlah survey per hari berdasarkan store</p>
-                            <ResponsiveContainer width="100%" height={300}>
-                              <LineChart data={dailyStoreChartData.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end"
-                                  interval={Math.max(0, Math.floor(dailyStoreChartData.chartData.length / 15))} />
-                                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
+                            <h3 className="mb-1 text-sm font-semibold text-gray-700">Tren Survey Harian per Store</h3>
+                            <ResponsiveContainer width="100%" height={280}>
+                              <LineChart data={dailyStoreChartData.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#6b7280" }} />
+                                <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                 <Tooltip content={<DarkTooltip />} />
-                                <Legend wrapperStyle={{ fontSize: 10, paddingTop: 8 }} />
+                                <Legend wrapperStyle={{ fontSize: 11 }} />
                                 {dailyStoreChartData.storeNames.map((s, i) => (
                                   <Line key={s} type="monotone" dataKey={s} stroke={COLORS[(i + 5) % COLORS.length]} strokeWidth={2} dot={false} />
                                 ))}
@@ -1704,298 +1218,50 @@ return (
                           </div>
 
                           {/* Summary table */}
-                          <div>
-                            <h3 className="text-sm font-semibold text-gray-700 mb-3">Ringkasan Survey Source</h3>
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-xs">
-                                <thead>
-                                  <tr className="bg-gray-50 border-b">
-                                    <th className="px-3 py-2 text-left font-semibold text-gray-700">Survey Source</th>
-                                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Jumlah</th>
-                                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Beli</th>
-                                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Conv. Rate</th>
-                                    <th className="px-3 py-2 text-right font-semibold text-gray-700">Total Sales</th>
-                                    <th className="px-3 py-2 text-right font-semibold text-gray-700">% Total</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {(() => {
-                                    const total = trafficChartData.reduce((s, d) => s + d.value, 0);
-                                    return trafficChartData.map((t, i) => {
-                                      const trafficBeli = fd.filter(r => r.traffic_source === t.name && r.customer_convert === "Beli").length;
-                                      const trafficSales = fd
-                                        .filter(r => r.traffic_source === t.name && r.customer_convert === "Beli")
-                                        .reduce((s, r) => s + parseValue(r.value_order), 0);
-                                      const convPct = t.value ? `${((trafficBeli / t.value) * 100).toFixed(1)}%` : "-";
-                                      return (
-                                        <tr key={i} className="border-b hover:bg-gray-50">
-                                          <td className="px-3 py-2 flex items-center gap-2">
-                                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                                            {t.name}
-                                          </td>
-                                          <td className="px-3 py-2 text-right font-medium">{t.value}</td>
-                                          <td className="px-3 py-2 text-right text-green-700 font-medium">{trafficBeli}</td>
-                                          <td className="px-3 py-2 text-right text-orange-600">{convPct}</td>
-                                          <td className="px-3 py-2 text-right text-teal-700 font-medium">
-                                            {trafficSales > 0 ? formatRupiah(trafficSales) : "-"}
-                                          </td>
-                                          <td className="px-3 py-2 text-right text-gray-500">
-                                            {total ? `${((t.value / total) * 100).toFixed(1)}%` : "-"}
-                                          </td>
-                                        </tr>
-                                      );
-                                    });
-                                  })()}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
+                          <SummaryTable trafficChartData={trafficChartData} fd={fd} parseValue={parseValue} formatRupiah={formatRupiah} />
                         </>
                       )}
                     </div>
                   )}
                 </div>
-              </div>
+              </motion.div>
             </>
           )}
         </div>
+
+        {/* ── Form Modal ── */}
+        <EntryFormModal
+          mode={editEntry ? "edit" : "add"}
+          open={showForm}
+          onClose={() => setShowForm(false)}
+          form={form}
+          onChange={setForm}
+          storeLabel={userStore || undefined}
+          taftsForStore={taftsForStore}
+          trafficSources={trafficSources}
+          wagAdditions={wagAdditions}
+          eigerAdditions={eigerAdditions}
+          organicAdditions={organicAdditions}
+          brandCompetitors={brandCompetitors}
+          intentions={intentions}
+          casesForIntention={casesForIntention}
+          saving={saving}
+          onSubmit={handleSave}
+          toTitleCase={toTitleCase}
+        />
+
+        {/* Delete confirmation */}
+        <ConfirmationDialog
+          open={!!deleteTargetId}
+          title="Hapus data ini?"
+          description="Data traffic ini akan dihapus permanen."
+          confirmLabel="Hapus"
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTargetId(null)}
+        />
+
+        <Popup show={showPopup} message={popupMsg} type={popupType} onClose={() => setShowPopup(false)} />
       </div>
-
-      {/* ── Form Modal ── */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-base font-bold text-gray-800 mb-4">
-              {editEntry ? "Edit Data Traffic" : "Tambah Data Traffic"}
-            </h2>
-
-            {userStore && (
-              <div className="mb-3">
-                <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
-                <input type="text" value={toTitleCase(userStore)} disabled
-                  className="w-full px-2 py-1.5 border border-gray-200 rounded text-xs bg-gray-50 text-gray-500" />
-              </div>
-            )}
-
-            {/* Tanggal */}
-            <div className="mb-3">
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Tanggal <span className="text-red-500">*</span>
-              </label>
-              <input type="date" value={form.date}
-                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary" />
-            </div>
-
-            {/* Taft */}
-            <div className="mb-3">
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Taft <span className="text-red-500">*</span>
-              </label>
-              <select value={form.taft_name} onChange={e => setForm(f => ({ ...f, taft_name: e.target.value }))}
-                className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary">
-                <option value="">-- Pilih Taft --</option>
-                {taftsForStore.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-
-            {/* Apakah customer membeli? */}
-            <div className="mb-3">
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Apakah customer membeli? <span className="text-red-500">*</span>
-              </label>
-              <div className="flex gap-2">
-                {["Beli", "Tidak Beli"].map(opt => (
-                  <button key={opt} type="button"
-                    onClick={() => setForm(f => ({ ...f, customer_convert: opt, sales_order: opt === "Tidak Beli" ? "" : f.sales_order }))}
-                    className={`flex-1 px-3 py-2 border rounded text-xs font-medium transition-colors ${
-                      form.customer_convert === opt
-                        ? opt === "Beli"
-                          ? "bg-green-500 border-green-500 text-white"
-                          : "bg-red-500 border-red-500 text-white"
-                        : "border-gray-300 text-gray-600 hover:bg-gray-50"
-                    }`}>
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Sales Order — hanya muncul ketika Beli */}
-            {form.customer_convert === "Beli" && (
-              <div className="mb-3 pl-3 border-l-2 border-green-300">
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Sales Order <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.sales_order}
-                  onChange={e => setForm(f => ({ ...f, sales_order: e.target.value }))}
-                  placeholder="Contoh: #4098769"
-                  autoFocus
-                  className={`w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 bg-green-50 font-mono ${
-                    form.sales_order.trim() && !/^#\d+$/.test(form.sales_order.trim())
-                      ? "border-red-400 focus:ring-red-400"
-                      : "border-green-300 focus:ring-green-400"
-                  }`}
-                />
-                {form.sales_order.trim() && !/^#\d+$/.test(form.sales_order.trim()) && (
-                  <p className="text-[10px] text-red-500 mt-0.5">
-                    Format tidak valid. Gunakan format #angka, contoh: #409876
-                  </p>
-                )}
-                {(!form.sales_order.trim() || /^#\d+$/.test(form.sales_order.trim())) && (
-                  <p className="text-[10px] text-gray-400 mt-0.5">Wajib diisi dengan format #angka, contoh: #409876</p>
-                )}
-              </div>
-            )}
-
-            {/* Traffic Source */}
-            <div className="mb-3">
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Traffic Source <span className="text-red-500">*</span>
-              </label>
-              <select value={form.traffic_source}
-                onChange={e => setForm(f => ({
-                  ...f,
-                  traffic_source: e.target.value,
-                  wag_addition: "",
-                  eiger_addition: "",
-                  organic_addition: "",
-                }))}
-                className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary">
-                <option value="">-- Pilih Traffic Source --</option>
-                {trafficSources.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-
-            {/* WAG Addition (conditional) */}
-            {form.traffic_source === "Whatsapp Group" && (
-              <div className="mb-3 pl-3 border-l-2 border-blue-200">
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Karena apa? <span className="text-red-500">*</span>
-                </label>
-                <select value={form.wag_addition} onChange={e => setForm(f => ({ ...f, wag_addition: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-blue-200 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-400">
-                  <option value="">-- Pilih WAG --</option>
-                  {wagAdditions.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-            )}
-
-            {/* Eiger Addition (conditional) */}
-            {form.traffic_source === "Dari Eiger" && (
-              <div className="mb-3 pl-3 border-l-2 border-purple-200">
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Karena Apa? <span className="text-red-500">*</span>
-                </label>
-                <select value={form.eiger_addition} onChange={e => setForm(f => ({ ...f, eiger_addition: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-purple-200 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-purple-400">
-                  <option value="">-- Pilih Eiger --</option>
-                  {eigerAdditions.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-            )}
-
-            {/* Organic Addition (conditional) */}
-            {form.traffic_source === "Traffic Organic/Walk In" && (
-              <div className="mb-3 pl-3 border-l-2 border-green-200">
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Karena Apa? <span className="text-red-500">*</span>
-                </label>
-                <select value={form.organic_addition} onChange={e => setForm(f => ({ ...f, organic_addition: e.target.value }))}
-                  className="w-full px-2 py-1.5 border border-green-200 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-green-400">
-                  <option value="">-- Pilih Organic --</option>
-                  {organicAdditions.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-            )}
-
-            {/* Brand Competitor */}
-            <div className="mb-3">
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Pernah beli tas di Brand apa?
-              </label>
-              <select value={form.brand_competitor} onChange={e => setForm(f => ({ ...f, brand_competitor: e.target.value, brand_custom: "" }))}
-                className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary">
-                <option value="">-- Pilih Brand --</option>
-                {brandCompetitors.map(s => <option key={s} value={s}>{s}</option>)}
-                <option value="Lainnya">Lainnya</option>
-              </select>
-              {form.brand_competitor === "Lainnya" && (
-                <input
-                  type="text"
-                  value={form.brand_custom}
-                  onChange={e => setForm(f => ({ ...f, brand_custom: e.target.value }))}
-                  placeholder="Tulis nama brand..."
-                  autoFocus
-                  className="w-full mt-1.5 px-2 py-1.5 border border-amber-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-amber-400 bg-amber-50"
-                />
-              )}
-            </div>
-
-            {/* Intensi */}
-            <div className="mb-3">
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Intensi <span className="text-red-500">*</span>
-              </label>
-              <select value={form.intention} onChange={e => setForm(f => ({ ...f, intention: e.target.value, case: "" }))}
-                className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary">
-                <option value="">-- Pilih Intensi --</option>
-                {intentions.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-
-            {/* Case */}
-            <div className="mb-3">
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Case <span className="text-red-500">*</span>
-              </label>
-              <select value={form.case} onChange={e => setForm(f => ({ ...f, case: e.target.value }))}
-                disabled={!form.intention}
-                className={`w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary
-                  ${!form.intention ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed" : "bg-white border-gray-300"}`}>
-                <option value="">
-                  {!form.intention ? "Pilih Intensi terlebih dahulu" : "-- Pilih Case --"}
-                </option>
-                {casesForIntention.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-
-            {/* Notes — wajib saat Tidak Beli */}
-            <div className="mb-5">
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Notes
-                {form.customer_convert === "Tidak Beli" && <span className="text-red-500"> *</span>}
-                {form.customer_convert === "Tidak Beli" && (
-                  <span className="ml-1 text-[10px] text-red-400">(wajib diisi)</span>
-                )}
-              </label>
-              <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                rows={2} placeholder={form.customer_convert === "Tidak Beli" ? "Jelaskan alasan customer tidak membeli..." : "Catatan tambahan..."}
-                className={`w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 resize-none ${
-                  form.customer_convert === "Tidak Beli"
-                    ? "border-red-200 focus:ring-red-400 bg-red-50/30"
-                    : "border-gray-300 focus:ring-primary"
-                }`} />
-            </div>
-
-            <div className="flex gap-2">
-              <button onClick={() => setShowForm(false)} disabled={saving}
-                className="flex-1 px-4 py-2 bg-gray-100 text-gray-600 rounded text-sm hover:bg-gray-200 transition-colors">
-                Batal
-              </button>
-              <button onClick={handleSave} disabled={saving}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 transition-colors disabled:opacity-60">
-                {saving ? "Menyimpan..." : "Simpan"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <Popup show={showPopup} message={popupMsg} type={popupType} onClose={() => setShowPopup(false)} />
     </div>
-  </div>
   );
 }

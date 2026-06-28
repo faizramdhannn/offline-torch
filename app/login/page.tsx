@@ -14,6 +14,7 @@ function LoginPageContent() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState(false);
 
   const [regName, setRegName] = useState("");
   const [regUsername, setRegUsername] = useState("");
@@ -56,10 +57,12 @@ function LoginPageContent() {
       const user = await response.json();
       user._loginAt = Date.now();
       localStorage.setItem("user", JSON.stringify(user));
-      router.push("/dashboard");
+      setLoginSuccess(true);
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 650);
     } catch {
       setError("Username or password is incorrect");
-    } finally {
       setLoading(false);
     }
   };
@@ -101,6 +104,7 @@ function LoginPageContent() {
           display: flex;
           font-family: 'IBM Plex Sans', sans-serif;
           background: #f9fafb;
+          overflow: hidden;
         }
 
         .sl-left {
@@ -294,9 +298,22 @@ function LoginPageContent() {
           from { opacity: 0; transform: translateY(12px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+
+        /* ── Curtain-open transition on successful login ── */
+        .sl-left, .sl-right {
+          transition: transform 0.6s cubic-bezier(.65,0,.35,1), opacity 0.6s cubic-bezier(.65,0,.35,1);
+        }
+        .sl-root.sl-leaving .sl-left {
+          transform: translateX(-100%);
+          opacity: 0;
+        }
+        .sl-root.sl-leaving .sl-right {
+          transform: translateX(100%);
+          opacity: 0;
+        }
       `}</style>
 
-      <div className="sl-root">
+      <div className={`sl-root${loginSuccess ? " sl-leaving" : ""}`}>
         {/* ── LEFT PANEL ── */}
         <div className="sl-left">
           {/* Brand */}
