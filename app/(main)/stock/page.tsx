@@ -783,7 +783,7 @@ export default function StockPage() {
                   </ResponsiveContainer>
                 </div>
                 <p className="mt-1.5 text-center text-[10px] text-gray-400">
-                  Klik salah satu bar untuk memfilter berdasarkan {pcaChartMode === "category" ? "category" : "grade"} tersebut
+                  Klik salah satu bar untuk filter berdasarkan {pcaChartMode === "category" ? "category" : "grade"} tersebut
                 </p>
               </div>
             </ChartPanel>
