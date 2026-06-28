@@ -5,6 +5,37 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import * as XLSX from "xlsx";
+import { motion } from "framer-motion";
+import {
+  Wallet,
+  Plus,
+  Info,
+  TrendingUp,
+  TrendingDown,
+  Landmark,
+  CheckCircle2,
+  Circle,
+} from "lucide-react";
+
+import { SectionHeader } from "@/components/shared/SectionHeader";
+import { Button } from "@/components/shared/Button";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { TableSkeletonRows } from "@/components/shared/LoadingSkeleton";
+import { Pagination } from "@/components/shared/Pagination";
+import { ConfirmationDialog } from "@/components/shared/ConfirmationDialog";
+
+import { ViewTabs, type ViewMode } from "@/components/petty-cash/ViewTabs";
+import { StatCard } from "@/components/petty-cash/StatCard";
+import { FilterBar } from "@/components/petty-cash/FilterBar";
+import { EntryTable } from "@/components/petty-cash/EntryTable";
+import { ReportTable } from "@/components/petty-cash/ReportTable";
+import { BalanceTable } from "@/components/petty-cash/BalanceTable";
+import { HistoryTable } from "@/components/petty-cash/HistoryTable";
+import { DetailPopup } from "@/components/petty-cash/DetailPopup";
+import { SnapshotModal } from "@/components/petty-cash/SnapshotModal";
+import { EntryFormModal, type PettyCashFormData } from "@/components/petty-cash/EntryFormModal";
+import { BalanceFormModal, type BalanceFormData } from "@/components/petty-cash/BalanceFormModal";
+import { InfoModal } from "@/components/petty-cash/InfoModal";
 
 interface PettyCash {
   id: string;
@@ -61,53 +92,6 @@ interface HistoryEntry {
   notes: string;
 }
 
-// ─── Drive Image Proxy Component ───────────────────────────────────────────────
-function extractDriveFileId(url: string): string | null {
-  const patterns = [
-    /\/file\/d\/([a-zA-Z0-9_-]+)/,
-    /id=([a-zA-Z0-9_-]+)/,
-    /\/d\/([a-zA-Z0-9_-]+)/,
-  ];
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) return match[1];
-  }
-  return null;
-}
-
-function DriveImage({ href, fileId, alt }: { href: string; fileId: string; alt: string }) {
-  const proxyUrl = `/api/drive-image?id=${fileId}`;
-  const [zoom, setZoom] = useState(1);
-
-  const handleZoomIn = (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); setZoom((z) => Math.min(z + 0.25, 3)); };
-  const handleZoomOut = (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); setZoom((z) => Math.max(z - 0.25, 0.5)); };
-  const handleReset = (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); setZoom(1); };
-
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="flex items-center gap-2">
-        <button onClick={handleZoomOut} disabled={zoom <= 0.5} className="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 disabled:opacity-40 flex items-center justify-center text-gray-700 font-bold text-sm leading-none">−</button>
-        <button onClick={handleReset} className="px-1.5 py-0.5 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 text-[10px]">{Math.round(zoom * 100)}%</button>
-        <button onClick={handleZoomIn} disabled={zoom >= 3} className="w-6 h-6 rounded-full bg-gray-200 hover:bg-gray-300 disabled:opacity-40 flex items-center justify-center text-gray-700 font-bold text-sm leading-none">+</button>
-        <a href={href} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="px-1.5 py-0.5 rounded bg-blue-100 hover:bg-blue-200 text-blue-700 text-[10px]">Buka ↗</a>
-      </div>
-      <div className="overflow-auto max-h-60 max-w-full rounded-lg border bg-gray-50 flex items-center justify-center">
-        <img src={proxyUrl} alt={alt} style={{ transform: `scale(${zoom})`, transformOrigin: "center", transition: "transform 0.2s ease" }} className="max-h-60 max-w-full w-auto h-auto object-contain rounded-lg cursor-zoom-in" onClick={handleZoomIn} />
-      </div>
-    </div>
-  );
-}
-// ───────────────────────────────────────────────────────────────────────────────
-
-// ─── Action badge colors ───────────────────────────────────────────────────────
-const ACTION_STYLES: Record<string, string> = {
-  CREATE:  "bg-green-100 text-green-700",
-  UPDATE:  "bg-blue-100 text-blue-700",
-  DELETE:  "bg-red-100 text-red-700",
-  RESTORE: "bg-purple-100 text-purple-700",
-};
-// ───────────────────────────────────────────────────────────────────────────────
-
 export default function PettyCashPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -137,7 +121,7 @@ export default function PettyCashPage() {
   const [detailEntry, setDetailEntry] = useState<PettyCash | null>(null);
 
   // View mode — added "history"
-  const [viewMode, setViewMode] = useState<"list" | "report" | "balance" | "history">("list");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
 
   // Balance state
   const [balanceData, setBalanceData] = useState<BalanceData | null>(null);
@@ -146,7 +130,7 @@ export default function PettyCashPage() {
   const [loadingBalance, setLoadingBalance] = useState(false);
 
   // Balance form state
-  const [balanceFormData, setBalanceFormData] = useState({ type_balance: "credit", value: "", notes: "" });
+  const [balanceFormData, setBalanceFormData] = useState<BalanceFormData>({ type_balance: "credit", value: "", notes: "" });
   const [submittingBalance, setSubmittingBalance] = useState(false);
 
   // ─── History state ───────────────────────────────────────────────────────────
@@ -179,15 +163,21 @@ export default function PettyCashPage() {
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const storeDropdownRef = useRef<HTMLDivElement>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<PettyCashFormData>({
     description: "",
     category: "",
     value: "",
     ket: "",
     transfer: false,
-    file: null as File | null,
+    file: null,
   });
   const [submitting, setSubmitting] = useState(false);
+
+  // ── UI-only addition: modern confirm dialogs replacing window.confirm() ──
+  // Same delete/restore logic below — only the confirmation trigger changed.
+  const [deleteTarget, setDeleteTarget] = useState<PettyCash | null>(null);
+  const [deleteBalanceTarget, setDeleteBalanceTarget] = useState<string | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<HistoryEntry | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -303,9 +293,16 @@ export default function PettyCashPage() {
     finally { setLoadingHistory(false); }
   };
 
-  const handleRestore = async (entry: HistoryEntry) => {
+  // Restore flow — same fetch/logic, now triggered via confirm dialog (restoreTarget)
+  // instead of window.confirm().
+  const requestRestore = (entry: HistoryEntry) => {
     if (!user.petty_cash_export) { showMessage("You don't have permission to restore entries", "error"); return; }
-    if (!confirm(`Restore entry "${entry.petty_cash_id}" dari snapshot ${entry.action} pada ${formatDateTime(entry.action_at)}?`)) return;
+    setRestoreTarget(entry);
+  };
+
+  const handleRestore = async () => {
+    const entry = restoreTarget;
+    if (!entry) return;
     setRestoringId(entry.history_id);
     try {
       const response = await fetch("/api/petty-cash/history", {
@@ -323,7 +320,7 @@ export default function PettyCashPage() {
         showMessage(err.error || "Failed to restore entry", "error");
       }
     } catch (error) { showMessage("Failed to restore entry", "error"); }
-    finally { setRestoringId(null); }
+    finally { setRestoringId(null); setRestoreTarget(null); }
   };
   // ────────────────────────────────────────────────────────────────────────────
 
@@ -375,8 +372,12 @@ export default function PettyCashPage() {
     finally { setSubmittingBalance(false); }
   };
 
-  const handleDeleteBalance = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this balance entry?")) return;
+  // Delete balance — same fetch/logic, routed through confirm dialog.
+  const requestDeleteBalance = (id: string) => setDeleteBalanceTarget(id);
+
+  const handleDeleteBalance = async () => {
+    const id = deleteBalanceTarget;
+    if (!id) return;
     try {
       const response = await fetch(`/api/petty-cash/balance?id=${id}`, { method: "DELETE" });
       if (response.ok) {
@@ -385,6 +386,7 @@ export default function PettyCashPage() {
         fetchBalance();
       } else { showMessage("Failed to delete balance entry", "error"); }
     } catch (error) { showMessage("Failed to delete balance entry", "error"); }
+    finally { setDeleteBalanceTarget(null); }
   };
 
   const handleQuickToggleTransfer = async (entry: PettyCash) => {
@@ -515,16 +517,24 @@ export default function PettyCashPage() {
     finally { setSubmitting(false); }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this entry?")) return;
+  // Delete entry — same fetch/logic, routed through confirm dialog instead of window.confirm().
+  const requestDelete = (id: string) => {
+    const item = data.find((d) => d.id === id) || null;
+    setDeleteTarget(item);
+  };
+
+  const handleDelete = async () => {
+    const item = deleteTarget;
+    if (!item) return;
     try {
-      const response = await fetch(`/api/petty-cash?id=${id}&deletedBy=${user.user_name}`, { method: "DELETE" });
+      const response = await fetch(`/api/petty-cash?id=${item.id}&deletedBy=${user.user_name}`, { method: "DELETE" });
       if (response.ok) {
-        await logActivity("DELETE", `Deleted petty cash entry ID: ${id}`);
+        await logActivity("DELETE", `Deleted petty cash entry ID: ${item.id}`);
         showMessage("Entry deleted successfully", "success");
         fetchData(user.user_name, user.petty_cash_export);
       } else { showMessage("Failed to delete entry", "error"); }
     } catch (error) { showMessage("Failed to delete entry", "error"); }
+    finally { setDeleteTarget(null); }
   };
 
   const canEditDelete = (entry: PettyCash) => user.petty_cash_export || entry.update_by === user.user_name;
@@ -624,585 +634,392 @@ export default function PettyCashPage() {
 
   if (!user) return null;
 
+  const { credit, debit } = calculateCreditDebit();
+
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="p-6">
-        <div className="flex-1 overflow-auto">
-          <div className="p-4">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-1.5">
-                <h1 className="text-lg font-bold text-primary">Petty Cash</h1>
-                <button onClick={() => setShowInfoModal(true)} className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center hover:bg-blue-600 text-[10px] font-bold" title="Category Information">i</button>
-              </div>
-              <div className="flex gap-1.5">
-                {user.petty_cash_add && (
-                  <button onClick={() => setShowAddModal(true)} className="px-3 py-1.5 bg-gray-500 text-white rounded text-[11px] hover:bg-primary/90">+ Add Petty Cash</button>
-                )}
-              </div>
-            </div>
+    <div className="flex-1 overflow-auto bg-[#F8FAFC]">
+      <div className="mx-auto max-w-[1400px] p-4 sm:p-6">
+        {/* ── Section header ──────────────────────────────────────────── */}
+        <SectionHeader
+          icon={Wallet}
+          title="Petty Cash"
+          actions={
+            <>
+              <Button variant="outline" size="icon" onClick={() => setShowInfoModal(true)} title="Category Information">
+                <Info className="h-4 w-4" />
+              </Button>
+              {user.petty_cash_add && (
+                <Button icon={Plus} onClick={() => setShowAddModal(true)}>
+                  Add Petty Cash
+                </Button>
+              )}
+            </>
+          }
+        />
 
-            {/* View Toggle */}
-            <div className="bg-white rounded-lg shadow px-3 py-2 mb-3">
-              <div className="flex gap-1.5 flex-wrap">
-                {(["list", "report"] as const).map((mode) => (
-                  <button key={mode} onClick={() => setViewMode(mode)} className={`px-3 py-1 rounded text-[11px] transition-colors ${viewMode === mode ? "bg-primary text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}>
-                    {mode === "list" ? "List View" : "Report View"}
-                  </button>
-                ))}
-                {user.petty_cash_balance && (
-                  <button onClick={() => setViewMode("balance")} className={`px-3 py-1 rounded text-[11px] transition-colors ${viewMode === "balance" ? "bg-primary text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}>Balance</button>
-                )}
-                {/* History tab — visible to admins (petty_cash_export) */}
-                {user.petty_cash_export && (
-                  <button onClick={() => setViewMode("history")} className={`px-3 py-1 rounded text-[11px] transition-colors ${viewMode === "history" ? "bg-orange-500 text-white" : "bg-orange-100 text-orange-700 hover:bg-orange-200"}`}>
-                    History
-                  </button>
-                )}
-              </div>
-            </div>
+        {/* ── View tabs ────────────────────────────────────────────────── */}
+        <div className="mt-5">
+          <ViewTabs
+            active={viewMode}
+            onChange={setViewMode}
+            showBalance={!!user.petty_cash_balance}
+            showHistory={!!user.petty_cash_export}
+          />
+        </div>
 
-            {/* ── HISTORY VIEW ── */}
-            {viewMode === "history" && (
-              <div>
-                {/* Filters */}
-                <div className="bg-white rounded-lg shadow px-3 py-2.5 mb-3">
-                  <div className="grid grid-cols-4 gap-2 mb-2">
-                    <div>
-                      <label className="block text-[10px] font-medium text-gray-700 mb-0.5">Date From</label>
-                      <input type="date" value={historyDateFrom} onChange={(e) => setHistoryDateFrom(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-medium text-gray-700 mb-0.5">Date To</label>
-                      <input type="date" value={historyDateTo} onChange={(e) => setHistoryDateTo(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-medium text-gray-700 mb-0.5">Action</label>
-                      <select value={historyActionFilter} onChange={(e) => setHistoryActionFilter(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary">
-                        <option value="all">All Actions</option>
-                        <option value="CREATE">Create</option>
-                        <option value="UPDATE">Update</option>
-                        <option value="DELETE">Delete</option>
-                        <option value="RESTORE">Restore</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-medium text-gray-700 mb-0.5">Search</label>
-                      <input type="text" placeholder="ID, user, notes..." value={historySearch} onChange={(e) => { setHistorySearch(e.target.value); setHistoryPage(1); }} className="w-full px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary" />
-                    </div>
+        <div className="mt-4 space-y-4">
+          {/* ── HISTORY VIEW ── */}
+          {viewMode === "history" && (
+            <>
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-medium text-gray-500">Date From</label>
+                    <input type="date" value={historyDateFrom} onChange={(e) => setHistoryDateFrom(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-700 outline-none transition-colors focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/10" />
                   </div>
-                  <div className="flex gap-1.5 items-center">
-                    <button onClick={() => { setHistoryDateFrom(""); setHistoryDateTo(""); setHistoryActionFilter("all"); setHistorySearch(""); fetchHistory(); }} className="px-2.5 py-1 bg-gray-500 text-white rounded text-[11px] hover:bg-gray-600">Reset</button>
-                    <button onClick={fetchHistory} className="px-2.5 py-1 bg-primary text-white rounded text-[11px] hover:bg-primary/90">Refresh</button>
-                    <span className="text-[10px] text-gray-500 ml-auto">{filteredHistory.length} record{filteredHistory.length !== 1 ? "s" : ""}</span>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-medium text-gray-500">Date To</label>
+                    <input type="date" value={historyDateTo} onChange={(e) => setHistoryDateTo(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-700 outline-none transition-colors focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/10" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-medium text-gray-500">Action</label>
+                    <select value={historyActionFilter} onChange={(e) => setHistoryActionFilter(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-700 outline-none transition-colors focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/10">
+                      <option value="all">All Actions</option>
+                      <option value="CREATE">Create</option>
+                      <option value="UPDATE">Update</option>
+                      <option value="DELETE">Delete</option>
+                      <option value="RESTORE">Restore</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-medium text-gray-500">Search</label>
+                    <input type="text" placeholder="ID, user, notes..." value={historySearch}
+                      onChange={(e) => { setHistorySearch(e.target.value); setHistoryPage(1); }}
+                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-700 outline-none transition-colors focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/10" />
                   </div>
                 </div>
-
-                {/* Stats bar */}
-                <div className="grid grid-cols-4 gap-2 mb-3">
-                  {(["CREATE", "UPDATE", "DELETE", "RESTORE"] as const).map((action) => {
-                    const count = historyData.filter((h) => h.action === action).length;
-                    return (
-                      <div key={action} className="bg-white rounded-lg shadow px-3 py-2 flex items-center gap-2">
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${ACTION_STYLES[action]}`}>{action}</span>
-                        <span className="text-sm font-bold text-gray-700">{count}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Table */}
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                  {loadingHistory ? (
-                    <div className="p-6 text-center text-sm">Loading history...</div>
-                  ) : (
-                    <>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-[11px]">
-                          <thead className="bg-gray-100 border-b">
-                            <tr>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Time</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Action</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Entry ID</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700">By</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700 max-w-xs">Notes / Changes</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Snapshot</th>
-                              <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {historyItems.map((item) => {
-                              let snap: Record<string, string> = {};
-                              try { snap = JSON.parse(item.snapshot); } catch {}
-                              return (
-                                <tr key={item.history_id} className="border-b hover:bg-gray-50">
-                                  <td className="px-2 py-1.5 whitespace-nowrap text-gray-500">{formatDateTime(item.action_at)}</td>
-                                  <td className="px-2 py-1.5">
-                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${ACTION_STYLES[item.action] || "bg-gray-100 text-gray-600"}`}>{item.action}</span>
-                                  </td>
-                                  <td className="px-2 py-1.5 font-mono text-gray-700">{item.petty_cash_id}</td>
-                                  <td className="px-2 py-1.5 font-medium">{item.action_by}</td>
-                                  <td className="px-2 py-1.5 max-w-xs">
-                                    <p className="text-gray-600 truncate" title={item.notes}>{item.notes || "-"}</p>
-                                    {snap.description && (
-                                      <p className="text-gray-400 truncate text-[10px]">{toTitleCase(snap.description)} · {snap.category} · {snap.store}</p>
-                                    )}
-                                  </td>
-                                  <td className="px-2 py-1.5">
-                                    <button onClick={() => { setSnapshotEntry(item); setShowSnapshotModal(true); }} className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] hover:bg-gray-200 border border-gray-300">
-                                      Detail
-                                    </button>
-                                  </td>
-                                  <td className="px-2 py-1.5">
-                                    {/* Only show Restore for DELETE actions */}
-                                    {item.action === "DELETE" && user.petty_cash_export && (
-                                      <button
-                                        onClick={() => handleRestore(item)}
-                                        disabled={restoringId === item.history_id}
-                                        className="px-1.5 py-0.5 bg-purple-500 text-white rounded text-[10px] hover:bg-purple-600 disabled:opacity-50 whitespace-nowrap"
-                                      >
-                                        {restoringId === item.history_id ? "..." : "↩ Restore"}
-                                      </button>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                        {historyItems.length === 0 && <div className="p-6 text-center text-gray-500 text-xs">No history records found</div>}
-                      </div>
-
-                      {/* Pagination */}
-                      {totalHistoryPages > 1 && (
-                        <div className="flex justify-between items-center px-3 py-2 border-t">
-                          <div className="text-[10px] text-gray-600">{(historyPage - 1) * historyItemsPerPage + 1}–{Math.min(historyPage * historyItemsPerPage, filteredHistory.length)} of {filteredHistory.length}</div>
-                          <div className="flex gap-0.5">
-                            <button onClick={() => setHistoryPage((p) => Math.max(1, p - 1))} disabled={historyPage === 1} className="px-2 py-0.5 text-[10px] border rounded disabled:opacity-50 hover:bg-gray-50">Prev</button>
-                            {[...Array(totalHistoryPages)].map((_, i) => {
-                              const page = i + 1;
-                              if (page === 1 || page === totalHistoryPages || (page >= historyPage - 1 && page <= historyPage + 1)) {
-                                return <button key={page} onClick={() => setHistoryPage(page)} className={`px-2 py-0.5 text-[10px] border rounded ${historyPage === page ? "bg-primary text-white" : "hover:bg-gray-50"}`}>{page}</button>;
-                              } else if (page === historyPage - 2 || page === historyPage + 2) {
-                                return <span key={page} className="px-1 text-[10px] self-center">...</span>;
-                              }
-                              return null;
-                            })}
-                            <button onClick={() => setHistoryPage((p) => Math.min(totalHistoryPages, p + 1))} disabled={historyPage === totalHistoryPages} className="px-2 py-0.5 text-[10px] border rounded disabled:opacity-50 hover:bg-gray-50">Next</button>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+                  <Button variant="outline" size="sm" onClick={() => { setHistoryDateFrom(""); setHistoryDateTo(""); setHistoryActionFilter("all"); setHistorySearch(""); fetchHistory(); }}>
+                    Reset
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={fetchHistory}>
+                    Refresh
+                  </Button>
+                  <span className="ml-auto text-[11px] text-gray-400">
+                    {filteredHistory.length} record{filteredHistory.length !== 1 ? "s" : ""}
+                  </span>
                 </div>
               </div>
-            )}
 
-            {/* ── BALANCE VIEW ── */}
-            {viewMode === "balance" && user.petty_cash_balance ? (
-              <div>
-                <div className="bg-white rounded-lg shadow px-3 py-2 mb-3">
-                  <div className="grid grid-cols-4 gap-2">
-                    <div><label className="block text-[10px] font-medium text-gray-700 mb-0.5">Date From</label><input type="date" value={balanceDateFrom} onChange={(e) => setBalanceDateFrom(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary" /></div>
-                    <div><label className="block text-[10px] font-medium text-gray-700 mb-0.5">Date To</label><input type="date" value={balanceDateTo} onChange={(e) => setBalanceDateTo(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary" /></div>
-                    <div className="flex items-end"><button onClick={() => { setBalanceDateFrom(""); setBalanceDateTo(""); }} className="px-3 py-1 bg-gray-500 text-white rounded text-[11px] hover:bg-gray-600">Reset</button></div>
-                    <div className="flex items-end justify-end"><button onClick={() => setShowAddBalanceModal(true)} className="px-3 py-1 bg-primary text-white rounded text-[11px] hover:bg-primary/90">+ Add Balance</button></div>
-                  </div>
-                </div>
-                {loadingBalance ? (
-                  <div className="p-6 text-center bg-white rounded-lg shadow text-sm">Loading...</div>
-                ) : balanceData ? (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {(["CREATE", "UPDATE", "DELETE", "RESTORE"] as const).map((action) => {
+                  const count = historyData.filter((h) => h.action === action).length;
+                  const icon = action === "CREATE" ? CheckCircle2 : action === "DELETE" ? Circle : TrendingUp;
+                  const tone = action === "CREATE" ? "positive" : action === "DELETE" ? "negative" : action === "RESTORE" ? "info" : "default";
+                  return <StatCard key={action} icon={icon} label={action} value={String(count)} tone={tone as any} />;
+                })}
+              </div>
+
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
+                className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                {loadingHistory ? (
+                  <TableSkeletonRows />
+                ) : historyItems.length === 0 ? (
+                  <EmptyState icon={TrendingUp} title="Tidak ada riwayat" description="Belum ada aktivitas yang tercatat untuk filter ini." />
+                ) : (
                   <>
-                    <div className="grid grid-cols-5 gap-3 mb-3">
-                      {[
-                        { label: "Balance", value: Math.abs(balanceData.balance), color: balanceData.balance >= 0 ? "text-green-600" : "text-red-600", sub: balanceData.balance >= 0 ? "Surplus" : "Deficit" },
-                        { label: "Credit", value: calculateCreditDebit().credit, color: "text-green-600", sub: "Total pemasukan" },
-                        { label: "Debit", value: calculateCreditDebit().debit, color: "text-red-600", sub: "Total pengeluaran" },
-                        { label: "Paid", value: balanceData.paid, color: "text-blue-600", sub: "Sudah ditransfer" },
-                        { label: "Unpaid", value: balanceData.unpaid, color: "text-orange-500", sub: "Belum ditransfer" },
-                      ].map((card) => (
-                        <div key={card.label} className="bg-white rounded-lg shadow px-3 py-2.5">
-                          <p className="text-[10px] text-gray-500 mb-0.5">{card.label}</p>
-                          <p className={`text-sm font-bold ${card.color}`}>{formatRupiah(card.value)}</p>
-                          <p className="text-[10px] text-gray-400">{card.sub}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="bg-white rounded-lg shadow overflow-hidden">
-                      <div className="px-3 py-2 border-b bg-gray-50"><h3 className="text-[11px] font-semibold text-gray-700">Balance History</h3></div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-[11px]">
-                          <thead className="bg-gray-100 border-b">
-                            <tr>{["Date", "Type", "Value", "Notes", "Update By", "Actions"].map((h) => <th key={h} className="px-3 py-1.5 text-left font-semibold text-gray-700">{h}</th>)}</tr>
-                          </thead>
-                          <tbody>
-                            {balanceData.entries.map((entry, index) => (
-                              <tr key={index} className="border-b hover:bg-gray-50">
-                                <td className="px-3 py-1.5 whitespace-nowrap">{entry.created_at ? new Date(entry.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : "-"}</td>
-                                <td className="px-3 py-1.5"><span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${(entry.type_balance || "").toLowerCase() === "credit" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{toTitleCase(entry.type_balance || "")}</span></td>
-                                <td className="px-3 py-1.5"><span className={(entry.type_balance || "").toLowerCase() === "credit" ? "text-green-600" : "text-red-600"}>{(entry.type_balance || "").toLowerCase() === "credit" ? "+" : "-"}{formatRupiah(entry.value)}</span></td>
-                                <td className="px-3 py-1.5">{entry.notes || "-"}</td>
-                                <td className="px-3 py-1.5">{entry.update_by || "-"}</td>
-                                <td className="px-3 py-1.5"><div className="flex gap-1"><button onClick={() => handleEditBalance(entry)} className="px-1.5 py-0.5 bg-blue-500 text-white rounded text-[10px] hover:bg-blue-600">Edit</button><button onClick={() => handleDeleteBalance(entry.id)} className="px-1.5 py-0.5 bg-red-500 text-white rounded text-[10px] hover:bg-red-600">Del</button></div></td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        {balanceData.entries.length === 0 && <div className="p-6 text-center text-gray-500 text-xs">No balance entries found</div>}
-                      </div>
-                    </div>
+                    <HistoryTable
+                      items={historyItems}
+                      canRestore={!!user.petty_cash_export}
+                      restoringId={restoringId}
+                      onViewSnapshot={(entry) => { setSnapshotEntry(entry); setShowSnapshotModal(true); }}
+                      onRestore={requestRestore}
+                      formatDateTime={formatDateTime}
+                      toTitleCase={toTitleCase}
+                    />
+                    <Pagination
+                      currentPage={historyPage}
+                      totalPages={totalHistoryPages}
+                      onPageChange={setHistoryPage}
+                      rangeLabel={`${(historyPage - 1) * historyItemsPerPage + 1}–${Math.min(historyPage * historyItemsPerPage, filteredHistory.length)} dari ${filteredHistory.length} record`}
+                    />
                   </>
-                ) : <div className="p-6 text-center bg-white rounded-lg shadow text-gray-500 text-xs">No data available</div>}
-              </div>
-            ) : viewMode === "balance" && !user.petty_cash_balance ? (
-              <div className="p-6 text-center bg-white rounded-lg shadow"><p className="text-gray-500 text-xs">You don&apos;t have permission to access Balance.</p></div>
-            ) : viewMode !== "history" ? (
-              <>
-                {/* ── Filters ── */}
-                <div className="bg-white rounded-lg shadow px-3 py-2.5 mb-3">
-                  <div className="grid grid-cols-5 gap-2 mb-2">
-                    <div><label className="block text-[10px] font-medium text-gray-700 mb-0.5">Date From</label><input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary" /></div>
-                    <div><label className="block text-[10px] font-medium text-gray-700 mb-0.5">Date To</label><input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary" /></div>
-                    {viewMode === "list" ? (
-                      <>
-                        <div className="relative" ref={categoryDropdownRef}>
-                          <label className="block text-[10px] font-medium text-gray-700 mb-0.5">Category</label>
-                          <button onClick={() => setShowCategoryDropdown(!showCategoryDropdown)} className="w-full px-2 py-1 border border-gray-300 rounded text-[11px] bg-white text-left flex justify-between items-center"><span className="text-gray-500 truncate">{selectedCategories.length === 0 ? "Select..." : `${selectedCategories.length} selected`}</span><span className="text-gray-400 text-[9px]">▼</span></button>
-                          {showCategoryDropdown && (
-                            <div className="absolute z-10 w-full mt-0.5 bg-white border border-gray-300 rounded shadow-lg max-h-44 overflow-y-auto">
-                              <label className="flex items-center text-[11px] px-2.5 py-1.5 cursor-pointer hover:bg-gray-50 border-b border-gray-200 font-medium bg-gray-50"><input type="checkbox" checked={selectedCategories.length === categories.length && categories.length > 0} onChange={() => { selectedCategories.length === categories.length ? setSelectedCategories([]) : setSelectedCategories([...categories]); }} className="mr-1.5 w-3 h-3" />Select All</label>
-                              {categories.map((category) => <label key={category} className="flex items-center text-[11px] px-2.5 py-1.5 cursor-pointer hover:bg-gray-50"><input type="checkbox" checked={selectedCategories.includes(category)} onChange={() => toggleCategory(category)} className="mr-1.5 w-3 h-3" />{category}</label>)}
-                            </div>
-                          )}
-                        </div>
-                        <div className="relative" ref={storeDropdownRef}>
-                          <label className="block text-[10px] font-medium text-gray-700 mb-0.5">Store</label>
-                          <button onClick={() => setShowStoreDropdown(!showStoreDropdown)} className="w-full px-2 py-1 border border-gray-300 rounded text-[11px] bg-white text-left flex justify-between items-center"><span className="text-gray-500 truncate">{selectedStores.length === 0 ? "Select..." : `${selectedStores.length} selected`}</span><span className="text-gray-400 text-[9px]">▼</span></button>
-                          {showStoreDropdown && (
-                            <div className="absolute z-10 w-full mt-0.5 bg-white border border-gray-300 rounded shadow-lg max-h-44 overflow-y-auto">
-                              <label className="flex items-center text-[11px] px-2.5 py-1.5 cursor-pointer hover:bg-gray-50 border-b border-gray-200 font-medium bg-gray-50"><input type="checkbox" checked={selectedStores.length === stores.length && stores.length > 0} onChange={() => { selectedStores.length === stores.length ? setSelectedStores([]) : setSelectedStores([...stores]); }} className="mr-1.5 w-3 h-3" />Select All</label>
-                              {stores.map((store) => <label key={store} className="flex items-center text-[11px] px-2.5 py-1.5 cursor-pointer hover:bg-gray-50"><input type="checkbox" checked={selectedStores.includes(store)} onChange={() => toggleStore(store)} className="mr-1.5 w-3 h-3" />{store}</label>)}
-                            </div>
-                          )}
-                        </div>
-                        <div><label className="block text-[10px] font-medium text-gray-700 mb-0.5">Transfer</label><select value={transferFilter} onChange={(e) => setTransferFilter(e.target.value)} className="w-full px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"><option value="all">All</option><option value="false">Belum</option><option value="true">Sudah</option></select></div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="relative" ref={storeDropdownRef}>
-                          <label className="block text-[10px] font-medium text-gray-700 mb-0.5">Store</label>
-                          <button onClick={() => setShowStoreDropdown(!showStoreDropdown)} className="w-full px-2 py-1 border border-gray-300 rounded text-[11px] bg-white text-left flex justify-between items-center"><span className="text-gray-500 truncate">{selectedStores.length === 0 ? "All stores..." : `${selectedStores.length} selected`}</span><span className="text-gray-400 text-[9px]">▼</span></button>
-                          {showStoreDropdown && (
-                            <div className="absolute z-10 w-full mt-0.5 bg-white border border-gray-300 rounded shadow-lg max-h-44 overflow-y-auto">
-                              <label className="flex items-center text-[11px] px-2.5 py-1.5 cursor-pointer hover:bg-gray-50 border-b border-gray-200 font-medium bg-gray-50"><input type="checkbox" checked={selectedStores.length === stores.length && stores.length > 0} onChange={() => { selectedStores.length === stores.length ? setSelectedStores([]) : setSelectedStores([...stores]); }} className="mr-1.5 w-3 h-3" />Select All</label>
-                              {stores.map((store) => <label key={store} className="flex items-center text-[11px] px-2.5 py-1.5 cursor-pointer hover:bg-gray-50"><input type="checkbox" checked={selectedStores.includes(store)} onChange={() => toggleStore(store)} className="mr-1.5 w-3 h-3" />{store}</label>)}
-                            </div>
-                          )}
-                        </div>
-                        <div className="col-span-2"><label className="block text-[10px] font-medium text-gray-700 mb-0.5">Transfer Status</label><select value={reportTransferFilter} onChange={(e) => setReportTransferFilter(e.target.value as "false" | "true")} className="w-full px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"><option value="false">Belum Transfer</option><option value="true">Sudah Transfer</option></select></div>
-                      </>
-                    )}
-                  </div>
-                  <div className="flex gap-1.5 flex-wrap">
-                    <button onClick={resetFilters} className="px-2.5 py-1 bg-gray-500 text-white rounded text-[11px] hover:bg-gray-600">Reset</button>
-                    {user.petty_cash_export && (
-                      <>
-                        {viewMode === "list" ? (
-                          <>
-                            <button onClick={exportToExcel} className="px-2.5 py-1 bg-gray-400 text-white rounded text-[11px] hover:bg-secondary/90 ml-auto">Export XLSX</button>
-                            <button onClick={() => exportToDoc(1)} disabled={exporting} className="px-2.5 py-1 bg-gray-400 text-white rounded text-[11px] hover:bg-blue-700 disabled:opacity-50">{exporting ? "..." : "Export DOC"}</button>
-                            <button onClick={() => exportToDoc(2)} disabled={exporting2} className="px-2.5 py-1 bg-gray-400 text-white rounded text-[11px] hover:bg-blue-700 disabled:opacity-50">{exporting2 ? "..." : "Export DOC 2"}</button>
-                          </>
-                        ) : (
-                          <button onClick={exportReportToExcel} className="px-2.5 py-1 bg-gray-400 text-white rounded text-[11px] hover:bg-secondary/90 ml-auto">Export Report XLSX</button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
+                )}
+              </motion.div>
+            </>
+          )}
 
-                {/* ── Table ── */}
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                  {loading ? (
-                    <div className="p-6 text-center text-sm">Loading...</div>
-                  ) : viewMode === "report" ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-[11px]">
-                        <thead className="bg-gray-100 border-b">
-                          <tr><th className="px-3 py-1.5 text-left font-semibold text-gray-700">Store</th><th className="px-3 py-1.5 text-right font-semibold text-gray-700">Petty Cash</th><th className="px-3 py-1.5 text-right font-semibold text-gray-700">Listrik</th><th className="px-3 py-1.5 text-right font-semibold text-gray-700">Total</th></tr>
-                        </thead>
-                        <tbody>
-                          {generateReportData().map((item, index) => (
-                            <tr key={index} className="border-b hover:bg-gray-50"><td className="px-3 py-1.5">{item.store}</td><td className="px-3 py-1.5 text-right">{formatRupiah(item.pettyCash)}</td><td className="px-3 py-1.5 text-right">{formatRupiah(item.listrik)}</td><td className="px-3 py-1.5 text-right font-semibold text-green-600">{formatRupiah(item.total)}</td></tr>
-                          ))}
-                          <tr className="bg-gray-50 font-semibold"><td className="px-3 py-1.5">Grand Total</td><td className="px-3 py-1.5 text-right">{formatRupiah(generateReportData().reduce((sum, item) => sum + item.pettyCash, 0))}</td><td className="px-3 py-1.5 text-right">{formatRupiah(generateReportData().reduce((sum, item) => sum + item.listrik, 0))}</td><td className="px-3 py-1.5 text-right text-green-600">{formatRupiah(generateReportData().reduce((sum, item) => sum + item.total, 0))}</td></tr>
-                        </tbody>
-                      </table>
-                      {generateReportData().length === 0 && <div className="p-6 text-center text-gray-500 text-xs">No data available</div>}
-                    </div>
-                  ) : (
-                    <>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-[11px]">
-                          <thead className="bg-gray-100 border-b">
-                            <tr>
-                              <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-16">Date</th>
-                              <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-28">Description</th>
-                              <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-20">Category</th>
-                              <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-24">Value</th>
-                              <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-16">Store</th>
-                              <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-24">Dana Talang</th>
-                              <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-14">Transfer</th>
-                              <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-12">Link</th>
-                              <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-20">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {currentItems.map((item, index) => (
-                              <tr key={index} className="border-b hover:bg-gray-50 cursor-pointer" onClick={() => { setDetailEntry(item); setShowDetailPopup(true); }}>
-                                <td className="px-2 py-1 text-gray-600">{item.date}</td>
-                                <td className="px-2 py-1 truncate max-w-[112px]">{item.description}</td>
-                                <td className="px-2 py-1">{item.category}</td>
-                                <td className="px-2 py-1">{formatRupiah(item.value)}</td>
-                                <td className="px-2 py-1 truncate">{item.store}</td>
-                                <td className="px-2 py-1 truncate">{item.ket || "-"}</td>
-                                <td className="px-2 py-1 text-center">
-                                  {user.petty_cash_export ? (
-                                    <button onClick={(e) => { e.stopPropagation(); handleQuickToggleTransfer(item); }} disabled={updatingTransfer === item.id} className={`w-4 h-4 flex items-center justify-center rounded border-2 transition-colors mx-auto ${item.transfer === "TRUE" ? "bg-green-500 border-green-500" : "bg-white border-gray-300 hover:border-green-500"} ${updatingTransfer === item.id ? "opacity-50 cursor-wait" : "cursor-pointer"}`}>
-                                      {item.transfer === "TRUE" && <svg className="w-2.5 h-2.5 text-white" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7"></path></svg>}
-                                    </button>
-                                  ) : <span>{item.transfer === "TRUE" ? "✓" : "-"}</span>}
-                                </td>
-                                <td className="px-2 py-1 text-center">{item.link_url ? <a href={item.link_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" onClick={(e) => e.stopPropagation()}>View</a> : <span className="text-gray-400">-</span>}</td>
-                                <td className="px-2 py-1">
-                                  {canEditDelete(item) && (
-                                    <div className="flex gap-0.5 justify-center">
-                                      <button onClick={(e) => { e.stopPropagation(); handleEdit(item); }} className="px-1.5 py-0.5 bg-blue-500 text-white rounded text-[10px] hover:bg-blue-600">Edit</button>
-                                      <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="px-1.5 py-0.5 bg-red-500 text-white rounded text-[10px] hover:bg-red-600">Del</button>
-                                    </div>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                            <tr className="bg-gray-50 font-semibold">
-                              <td colSpan={3} className="px-2 py-1.5 text-right text-[11px]">Total:</td>
-                              <td className="px-2 py-1.5 text-[11px]">{formatRupiah(totalValue)}</td>
-                              <td colSpan={5}></td>
-                            </tr>
-                          </tbody>
-                        </table>
-                        {filteredData.length === 0 && <div className="p-6 text-center text-gray-500 text-xs">No data available</div>}
-                      </div>
-                      {totalPages > 1 && (
-                        <div className="flex justify-between items-center px-3 py-2 border-t">
-                          <div className="text-[10px] text-gray-600">{indexOfFirstItem + 1}–{Math.min(indexOfLastItem, filteredData.length)} of {filteredData.length}</div>
-                          <div className="flex gap-0.5">
-                            <button onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))} disabled={currentPage === 1} className="px-2 py-0.5 text-[10px] border rounded disabled:opacity-50 hover:bg-gray-50">Prev</button>
-                            {[...Array(totalPages)].map((_, i) => {
-                              const page = i + 1;
-                              if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) return <button key={page} onClick={() => setCurrentPage(page)} className={`px-2 py-0.5 text-[10px] border rounded ${currentPage === page ? "bg-primary text-white" : "hover:bg-gray-50"}`}>{page}</button>;
-                              else if (page === currentPage - 2 || page === currentPage + 2) return <span key={page} className="px-1 text-[10px] self-center">...</span>;
-                              return null;
-                            })}
-                            <button onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages} className="px-2 py-0.5 text-[10px] border rounded disabled:opacity-50 hover:bg-gray-50">Next</button>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
+          {/* ── BALANCE VIEW ── */}
+          {viewMode === "balance" && user.petty_cash_balance && (
+            <>
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div>
+                    <label className="mb-1 block text-[11px] font-medium text-gray-500">Date From</label>
+                    <input type="date" value={balanceDateFrom} onChange={(e) => setBalanceDateFrom(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-700 outline-none transition-colors focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/10" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] font-medium text-gray-500">Date To</label>
+                    <input type="date" value={balanceDateTo} onChange={(e) => setBalanceDateTo(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-700 outline-none transition-colors focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/10" />
+                  </div>
+                  <div className="flex items-end">
+                    <Button variant="outline" size="sm" onClick={() => { setBalanceDateFrom(""); setBalanceDateTo(""); }}>
+                      Reset
+                    </Button>
+                  </div>
+                  <div className="flex items-end justify-end">
+                    <Button icon={Plus} size="sm" onClick={() => setShowAddBalanceModal(true)}>
+                      Add Balance
+                    </Button>
+                  </div>
                 </div>
-              </>
-            ) : null}
-          </div>
+              </div>
+
+              {loadingBalance ? (
+                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                  <TableSkeletonRows count={4} />
+                </div>
+              ) : balanceData ? (
+                <>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                    <StatCard
+                      icon={Landmark}
+                      label="Balance"
+                      value={formatRupiah(Math.abs(balanceData.balance))}
+                      sublabel={balanceData.balance >= 0 ? "Surplus" : "Deficit"}
+                      tone={balanceData.balance >= 0 ? "positive" : "negative"}
+                    />
+                    <StatCard icon={TrendingUp} label="Credit" value={formatRupiah(credit)} sublabel="Total pemasukan" tone="positive" />
+                    <StatCard icon={TrendingDown} label="Debit" value={formatRupiah(debit)} sublabel="Total pengeluaran" tone="negative" />
+                    <StatCard icon={CheckCircle2} label="Paid" value={formatRupiah(balanceData.paid)} sublabel="Sudah ditransfer" tone="info" />
+                    <StatCard icon={Circle} label="Unpaid" value={formatRupiah(balanceData.unpaid)} sublabel="Belum ditransfer" tone="warning" />
+                  </div>
+
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
+                    className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                    <div className="border-b border-gray-100 px-4 py-3">
+                      <h3 className="text-xs font-semibold text-gray-700">Balance History</h3>
+                    </div>
+                    {balanceData.entries.length === 0 ? (
+                      <EmptyState icon={Landmark} title="Belum ada riwayat balance" description="Tambahkan entry credit atau debit pertama." />
+                    ) : (
+                      <BalanceTable
+                        entries={balanceData.entries}
+                        onEdit={handleEditBalance}
+                        onDelete={requestDeleteBalance}
+                        formatRupiah={formatRupiah}
+                        toTitleCase={toTitleCase}
+                      />
+                    )}
+                  </motion.div>
+                </>
+              ) : (
+                <EmptyState icon={Landmark} title="Tidak ada data" />
+              )}
+            </>
+          )}
+
+          {viewMode === "balance" && !user.petty_cash_balance && (
+            <EmptyState icon={Wallet} title="Akses ditolak" description="Anda tidak memiliki izin untuk mengakses Balance." />
+          )}
+
+          {/* ── LIST / REPORT VIEW ── */}
+          {(viewMode === "list" || viewMode === "report") && (
+            <>
+              <FilterBar
+                viewMode={viewMode}
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                onDateFromChange={setDateFrom}
+                onDateToChange={setDateTo}
+                categories={categories}
+                selectedCategories={selectedCategories}
+                onToggleCategory={toggleCategory}
+                onSelectAllCategories={() => setSelectedCategories((p) => p.length === categories.length ? [] : [...categories])}
+                showCategoryDropdown={showCategoryDropdown}
+                onCategoryDropdownChange={setShowCategoryDropdown}
+                categoryDropdownRef={categoryDropdownRef}
+                stores={stores}
+                selectedStores={selectedStores}
+                onToggleStore={toggleStore}
+                onSelectAllStores={() => setSelectedStores((p) => p.length === stores.length ? [] : [...stores])}
+                showStoreDropdown={showStoreDropdown}
+                onStoreDropdownChange={setShowStoreDropdown}
+                storeDropdownRef={storeDropdownRef}
+                transferFilter={transferFilter}
+                onTransferFilterChange={setTransferFilter}
+                reportTransferFilter={reportTransferFilter}
+                onReportTransferFilterChange={setReportTransferFilter}
+                onReset={resetFilters}
+                canExport={!!user.petty_cash_export}
+                onExportExcel={viewMode === "list" ? exportToExcel : exportReportToExcel}
+                onExportDoc={viewMode === "list" ? () => exportToDoc(1) : undefined}
+                exportingDoc={exporting}
+                onExportDoc2={viewMode === "list" ? () => exportToDoc(2) : undefined}
+                exportingDoc2={exporting2}
+              />
+
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
+                className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                {loading ? (
+                  <TableSkeletonRows />
+                ) : viewMode === "report" ? (
+                  generateReportData().length === 0 ? (
+                    <EmptyState icon={TrendingUp} title="Tidak ada data" description="Tidak ada transaksi yang cocok dengan filter ini." />
+                  ) : (
+                    <ReportTable data={generateReportData()} formatRupiah={formatRupiah} />
+                  )
+                ) : filteredData.length === 0 ? (
+                  <EmptyState
+                    icon={Wallet}
+                    title="Belum ada petty cash"
+                    description="Mulai dengan menambahkan entry petty cash pertama."
+                    action={user.petty_cash_add ? <Button icon={Plus} size="sm" onClick={() => setShowAddModal(true)}>Add Petty Cash</Button> : undefined}
+                  />
+                ) : (
+                  <>
+                    <EntryTable
+                      items={currentItems}
+                      canExport={!!user.petty_cash_export}
+                      updatingTransfer={updatingTransfer}
+                      onRowClick={(item) => { setDetailEntry(item); setShowDetailPopup(true); }}
+                      onToggleTransfer={handleQuickToggleTransfer}
+                      onEdit={handleEdit}
+                      onDelete={requestDelete}
+                      canEditDelete={canEditDelete}
+                      formatRupiah={formatRupiah}
+                      totalValue={totalValue}
+                    />
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={setCurrentPage}
+                      rangeLabel={`${indexOfFirstItem + 1}–${Math.min(indexOfLastItem, filteredData.length)} dari ${filteredData.length} entri`}
+                    />
+                  </>
+                )}
+              </motion.div>
+            </>
+          )}
         </div>
 
         {/* ── Snapshot Detail Modal ── */}
-        {showSnapshotModal && snapshotEntry && (() => {
-          let snap: Record<string, string> = {};
-          try { snap = JSON.parse(snapshotEntry.snapshot); } catch {}
-          return (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowSnapshotModal(false)}>
-              <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${ACTION_STYLES[snapshotEntry.action] || "bg-gray-100 text-gray-600"}`}>{snapshotEntry.action}</span>
-                    <span className="text-[11px] font-semibold text-gray-700">Entry #{snapshotEntry.petty_cash_id}</span>
-                  </div>
-                  <span className="text-[10px] text-gray-400">{formatDateTime(snapshotEntry.action_at)}</span>
-                </div>
-                <div className="px-4 py-3">
-                  <p className="text-[10px] text-gray-500 mb-2">By <span className="font-semibold text-gray-700">{snapshotEntry.action_by}</span></p>
-                  {snapshotEntry.notes && <div className="mb-3 px-2 py-1.5 bg-yellow-50 border border-yellow-200 rounded text-[11px] text-yellow-800">{snapshotEntry.notes}</div>}
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                    {[
-                      ["Date", snap.date],
-                      ["Store", snap.store],
-                      ["Category", snap.category],
-                      ["Transfer", snap.transfer === "TRUE" ? "✓ Sudah" : "✗ Belum"],
-                      ["Description", snap.description],
-                      ["Dana Talang", snap.ket || "-"],
-                      ["Value", snap.value ? formatRupiah(snap.value) : "-"],
-                      ["Update By", snap.update_by],
-                      ["Created At", snap.created_at ? formatDateTime(snap.created_at) : "-"],
-                      ["Updated At", snap.update_at ? formatDateTime(snap.update_at) : "-"],
-                    ].map(([label, val]) => (
-                      <div key={label} className={label === "Description" || label === "Dana Talang" ? "col-span-2" : ""}>
-                        <p className="text-[10px] text-gray-400 font-medium mb-0.5">{label}</p>
-                        <p className="font-semibold text-gray-800 text-[11px] break-words">{val || "-"}</p>
-                      </div>
-                    ))}
-                  </div>
-                  {snap.link_url && (
-                    <div className="mt-2">
-                      <p className="text-[10px] text-gray-400 font-medium mb-0.5">Receipt</p>
-                      <a href={snap.link_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-[11px]">View file ↗</a>
-                    </div>
-                  )}
-                </div>
-                <div className="px-4 pb-3 flex justify-between items-center border-t pt-2 gap-2">
-                  {snapshotEntry.action === "DELETE" && user.petty_cash_export && (
-                    <button onClick={() => { setShowSnapshotModal(false); handleRestore(snapshotEntry); }} disabled={restoringId === snapshotEntry.history_id} className="px-3 py-1 bg-purple-500 text-white rounded text-[11px] hover:bg-purple-600 disabled:opacity-50">↩ Restore Entry</button>
-                  )}
-                  <button onClick={() => setShowSnapshotModal(false)} className="px-3 py-1 bg-gray-500 text-white rounded text-[11px] hover:bg-gray-600 ml-auto">Close</button>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
+        {showSnapshotModal && snapshotEntry && (
+          <SnapshotModal
+            entry={snapshotEntry}
+            onClose={() => setShowSnapshotModal(false)}
+            canRestore={!!user.petty_cash_export}
+            restoring={restoringId === snapshotEntry.history_id}
+            onRestore={() => { setShowSnapshotModal(false); requestRestore(snapshotEntry); }}
+            formatRupiah={formatRupiah}
+            formatDateTime={formatDateTime}
+          />
+        )}
 
         {/* ── Detail Popup ── */}
         {showDetailPopup && detailEntry && (
-          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50" onClick={() => setShowDetailPopup(false)}>
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-              {detailEntry.link_url && extractDriveFileId(detailEntry.link_url) ? (
-                <div className="flex justify-center p-3 bg-gray-50 border-b"><DriveImage href={detailEntry.link_url} fileId={extractDriveFileId(detailEntry.link_url)!} alt="Receipt" /></div>
-              ) : detailEntry.link_url ? (
-                <div className="flex justify-center p-3 bg-gray-50 border-b"><a href={detailEntry.link_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">View Receipt</a></div>
-              ) : (
-                <div className="h-10 bg-gray-100 flex items-center justify-center text-gray-400 text-xs border-b">No receipt</div>
-              )}
-              <div className="px-4 pt-3 pb-0.5"><p className="text-[10px] font-bold text-primary uppercase tracking-widest">{toTitleCase(detailEntry.store)}</p></div>
-              <div className="px-4 pb-3 pt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                <div><p className="text-[10px] text-gray-400 font-medium mb-0.5">Date</p><p className="font-semibold text-gray-800">{detailEntry.date || "-"}</p></div>
-                <div><p className="text-[10px] text-gray-400 font-medium mb-0.5">Category</p><p className="font-semibold text-gray-800">{detailEntry.category || "-"}</p></div>
-                <div className="col-span-2"><p className="text-[10px] text-gray-400 font-medium mb-0.5">Description</p><p className="font-semibold text-gray-800">{detailEntry.description || "-"}</p></div>
-                <div><p className="text-[10px] text-gray-400 font-medium mb-0.5">Value</p><p className="font-semibold text-green-700">{formatRupiah(detailEntry.value)}</p></div>
-                <div><p className="text-[10px] text-gray-400 font-medium mb-0.5">Transfer</p><span className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${detailEntry.transfer === "TRUE" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}`}>{detailEntry.transfer === "TRUE" ? "Sudah" : "Belum"}</span></div>
-                {detailEntry.ket && <div className="col-span-2"><p className="text-[10px] text-gray-400 font-medium mb-0.5">Dana Talang</p><p className="text-gray-800 whitespace-pre-wrap text-xs">{detailEntry.ket}</p></div>}
-                <div><p className="text-[10px] text-gray-400 font-medium mb-0.5">Update By</p><p className="font-semibold text-gray-800">{detailEntry.update_by || "-"}</p></div>
-              </div>
-              <div className="px-4 pb-3 flex justify-end border-t pt-2">
-                <button onClick={() => setShowDetailPopup(false)} className="px-3 py-1 bg-gray-500 text-white rounded text-[11px] hover:bg-gray-600">Close</button>
-              </div>
-            </div>
-          </div>
+          <DetailPopup
+            entry={detailEntry}
+            onClose={() => setShowDetailPopup(false)}
+            formatRupiah={formatRupiah}
+            toTitleCase={toTitleCase}
+          />
         )}
 
         {/* Add Balance Modal */}
-        {showAddBalanceModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-            <div className="bg-white rounded-lg p-5 max-w-sm w-full mx-4">
-              <h2 className="text-sm font-bold text-primary mb-3">Add Balance Entry</h2>
-              <form onSubmit={handleAddBalance} className="space-y-3">
-                <div><label className="block text-xs font-medium text-gray-700 mb-0.5">Type*</label><select value={balanceFormData.type_balance} onChange={(e) => setBalanceFormData({ ...balanceFormData, type_balance: e.target.value })} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary" required><option value="credit">Credit (Pemasukan)</option><option value="debit">Debit (Pengeluaran)</option></select></div>
-                <div><label className="block text-xs font-medium text-gray-700 mb-0.5">Value*</label><input type="text" value={balanceFormData.value} onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ""); setBalanceFormData({ ...balanceFormData, value: val ? formatRupiah(val) : "" }); }} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Rp 0" required /></div>
-                <div><label className="block text-xs font-medium text-gray-700 mb-0.5">Notes</label><textarea value={balanceFormData.notes} onChange={(e) => setBalanceFormData({ ...balanceFormData, notes: e.target.value })} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary" rows={2} placeholder="Optional notes..." /></div>
-                <div className="flex gap-2 pt-2">
-                  <button type="button" onClick={() => { setShowAddBalanceModal(false); setBalanceFormData({ type_balance: "credit", value: "", notes: "" }); }} disabled={submittingBalance} className="flex-1 px-3 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600 disabled:opacity-50">Cancel</button>
-                  <button type="submit" disabled={submittingBalance} className="flex-1 px-3 py-1.5 bg-primary text-white rounded text-xs hover:bg-primary/90 disabled:opacity-50">{submittingBalance ? "Submitting..." : "Add Entry"}</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        <BalanceFormModal
+          mode="add"
+          open={showAddBalanceModal}
+          onClose={() => { setShowAddBalanceModal(false); setBalanceFormData({ type_balance: "credit", value: "", notes: "" }); }}
+          formData={balanceFormData}
+          onChange={setBalanceFormData}
+          submitting={submittingBalance}
+          onSubmit={handleAddBalance}
+          formatRupiah={formatRupiah}
+        />
 
         {/* Edit Balance Modal */}
-        {showEditBalanceModal && selectedBalanceEntry && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-            <div className="bg-white rounded-lg p-5 max-w-sm w-full mx-4">
-              <h2 className="text-sm font-bold text-primary mb-3">Edit Balance Entry</h2>
-              <form onSubmit={handleUpdateBalance} className="space-y-3">
-                <div><label className="block text-xs font-medium text-gray-700 mb-0.5">Type*</label><select value={balanceFormData.type_balance} onChange={(e) => setBalanceFormData({ ...balanceFormData, type_balance: e.target.value })} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary" required><option value="credit">Credit (Pemasukan)</option><option value="debit">Debit (Pengeluaran)</option></select></div>
-                <div><label className="block text-xs font-medium text-gray-700 mb-0.5">Value*</label><input type="text" value={balanceFormData.value} onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ""); setBalanceFormData({ ...balanceFormData, value: val ? formatRupiah(val) : "" }); }} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Rp 0" required /></div>
-                <div><label className="block text-xs font-medium text-gray-700 mb-0.5">Notes</label><textarea value={balanceFormData.notes} onChange={(e) => setBalanceFormData({ ...balanceFormData, notes: e.target.value })} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary" rows={2} placeholder="Optional notes..." /></div>
-                <div className="flex gap-2 pt-2">
-                  <button type="button" onClick={() => { setShowEditBalanceModal(false); setSelectedBalanceEntry(null); setBalanceFormData({ type_balance: "credit", value: "", notes: "" }); }} disabled={submittingBalance} className="flex-1 px-3 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600 disabled:opacity-50">Cancel</button>
-                  <button type="submit" disabled={submittingBalance} className="flex-1 px-3 py-1.5 bg-primary text-white rounded text-xs hover:bg-primary/90 disabled:opacity-50">{submittingBalance ? "Updating..." : "Update Entry"}</button>
-                </div>
-              </form>
-            </div>
-          </div>
+        {selectedBalanceEntry && (
+          <BalanceFormModal
+            mode="edit"
+            open={showEditBalanceModal}
+            onClose={() => { setShowEditBalanceModal(false); setSelectedBalanceEntry(null); setBalanceFormData({ type_balance: "credit", value: "", notes: "" }); }}
+            formData={balanceFormData}
+            onChange={setBalanceFormData}
+            submitting={submittingBalance}
+            onSubmit={handleUpdateBalance}
+            formatRupiah={formatRupiah}
+          />
         )}
 
         {/* Category Info Modal */}
-        {showInfoModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto" onClick={() => setShowInfoModal(false)}>
-            <div className="bg-white rounded-lg p-5 max-w-4xl w-full mx-4 my-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-              <h2 className="text-sm font-bold text-primary mb-3">Petty Cash Category Information</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-[11px] border-collapse">
-                  <thead className="bg-gray-100 border-b-2 border-gray-300"><tr><th className="px-3 py-2 text-left font-semibold text-gray-700 border border-gray-300">Category</th><th className="px-3 py-2 text-left font-semibold text-gray-700 border border-gray-300">Description</th><th className="px-3 py-2 text-left font-semibold text-gray-700 border border-gray-300">Example</th></tr></thead>
-                  <tbody>{categoryDetails.map((detail, index) => <tr key={index} className="border-b hover:bg-gray-50"><td className="px-3 py-1.5 border border-gray-300 font-medium">{detail.category}</td><td className="px-3 py-1.5 border border-gray-300">{detail.description}</td><td className="px-3 py-1.5 border border-gray-300 text-gray-600">{detail.example}</td></tr>)}</tbody>
-                </table>
-                {categoryDetails.length === 0 && <div className="p-6 text-center text-gray-500 text-xs">No category information available</div>}
-              </div>
-              <div className="flex justify-end mt-4"><button onClick={() => setShowInfoModal(false)} className="px-3 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600">Close</button></div>
-            </div>
-          </div>
-        )}
+        <InfoModal open={showInfoModal} onClose={() => setShowInfoModal(false)} categoryDetails={categoryDetails} />
 
         {/* Add Modal */}
-        {showAddModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-            <div className="bg-white rounded-lg p-5 max-w-xl w-full mx-4 my-6">
-              <h2 className="text-sm font-bold text-primary mb-3">Add Petty Cash Entry</h2>
-              <form onSubmit={handleSubmit} className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div><label className="block text-xs font-medium text-gray-700 mb-0.5">Description*</label><input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary" required /></div>
-                  <div><label className="block text-xs font-medium text-gray-700 mb-0.5">Category*</label><select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary" required><option value="">Select Category</option>{categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}</select></div>
-                  <div><label className="block text-xs font-medium text-gray-700 mb-0.5">Value*</label><input type="text" value={formData.value} onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ""); setFormData({ ...formData, value: val ? formatRupiah(val) : "" }); }} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Rp 0" required /></div>
-                  <div><label className="block text-xs font-medium text-gray-700 mb-0.5">Store</label><input type="text" value={user.user_name} disabled className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-gray-100" /></div>
-                  <div className="col-span-2"><label className="block text-xs font-medium text-gray-700 mb-0.5">Dana Talang</label><textarea value={formData.ket} onChange={(e) => setFormData({ ...formData, ket: e.target.value })} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary" rows={2} /></div>
-                  <div><label className="flex items-center text-xs cursor-pointer gap-1.5"><input type="checkbox" checked={formData.transfer} onChange={(e) => setFormData({ ...formData, transfer: e.target.checked })} className="w-3 h-3" />Transfer</label></div>
-                  <div className="col-span-2"><label className="block text-xs font-medium text-gray-700 mb-0.5">Upload Receipt</label><input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setFormData({ ...formData, file: e.target.files?.[0] || null })} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-primary file:text-white hover:file:bg-primary/90" />{formData.file && <p className="text-[10px] text-gray-500 mt-0.5">Selected: {formData.file.name}</p>}</div>
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <button type="button" onClick={() => { setShowAddModal(false); setFormData({ description: "", category: "", value: "", ket: "", transfer: false, file: null }); }} disabled={submitting} className="flex-1 px-3 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600 disabled:opacity-50">Cancel</button>
-                  <button type="submit" disabled={submitting} className="flex-1 px-3 py-1.5 bg-primary text-white rounded text-xs hover:bg-primary/90 disabled:opacity-50">{submitting ? "Submitting..." : "Add Entry"}</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        <EntryFormModal
+          mode="add"
+          open={showAddModal}
+          onClose={() => { setShowAddModal(false); setFormData({ description: "", category: "", value: "", ket: "", transfer: false, file: null }); }}
+          formData={formData}
+          onChange={setFormData}
+          categories={categories}
+          storeLabel={user.user_name}
+          submitting={submitting}
+          onSubmit={handleSubmit}
+        />
 
         {/* Edit Modal */}
-        {showEditModal && selectedEntry && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-            <div className="bg-white rounded-lg p-5 max-w-xl w-full mx-4 my-6">
-              <h2 className="text-sm font-bold text-primary mb-3">Edit Petty Cash Entry</h2>
-              <form onSubmit={handleUpdate} className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div><label className="block text-xs font-medium text-gray-700 mb-0.5">Description*</label><input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary" required /></div>
-                  <div><label className="block text-xs font-medium text-gray-700 mb-0.5">Category*</label><select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary" required><option value="">Select Category</option>{categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}</select></div>
-                  <div><label className="block text-xs font-medium text-gray-700 mb-0.5">Value*</label><input type="text" value={formData.value} onChange={(e) => { const val = e.target.value.replace(/[^0-9]/g, ""); setFormData({ ...formData, value: val ? formatRupiah(val) : "" }); }} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Rp 0" required /></div>
-                  <div><label className="block text-xs font-medium text-gray-700 mb-0.5">Store</label><input type="text" value={selectedEntry.store} disabled className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-gray-100" /></div>
-                  <div className="col-span-2"><label className="block text-xs font-medium text-gray-700 mb-0.5">Dana Talang</label><textarea value={formData.ket} onChange={(e) => setFormData({ ...formData, ket: e.target.value })} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary" rows={2} /></div>
-                  <div><label className="flex items-center text-xs cursor-pointer gap-1.5"><input type="checkbox" checked={formData.transfer} onChange={(e) => setFormData({ ...formData, transfer: e.target.checked })} className="w-3 h-3" />Transfer</label></div>
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Upload Receipt (Optional - will replace existing)</label>
-                    <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setFormData({ ...formData, file: e.target.files?.[0] || null })} className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-primary file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-primary file:text-white hover:file:bg-primary/90" />
-                    {formData.file && <p className="text-[10px] text-gray-500 mt-0.5">Selected: {formData.file.name}</p>}
-                    {selectedEntry.link_url && !formData.file && <p className="text-[10px] text-blue-600 mt-0.5">Current file: <a href={selectedEntry.link_url} target="_blank" rel="noopener noreferrer">View</a></p>}
-                  </div>
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <button type="button" onClick={() => { setShowEditModal(false); setSelectedEntry(null); setFormData({ description: "", category: "", value: "", ket: "", transfer: false, file: null }); }} disabled={submitting} className="flex-1 px-3 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600 disabled:opacity-50">Cancel</button>
-                  <button type="submit" disabled={submitting} className="flex-1 px-3 py-1.5 bg-primary text-white rounded text-xs hover:bg-primary/90 disabled:opacity-50">{submitting ? "Updating..." : "Update Entry"}</button>
-                </div>
-              </form>
-            </div>
-          </div>
+        {selectedEntry && (
+          <EntryFormModal
+            mode="edit"
+            open={showEditModal}
+            onClose={() => { setShowEditModal(false); setSelectedEntry(null); setFormData({ description: "", category: "", value: "", ket: "", transfer: false, file: null }); }}
+            formData={formData}
+            onChange={setFormData}
+            categories={categories}
+            storeLabel={selectedEntry.store}
+            existingLinkUrl={selectedEntry.link_url}
+            submitting={submitting}
+            onSubmit={handleUpdate}
+          />
         )}
+
+        {/* Delete entry confirmation */}
+        <ConfirmationDialog
+          open={!!deleteTarget}
+          title="Hapus entry ini?"
+          description={deleteTarget ? `Entry "${deleteTarget.description}" senilai ${formatRupiah(deleteTarget.value)} akan dihapus.` : undefined}
+          confirmLabel="Hapus"
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+
+        {/* Delete balance confirmation */}
+        <ConfirmationDialog
+          open={!!deleteBalanceTarget}
+          title="Hapus balance entry ini?"
+          description="Entry balance ini akan dihapus permanen."
+          confirmLabel="Hapus"
+          onConfirm={handleDeleteBalance}
+          onCancel={() => setDeleteBalanceTarget(null)}
+        />
+
+        {/* Restore confirmation */}
+        <ConfirmationDialog
+          open={!!restoreTarget}
+          title="Restore entry ini?"
+          description={restoreTarget ? `Entry "${restoreTarget.petty_cash_id}" akan dikembalikan dari snapshot ${restoreTarget.action} pada ${formatDateTime(restoreTarget.action_at)}.` : undefined}
+          confirmLabel="Restore"
+          danger={false}
+          loading={!!restoreTarget && restoringId === restoreTarget.history_id}
+          onConfirm={handleRestore}
+          onCancel={() => setRestoreTarget(null)}
+        />
 
         <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
       </div>
