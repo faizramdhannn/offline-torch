@@ -5,9 +5,10 @@ import { Modal } from "@/components/shared/Modal";
 import { Button } from "@/components/shared/Button";
 import { FieldLabel, inputClass } from "@/components/shared/FormField";
 import SearchableSelect from "@/components/SearchableSelect";
-import { STEP_ERP_STORES } from "@/lib/stepErpConfig";
+import { STEP_ERP_STORES, STEP_ERP_TYPES } from "@/lib/stepErpConfig";
 
 const STORE_OPTIONS = STEP_ERP_STORES.map((s) => ({ value: s, label: s }));
+const TYPE_OPTIONS = STEP_ERP_TYPES.map((t) => ({ value: t.key, label: t.label }));
 
 interface AddEntryModalProps {
   open: boolean;
@@ -19,6 +20,10 @@ interface AddEntryModalProps {
   onErpNumberChange: (v: string) => void;
   submitting: boolean;
   onSubmit: () => void;
+  // Optional: for type selection when on "all" tab
+  typeKey?: string;
+  onTypeChange?: (v: string) => void;
+  showTypeSelector?: boolean;
 }
 
 export function AddEntryModal({
@@ -31,6 +36,9 @@ export function AddEntryModal({
   onErpNumberChange,
   submitting,
   onSubmit,
+  typeKey,
+  onTypeChange,
+  showTypeSelector = false,
 }: AddEntryModalProps) {
   const canSubmit = !!store && !!erpNumber.trim() && !submitting;
 
@@ -39,8 +47,8 @@ export function AddEntryModal({
       open={open}
       onClose={onClose}
       icon={Plus}
-      title={`Tambah ${typeLabel}`}
-      description="Isi store dan nomor ERP untuk memulai checklist."
+      title={showTypeSelector ? "Tambah Entry" : `Tambah ${typeLabel}`}
+      description="Isi tipe (jika perlu), store, dan nomor ERP untuk memulai checklist."
       footer={
         <>
           <Button variant="secondary" className="flex-1" onClick={onClose} disabled={submitting}>
@@ -59,6 +67,17 @@ export function AddEntryModal({
       }
     >
       <div className="space-y-4">
+        {showTypeSelector && onTypeChange && (
+          <div>
+            <FieldLabel required>Tipe ERP</FieldLabel>
+            <SearchableSelect
+              options={TYPE_OPTIONS}
+              value={typeKey ?? ""}
+              onChange={onTypeChange}
+              placeholder="-- Pilih Tipe --"
+            />
+          </div>
+        )}
         <div>
           <FieldLabel required>Store</FieldLabel>
           <SearchableSelect

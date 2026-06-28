@@ -49,6 +49,7 @@ export interface User {
   sales_view: boolean;
   sales_view_all: boolean;
   step_erp?: boolean;
+  step_erp_all?: boolean;
   last_activity: string;
 }
 

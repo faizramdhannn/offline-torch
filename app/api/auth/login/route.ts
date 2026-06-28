@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
       material_issue_all: user.material_issue_all === 'TRUE',
       asset_store: user.asset_store === 'TRUE',
       step_erp: user.step_erp === 'TRUE',
+      step_erp_all: user.step_erp_all === 'TRUE',
     });
   } catch (error) {
     return NextResponse.json({ error: 'Authentication failed' }, { status: 500 });

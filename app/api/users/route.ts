@@ -155,6 +155,7 @@ export async function PUT(request: NextRequest) {
       r("asset_store"),             // AZ
       timestamp,                    // BA
       r("step_erp"),                 // BB
+      r("step_erp_all"),             // BC
     ];
 
     console.log(`Updating row ${rowIndex} with ${updatedRow.length} columns`);

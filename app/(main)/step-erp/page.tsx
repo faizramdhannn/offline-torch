@@ -1,10 +1,18 @@
 "use client";
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { ChevronLeft, ListChecks, Plus, CheckCircle2, TrendingUp } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  ListChecks,
+  Plus,
+  CheckCircle2,
+  TrendingUp,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+} from "lucide-react";
 import Popup from "@/components/Popup";
 
 import { SectionHeader } from "@/components/shared/SectionHeader";
@@ -14,43 +22,55 @@ import { TableSkeletonRows } from "@/components/shared/LoadingSkeleton";
 import { ConfirmationDialog } from "@/components/shared/ConfirmationDialog";
 import { StatCard } from "@/components/shared/StatCard";
 
-import { TypeGrid, type TypeStats } from "@/components/step-erp/TypeGrid";
-import { EntryTable } from "@/components/step-erp/EntryTable";
 import { AddEntryModal } from "@/components/step-erp/AddEntryModal";
-import { ChecklistModal } from "@/components/step-erp/ChecklistModal";
+import { EntryDetailPanel } from "@/components/step-erp/EntryDetailPanel";
+import { ProgressBar } from "@/components/step-erp/ProgressBar";
 import {
   STEP_ERP_TYPES,
+  STEP_ERP_STORES,
   getStepErpType,
+  computeEntryProgress,
   summarizeEntries,
+  type StepErpTypeDef,
 } from "@/lib/stepErpConfig";
+
+const PAGE_SIZE = 20;
+
+// Tab: "all" = semua type, atau key type spesifik
+type TabKey = "all" | string;
 
 export default function StepErpPage() {
   const router = useRouter();
   useSessionGuard();
 
   const [user, setUser] = useState<any>(null);
+  const [isAllAccess, setIsAllAccess] = useState(false);
 
-  // "grid" = landing view with the 8 type cards. Otherwise it's a type key.
-  const [view, setView] = useState<string>("grid");
+  const [activeTab, setActiveTab] = useState<TabKey>("all");
+  const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const [typeStats, setTypeStats] = useState<Record<string, TypeStats>>({});
-  const [loadingStats, setLoadingStats] = useState(true);
+  // All entries keyed by type key
+  const [entriesByType, setEntriesByType] = useState<Record<string, Record<string, any>[]>>({});
+  const [loading, setLoading] = useState(true);
 
-  const [entries, setEntries] = useState<Record<string, any>[]>([]);
-  const [loadingEntries, setLoadingEntries] = useState(false);
+  // Selected entry for detail panel
+  const [selectedEntry, setSelectedEntry] = useState<Record<string, any> | null>(null);
+  const [selectedTypeKey, setSelectedTypeKey] = useState<string | null>(null);
+  const [savingStepKey, setSavingStepKey] = useState<string | null>(null);
 
+  // Add entry modal
   const [showAddModal, setShowAddModal] = useState(false);
+  const [addType, setAddType] = useState<string>(STEP_ERP_TYPES[0].key);
   const [addStore, setAddStore] = useState("");
   const [addErpNumber, setAddErpNumber] = useState("");
   const [submittingAdd, setSubmittingAdd] = useState(false);
 
-  const [selectedEntry, setSelectedEntry] = useState<Record<string, any> | null>(null);
-  const [showChecklistModal, setShowChecklistModal] = useState(false);
-  const [savingStepKey, setSavingStepKey] = useState<string | null>(null);
-
-  const [deleteTarget, setDeleteTarget] = useState<Record<string, any> | null>(null);
+  // Delete
+  const [deleteTarget, setDeleteTarget] = useState<{ entry: Record<string, any>; typeKey: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Popup
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
@@ -68,12 +88,10 @@ export default function StepErpPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user: user?.user_name, method, activity_log: activity }),
       });
-    } catch {
-      // Non-critical — don't block the user's action on a logging failure.
-    }
+    } catch {}
   };
 
-  // ── Initial auth + permission gate ────────────────────────────────────────
+  // ── Auth + permission gate ─────────────────────────────────────────────────
   useEffect(() => {
     const userData = localStorage.getItem("user");
     if (!userData) {
@@ -85,129 +103,148 @@ export default function StepErpPage() {
       router.push("/dashboard");
       return;
     }
+    const allAccess = parsedUser.step_erp_all === true || parsedUser.step_erp_all === "TRUE";
+    setIsAllAccess(allAccess);
     setUser(parsedUser);
-    fetchAllStats();
   }, []);
 
-  // ── Stats for the grid landing view (one read per type) ───────────────────
-  const fetchAllStats = useCallback(async () => {
-    setLoadingStats(true);
+  // Derive user's store from their name (matching STEP_ERP_STORES)
+  const userStore = useMemo(() => {
+    if (!user || isAllAccess) return null;
+    // Try to match user name to a store, e.g. "lembong" → "Torch Lembong"
+    const nameToken = (user.name || user.user_name || "").toLowerCase();
+    return (
+      STEP_ERP_STORES.find((s) => nameToken.includes(s.split(" ")[1]?.toLowerCase() ?? "")) ??
+      null
+    );
+  }, [user, isAllAccess]);
+
+  // ── Fetch all types ────────────────────────────────────────────────────────
+  const fetchAll = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
     try {
       const results = await Promise.all(
         STEP_ERP_TYPES.map(async (t) => {
           try {
-            const res = await fetch(`/api/step-erp?type=${t.key}`);
+            const params = new URLSearchParams({ type: t.key });
+            if (!isAllAccess && userStore) params.set("store", userStore);
+            const res = await fetch(`/api/step-erp?${params}`);
             const data = await res.json();
-            const list = Array.isArray(data) ? data : [];
-            return [t.key, summarizeEntries(list, t)] as const;
+            return [t.key, Array.isArray(data) ? data : []] as const;
           } catch {
-            return [t.key, { total: 0, completed: 0, avgPercent: 0 }] as const;
+            return [t.key, []] as const;
           }
         })
       );
-      setTypeStats(Object.fromEntries(results));
+      setEntriesByType(Object.fromEntries(results));
     } finally {
-      setLoadingStats(false);
+      setLoading(false);
     }
-  }, []);
+  }, [user, isAllAccess, userStore]);
 
-  // ── Entries for the selected type ─────────────────────────────────────────
-  const fetchEntries = useCallback(async (typeKey: string) => {
-    setLoadingEntries(true);
-    try {
-      const res = await fetch(`/api/step-erp?type=${typeKey}`);
-      const data = await res.json();
-      setEntries(Array.isArray(data) ? data : []);
-    } catch {
-      showMessage("Gagal memuat data", "error");
-      setEntries([]);
-    } finally {
-      setLoadingEntries(false);
-    }
-  }, []);
+  useEffect(() => {
+    if (user) fetchAll();
+  }, [user, fetchAll]);
 
-  const handleSelectType = (typeKey: string) => {
-    setView(typeKey);
-    fetchEntries(typeKey);
-  };
+  // ── Derived flat list for current tab ─────────────────────────────────────
+  const flatEntries = useMemo(() => {
+    const typesToShow =
+      activeTab === "all"
+        ? STEP_ERP_TYPES
+        : STEP_ERP_TYPES.filter((t) => t.key === activeTab);
 
-  const handleBack = () => {
-    setView("grid");
-    setEntries([]);
-    fetchAllStats();
-  };
+    return typesToShow.flatMap((t) =>
+      (entriesByType[t.key] ?? []).map((e): Record<string, any> => ({ ...e, _typeKey: t.key }))
+    );
+  }, [activeTab, entriesByType]);
 
-  const currentType = view !== "grid" ? getStepErpType(view) : undefined;
+  const filteredEntries = useMemo(() => {
+    if (!search.trim()) return flatEntries;
+    const q = search.toLowerCase();
+    return flatEntries.filter(
+      (e) =>
+        e.erp_number?.toLowerCase().includes(q) ||
+        e.store?.toLowerCase().includes(q) ||
+        e.created_by?.toLowerCase().includes(q)
+    );
+  }, [flatEntries, search]);
 
-  // Keep the grid's stat card for this type roughly in sync after local mutations,
-  // without needing a full refetch of all 8 types.
-  const syncCurrentTypeStat = (nextEntries: Record<string, any>[]) => {
-    if (!currentType) return;
-    setTypeStats((prev) => ({ ...prev, [currentType.key]: summarizeEntries(nextEntries, currentType) }));
-  };
+  const totalPages = Math.max(1, Math.ceil(filteredEntries.length / PAGE_SIZE));
+  const pagedEntries = filteredEntries.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
 
-  // ── Add entry ──────────────────────────────────────────────────────────────
-  const openAddModal = () => {
-    setAddStore("");
-    setAddErpNumber("");
-    setShowAddModal(true);
-  };
+  // Reset page on tab/search change
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedEntry(null);
+    setSelectedTypeKey(null);
+  }, [activeTab, search]);
 
-  const handleSubmitAdd = async () => {
-    if (!currentType || !addStore || !addErpNumber.trim()) return;
-    setSubmittingAdd(true);
-    try {
-      const res = await fetch("/api/step-erp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: currentType.key,
-          store: addStore,
-          erp_number: addErpNumber.trim(),
-          created_by: user?.name || user?.user_name || "",
-        }),
-      });
-      if (!res.ok) throw new Error();
-      await logActivity("POST", `Menambahkan ${currentType.label}: ${addErpNumber.trim()} (${addStore})`);
-      setShowAddModal(false);
-      showMessage("Entry berhasil ditambahkan", "success");
-      const refreshed = await fetch(`/api/step-erp?type=${currentType.key}`).then((r) => r.json());
-      const list = Array.isArray(refreshed) ? refreshed : [];
-      setEntries(list);
-      syncCurrentTypeStat(list);
-    } catch {
-      showMessage("Gagal menambahkan entry", "error");
-    } finally {
-      setSubmittingAdd(false);
-    }
-  };
+  // ── Stats summary ──────────────────────────────────────────────────────────
+  const allEntries = useMemo(() => Object.values(entriesByType).flat(), [entriesByType]);
+  const totalCount = allEntries.length;
+  const completedCount = useMemo(() => {
+    return allEntries.filter((e) => {
+      const typeKey = e._type ?? Object.keys(entriesByType).find((k) =>
+        entriesByType[k].some((x) => x.id === e.id)
+      );
+      if (!typeKey) return false;
+      const td = getStepErpType(typeKey);
+      if (!td) return false;
+      return computeEntryProgress(e, td).percent >= 100;
+    }).length;
+  }, [allEntries, entriesByType]);
 
-  // ── Checklist detail ───────────────────────────────────────────────────────
-  const openChecklist = (entry: Record<string, any>) => {
+  const avgPercent = useMemo(() => {
+    if (allEntries.length === 0) return 0;
+    let sum = 0;
+    allEntries.forEach((e) => {
+      const typeKey = e._type ?? Object.keys(entriesByType).find((k) =>
+        entriesByType[k].some((x) => x.id === e.id)
+      );
+      const td = typeKey ? getStepErpType(typeKey) : undefined;
+      if (td) sum += computeEntryProgress(e, td).percent;
+    });
+    return Math.round(sum / allEntries.length);
+  }, [allEntries, entriesByType]);
+
+  // ── Row click → open panel ─────────────────────────────────────────────────
+  const handleRowClick = (entry: Record<string, any>) => {
     setSelectedEntry(entry);
-    setShowChecklistModal(true);
+    setSelectedTypeKey(entry._typeKey);
   };
 
+  const handleClosePanel = () => {
+    setSelectedEntry(null);
+    setSelectedTypeKey(null);
+  };
+
+  // ── Toggle step ────────────────────────────────────────────────────────────
   const handleToggleStep = async (stepKey: string, value: boolean) => {
-    if (!currentType || !selectedEntry) return;
+    if (!selectedTypeKey || !selectedEntry) return;
     const entryId = selectedEntry.id;
 
-    // Optimistic update
-    const apply = (e: Record<string, any>) => (e.id === entryId ? { ...e, [stepKey]: value ? "TRUE" : "FALSE" } : e);
-    setSelectedEntry((prev) => (prev ? { ...prev, [stepKey]: value ? "TRUE" : "FALSE" } : prev));
-    setEntries((prev) => {
-      const next = prev.map(apply);
-      syncCurrentTypeStat(next);
-      return next;
-    });
+    const applyPatch = (e: Record<string, any>) =>
+      e.id === entryId ? { ...e, [stepKey]: value ? "TRUE" : "FALSE" } : e;
 
+    // Optimistic
+    setSelectedEntry((prev) => (prev ? { ...prev, [stepKey]: value ? "TRUE" : "FALSE" } : prev));
+    setEntriesByType((prev) => ({
+      ...prev,
+      [selectedTypeKey]: (prev[selectedTypeKey] ?? []).map(applyPatch),
+    }));
+
+    const currentTypeDef = getStepErpType(selectedTypeKey)!;
     setSavingStepKey(stepKey);
     try {
       const res = await fetch("/api/step-erp", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: currentType.key,
+          type: selectedTypeKey,
           id: entryId,
           steps: { [stepKey]: value },
           updated_by: user?.name || user?.user_name || "",
@@ -215,44 +252,112 @@ export default function StepErpPage() {
       });
       if (!res.ok) throw new Error();
     } catch {
-      // Revert on failure
+      // Revert
       const revert = (e: Record<string, any>) =>
         e.id === entryId ? { ...e, [stepKey]: value ? "FALSE" : "TRUE" } : e;
       setSelectedEntry((prev) => (prev ? { ...prev, [stepKey]: value ? "FALSE" : "TRUE" } : prev));
-      setEntries((prev) => {
-        const next = prev.map(revert);
-        syncCurrentTypeStat(next);
-        return next;
-      });
+      setEntriesByType((prev) => ({
+        ...prev,
+        [selectedTypeKey]: (prev[selectedTypeKey] ?? []).map(revert),
+      }));
       showMessage("Gagal menyimpan, coba lagi", "error");
     } finally {
       setSavingStepKey(null);
     }
   };
 
-  // ── Delete entry ───────────────────────────────────────────────────────────
+  // ── Edit field (store / erp_number) ───────────────────────────────────────
+  const handleEditField = async (field: "store" | "erp_number", value: string) => {
+    if (!selectedTypeKey || !selectedEntry) return;
+    const res = await fetch("/api/step-erp", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: selectedTypeKey,
+        id: selectedEntry.id,
+        [field]: value,
+        updated_by: user?.name || user?.user_name || "",
+      }),
+    });
+    if (!res.ok) throw new Error("Gagal menyimpan");
+    const patched = { ...selectedEntry, [field]: value };
+    setSelectedEntry(patched);
+    setEntriesByType((prev) => ({
+      ...prev,
+      [selectedTypeKey]: (prev[selectedTypeKey] ?? []).map((e) =>
+        e.id === selectedEntry.id ? { ...e, [field]: value } : e
+      ),
+    }));
+    showMessage("Berhasil disimpan", "success");
+    await logActivity("PUT", `Edit ${field} entry ${selectedEntry.erp_number} → ${value}`);
+  };
+
+  // ── Add entry ──────────────────────────────────────────────────────────────
+  const openAddModal = () => {
+    setAddType(activeTab !== "all" ? activeTab : STEP_ERP_TYPES[0].key);
+    setAddStore("");
+    setAddErpNumber("");
+    setShowAddModal(true);
+  };
+
+  const handleSubmitAdd = async () => {
+    if (!addStore || !addErpNumber.trim()) return;
+    const typeDef = getStepErpType(addType);
+    if (!typeDef) return;
+    setSubmittingAdd(true);
+    try {
+      const res = await fetch("/api/step-erp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: addType,
+          store: addStore,
+          erp_number: addErpNumber.trim(),
+          created_by: user?.name || user?.user_name || "",
+        }),
+      });
+      if (!res.ok) throw new Error();
+      await logActivity("POST", `Tambah ${typeDef.label}: ${addErpNumber.trim()} (${addStore})`);
+      setShowAddModal(false);
+      showMessage("Entry berhasil ditambahkan", "success");
+      // Refresh just this type
+      const params = new URLSearchParams({ type: addType });
+      if (!isAllAccess && userStore) params.set("store", userStore);
+      const refreshed = await fetch(`/api/step-erp?${params}`).then((r) => r.json());
+      setEntriesByType((prev) => ({ ...prev, [addType]: Array.isArray(refreshed) ? refreshed : [] }));
+    } catch {
+      showMessage("Gagal menambahkan entry", "error");
+    } finally {
+      setSubmittingAdd(false);
+    }
+  };
+
+  // ── Delete ─────────────────────────────────────────────────────────────────
   const requestDelete = () => {
-    if (!selectedEntry) return;
-    setShowChecklistModal(false);
-    setDeleteTarget(selectedEntry);
+    if (!selectedEntry || !selectedTypeKey) return;
+    setDeleteTarget({ entry: selectedEntry, typeKey: selectedTypeKey });
   };
 
   const handleConfirmDelete = async () => {
-    if (!currentType || !deleteTarget) return;
+    if (!deleteTarget) return;
     setDeleting(true);
     try {
       const res = await fetch("/api/step-erp", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: currentType.key, id: deleteTarget.id }),
+        body: JSON.stringify({ type: deleteTarget.typeKey, id: deleteTarget.entry.id }),
       });
       if (!res.ok) throw new Error();
-      await logActivity("DELETE", `Menghapus ${currentType.label}: ${deleteTarget.erp_number}`);
-      const next = entries.filter((e) => e.id !== deleteTarget.id);
-      setEntries(next);
-      syncCurrentTypeStat(next);
+      await logActivity("DELETE", `Hapus entry ${deleteTarget.entry.erp_number}`);
+      setEntriesByType((prev) => ({
+        ...prev,
+        [deleteTarget.typeKey]: (prev[deleteTarget.typeKey] ?? []).filter(
+          (e) => e.id !== deleteTarget.entry.id
+        ),
+      }));
       setDeleteTarget(null);
       setSelectedEntry(null);
+      setSelectedTypeKey(null);
       showMessage("Entry dihapus", "success");
     } catch {
       showMessage("Gagal menghapus entry", "error");
@@ -263,110 +368,260 @@ export default function StepErpPage() {
 
   if (!user) return null;
 
-  const stat = currentType ? typeStats[currentType.key] : undefined;
+  const selectedTypeDef = selectedTypeKey ? getStepErpType(selectedTypeKey) : undefined;
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50">
       <div className="space-y-5 p-5">
-        {view === "grid" ? (
-          <>
-            <SectionHeader
-              icon={ListChecks}
-              title="Step ERP"
-              description="Checklist langkah-langkah proses ERP per store, dari pengajuan sampai selesai."
-            />
-            <TypeGrid stats={typeStats} loadingStats={loadingStats} onSelect={handleSelectType} />
-          </>
-        ) : currentType ? (
-          <>
+        {/* Header */}
+        <SectionHeader
+          icon={ListChecks}
+          title="Step ERP"
+          description={
+            isAllAccess
+              ? "Checklist Proses ERP Semua Store"
+              : userStore
+              ? `Menampilkan Data Store: ${userStore}`
+              : "ChecklistPproses ERP Store"
+          }
+          actions={
+            <Button icon={Plus} size="sm" onClick={openAddModal}>
+              Tambah Entry
+            </Button>
+          }
+        />
+
+        {/* Stats */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <StatCard icon={ListChecks} label="Total Entri" value={String(totalCount)} />
+          <StatCard icon={CheckCircle2} label="Selesai 100%" value={String(completedCount)} tone="positive" />
+          <StatCard icon={TrendingUp} label="Rata-rata Progress" value={`${avgPercent}%`} tone="info" />
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 overflow-x-auto pb-1">
+          <button
+            onClick={() => setActiveTab("all")}
+            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+              activeTab === "all"
+                ? "bg-primary text-white shadow-sm"
+                : "bg-white text-gray-500 ring-1 ring-gray-200 hover:bg-gray-50"
+            }`}
+          >
+            Semua
+          </button>
+          {STEP_ERP_TYPES.map((t) => (
             <button
-              onClick={handleBack}
-              className="flex items-center gap-1.5 text-xs font-medium text-gray-500 transition-colors hover:text-primary"
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                activeTab === t.key
+                  ? "bg-primary text-white shadow-sm"
+                  : "bg-white text-gray-500 ring-1 ring-gray-200 hover:bg-gray-50"
+              }`}
             >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              Kembali ke Step ERP
+              {t.label}
             </button>
+          ))}
+        </div>
 
-            <SectionHeader
-              icon={ListChecks}
-              title={currentType.label}
-              description={currentType.description}
-              actions={
-                <Button icon={Plus} size="sm" onClick={openAddModal}>
-                  Tambah Entry
-                </Button>
-              }
-            />
+        {/* Search */}
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Cari ERP number, store, atau dibuat oleh..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-8 pr-4 text-xs text-gray-700 shadow-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20"
+          />
+        </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <StatCard icon={ListChecks} label="Total Entri" value={String(stat?.total ?? entries.length)} />
-              <StatCard
-                icon={CheckCircle2}
-                label="Selesai 100%"
-                value={String(stat?.completed ?? 0)}
-                tone="positive"
+        {/* Main content: table + detail panel */}
+        <div className="flex gap-4">
+          {/* Table */}
+          <motion.div
+            layout
+            className="min-w-0 flex-1 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
+          >
+            {loading ? (
+              <TableSkeletonRows />
+            ) : filteredEntries.length === 0 ? (
+              <EmptyState
+                icon={ListChecks}
+                title="Belum ada entry"
+                description="Mulai dengan menambahkan entry pertama."
+                action={
+                  <Button icon={Plus} size="sm" onClick={openAddModal}>
+                    Tambah Entry
+                  </Button>
+                }
               />
-              <StatCard icon={TrendingUp} label="Rata-rata Progress" value={`${stat?.avgPercent ?? 0}%`} tone="info" />
-            </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="border-b border-gray-100 bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2.5 text-left font-semibold text-gray-500">
+                          ERP Number
+                        </th>
+                        <th className="px-4 py-2.5 text-left font-semibold text-gray-500">
+                          Store
+                        </th>
+                        {activeTab === "all" && (
+                          <th className="px-4 py-2.5 text-left font-semibold text-gray-500">
+                            Tipe
+                          </th>
+                        )}
+                        <th className="px-4 py-2.5 text-left font-semibold text-gray-500">
+                          Dibuat
+                        </th>
+                        <th className="px-4 py-2.5 text-left font-semibold text-gray-500" style={{ minWidth: 180 }}>
+                          Progress
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {pagedEntries.map((entry, i) => {
+                        const td = getStepErpType(entry._typeKey);
+                        const prog = td
+                          ? computeEntryProgress(entry, td)
+                          : { done: 0, total: 0, percent: 0 };
+                        const isSelected =
+                          selectedEntry?.id === entry.id &&
+                          selectedTypeKey === entry._typeKey;
 
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
-            >
-              {loadingEntries ? (
-                <TableSkeletonRows />
-              ) : entries.length === 0 ? (
-                <EmptyState
-                  icon={ListChecks}
-                  title="Belum ada entry"
-                  description="Mulai dengan menambahkan entry pertama untuk store ini."
-                  action={
-                    <Button icon={Plus} size="sm" onClick={openAddModal}>
-                      Tambah Entry
-                    </Button>
-                  }
-                />
-              ) : (
-                <EntryTable entries={entries} typeDef={currentType} onRowClick={openChecklist} />
-              )}
-            </motion.div>
-          </>
-        ) : null}
+                        return (
+                          <motion.tr
+                            key={`${entry._typeKey}-${entry.id ?? i}`}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.12, delay: Math.min(i, 10) * 0.02 }}
+                            onClick={() => handleRowClick(entry)}
+                            className={`cursor-pointer transition-colors hover:bg-gray-50 ${
+                              isSelected ? "bg-primary/5 ring-1 ring-inset ring-primary/20" : ""
+                            }`}
+                          >
+                            <td className="px-4 py-3 font-medium text-gray-800">
+                              {entry.erp_number}
+                            </td>
+                            <td className="px-4 py-3 text-gray-600">{entry.store}</td>
+                            {activeTab === "all" && (
+                              <td className="px-4 py-3 text-gray-400">
+                                {td?.label ?? entry._typeKey}
+                              </td>
+                            )}
+                            <td className="whitespace-nowrap px-4 py-3 text-gray-400">
+                              {entry.created_at}
+                            </td>
+                            <td className="px-4 py-3">
+                              {/* Step pills + bar */}
+                              <div className="space-y-1">
+                                <div className="flex flex-wrap gap-1">
+                                  {td?.steps.map((step, si) => {
+                                    const checked = entry[step.key] === "TRUE";
+                                    return (
+                                      <span
+                                        key={step.key}
+                                        className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold ${
+                                          checked
+                                            ? "bg-green-100 text-green-600"
+                                            : "bg-gray-100 text-gray-400"
+                                        }`}
+                                        title={step.label}
+                                      >
+                                        {si + 1}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                                <ProgressBar
+                                  percent={prog.percent}
+                                  done={prog.done}
+                                  total={prog.total}
+                                  size="sm"
+                                />
+                              </div>
+                            </td>
+                          </motion.tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3">
+                    <span className="text-[11px] text-gray-400">
+                      {(currentPage - 1) * PAGE_SIZE + 1}–
+                      {Math.min(currentPage * PAGE_SIZE, filteredEntries.length)} dari{" "}
+                      {filteredEntries.length} entri
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage((p) => p - 1)}
+                        className="rounded-lg border border-gray-200 p-1 text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-30"
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </button>
+                      <span className="px-2 text-xs text-gray-500">
+                        {currentPage} / {totalPages}
+                      </span>
+                      <button
+                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage((p) => p + 1)}
+                        className="rounded-lg border border-gray-200 p-1 text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-30"
+                      >
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </motion.div>
+
+          {/* Detail panel */}
+          <EntryDetailPanel
+            entry={selectedEntry}
+            typeDef={selectedTypeDef}
+            savingStepKey={savingStepKey}
+            onToggleStep={handleToggleStep}
+            onRequestDelete={requestDelete}
+            onClose={handleClosePanel}
+            onEditField={handleEditField}
+            storeOptions={STEP_ERP_STORES}
+          />
+        </div>
       </div>
 
-      {currentType && (
-        <AddEntryModal
-          open={showAddModal}
-          onClose={() => setShowAddModal(false)}
-          typeLabel={currentType.label}
-          store={addStore}
-          erpNumber={addErpNumber}
-          onStoreChange={setAddStore}
-          onErpNumberChange={setAddErpNumber}
-          submitting={submittingAdd}
-          onSubmit={handleSubmitAdd}
-        />
-      )}
-
-      {currentType && selectedEntry && (
-        <ChecklistModal
-          open={showChecklistModal}
-          onClose={() => setShowChecklistModal(false)}
-          typeDef={currentType}
-          entry={selectedEntry}
-          savingStepKey={savingStepKey}
-          onToggleStep={handleToggleStep}
-          onRequestDelete={requestDelete}
-        />
-      )}
+      {/* Add modal */}
+      <AddEntryModal
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        typeLabel={getStepErpType(addType)?.label ?? ""}
+        store={addStore}
+        erpNumber={addErpNumber}
+        onStoreChange={setAddStore}
+        onErpNumberChange={setAddErpNumber}
+        submitting={submittingAdd}
+        onSubmit={handleSubmitAdd}
+        // Pass extra props for type selector
+        typeKey={addType}
+        onTypeChange={setAddType}
+        showTypeSelector={activeTab === "all"}
+      />
 
       <ConfirmationDialog
         open={!!deleteTarget}
         title="Hapus entry ini?"
         description={
-          deleteTarget ? `Entry "${deleteTarget.erp_number}" (${deleteTarget.store}) akan dihapus permanen.` : undefined
+          deleteTarget
+            ? `Entry "${deleteTarget.entry.erp_number}" (${deleteTarget.entry.store}) akan dihapus permanen.`
+            : undefined
         }
         confirmLabel="Hapus"
         loading={deleting}

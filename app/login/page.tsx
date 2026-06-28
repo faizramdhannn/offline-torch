@@ -3,6 +3,9 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+// phase: "idle" | "sliding-out" | "loading" | "sliding-in-error" | "success"
+type Phase = "idle" | "sliding-out" | "loading" | "sliding-in-error" | "success";
+
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -12,9 +15,9 @@ function LoginPageContent() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
-  const [loginSuccess, setLoginSuccess] = useState(false);
+
+  const [phase, setPhase] = useState<Phase>("idle");
 
   const [regName, setRegName] = useState("");
   const [regUsername, setRegUsername] = useState("");
@@ -46,7 +49,14 @@ function LoginPageContent() {
     e.preventDefault();
     setError("");
     setSessionExpired(false);
-    setLoading(true);
+
+    // Phase 1: slide form left, image right
+    setPhase("sliding-out");
+
+    // After slide-out animation (500ms), show loading spinner
+    await new Promise((r) => setTimeout(r, 500));
+    setPhase("loading");
+
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
@@ -57,13 +67,19 @@ function LoginPageContent() {
       const user = await response.json();
       user._loginAt = Date.now();
       localStorage.setItem("user", JSON.stringify(user));
-      setLoginSuccess(true);
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 650);
+
+      // Success: keep loading then navigate
+      setPhase("success");
+      setTimeout(() => router.push("/dashboard"), 400);
     } catch {
       setError("Username or password is incorrect");
-      setLoading(false);
+
+      // First snap panels back to their "off-screen" starting positions (no transition)
+      setPhase("sliding-in-error");
+
+      // Then on next frame, add transition + slide them back in
+      await new Promise((r) => setTimeout(r, 30)); // allow reflow
+      setPhase("idle");
     }
   };
 
@@ -75,11 +91,7 @@ function LoginPageContent() {
       const response = await fetch("/api/registration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: regName,
-          user_name: regUsername,
-          password: regPassword,
-        }),
+        body: JSON.stringify({ name: regName, user_name: regUsername, password: regPassword }),
       });
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
@@ -93,6 +105,10 @@ function LoginPageContent() {
     }
   };
 
+  const isSliding = phase === "sliding-out" || phase === "success";
+  const isReturning = phase === "sliding-in-error";
+  const isLoading = phase === "loading";
+
   return (
     <>
       <style>{`
@@ -105,8 +121,10 @@ function LoginPageContent() {
           font-family: 'IBM Plex Sans', sans-serif;
           background: #f9fafb;
           overflow: hidden;
+          position: relative;
         }
 
+        /* ─── Left panel ─── */
         .sl-left {
           width: 100%;
           max-width: 480px;
@@ -118,68 +136,143 @@ function LoginPageContent() {
           background: #ffffff;
           border-right: 1px solid #e5e7eb;
           position: relative;
-          z-index: 1;
+          z-index: 2;
+          transition: transform 0.5s cubic-bezier(.65,0,.35,1), opacity 0.5s cubic-bezier(.65,0,.35,1);
         }
 
+        /* Slide form OUT to the left (on submit) */
+        .sl-root.phase-out .sl-left,
+        .sl-root.phase-loading .sl-left,
+        .sl-root.phase-success .sl-left {
+          transform: translateX(-105%);
+          opacity: 0;
+          pointer-events: none;
+        }
+
+        /* Slide form back IN from the left (on error) */
+        .sl-root.phase-error-enter .sl-left {
+          transform: translateX(-105%);
+          opacity: 0;
+          transition: none; /* snap to start position */
+        }
+        .sl-root.phase-idle .sl-left {
+          transform: translateX(0);
+          opacity: 1;
+        }
+
+        /* ─── Right panel ─── */
+        .sl-right {
+          flex: 1;
+          position: relative;
+          overflow: hidden;
+          display: flex;
+          align-items: flex-end;
+          background: #eff6ff;
+          z-index: 1;
+          transition: transform 0.5s cubic-bezier(.65,0,.35,1), opacity 0.5s cubic-bezier(.65,0,.35,1);
+        }
+
+        /* Slide image OUT to the right (on submit) */
+        .sl-root.phase-out .sl-right,
+        .sl-root.phase-loading .sl-right,
+        .sl-root.phase-success .sl-right {
+          transform: translateX(105%);
+          opacity: 0;
+        }
+
+        /* Snap image back to off-screen right (on error, before returning) */
+        .sl-root.phase-error-enter .sl-right {
+          transform: translateX(105%);
+          opacity: 0;
+          transition: none;
+        }
+        .sl-root.phase-idle .sl-right {
+          transform: translateX(0);
+          opacity: 1;
+        }
+
+        .sl-right img {
+          position: absolute; inset: 0;
+          width: 100%; height: 100%;
+          object-fit: cover; object-position: center;
+          z-index: 0;
+        }
+        .sl-right::after {
+          content: '';
+          position: absolute; inset: 0;
+          background: rgba(37,99,235,0.18);
+          z-index: 1; pointer-events: none;
+        }
+        .sl-right-content { position: relative; z-index: 2; padding: 2.5rem; width: 100%; }
+
+        /* ─── Loading overlay ─── */
+        .sl-loading-overlay {
+          position: absolute; inset: 0;
+          display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+          z-index: 10;
+          background: #f9fafb;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.3s ease;
+        }
+        .sl-root.phase-loading .sl-loading-overlay,
+        .sl-root.phase-success .sl-loading-overlay {
+          opacity: 1;
+          pointer-events: auto;
+        }
+
+        .sl-loader-ring {
+          width: 52px; height: 52px;
+          border: 3px solid #e5e7eb;
+          border-top-color: #2563eb;
+          border-radius: 50%;
+          animation: spin 0.75s linear infinite;
+        }
+        .sl-loader-text {
+          margin-top: 1rem;
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 0.72rem; letter-spacing: 0.1em;
+          color: #6b7280; text-transform: uppercase;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ─── Brand / form styles (unchanged) ─── */
         .sl-brand { display: flex; align-items: center; gap: 0.6rem; }
         .sl-logo-box {
-          width: 30px; height: 30px;
-          background: #2563eb;
-          border-radius: 7px;
-          display: flex; align-items: center; justify-content: center;
-          flex-shrink: 0;
+          width: 30px; height: 30px; background: #2563eb;
+          border-radius: 7px; display: flex; align-items: center;
+          justify-content: center; flex-shrink: 0;
         }
         .sl-logo-box svg { width: 16px; height: 16px; }
         .sl-brand-name {
           font-family: 'IBM Plex Mono', monospace;
-          font-size: 0.75rem; font-weight: 500;
-          color: #2563eb;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
+          font-size: 0.75rem; font-weight: 500; color: #2563eb;
+          letter-spacing: 0.12em; text-transform: uppercase;
         }
 
         .sl-form-area {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          max-width: 360px;
-          padding: 3rem 0;
+          flex: 1; display: flex; flex-direction: column;
+          justify-content: center; max-width: 360px; padding: 3rem 0;
         }
-
         .sl-heading {
-          font-size: 1.8rem; font-weight: 600;
-          color: #111827;
-          letter-spacing: -0.025em; line-height: 1.2;
-          margin-bottom: 0.4rem;
+          font-size: 1.8rem; font-weight: 600; color: #111827;
+          letter-spacing: -0.025em; line-height: 1.2; margin-bottom: 0.4rem;
         }
-        .sl-subheading {
-          font-size: 0.82rem; color: #6b7280;
-          font-weight: 300; margin-bottom: 2rem;
-        }
+        .sl-subheading { font-size: 0.82rem; color: #6b7280; font-weight: 300; margin-bottom: 2rem; }
 
         .sl-alert {
           display: flex; align-items: flex-start; gap: 0.55rem;
-          padding: 0.7rem 0.85rem;
-          border-radius: 8px; margin-bottom: 1.25rem;
-          font-size: 0.775rem; line-height: 1.5;
+          padding: 0.7rem 0.85rem; border-radius: 8px;
+          margin-bottom: 1.25rem; font-size: 0.775rem; line-height: 1.5;
         }
-        .sl-alert-warn {
-          background: rgba(251,191,36,0.08);
-          border: 1px solid rgba(251,191,36,0.3);
-          color: #92400e;
-        }
-        .sl-alert-success {
-          background: #f0fdf4;
-          border: 1px solid #bbf7d0;
-          color: #166534;
-        }
+        .sl-alert-warn { background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.3); color: #92400e; }
+        .sl-alert-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
 
         .sl-field { margin-bottom: 1.1rem; }
         .sl-label {
-          display: block; font-size: 0.7rem; font-weight: 500;
-          color: #6b7280; letter-spacing: 0.07em;
-          text-transform: uppercase; margin-bottom: 0.4rem;
+          display: block; font-size: 0.7rem; font-weight: 500; color: #6b7280;
+          letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 0.4rem;
         }
         .sl-iw { position: relative; }
         .sl-input {
@@ -188,22 +281,19 @@ function LoginPageContent() {
           border-radius: 8px; color: #111827;
           font-family: 'IBM Plex Sans', sans-serif;
           font-size: 0.875rem; outline: none;
-          transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+          transition: border-color 0.15s, background 0.15s;
           -webkit-appearance: none;
         }
         .sl-input::placeholder { color: #9ca3af; font-weight: 300; }
-        .sl-input:focus {
-          border-color: #2563eb; background: #ffffff;
-        }
+        .sl-input:focus { border-color: #2563eb; background: #ffffff; }
         .sl-input.pw { padding-right: 2.8rem; }
 
         .sl-eye {
           position: absolute; right: 0.8rem; top: 50%;
-          transform: translateY(-50%);
-          background: none; border: none; cursor: pointer;
-          color: #9ca3af;
+          transform: translateY(-50%); background: none; border: none;
+          cursor: pointer; color: #9ca3af;
           display: flex; align-items: center; padding: 0.2rem;
-          transition: color 0.15s; line-height: 1;
+          transition: color 0.15s;
         }
         .sl-eye:hover { color: #374151; }
 
@@ -211,8 +301,7 @@ function LoginPageContent() {
           display: flex; align-items: center; gap: 0.4rem;
           font-size: 0.75rem; color: #dc2626;
           padding: 0.55rem 0.75rem; margin-bottom: 1rem;
-          background: #fef2f2; border: 1px solid #fecaca;
-          border-radius: 7px;
+          background: #fef2f2; border: 1px solid #fecaca; border-radius: 7px;
         }
 
         .sl-btn {
@@ -220,13 +309,11 @@ function LoginPageContent() {
           background: #2563eb; border: none; border-radius: 8px;
           color: #ffffff; font-family: 'IBM Plex Sans', sans-serif;
           font-size: 0.875rem; font-weight: 600; cursor: pointer;
-          transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+          transition: background 0.15s, transform 0.1s;
           display: flex; align-items: center; justify-content: center; gap: 0.5rem;
           margin-top: 0.25rem;
         }
-        .sl-btn:hover:not(:disabled) {
-          background: #1d4ed8; transform: translateY(-1px);
-        }
+        .sl-btn:hover:not(:disabled) { background: #1d4ed8; transform: translateY(-1px); }
         .sl-btn:active:not(:disabled) { transform: translateY(0); }
         .sl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -236,87 +323,50 @@ function LoginPageContent() {
           border-top-color: #ffffff; border-radius: 50%;
           animation: spin 0.65s linear infinite; flex-shrink: 0;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
 
         .sl-divider {
-          height: 1px; background: #e5e7eb;
-          margin: 1.5rem 0; position: relative;
+          height: 1px; background: #e5e7eb; margin: 1.5rem 0; position: relative;
         }
         .sl-divider span {
           position: absolute; left: 50%; top: 50%;
           transform: translate(-50%, -50%);
           background: #ffffff; padding: 0 0.75rem;
           font-size: 0.7rem; color: #9ca3af;
-          letter-spacing: 0.05em;
-          font-family: 'IBM Plex Mono', monospace;
+          letter-spacing: 0.05em; font-family: 'IBM Plex Mono', monospace;
         }
 
-        .sl-switch-link {
-          text-align: center; font-size: 0.8rem; color: #6b7280;
-        }
+        .sl-switch-link { text-align: center; font-size: 0.8rem; color: #6b7280; }
         .sl-switch-link button {
           background: none; border: none; cursor: pointer;
           color: #2563eb; font-weight: 500; font-size: 0.8rem;
           border-bottom: 1px solid rgba(37,99,235,0.25);
           padding: 0; transition: color 0.15s, border-color 0.15s;
         }
-        .sl-switch-link button:hover {
-          color: #1d4ed8; border-color: rgba(29,78,216,0.5);
-        }
+        .sl-switch-link button:hover { color: #1d4ed8; border-color: rgba(29,78,216,0.5); }
 
         .sl-footer {
           font-family: 'IBM Plex Mono', monospace;
           font-size: 0.62rem; color: #9ca3af; letter-spacing: 0.05em;
         }
 
-        .sl-right {
-          flex: 1; position: relative; overflow: hidden;
-          display: flex; align-items: flex-end; background: #eff6ff;
-        }
-        .sl-right img {
-          position: absolute; inset: 0;
-          width: 100%; height: 100%;
-          object-fit: cover; object-position: center;
-          z-index: 0;
-        }
-        .sl-right::before { display: none; }
-        .sl-right::after {
-          content: ''; position: absolute; inset: 0;
-          background: rgba(37,99,235,0.18);
-          z-index: 1; pointer-events: none;
-        }
-        .sl-right-content {
-          position: relative; z-index: 2; padding: 2.5rem; width: 100%;
-        }
-
         @media (max-width: 768px) {
           .sl-right { display: none; }
           .sl-left { max-width: 100%; padding: 2rem 1.75rem; }
         }
-        .sl-left { animation: fadeUp 0.5s cubic-bezier(.22,1,.36,1) both; }
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(12px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-
-        /* ── Curtain-open transition on successful login ── */
-        .sl-left, .sl-right {
-          transition: transform 0.6s cubic-bezier(.65,0,.35,1), opacity 0.6s cubic-bezier(.65,0,.35,1);
-        }
-        .sl-root.sl-leaving .sl-left {
-          transform: translateX(-100%);
-          opacity: 0;
-        }
-        .sl-root.sl-leaving .sl-right {
-          transform: translateX(100%);
-          opacity: 0;
-        }
       `}</style>
 
-      <div className={`sl-root${loginSuccess ? " sl-leaving" : ""}`}>
-        {/* ── LEFT PANEL ── */}
+      {/* Phase classes drive all CSS transitions */}
+      <div
+        className={`sl-root ${
+          phase === "sliding-out"     ? "phase-out" :
+          phase === "loading"         ? "phase-loading" :
+          phase === "success"         ? "phase-success" :
+          phase === "sliding-in-error" ? "phase-error-enter" :
+          "phase-idle"
+        }`}
+      >
+        {/* ── Left panel (form) ── */}
         <div className="sl-left">
-          {/* Brand */}
           <div className="sl-brand">
             <div className="sl-logo-box">
               <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -328,7 +378,6 @@ function LoginPageContent() {
             <span className="sl-brand-name">Welcome Back</span>
           </div>
 
-          {/* ── FORM AREA ── */}
           <div className="sl-form-area">
             {mode === "login" && (
               <>
@@ -337,8 +386,7 @@ function LoginPageContent() {
                 {sessionExpired && (
                   <div className="sl-alert sl-alert-warn">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
-                      <circle cx="12" cy="12" r="10" />
-                      <polyline points="12 6 12 12 16 14" />
+                      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                     </svg>
                     Your session has expired. Please log in again.
                   </div>
@@ -347,28 +395,15 @@ function LoginPageContent() {
                 <form onSubmit={handleLogin}>
                   <div className="sl-field">
                     <label className="sl-label">Username</label>
-                    <input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Enter username"
-                      className="sl-input"
-                      required
-                      autoComplete="username"
-                    />
+                    <input type="text" value={username} onChange={(e) => setUsername(e.target.value)}
+                      placeholder="Enter username" className="sl-input" required autoComplete="username" />
                   </div>
                   <div className="sl-field">
                     <label className="sl-label">Password</label>
                     <div className="sl-iw">
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="sl-input pw"
-                        required
-                        autoComplete="current-password"
-                      />
+                      <input type={showPassword ? "text" : "password"} value={password}
+                        onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
+                        className="sl-input pw" required autoComplete="current-password" />
                       <button type="button" className="sl-eye" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}>
                         {showPassword ? (
                           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -378,8 +413,7 @@ function LoginPageContent() {
                           </svg>
                         ) : (
                           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                            <circle cx="12" cy="12" r="3" />
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
                           </svg>
                         )}
                       </button>
@@ -389,17 +423,14 @@ function LoginPageContent() {
                   {error && (
                     <div className="sl-error">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="8" x2="12" y2="12" />
-                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                       </svg>
                       {error}
                     </div>
                   )}
 
-                  <button type="submit" className="sl-btn" disabled={loading}>
-                    {loading && <div className="sl-spin" />}
-                    {loading ? "Processing..." : "Login"}
+                  <button type="submit" className="sl-btn" disabled={phase !== "idle"}>
+                    Login
                   </button>
                 </form>
 
@@ -419,8 +450,7 @@ function LoginPageContent() {
                 {regSuccess ? (
                   <div className="sl-alert sl-alert-success">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
-                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                      <polyline points="22 4 12 14.01 9 11.01" />
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
                     </svg>
                     Registration request successfully submitted. Please wait for admin approval.
                   </div>
@@ -428,37 +458,20 @@ function LoginPageContent() {
                   <form onSubmit={handleRegister}>
                     <div className="sl-field">
                       <label className="sl-label">Full Name</label>
-                      <input
-                        type="text"
-                        value={regName}
-                        onChange={(e) => setRegName(e.target.value)}
-                        placeholder="Enter full name"
-                        className="sl-input"
-                        required
-                      />
+                      <input type="text" value={regName} onChange={(e) => setRegName(e.target.value)}
+                        placeholder="Enter full name" className="sl-input" required />
                     </div>
                     <div className="sl-field">
                       <label className="sl-label">Username</label>
-                      <input
-                        type="text"
-                        value={regUsername}
-                        onChange={(e) => setRegUsername(e.target.value)}
-                        placeholder="Buat username"
-                        className="sl-input"
-                        required
-                      />
+                      <input type="text" value={regUsername} onChange={(e) => setRegUsername(e.target.value)}
+                        placeholder="Buat username" className="sl-input" required />
                     </div>
                     <div className="sl-field">
                       <label className="sl-label">Password</label>
                       <div className="sl-iw">
-                        <input
-                          type={regShowPassword ? "text" : "password"}
-                          value={regPassword}
-                          onChange={(e) => setRegPassword(e.target.value)}
-                          placeholder="••••••••"
-                          className="sl-input pw"
-                          required
-                        />
+                        <input type={regShowPassword ? "text" : "password"} value={regPassword}
+                          onChange={(e) => setRegPassword(e.target.value)} placeholder="••••••••"
+                          className="sl-input pw" required />
                         <button type="button" className="sl-eye" onClick={() => setRegShowPassword(!regShowPassword)} tabIndex={-1}>
                           {regShowPassword ? (
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -468,8 +481,7 @@ function LoginPageContent() {
                             </svg>
                           ) : (
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                              <circle cx="12" cy="12" r="3" />
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
                             </svg>
                           )}
                         </button>
@@ -479,9 +491,7 @@ function LoginPageContent() {
                     {regError && (
                       <div className="sl-error">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                          <circle cx="12" cy="12" r="10" />
-                          <line x1="12" y1="8" x2="12" y2="12" />
-                          <line x1="12" y1="16" x2="12.01" y2="16" />
+                          <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                         </svg>
                         {regError}
                       </div>
@@ -503,13 +513,18 @@ function LoginPageContent() {
             )}
           </div>
 
-          {/* ── FOOTER ── */}
-          <div className="sl-footer">
-            © 2026 OFFLINE TORCH
-          </div>
+          <div className="sl-footer">© 2026 OFFLINE TORCH</div>
         </div>
 
-        {/* ── RIGHT PANEL ── */}
+        {/* ── Loading overlay (centre) ── */}
+        <div className="sl-loading-overlay">
+          <div className="sl-loader-ring" />
+          <p className="sl-loader-text">
+            {phase === "success" ? "Redirecting..." : "Authenticating..."}
+          </p>
+        </div>
+
+        {/* ── Right panel (image) ── */}
         <div className="sl-right">
           <img src="/cover_login.png" alt="Offline Torch" />
           <div className="sl-right-content"></div>

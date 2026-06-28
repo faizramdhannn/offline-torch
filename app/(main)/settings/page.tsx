@@ -59,6 +59,7 @@ interface UserData {
   material_issue_all: string;
   asset_store: string;
   step_erp: string;
+  step_erp_all: string;
   last_activity: string;
 }
 
@@ -180,6 +181,7 @@ const PERM_GROUPS: {
     color: "bg-indigo-50",
     fields: [
       { key: "step_erp", label: "Step ERP" },
+      { key: "step_erp_all", label: "ERP All" },
     ],
   },
 ];

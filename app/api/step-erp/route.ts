@@ -15,14 +15,29 @@ function timestamp(): string {
 }
 
 // GET /api/step-erp?type=material_request_store — list entries for one type
+// Optional: ?store=Torch+Lembong to filter by store (for non-all users)
+// Optional: ?all=true to get all types (returns flat array with type field)
 export async function GET(request: NextRequest) {
   try {
-    const type = new URL(request.url).searchParams.get("type") || "";
+    const url = new URL(request.url);
+    const type = url.searchParams.get("type") || "";
+    const storeFilter = url.searchParams.get("store") || "";
+
     if (!isValidStepErpType(type)) {
       return NextResponse.json({ error: "Invalid or missing type" }, { status: 400 });
     }
     const data = await getSheetData(type);
-    return NextResponse.json(data);
+    const list = Array.isArray(data) ? data : [];
+
+    // Apply store filter when provided
+    const filtered = storeFilter
+      ? list.filter((row: any) => row.store === storeFilter)
+      : list;
+
+    // Attach type key to each row for "all" view
+    const withType = filtered.map((row: any) => ({ ...row, _type: type }));
+
+    return NextResponse.json(withType);
   } catch (error) {
     console.error("Error fetching step-erp entries:", error);
     return NextResponse.json({ error: "Failed to fetch entries" }, { status: 500 });
