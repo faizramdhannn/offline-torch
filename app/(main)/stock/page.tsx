@@ -271,15 +271,20 @@ export default function StockPage() {
     }
   };
 
-  const fetchLastUpdate = async () => {
+    const fetchLastUpdate = async () => {
     try {
       const response = await fetch("/api/stock/last-update");
       const data = await response.json();
-      setLastUpdate(response.ok && Array.isArray(data) ? data : []);
+      // ✅ Hanya update state kalau data valid dan tidak kosong —
+      // kalau gagal atau kosong, biarkan data lama tetap tampil di UI.
+      if (response.ok && Array.isArray(data) && data.length > 0) {
+        setLastUpdate(data);
+      }
     } catch {
-      setLastUpdate([]);
+      // Diam-diam gagal — lastUpdate state tidak diubah, data lama tetap tampil
     }
   };
+ 
 
   const handleRefreshJavelin = async () => {
     if (!confirm("Refresh Javelin data? This may take a few minutes.")) return;
