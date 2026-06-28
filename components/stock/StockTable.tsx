@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, Check, ImageOff } from "lucide-react";
+import { Copy, Check, ImageOff, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +31,11 @@ interface StockTableProps {
   parseHarga: (v: string | undefined | null) => number;
   formatRupiah: (v: number) => string;
   onRowClick: (item: StockItem) => void;
+  /** Active sort column key (matches the keys used in SortableTh below), or null for unsorted. */
+  sortColumn?: string | null;
+  sortDirection?: "asc" | "desc";
+  /** Called with the column key when its header is clicked. */
+  onSort?: (column: string) => void;
 }
 
 const NO_IMAGE_FALLBACK =
@@ -123,6 +128,51 @@ function ThresholdCell({ item }: { item: StockItem }) {
   );
 }
 
+function SortableTh({
+  label,
+  column,
+  sortColumn,
+  sortDirection,
+  onSort,
+  className,
+}: {
+  label: string;
+  column: string;
+  sortColumn?: string | null;
+  sortDirection?: "asc" | "desc";
+  onSort?: (column: string) => void;
+  className?: string;
+}) {
+  const isActive = sortColumn === column;
+  return (
+    <th
+      onClick={() => onSort?.(column)}
+      className={cn(
+        "select-none px-3 py-2.5 text-left font-semibold text-gray-600",
+        onSort && "cursor-pointer transition-colors hover:bg-gray-100",
+        isActive && "text-gray-900",
+        className
+      )}
+      aria-sort={isActive ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {onSort && (
+          isActive ? (
+            sortDirection === "asc" ? (
+              <ChevronUp className="h-3 w-3 text-primary" />
+            ) : (
+              <ChevronDown className="h-3 w-3 text-primary" />
+            )
+          ) : (
+            <ChevronsUpDown className="h-3 w-3 text-gray-300" />
+          )
+        )}
+      </span>
+    </th>
+  );
+}
+
 export function StockTable({
   items,
   selectedView,
@@ -134,29 +184,33 @@ export function StockTable({
   parseHarga,
   formatRupiah,
   onRowClick,
+  sortColumn,
+  sortDirection,
+  onSort,
 }: StockTableProps) {
+  const thProps = { sortColumn, sortDirection, onSort };
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[480px] text-[11px]">
         <thead className="sticky top-0 z-10 bg-gray-50">
           <tr className="border-b border-gray-100">
             <th className="w-9 px-3 py-2.5 text-left font-semibold text-gray-600">Img</th>
-            <th className="px-3 py-2.5 text-left font-semibold text-gray-600">SKU</th>
-            <th className="px-3 py-2.5 text-left font-semibold text-gray-600">Product Name</th>
-            <th className="px-3 py-2.5 text-left font-semibold text-gray-600">Category</th>
-            <th className="px-3 py-2.5 text-left font-semibold text-gray-600">Grade</th>
+            <SortableTh label="SKU" column="sku" {...thProps} />
+            <SortableTh label="Product Name" column="item_name" {...thProps} />
+            <SortableTh label="Category" column="category" {...thProps} />
+            <SortableTh label="Grade" column="grade" {...thProps} />
             {selectedView !== "master" && (
-              <th className="px-3 py-2.5 text-left font-semibold text-gray-600">Stock</th>
+              <SortableTh label="Stock" column="stock" {...thProps} />
             )}
             {selectedView === "pca" && (
-              <th className="px-3 py-2.5 text-left font-semibold text-gray-600">Threshold</th>
+              <SortableTh label="Threshold" column="threshold" {...thProps} />
             )}
             {selectedView === "store" && (
-              <th className="px-3 py-2.5 text-left font-semibold text-gray-600">Warehouse</th>
+              <SortableTh label="Warehouse" column="warehouse" {...thProps} />
             )}
-            {showHpp && <th className="px-3 py-2.5 text-left font-semibold text-gray-600">HPP</th>}
-            {showHpt && <th className="px-3 py-2.5 text-left font-semibold text-gray-600">HPT</th>}
-            {showHpj && <th className="px-3 py-2.5 text-left font-semibold text-gray-600">HPJ</th>}
+            {showHpp && <SortableTh label="HPP" column="hpp" {...thProps} />}
+            {showHpt && <SortableTh label="HPT" column="hpt" {...thProps} />}
+            {showHpj && <SortableTh label="HPJ" column="hpj" {...thProps} />}
           </tr>
         </thead>
         <tbody>

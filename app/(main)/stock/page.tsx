@@ -35,8 +35,10 @@ import { StockTable } from "@/components/stock/StockTable";
 import { Pagination } from "@/components/stock/Pagination";
 import { ImportModal } from "@/components/stock/ImportModal";
 import { QRLabelPopup } from "@/components/stock/QRLabelPopup";
+import { PriceRangeSlider } from "@/components/stock/PriceRangeSlider";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { TableSkeletonRows } from "@/components/dashboard/LoadingSkeleton";
+import { cn } from "@/lib/utils";
 import {
   CustomXTick,
   CustomTooltip,
@@ -137,8 +139,14 @@ export default function StockPage() {
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [gradeFilter, setGradeFilter] = useState<string[]>([]);
   const [warehouseFilter, setWarehouseFilter] = useState<string[]>([]);
-  const [hpjFilter, setHpjFilter] = useState("");
+  // Price range filter (HPJ) — [min, max] in Rupiah. null = not yet initialized from data.
+  const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
+  const [priceBounds, setPriceBounds] = useState<[number, number]>([0, 0]);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Sortable table headers — column key + direction. null direction = no manual sort.
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showGradeDropdown, setShowGradeDropdown] = useState(false);
@@ -198,7 +206,7 @@ export default function StockPage() {
   }, []);
 
   useEffect(() => { fetchData(); }, [selectedView]);
-  useEffect(() => { applyFilters(); }, [categoryFilter, gradeFilter, warehouseFilter, hpjFilter, searchQuery, data]);
+  useEffect(() => { applyFilters(); }, [categoryFilter, gradeFilter, warehouseFilter, priceRange, searchQuery, data, sortColumn, sortDirection]);
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);
@@ -233,6 +241,14 @@ export default function StockPage() {
       setGrades([...new Set(normalizedData.map((i: StockItem) => i.grade))].filter(Boolean) as string[]);
       if (selectedView === "store")
         setWarehouses([...new Set(normalizedData.map((i: StockItem) => i.warehouse))].filter(Boolean) as string[]);
+
+      const hpjValues = normalizedData
+        .map((i: StockItem) => parseHarga(i.hpj))
+        .filter((v: number) => v > 0);
+      const minPrice = hpjValues.length ? Math.min(...hpjValues) : 0;
+      const maxPrice = hpjValues.length ? Math.max(...hpjValues) : 0;
+      setPriceBounds([minPrice, maxPrice]);
+      setPriceRange([minPrice, maxPrice]);
     } catch (error) {
       showMessage("Failed to fetch data", "error");
     } finally {
@@ -287,15 +303,33 @@ export default function StockPage() {
     return str.toLowerCase().split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
   };
 
+  // Column accessor + comparison type, used by the sortable table headers.
+  const SORTABLE_COLUMNS: Record<string, { get: (i: StockItem) => string | number; type: "text" | "number" }> = {
+    sku: { get: (i) => i.sku || "", type: "text" },
+    item_name: { get: (i) => toProperCase(i.item_name || ""), type: "text" },
+    category: { get: (i) => toProperCase(i.category || ""), type: "text" },
+    grade: { get: (i) => toProperCase(i.grade || ""), type: "text" },
+    stock: { get: (i) => parseInt((i.stock || "0").toString().replace(/[^0-9-]/g, "")) || 0, type: "number" },
+    threshold: { get: (i) => parseInt((i.threshold || "0").toString().replace(/[^0-9-]/g, "")) || 0, type: "number" },
+    warehouse: { get: (i) => i.warehouse || "", type: "text" },
+    hpp: { get: (i) => parseHarga(i.hpp), type: "number" },
+    hpt: { get: (i) => parseHarga(i.hpt), type: "number" },
+    hpj: { get: (i) => parseHarga(i.hpj), type: "number" },
+  };
+
   const applyFilters = () => {
     let filtered = [...data];
     if (categoryFilter.length > 0) filtered = filtered.filter((i) => categoryFilter.includes(i.category));
     if (gradeFilter.length > 0) filtered = filtered.filter((i) => gradeFilter.includes(i.grade));
     if (selectedView === "store" && warehouseFilter.length > 0)
       filtered = filtered.filter((i) => i.warehouse && warehouseFilter.includes(i.warehouse));
-    if (hpjFilter) {
-      const hpjValue = parseInt(hpjFilter.replace(/[^0-9]/g, ""));
-      filtered = filtered.filter((i) => parseInt(i.hpj?.replace(/[^0-9]/g, "") || "0") <= hpjValue);
+    if (priceRange && (priceRange[0] > priceBounds[0] || priceRange[1] < priceBounds[1])) {
+      const [lo, hi] = priceRange;
+      filtered = filtered.filter((i) => {
+        const hpjValue = parseHarga(i.hpj);
+        if (hpjValue <= 0) return false;
+        return hpjValue >= lo && hpjValue <= hi;
+      });
     }
     if (searchQuery) {
       const words = searchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
@@ -307,7 +341,16 @@ export default function StockPage() {
         );
       });
     }
-    if (selectedView === "pca") {
+    if (sortColumn && SORTABLE_COLUMNS[sortColumn]) {
+      const { get, type } = SORTABLE_COLUMNS[sortColumn];
+      const dir = sortDirection === "asc" ? 1 : -1;
+      filtered.sort((a, b) => {
+        const va = get(a);
+        const vb = get(b);
+        if (type === "number") return ((va as number) - (vb as number)) * dir;
+        return (va as string).localeCompare(vb as string) * dir;
+      });
+    } else if (selectedView === "pca") {
       filtered.sort((a, b) => {
         const sa = parseInt(a.stock?.replace(/[^0-9-]/g, "") || "0");
         const sb = parseInt(b.stock?.replace(/[^0-9-]/g, "") || "0");
@@ -319,14 +362,49 @@ export default function StockPage() {
     setCurrentPage(1);
   };
 
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
   const resetFilters = () => {
     setCategoryFilter([]); setGradeFilter([]); setWarehouseFilter([]);
-    setHpjFilter(""); setSearchQuery(""); setFilteredData(data); setCurrentPage(1);
+    setPriceRange(priceBounds[1] > 0 ? [priceBounds[0], priceBounds[1]] : null);
+    setSearchQuery(""); setSortColumn(null); setSortDirection("asc");
+    setFilteredData(data); setCurrentPage(1);
   };
 
   const toggleCategory = (v: string) => setCategoryFilter((p) => p.includes(v) ? p.filter((c) => c !== v) : [...p, v]);
   const toggleGrade = (v: string) => setGradeFilter((p) => p.includes(v) ? p.filter((g) => g !== v) : [...p, v]);
   const toggleWarehouse = (v: string) => setWarehouseFilter((p) => p.includes(v) ? p.filter((w) => w !== v) : [...p, v]);
+
+  // ── Chart → filter shortcuts ────────────────────────────────────────────
+  // Clicking a bar isolates that value as the active filter (replacing
+  // whatever was selected before), e.g. clicking the "Lembong" bar shows
+  // only Lembong's stock. Clicking the same already-active bar clears it.
+  const handleWarehouseBarClick = (warehouseName: string) => {
+    const wh = WAREHOUSES.find((w) => w.name === warehouseName);
+    if (!wh) return;
+    setWarehouseFilter((prev) =>
+      prev.length === 1 && prev[0] === wh.key ? [] : [wh.key]
+    );
+  };
+
+  const handleCategoryBarClick = (categoryName: string) => {
+    setCategoryFilter((prev) =>
+      prev.length === 1 && prev[0] === categoryName ? [] : [categoryName]
+    );
+  };
+
+  const handleGradeBarClick = (gradeName: string) => {
+    setGradeFilter((prev) =>
+      prev.length === 1 && prev[0] === gradeName ? [] : [gradeName]
+    );
+  };
 
   const parseFile = async (file: File): Promise<any[]> => {
     return new Promise((resolve, reject) => {
@@ -575,16 +653,29 @@ export default function StockPage() {
                         <XAxis dataKey="name" tick={<CustomXTick />} axisLine={false} tickLine={false} interval={0} height={24} />
                         <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={28} />
                         <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-                        <Bar dataKey="stock" radius={[3, 3, 0, 0]} maxBarSize={32} label={{ position: "top", fontSize: 8, fill: "#6b7280", formatter: (v: any) => Number(v) > 0 ? Number(v).toLocaleString() : "" }}>
+                        <Bar
+                          dataKey="stock"
+                          radius={[3, 3, 0, 0]}
+                          maxBarSize={32}
+                          cursor="pointer"
+                          onClick={(entry: any) => handleWarehouseBarClick(entry.name)}
+                          label={{ position: "top", fontSize: 8, fill: "#6b7280", formatter: (v: any) => Number(v) > 0 ? Number(v).toLocaleString() : "" }}
+                        >
                           {chartData.map((entry, index) => {
                             const minStock = Math.min(...chartData.filter((d) => d.stock > 0).map((d) => d.stock));
+                            const isActive = warehouseFilter.length === 1 &&
+                              warehouseFilter[0] === WAREHOUSES.find((w) => w.name === entry.name)?.key;
+                            const isDimmed = warehouseFilter.length === 1 && !isActive;
                             const color = entry.stock === maxStock ? "#3de400" : entry.stock === minStock && entry.stock > 0 ? "#e20000" : "#cbe2ff";
-                            return <Cell key={index} fill={color} />;
+                            return <Cell key={index} fill={color} opacity={isDimmed ? 0.35 : 1} stroke={isActive ? "#0d334d" : undefined} strokeWidth={isActive ? 2 : 0} />;
                           })}
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
+                  <p className="mt-1.5 text-center text-[10px] text-gray-400">
+                    Klik salah satu bar untuk memfilter stock berdasarkan store tersebut
+                  </p>
                 </div>
               )}
 
@@ -604,10 +695,21 @@ export default function StockPage() {
                       <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={28} />
                       <Tooltip content={<CategoryTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                       {WAREHOUSES.map((wh, i) => (
-                        <Bar key={wh.name} dataKey={wh.name} fill={WAREHOUSE_COLORS[i % WAREHOUSE_COLORS.length]} radius={[2, 2, 0, 0]} maxBarSize={8} />
+                        <Bar
+                          key={wh.name}
+                          dataKey={wh.name}
+                          fill={WAREHOUSE_COLORS[i % WAREHOUSE_COLORS.length]}
+                          radius={[2, 2, 0, 0]}
+                          maxBarSize={8}
+                          cursor="pointer"
+                          onClick={(entry: any) => handleCategoryBarClick(entry.name)}
+                        />
                       ))}
                     </BarChart>
                   </div>
+                  <p className="mt-1.5 text-center text-[10px] text-gray-400">
+                    Klik salah satu bar untuk memfilter stock berdasarkan category tersebut
+                  </p>
                 </div>
               )}
             </ChartPanel>
@@ -635,14 +737,39 @@ export default function StockPage() {
                       <XAxis dataKey="name" tick={<CustomXTick />} axisLine={false} tickLine={false} interval={0} height={24} />
                       <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={28} />
                       <Tooltip content={<PCATooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-                      <Bar dataKey="stock" radius={[3, 3, 0, 0]} maxBarSize={36} label={{ position: "top", fontSize: 8, fill: "#6b7280", formatter: (v: any) => Number(v) > 0 ? Number(v).toLocaleString() : "" }}>
-                        {pcaActiveData.map((_, index) => (
-                          <Cell key={index} fill={pcaActiveColors[index % pcaActiveColors.length]} />
-                        ))}
+                      <Bar
+                        dataKey="stock"
+                        radius={[3, 3, 0, 0]}
+                        maxBarSize={36}
+                        cursor="pointer"
+                        onClick={(entry: any) =>
+                          pcaChartMode === "category"
+                            ? handleCategoryBarClick(entry.name)
+                            : handleGradeBarClick(entry.name)
+                        }
+                        label={{ position: "top", fontSize: 8, fill: "#6b7280", formatter: (v: any) => Number(v) > 0 ? Number(v).toLocaleString() : "" }}
+                      >
+                        {pcaActiveData.map((entry, index) => {
+                          const activeList = pcaChartMode === "category" ? categoryFilter : gradeFilter;
+                          const isActive = activeList.length === 1 && activeList[0] === entry.name;
+                          const isDimmed = activeList.length === 1 && !isActive;
+                          return (
+                            <Cell
+                              key={index}
+                              fill={pcaActiveColors[index % pcaActiveColors.length]}
+                              opacity={isDimmed ? 0.35 : 1}
+                              stroke={isActive ? "#0d334d" : undefined}
+                              strokeWidth={isActive ? 2 : 0}
+                            />
+                          );
+                        })}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
+                <p className="mt-1.5 text-center text-[10px] text-gray-400">
+                  Klik salah satu bar untuk memfilter berdasarkan {pcaChartMode === "category" ? "category" : "grade"} tersebut
+                </p>
               </div>
             </ChartPanel>
           )}
@@ -680,19 +807,7 @@ export default function StockPage() {
                 containerRef={warehouseDropdownRef}
               />
             )}
-            {user.stock_view_hpj && (
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">Max HPJ</label>
-                <input
-                  type="text"
-                  value={hpjFilter}
-                  onChange={(e) => setHpjFilter(e.target.value.replace(/[^0-9]/g, ""))}
-                  placeholder="e.g. 500000"
-                  className="min-h-[36px] w-full rounded-lg border border-gray-200 px-3 py-2 text-xs outline-none transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/10 sm:py-1.5"
-                />
-              </div>
-            )}
-            <div className="col-span-2 sm:col-span-3 lg:col-span-2">
+            <div className={cn("col-span-2 sm:col-span-3", selectedView === "store" ? "lg:col-span-2" : "lg:col-span-3")}>
               <label className="mb-1 block text-xs font-medium text-gray-600">Search</label>
               <input
                 type="text"
@@ -703,6 +818,18 @@ export default function StockPage() {
               />
             </div>
           </div>
+
+          {user.stock_view_hpj && priceRange && priceBounds[1] > 0 && (
+            <div className="mb-3 rounded-xl border border-gray-100 bg-gray-50/40 p-3">
+              <PriceRangeSlider
+                label="Range Harga (HPJ)"
+                min={priceBounds[0]}
+                max={priceBounds[1]}
+                value={priceRange}
+                onChange={setPriceRange}
+              />
+            </div>
+          )}
 
           <ToolbarButton label="Reset Filter" icon={RotateCcw} onClick={resetFilters} />
         </div>
@@ -726,6 +853,9 @@ export default function StockPage() {
                 parseHarga={parseHarga}
                 formatRupiah={formatRupiah}
                 onRowClick={setQrItem}
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
               />
               <Pagination
                 currentPage={currentPage}

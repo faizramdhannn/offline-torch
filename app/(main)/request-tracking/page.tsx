@@ -5,6 +5,27 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
+import { motion } from "framer-motion";
+import {
+  Plus,
+  Truck,
+  List,
+  MapPinned,
+} from "lucide-react";
+
+import { SectionHeader } from "@/components/request-tracking/SectionHeader";
+import { Button } from "@/components/request-tracking/Button";
+import { Toolbar, type StatusFilter } from "@/components/request-tracking/Toolbar";
+import { EmptyState } from "@/components/request-tracking/EmptyState";
+import { TableSkeletonRows } from "@/components/request-tracking/LoadingSkeleton";
+import { Pagination } from "@/components/request-tracking/Pagination";
+import { ShipmentTable } from "@/components/request-tracking/ShipmentTable";
+import { DetailPopup } from "@/components/request-tracking/DetailPopup";
+import { Modal } from "@/components/request-tracking/Modal";
+import { ConfirmationDialog } from "@/components/request-tracking/ConfirmationDialog";
+import { DropZone } from "@/components/request-tracking/DropZone";
+import { ExpeditionBadge, CopyButton, TypeReasonBadge } from "@/components/request-tracking/DomainBadges";
+import { FieldLabel, FieldHint, inputClass, FormDivider } from "@/components/request-tracking/FormField";
 
 interface TrackingItem {
   id: string;
@@ -91,196 +112,7 @@ function validateReceiver(val: string): string {
   return "";
 }
 
-// ── Drag & Drop Upload Zone ───────────────────────────────────────────────
-function DropZone({
-  file,
-  onFile,
-  inputRef,
-}: {
-  file: File | null;
-  onFile: (f: File | null) => void;
-  inputRef: React.RefObject<HTMLInputElement | null>;
-}) {
-  const [dragging, setDragging] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragging(false);
-      const dropped = e.dataTransfer.files[0];
-      if (dropped) onFile(dropped);
-    },
-    [onFile]
-  );
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(true);
-  };
-
-  const handleDragLeave = () => setDragging(false);
-  const handleClick = () => inputRef.current?.click();
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onFile(e.target.files?.[0] || null);
-  };
-
-  const handleRemove = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onFile(null);
-    if (inputRef.current) inputRef.current.value = "";
-  };
-
-  const isImage = file && file.type.startsWith("image/");
-
-  useEffect(() => {
-    if (!file || !isImage) {
-      setPreview(null);
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file, isImage]);
-
-  return (
-    <div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*,.pdf"
-        onChange={handleInputChange}
-        className="hidden"
-      />
-      {file ? (
-        <div className="flex items-center gap-2 p-2 rounded border border-green-300 bg-green-50">
-          {preview ? (
-            <img
-              src={preview}
-              alt="preview"
-              className="w-10 h-10 object-cover rounded border border-green-200 shrink-0"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded border border-green-200 bg-green-100 flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-medium text-green-800 truncate">{file.name}</p>
-            <p className="text-[10px] text-green-600">{(file.size / 1024).toFixed(1)} KB</p>
-          </div>
-          <button type="button" onClick={handleRemove}
-            className="p-1 rounded hover:bg-green-200 text-green-700 shrink-0" title="Hapus file">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      ) : (
-        <div
-          onClick={handleClick}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          className={`cursor-pointer rounded border-2 border-dashed transition-all select-none
-            flex flex-col items-center justify-center gap-1 py-4 px-3
-            ${dragging ? "border-blue-400 bg-blue-50" : "border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100"}`}
-        >
-          <svg className={`w-6 h-6 transition-colors ${dragging ? "text-blue-500" : "text-gray-400"}`}
-            fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
-          <p className={`text-[11px] font-medium transition-colors ${dragging ? "text-blue-600" : "text-gray-600"}`}>
-            {dragging ? "Lepaskan file di sini" : "Drag & drop atau klik untuk pilih"}
-          </p>
-          <p className="text-[10px] text-gray-400">Gambar atau PDF</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── ExpeditionBadge ───────────────────────────────────────────────────────
-function ExpeditionBadge({ expedition }: { expedition: string }) {
-  const logo = EXPEDITION_LOGO[expedition];
-  if (logo) return <img src={logo} alt={expedition} className="h-5 w-auto object-contain" title={expedition} />;
-  return <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700">{expedition}</span>;
-}
-
-// ── TypeReasonBadge ───────────────────────────────────────────────────────
-const TYPE_REASON_COLORS: Record<string, string> = {
-  "Order": "bg-blue-100 text-blue-800",
-  "Retur": "bg-orange-100 text-orange-800",
-  "Request Product": "bg-purple-100 text-purple-800",
-  "Free Gift": "bg-pink-100 text-pink-800",
-  "Sending Document": "bg-gray-100 text-gray-700",
-};
-
-function TypeReasonBadge({ typeReason }: { typeReason?: string }) {
-  if (!typeReason) return <span className="text-gray-300 text-[10px]">—</span>;
-  const color = TYPE_REASON_COLORS[typeReason] ?? "bg-gray-100 text-gray-700";
-  return (
-    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${color}`}>
-      {typeReason}
-    </span>
-  );
-}
-
-// ── CopyButton ────────────────────────────────────────────────────────────
-function CopyButton({ text, id, copiedId, onCopy }: {
-  text: string; id: string; copiedId: string | null; onCopy: (text: string, id: string) => void;
-}) {
-  return (
-    <button type="button" onClick={() => onCopy(text, id)} title="Copy"
-      className="inline-flex items-center justify-center w-5 h-5 rounded hover:bg-gray-200 transition-colors shrink-0">
-      {copiedId === id ? (
-        <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-        </svg>
-      ) : (
-        <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-        </svg>
-      )}
-    </button>
-  );
-}
-
-// ── CheckResiButton ───────────────────────────────────────────────────────
-function CheckResiButton({ trackingNumber, onCheck }: {
-  trackingNumber: string; onCheck: (resi: string) => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onCheck(trackingNumber)}
-      title="Cek resi"
-      className="inline-flex items-center justify-center w-5 h-5 rounded hover:bg-blue-100 transition-colors shrink-0"
-    >
-      <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-      </svg>
-    </button>
-  );
-}
-
-// ── Google Drive URL converter ────────────────────────────────────────────
-function getEmbedUrl(url: string): string {
-  if (!url) return url;
-  const fileMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if (fileMatch) return `https://drive.google.com/file/d/${fileMatch[1]}/preview`;
-  const openMatch = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
-  if (openMatch) return `https://drive.google.com/file/d/${openMatch[1]}/preview`;
-  return url;
-}
-
+// ── Google Drive URL converter (used by CSV export download links) ───────
 function getDownloadUrl(url: string): string {
   if (!url) return url;
   const fileMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
@@ -288,187 +120,6 @@ function getDownloadUrl(url: string): string {
   const openMatch = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
   if (openMatch) return `https://drive.google.com/uc?export=download&id=${openMatch[1]}`;
   return url;
-}
-
-// ── Detail Popup ──────────────────────────────────────────────────────────
-function DetailPopup({ item, onClose, copiedId, onCopy }: {
-  item: TrackingItem; onClose: () => void;
-  copiedId: string | null; onCopy: (text: string, id: string) => void;
-}) {
-  const status = item.link_tracking ? "completed" : "pending";
-  const isDriveUrl = item.link_tracking?.includes("drive.google.com");
-  const embedUrl = getEmbedUrl(item.link_tracking || "");
-  const downloadUrl = getDownloadUrl(item.link_tracking || "");
-  const isPdf = isDriveUrl
-    ? true
-    : item.link_tracking?.toLowerCase().includes(".pdf") ||
-      item.link_tracking?.toLowerCase().includes("application/pdf") ||
-      (item.link_tracking && !item.link_tracking?.match(/\.(png|jpg|jpeg|gif|webp)/i));
-
-  const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) onClose();
-  };
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={handleBackdrop}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b bg-gray-50 rounded-t-xl">
-          <div className="flex items-center gap-3">
-            <h2 className="text-sm font-bold text-gray-800">Detail Shipment</h2>
-            <span className="font-mono text-[11px] text-gray-500 bg-gray-200 px-2 py-0.5 rounded">{item.id}</span>
-            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${status === "completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
-              {status === "completed" ? "Selesai" : "Pending"}
-            </span>
-            {item.has_processed === 'TRUE' && (
-              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-teal-100 text-teal-800">
-                Diproses
-              </span>
-            )}
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors text-gray-500">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="flex flex-1 overflow-hidden">
-          <div className="flex-1 bg-gray-100 flex flex-col overflow-hidden border-r">
-            {item.link_tracking ? (
-              <>
-                <div className="flex items-center justify-between px-3 py-2 bg-white border-b">
-                  <span className="text-[11px] text-gray-500 font-medium">{isPdf ? "File PDF" : "Bukti Gambar"}</span>
-                  <a href={downloadUrl} download target="_blank" rel="noopener noreferrer" title="Download file"
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-primary text-white rounded text-[10px] font-medium hover:bg-primary/90 transition-colors">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    Download
-                  </a>
-                </div>
-                <div className="flex-1 overflow-auto flex items-center justify-center p-3">
-                  {isPdf ? (
-                    <iframe src={embedUrl} className="w-full h-full rounded border border-gray-200 bg-white" title="Resi PDF" />
-                  ) : (
-                    <img src={embedUrl} alt="Bukti Resi" className="max-w-full max-h-full object-contain rounded border border-gray-200 shadow-sm" />
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-2">
-                <svg className="w-12 h-12 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p className="text-xs text-gray-400">Belum ada resi diupload</p>
-              </div>
-            )}
-          </div>
-
-          <div className="w-64 flex flex-col overflow-y-auto bg-white">
-            <div className="p-4 space-y-4">
-              <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Ekspedisi</p>
-                {EXPEDITION_LOGO[item.expedition]
-                  ? <img src={EXPEDITION_LOGO[item.expedition]} alt={item.expedition} className="h-6 w-auto object-contain" />
-                  : <p className="text-xs font-medium text-gray-800">{item.expedition}</p>}
-              </div>
-              {item.tracking_number && (
-                <div>
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">No. Resi</p>
-                  <div className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded p-2">
-                    <p className="text-xs font-mono font-bold text-blue-900 flex-1 break-all select-all">
-                      {item.tracking_number}
-                    </p>
-                    <CopyButton text={item.tracking_number} id={`resi-detail-${item.id}`} copiedId={copiedId} onCopy={onCopy} />
-                  </div>
-                </div>
-              )}
-              <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Tipe Pengiriman</p>
-                <TypeReasonBadge typeReason={item.type_reason} />
-              </div>
-              {item.sales_order && (
-                <div>
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">No. Sales Order</p>
-                  <div className="flex items-center gap-1">
-                    <p className="text-xs font-mono font-semibold text-gray-800 flex-1">{item.sales_order}</p>
-                    <CopyButton text={item.sales_order} id={`so-detail-${item.id}`} copiedId={copiedId} onCopy={onCopy} />
-                  </div>
-                </div>
-              )}
-              <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Tanggal</p>
-                <p className="text-xs text-gray-800">{item.date}</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Assigned To</p>
-                <p className="text-xs text-gray-800">{item.assigned_to}</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Pengirim</p>
-                <p className="text-xs text-gray-800">{item.sender}</p>
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">Penerima</p>
-                  {item.receiver && (
-                    <CopyButton text={item.receiver} id={`detail-${item.id}`} copiedId={copiedId} onCopy={onCopy} />
-                  )}
-                </div>
-                <p className="text-xs text-gray-800 font-mono whitespace-pre-line leading-relaxed bg-gray-50 rounded p-2 border border-gray-100 select-all">
-                  {item.receiver || "-"}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Berat</p>
-                <p className="text-xs text-gray-800">{item.weight} kg</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Alasan</p>
-                <p className="text-xs text-gray-800">{item.reason}</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Request By</p>
-                <p className="text-xs text-gray-800">{item.request_by}</p>
-              </div>
-              {item.update_by && (
-                <div>
-                  <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Update By</p>
-                  <p className="text-xs text-gray-800">{item.update_by}</p>
-                </div>
-              )}
-              <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-1">Status Proses</p>
-                <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                  item.has_processed === 'TRUE'
-                    ? 'bg-teal-100 text-teal-800'
-                    : 'bg-gray-100 text-gray-500'
-                }`}>
-                  {item.has_processed === 'TRUE' ? 'Sudah diproses' : 'Belum diproses'}
-                </span>
-              </div>
-              <div className="pt-2 border-t border-gray-100 space-y-1">
-                {item.created_at && (
-                  <p className="text-[10px] text-gray-400">Dibuat: {new Date(item.created_at).toLocaleString("id-ID")}</p>
-                )}
-                {item.update_at && (
-                  <p className="text-[10px] text-gray-400">Diupdate: {new Date(item.update_at).toLocaleString("id-ID")}</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -498,6 +149,14 @@ export default function RequestTrackingPage() {
   const [activeTab, setActiveTab] = useState<"table" | "tracking">("table");
   const [iframeUrl] = useState("https://offline-tracking.vercel.app/");
   const [searchReceiver, setSearchReceiver] = useState("");
+
+  // ── UI-only additions (visual layer): status filter pills, manual refresh
+  // spinner, CSV export, and a modern confirm dialog in place of window.confirm().
+  // None of these touch the fetch/state/validation logic below.
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [refreshing, setRefreshing] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<TrackingItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
@@ -778,8 +437,14 @@ export default function RequestTrackingPage() {
     finally { setSubmitting(false); }
   };
 
-  const handleDelete = async (item: TrackingItem) => {
-    if (!confirm("Hapus request ini?")) return;
+  // Delete flow: same fetch/logic as before, just routed through a confirm
+  // dialog (deleteTarget state) instead of window.confirm().
+  const requestDelete = (item: TrackingItem) => setDeleteTarget(item);
+
+  const handleDelete = async () => {
+    const item = deleteTarget;
+    if (!item) return;
+    setDeleting(true);
     try {
       const res = await fetch(`/api/request-tracking?id=${item.id}`, { method: "DELETE" });
       if (res.ok) {
@@ -789,6 +454,7 @@ export default function RequestTrackingPage() {
         await logActivity("DELETE", `Deleted shipment request ID: ${item.id}`);
       } else { showMessage("Gagal menghapus", "error"); }
     } catch { showMessage("Gagal menghapus", "error"); }
+    finally { setDeleting(false); setDeleteTarget(null); }
   };
 
   const openUpload = (item: TrackingItem) => {
@@ -843,7 +509,8 @@ export default function RequestTrackingPage() {
 
   const getStatus = (item: TrackingItem) => item.link_tracking ? "completed" : "pending";
 
-  const filteredData = (() => {
+  // Search filter — unchanged from original.
+  const searchFilteredData = (() => {
     if (!searchReceiver.trim()) return data;
     const q = searchReceiver.trim().toLowerCase();
     return data.filter((d) =>
@@ -851,6 +518,12 @@ export default function RequestTrackingPage() {
       (d.tracking_number || "").toLowerCase().includes(q) ||
       (d.sales_order || "").toLowerCase().includes(q)
     );
+  })();
+
+  // Status filter pills — additive UI-only filter layered on top of search.
+  const filteredData = (() => {
+    if (statusFilter === "all") return searchFilteredData;
+    return searchFilteredData.filter((d) => getStatus(d) === statusFilter);
   })();
 
   const hasActiveSearch = searchReceiver.trim().length > 0;
@@ -872,6 +545,39 @@ export default function RequestTrackingPage() {
     );
   };
 
+  // Manual refresh button — calls the exact same fetchData(), just tracks a
+  // local spinner state so the toolbar can show feedback.
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  };
+
+  // Client-side CSV export of the currently filtered dataset. No new API
+  // endpoint — just serializes what's already loaded in `data`/`filteredData`.
+  const handleExport = () => {
+    const headers = [
+      "ID", "Tanggal", "Assigned To", "Ekspedisi", "Pengirim", "Penerima", "Berat (kg)",
+      "Tipe", "Sales Order", "Alasan", "No. Resi", "Status", "Request By", "Update By",
+    ];
+    const escapeCsv = (val: string) => `"${(val || "").replace(/"/g, '""').replace(/\n/g, " ")}"`;
+    const rows = filteredData.map((d) => [
+      d.id, d.date, d.assigned_to, d.expedition, d.sender, d.receiver, d.weight,
+      d.type_reason || "", d.sales_order || "", d.reason, d.tracking_number || "",
+      getStatus(d) === "completed" ? "Selesai" : "Pending", d.request_by, d.update_by || "",
+    ].map(escapeCsv));
+    const csv = [headers.map(escapeCsv).join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `request-shipment-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   if (!user) return null;
 
   const canEdit = user.request_tracking;
@@ -886,13 +592,11 @@ export default function RequestTrackingPage() {
   ) => (
     <div className="grid grid-cols-2 gap-4 items-start">
       <div>
-        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-          Tipe Pengiriman <span className="text-red-500">*</span>
-        </label>
+        <FieldLabel required>Tipe Pengiriman</FieldLabel>
         <select
           value={f.type_reason}
           onChange={(e) => { setF({ ...f, type_reason: e.target.value, sales_order: "" }); setSoErr(""); }}
-          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors"
+          className={inputClass()}
         >
           <option value="">Pilih tipe</option>
           {TYPE_REASONS.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -900,731 +604,471 @@ export default function RequestTrackingPage() {
       </div>
       {REQUIRES_SALES_ORDER.includes(f.type_reason) && (
         <div>
-          <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-            No. Sales Order <span className="text-red-500">*</span>
-          </label>
+          <FieldLabel required>No. Sales Order</FieldLabel>
           <input
             type="text"
             value={f.sales_order}
             onChange={(e) => { setF({ ...f, sales_order: e.target.value }); setSoErr(""); }}
             onBlur={() => setSoErr(validateSalesOrder(f.type_reason, f.sales_order))}
             placeholder="#12345 / MAT-MR... / MAT-STE..."
-            className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-2 bg-gray-50 hover:bg-white transition-colors ${
-              soErr
-                ? "border-red-300 focus:ring-red-200 focus:border-red-400"
-                : "border-gray-200 focus:ring-primary/30 focus:border-primary"
-            }`}
+            className={inputClass(!!soErr)}
           />
-          {soErr
-            ? <p className="text-[10px] text-red-500 mt-1">⚠ {soErr}</p>
-            : <p className="text-[10px] text-gray-400 mt-1">Format: #angka, MAT-MR..., atau MAT-STE...</p>
-          }
+          <FieldHint error={soErr} hint="Format: #angka, MAT-MR..., atau MAT-STE..." />
         </div>
       )}
     </div>
   );
 
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="p-6">
-        <div className="flex-1 overflow-auto">
-          <div className="p-6">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-2xl font-bold text-primary">Request Shipment</h1>
-              {canEdit && (
-                <button onClick={() => setShowAddModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Add Request
-                </button>
-              )}
-            </div>
+    <div className="flex-1 overflow-auto bg-[#F8FAFC]">
+      <div className="mx-auto max-w-[1400px] p-4 sm:p-6">
+        {/* ── Section header ──────────────────────────────────────────── */}
+        <SectionHeader
+          icon={Truck}
+          title="Request Shipment"
+          actions={
+            canEdit ? (
+              <Button icon={Plus} onClick={() => setShowAddModal(true)}>
+                Add Request
+              </Button>
+            ) : undefined
+          }
+        />
 
-            {/* Tabs */}
-            <div className="flex gap-1 mb-4 border-b border-gray-200">
-              {(["table", "tracking"] as const).map((tab) => (
-                <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === tab ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
-                  {tab === "table" ? "List" : "Cek Resi"}
-                </button>
-              ))}
-            </div>
-
-            {/* Tab: Table */}
-            {activeTab === "table" && (
-              <>
-                {/* Search Bar */}
-                <div className="bg-white rounded-lg shadow px-3 py-2 mb-3 flex flex-wrap items-center gap-2">
-                  <div className="relative">
-                    <svg className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400"
-                      fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-                    </svg>
-                    <input type="text" value={searchReceiver}
-                      onChange={(e) => { setSearchReceiver(e.target.value); setCurrentPage(1); }}
-                      placeholder="Cari penerima / no. resi / sales order..."
-                      className="pl-6 pr-2 py-1 border border-gray-300 rounded text-[11px] w-64 focus:outline-none focus:ring-1 focus:ring-primary" />
-                  </div>
-                  {hasActiveSearch && (
-                    <>
-                      <button onClick={() => { setSearchReceiver(""); setCurrentPage(1); }}
-                        className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 border border-gray-200 rounded text-[11px] hover:bg-gray-200 transition-colors">
-                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                        Clear
-                      </button>
-                      <span className="text-[10px] text-gray-400">
-                        {filteredData.length} result{filteredData.length !== 1 ? "s" : ""}
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                {/* Table */}
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                  {loading ? (
-                    <div className="p-8 text-center text-sm text-gray-500">Loading...</div>
-                  ) : (
-                    <>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-[10px] border-collapse" style={{ tableLayout: "fixed" }}>
-                          <thead>
-                            {/* ── Group header row ── */}
-                            <tr className="bg-gray-100 border-b border-gray-200">
-                              <th colSpan={5} className="border-r border-gray-200" />
-                              <th colSpan={1} className="px-1 py-0.5 text-center border-r border-gray-200 bg-gray-100">
-                                <span className="text-[8px] font-bold text-gray-500 uppercase tracking-widest">Penerima</span>
-                              </th>
-                              <th colSpan={1} className="px-1 py-0.5 text-center border-r border-gray-200 bg-gray-100">
-                                <span className="text-[8px] font-bold text-gray-500 uppercase tracking-widest">Resi</span>
-                              </th>
-                              <th colSpan={3} className="px-1 py-0.5 text-center border-r border-gray-200 bg-gray-50">
-                                <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Detail</span>
-                              </th>
-                              {canEdit && (
-                                <th colSpan={1} className="border-r border-gray-200 bg-gray-100" />
-                              )}
-                              <th colSpan={(canEdit || canUpload) ? 3 : 2} className="px-1 py-0.5 text-center bg-gray-50">
-                                <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Action</span>
-                              </th>
-                            </tr>
-
-                            {/* ── Column header row ── */}
-                            <tr className="bg-gray-50 border-b border-gray-200">
-                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[66px]">
-                                <span className="text-[8px] uppercase tracking-wide">Tanggal</span>
-                              </th>
-                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[72px]">
-                                <span className="text-[8px] uppercase tracking-wide">Assigned To</span>
-                              </th>
-                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[50px]">
-                                <span className="text-[8px] uppercase tracking-wide">Eksp.</span>
-                              </th>
-                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[72px]">
-                                <span className="text-[8px] uppercase tracking-wide">Pengirim</span>
-                              </th>
-                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[24px]">
-                                <span className="text-[8px] uppercase tracking-wide">KG</span>
-                              </th>
-                              <th className="px-1.5 py-1 text-center font-semibold text-gray-600 border-r border-gray-200 w-[110px] bg-gray-100">
-                                <span className="text-[8px] uppercase tracking-wide">Penerima</span>
-                              </th>
-                              <th className="px-1.5 py-1 text-center font-semibold text-gray-600 border-r border-gray-200 w-[115px] bg-gray-100">
-                                <span className="text-[8px] uppercase tracking-wide">No. Resi</span>
-                              </th>
-                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[80px]">
-                                <span className="text-[8px] uppercase tracking-wide">Tipe</span>
-                              </th>
-                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[62px]">
-                                <span className="text-[8px] uppercase tracking-wide">SO</span>
-                              </th>
-                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[90px]">
-                                <span className="text-[8px] uppercase tracking-wide">Alasan</span>
-                              </th>
-                              {canEdit && (
-                                <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[62px]">
-                                  <span className="text-[8px] uppercase tracking-wide">Req. By</span>
-                                </th>
-                              )}
-                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[48px]">
-                                <span className="text-[8px] uppercase tracking-wide">Status</span>
-                              </th>
-                              {(canEdit || canUpload) && (
-                                <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-[36px]">
-                                  <span className="text-[8px] uppercase tracking-wide">Proses</span>
-                                </th>
-                              )}
-                              <th className="px-1.5 py-1 text-center font-semibold text-gray-500 w-[96px]">
-                                <span className="text-[8px] uppercase tracking-wide">Aksi</span>
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {currentItems.map((item) => {
-                              const status = getStatus(item);
-                              const waLink = item.link_tracking ? buildWhatsappLink(item) : null;
-                              const isProcessed = item.has_processed === 'TRUE';
-                              return (
-                                <tr
-                                  key={item.id}
-                                  className={`border-b border-gray-100 cursor-pointer transition-colors
-                                    ${isProcessed
-                                      ? 'bg-green-50 hover:bg-green-100'
-                                      : 'bg-red-50 hover:bg-red-100'
-                                    }`}
-                                  onClick={() => setDetailItem(item)}
-                                >
-                                  <td className="px-1.5 py-1 text-gray-600 border-r border-gray-200 text-center">{item.date}</td>
-                                  <td className="px-1.5 py-1 text-gray-700 border-r border-gray-200 truncate">{item.assigned_to}</td>
-                                  <td className="px-1 py-1 border-r border-gray-200 text-center">
-                                    <ExpeditionBadge expedition={item.expedition} />
-                                  </td>
-                                  <td className="px-1.5 py-1 text-gray-700 border-r border-gray-200 truncate">{item.sender}</td>
-                                  <td className="px-1.5 py-1 text-gray-600 border-r border-gray-200 text-center">{item.weight}</td>
-
-                                  {/* Penerima */}
-                                  <td className="px-1.5 py-1 border-r border-gray-200">
-                                    <div className="flex items-center gap-0.5">
-                                      <div className="truncate flex-1 text-gray-600" title={item.receiver}>
-                                        {hasActiveSearch
-                                          ? highlightText(item.receiver.split("\n")[0], searchReceiver)
-                                          : item.receiver.split("\n")[0]}
-                                      </div>
-                                      {canUpload && item.receiver && (
-                                        <span onClick={(e) => e.stopPropagation()}>
-                                          <CopyButton text={item.receiver} id={item.id} copiedId={copiedId} onCopy={handleCopyReceiver} />
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
-
-                                  {/* No. Resi */}
-                                  <td className="px-1.5 py-1 border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
-                                    {item.tracking_number ? (
-                                      <div className="flex items-center gap-0.5">
-                                        <span className="font-mono text-[9px] font-semibold text-blue-700 truncate flex-1" title={item.tracking_number}>
-                                          {hasActiveSearch
-                                            ? highlightText(item.tracking_number, searchReceiver)
-                                            : item.tracking_number}
-                                        </span>
-                                        <CopyButton text={item.tracking_number} id={`resi-${item.id}`} copiedId={copiedId} onCopy={handleCopyReceiver} />
-                                        <CheckResiButton trackingNumber={item.tracking_number} onCheck={handleCheckResi} />
-                                      </div>
-                                    ) : (
-                                      <span className="text-gray-300">—</span>
-                                    )}
-                                  </td>
-
-                                  {/* Tipe */}
-                                  <td className="px-1.5 py-1 border-r border-gray-200 text-center">
-                                    <TypeReasonBadge typeReason={item.type_reason} />
-                                  </td>
-
-                                  {/* Sales Order */}
-                                  <td className="px-1.5 py-1 border-r border-gray-200 truncate text-center" title={item.sales_order}>
-                                    {item.sales_order ? (
-                                      <span className="font-mono text-[9px] text-gray-600">
-                                        {hasActiveSearch
-                                          ? highlightText(item.sales_order, searchReceiver)
-                                          : item.sales_order}
-                                      </span>
-                                    ) : (
-                                      <span className="text-gray-300">—</span>
-                                    )}
-                                  </td>
-
-                                  {/* Alasan */}
-                                  <td className="px-1.5 py-1 border-r border-gray-200 truncate text-gray-600" title={item.reason}>
-                                    {item.reason || <span className="text-gray-300">—</span>}
-                                  </td>
-
-                                  {/* Request By */}
-                                  {canEdit && (
-                                    <td className="px-1.5 py-1 text-gray-500 border-r border-gray-200 truncate text-center">{item.request_by}</td>
-                                  )}
-
-                                  {/* Status */}
-                                  <td className="px-1 py-1 border-r border-gray-200 text-center">
-                                    <span className={`px-1 py-0.5 rounded text-[8px] font-medium ${
-                                      status === "completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                                    }`}>
-                                      {status === "completed" ? "Selesai" : "Pending"}
-                                    </span>
-                                  </td>
-
-                                  {/* Proses toggle */}
-                                  {(canEdit || canUpload) && (
-                                    <td className="px-1 py-1 border-r border-gray-200 text-center" onClick={(e) => e.stopPropagation()}>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleToggleProcessed(item)}
-                                        title={isProcessed ? 'Tandai belum diproses' : 'Tandai sudah diproses'}
-                                        className="inline-flex items-center justify-center w-4 h-4 rounded transition-colors hover:bg-white/50"
-                                      >
-                                        {isProcessed ? (
-                                          <svg className="w-3.5 h-3.5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                          </svg>
-                                        ) : (
-                                          <svg className="w-3.5 h-3.5 text-gray-300 hover:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <circle cx="12" cy="12" r="9" strokeWidth={2} />
-                                          </svg>
-                                        )}
-                                      </button>
-                                    </td>
-                                  )}
-
-                                  {/* Aksi */}
-                                  <td className="px-1 py-1 text-center" onClick={(e) => e.stopPropagation()}>
-                                    <div className="flex flex-wrap gap-0.5 justify-center">
-                                      {canUpload && status === "pending" && (
-                                        <button onClick={() => openUpload(item)}
-                                          className="px-1 py-0.5 bg-blue-600 text-white rounded text-[9px] hover:bg-blue-700">
-                                          Upload
-                                        </button>
-                                      )}
-                                      {status === "completed" && waLink && (
-                                        <a href={waLink} target="_blank" rel="noopener noreferrer"
-                                          className="px-1 py-0.5 bg-green-500 text-white rounded text-[9px] hover:bg-green-600 inline-flex items-center gap-0.5">
-                                          <svg className="w-2 h-2" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                                          </svg>
-                                          WA
-                                        </a>
-                                      )}
-                                      {item.link_tracking && (
-                                        <a href={item.link_tracking} target="_blank" rel="noopener noreferrer"
-                                          className="px-1 py-0.5 bg-gray-200 text-gray-700 rounded text-[9px] hover:bg-gray-300">
-                                          Resi
-                                        </a>
-                                      )}
-                                      {canEdit && !canUpload && item.request_by === user.user_name && status === "pending" && (
-                                        <>
-                                          <button onClick={() => openEdit(item)}
-                                            className="px-1 py-0.5 bg-yellow-500 text-white rounded text-[9px] hover:bg-yellow-600">Edit</button>
-                                          <button onClick={() => handleDelete(item)}
-                                            className="px-1 py-0.5 bg-red-500 text-white rounded text-[9px] hover:bg-red-600">Hapus</button>
-                                        </>
-                                      )}
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                        {filteredData.length === 0 && (
-                          <div className="p-8 text-center text-gray-500 text-sm">
-                            {hasActiveSearch ? "Tidak ada hasil yang sesuai pencarian" : "Belum ada request shipment"}
-                          </div>
-                        )}
-                      </div>
-
-                      {totalPages > 1 && (
-                        <div className="flex justify-between items-center px-4 py-2.5 border-t">
-                          <div className="text-xs text-gray-500">
-                            {indexOfFirst + 1}–{Math.min(indexOfLast, filteredData.length)} dari {filteredData.length} entri
-                          </div>
-                          <div className="flex gap-1">
-                            <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}
-                              className="px-2.5 py-1 text-xs border rounded disabled:opacity-40 hover:bg-gray-50">Prev</button>
-                            {[...Array(totalPages)].map((_, i) => {
-                              const page = i + 1;
-                              if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
-                                return (
-                                  <button key={page} onClick={() => setCurrentPage(page)}
-                                    className={`px-2.5 py-1 text-xs border rounded ${currentPage === page ? "bg-primary text-white border-primary" : "hover:bg-gray-50"}`}>
-                                    {page}
-                                  </button>
-                                );
-                              } else if (page === currentPage - 2 || page === currentPage + 2) {
-                                return <span key={page} className="px-1 text-xs text-gray-400 self-center">…</span>;
-                              }
-                              return null;
-                            })}
-                            <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-                              className="px-2.5 py-1 text-xs border rounded disabled:opacity-40 hover:bg-gray-50">Next</button>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* Tab: Cek Resi */}
-            {activeTab === "tracking" && (
-              <div className="bg-white rounded-lg shadow overflow-hidden" style={{ height: "calc(100vh - 180px)" }}>
-                <div style={{ width: "142.86%", height: "142.86%", transform: "scale(0.7)", transformOrigin: "top left" }}>
-                  <iframe
-                    ref={iframeRef}
-                    key={iframeUrl}
-                    src={iframeUrl}
-                    className="w-full"
-                    style={{ height: "calc((100vh - 180px) / 0.7)" }}
-                    title="Tracking Pengiriman"
-                    onLoad={handleIframeLoad}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+        {/* ── Tabs ─────────────────────────────────────────────────────── */}
+        <div className="mt-5 flex gap-1 border-b border-gray-200">
+          {([
+            { key: "table" as const, label: "List", icon: List },
+            { key: "tracking" as const, label: "Cek Resi", icon: MapPinned },
+          ]).map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors duration-200 ${
+                  isActive ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
+
+        {/* ── Tab: Table ───────────────────────────────────────────────── */}
+        {activeTab === "table" && (
+          <div className="mt-4 space-y-4">
+            <Toolbar
+              searchValue={searchReceiver}
+              onSearchChange={(v) => { setSearchReceiver(v); setCurrentPage(1); }}
+              resultCount={filteredData.length}
+              showResultCount={hasActiveSearch || statusFilter !== "all"}
+              statusFilter={statusFilter}
+              onStatusFilterChange={(s) => { setStatusFilter(s); setCurrentPage(1); }}
+              onRefresh={handleRefresh}
+              refreshing={refreshing}
+              onExport={filteredData.length > 0 ? handleExport : undefined}
+            />
+
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
+            >
+              {loading ? (
+                <TableSkeletonRows />
+              ) : filteredData.length === 0 ? (
+                <EmptyState
+                  icon={Truck}
+                  title={hasActiveSearch || statusFilter !== "all" ? "Tidak ada hasil yang cocok" : "Belum ada request shipment"}
+                  description={
+                    hasActiveSearch || statusFilter !== "all"
+                      ? "Coba ubah kata kunci pencarian atau filter status."
+                      : "Mulai dengan membuat request shipment pertama Anda."
+                  }
+                  action={
+                    canEdit && !hasActiveSearch && statusFilter === "all" ? (
+                      <Button icon={Plus} size="sm" onClick={() => setShowAddModal(true)}>
+                        Add Request
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              ) : (
+                <>
+                  <ShipmentTable
+                    items={currentItems}
+                    canEdit={canEdit}
+                    canUpload={canUpload}
+                    currentUserName={user.user_name}
+                    copiedId={copiedId}
+                    hasActiveSearch={hasActiveSearch}
+                    searchQuery={searchReceiver}
+                    onRowClick={setDetailItem}
+                    onCopy={handleCopyReceiver}
+                    onCheckResi={handleCheckResi}
+                    onToggleProcessed={handleToggleProcessed}
+                    onUpload={openUpload}
+                    onEdit={openEdit}
+                    onDelete={requestDelete}
+                    getStatus={getStatus}
+                    buildWhatsappLink={buildWhatsappLink}
+                    highlightText={highlightText}
+                  />
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    rangeLabel={`${indexOfFirst + 1}–${Math.min(indexOfLast, filteredData.length)} dari ${filteredData.length} entri`}
+                  />
+                </>
+              )}
+            </motion.div>
+          </div>
+        )}
+
+        {/* ── Tab: Cek Resi ────────────────────────────────────────────── */}
+        {activeTab === "tracking" && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
+            style={{ height: "calc(100vh - 220px)" }}
+          >
+            <div style={{ width: "142.86%", height: "142.86%", transform: "scale(0.7)", transformOrigin: "top left" }}>
+              <iframe
+                ref={iframeRef}
+                key={iframeUrl}
+                src={iframeUrl}
+                className="w-full"
+                style={{ height: "calc((100vh - 220px) / 0.7)" }}
+                title="Tracking Pengiriman"
+                onLoad={handleIframeLoad}
+              />
+            </div>
+          </motion.div>
+        )}
 
         {/* Detail Popup */}
         {detailItem && (
           <DetailPopup item={detailItem} onClose={() => setDetailItem(null)} copiedId={copiedId} onCopy={handleCopyReceiver} />
         )}
 
+        {/* Delete confirmation (replaces window.confirm — same delete behavior) */}
+        <ConfirmationDialog
+          open={!!deleteTarget}
+          title="Hapus request ini?"
+          description={deleteTarget ? `Request ${deleteTarget.id} untuk ${deleteTarget.assigned_to} akan dihapus permanen.` : undefined}
+          confirmLabel="Hapus"
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+
         {/* Add Modal */}
-        {showAddModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto max-h-[90vh] flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                <div>
-                  <h2 className="text-base font-bold text-gray-900">Request Shipment Baru</h2>
-                  <p className="text-[11px] text-gray-400 mt-0.5">Isi semua field yang ditandai *</p>
-                </div>
-                <button
-                  onClick={() => { setShowAddModal(false); resetAddForm(); }}
-                  className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+        <Modal
+          open={showAddModal}
+          onClose={() => { setShowAddModal(false); resetAddForm(); }}
+          icon={Plus}
+          title="Request Shipment Baru"
+          description="Isi semua field yang ditandai *"
+          footer={
+            <>
+              <Button variant="secondary" className="flex-1 justify-center" onClick={() => { setShowAddModal(false); resetAddForm(); }}>
+                Batal
+              </Button>
+              <Button className="flex-1 justify-center" onClick={handleAdd} loading={submitting}>
+                {submitting ? "Menyimpan..." : "Submit Request"}
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <FieldLabel required>Tanggal</FieldLabel>
+                <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
+                  className={inputClass()} />
               </div>
-
-              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                      Tanggal <span className="text-red-500">*</span>
-                    </label>
-                    <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors" />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                      Assigned To <span className="text-red-500">*</span>
-                    </label>
-                    <select value={form.assigned_to} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors">
-                      <option value="">Pilih assignee</option>
-                      {dropdownData.assignees.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                    Ekspedisi <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex gap-3">
-                    {EXPEDITIONS.map((exp) => {
-                      const isSelected = form.expedition === exp;
-                      return (
-                        <button key={exp} type="button" onClick={() => setForm({ ...form, expedition: exp })}
-                          className={`flex-1 flex items-center justify-center py-2.5 px-4 rounded-lg border-2 transition-all ${
-                            isSelected ? "border-primary bg-primary/5 shadow-sm" : "border-gray-200 hover:border-gray-300 bg-gray-50 hover:bg-white"}`}>
-                          <img src={EXPEDITION_LOGO[exp]} alt={exp} className="h-7 w-auto object-contain" />
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="border-t border-dashed border-gray-200" />
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                    Pengirim (Store) <span className="text-red-500">*</span>
-                  </label>
-                  <select value={form.sender} onChange={(e) => handleSenderChange(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors">
-                    <option value="">Pilih store pengirim</option>
-                    {storeAddresses.map((s) => <option key={s.id} value={s.store_location}>{s.store_location}</option>)}
-                  </select>
-                  {selectedSenderDetails && (
-                    <div className="mt-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-[10px] text-blue-700 space-y-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                        </svg>
-                        {selectedSenderDetails.phone_number}
-                      </div>
-                      <div className="flex items-start gap-1.5">
-                        <svg className="w-3 h-3 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        {selectedSenderDetails.address}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
-                      Penerima <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
-                      <button type="button"
-                        onClick={() => { setAddReceiverMode("dropdown"); setForm({ ...form, receiver: "" }); setAddReceiverStore(""); }}
-                        className={`px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${addReceiverMode === "dropdown" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-                        Store
-                      </button>
-                      <button type="button"
-                        onClick={() => { setAddReceiverMode("custom"); setAddReceiverStore(""); setForm({ ...form, receiver: "" }); }}
-                        className={`px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${addReceiverMode === "custom" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-                        Custom
-                      </button>
-                    </div>
-                  </div>
-                  {addReceiverMode === "dropdown" ? (
-                    <select value={addReceiverStore} onChange={(e) => handleReceiverStoreChange(e.target.value, false)}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors">
-                      <option value="">Pilih store penerima</option>
-                      {storeAddresses.map((s) => <option key={s.id} value={s.store_location}>{s.store_location}</option>)}
-                    </select>
-                  ) : (
-                    <div>
-                      <textarea value={form.receiver}
-                        onChange={(e) => { setForm({ ...form, receiver: e.target.value.slice(0, 200) }); setReceiverError(""); }}
-                        onBlur={() => setReceiverError(validateReceiver(form.receiver))}
-                        rows={4}
-                        placeholder={"Nama Penerima\n08xxxxxxxxxx\nJl. Contoh No. 1, Kota, Provinsi\n12345"}
-                        maxLength={200}
-                        className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-2 resize-none font-mono bg-gray-50 hover:bg-white transition-colors ${
-                          receiverError ? "border-red-300 focus:ring-red-200 focus:border-red-400" : "border-gray-200 focus:ring-primary/30 focus:border-primary"}`} />
-                      <div className="flex items-center justify-between mt-1">
-                        {receiverError
-                          ? <p className="text-[10px] text-red-500">⚠ {receiverError}</p>
-                          : <p className="text-[10px] text-gray-400">Nama · HP (08xx/+628xx) · alamat · kode pos 5 digit</p>}
-                        <p className={`text-[10px] tabular-nums shrink-0 ml-2 ${
-                          form.receiver.length >= 200 ? "text-red-500 font-semibold" : form.receiver.length >= 180 ? "text-yellow-500" : "text-gray-400"}`}>
-                          {form.receiver.length}/200
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="border-t border-dashed border-gray-200" />
-
-                <div className="grid grid-cols-[80px_1fr] gap-4 items-start">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                      Berat (kg) <span className="text-red-500">*</span>
-                    </label>
-                    <input type="number" min="1" step="1" value={form.weight}
-                      onChange={(e) => setForm({ ...form, weight: e.target.value })}
-                      placeholder="1"
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors" />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                      Alasan / Keterangan <span className="text-red-500">*</span>
-                    </label>
-                    <textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} rows={2}
-                      placeholder="Misal: Order WAG, Retur barang rusak..."
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none bg-gray-50 hover:bg-white transition-colors" />
-                  </div>
-                </div>
-
-                {renderTypeReasonFields(form, setForm, salesOrderError, setSalesOrderError)}
-              </div>
-
-              <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
-                <button onClick={() => { setShowAddModal(false); resetAddForm(); }}
-                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-semibold hover:bg-gray-200 transition-colors">
-                  Batal
-                </button>
-                <button onClick={handleAdd} disabled={submitting}
-                  className="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors">
-                  {submitting ? "Menyimpan..." : "Submit Request"}
-                </button>
+              <div>
+                <FieldLabel required>Assigned To</FieldLabel>
+                <select value={form.assigned_to} onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
+                  className={inputClass()}>
+                  <option value="">Pilih assignee</option>
+                  {dropdownData.assignees.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+                </select>
               </div>
             </div>
+
+            <div>
+              <FieldLabel required>Ekspedisi</FieldLabel>
+              <div className="flex gap-3">
+                {EXPEDITIONS.map((exp) => {
+                  const isSelected = form.expedition === exp;
+                  return (
+                    <button key={exp} type="button" onClick={() => setForm({ ...form, expedition: exp })}
+                      className={`flex-1 flex items-center justify-center py-2.5 px-4 rounded-lg border-2 transition-all duration-200 ${
+                        isSelected ? "border-primary bg-primary/5 shadow-sm" : "border-gray-200 hover:border-gray-300 bg-gray-50 hover:bg-white"}`}>
+                      <img src={EXPEDITION_LOGO[exp]} alt={exp} className="h-7 w-auto object-contain" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <FormDivider />
+
+            <div>
+              <FieldLabel required>Pengirim (Store)</FieldLabel>
+              <select value={form.sender} onChange={(e) => handleSenderChange(e.target.value)}
+                className={inputClass()}>
+                <option value="">Pilih store pengirim</option>
+                {storeAddresses.map((s) => <option key={s.id} value={s.store_location}>{s.store_location}</option>)}
+              </select>
+              {selectedSenderDetails && (
+                <div className="mt-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-[11px] text-blue-700 space-y-0.5">
+                  <p>{selectedSenderDetails.phone_number}</p>
+                  <p>{selectedSenderDetails.address}</p>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <FieldLabel required>Penerima</FieldLabel>
+                <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
+                  <button type="button"
+                    onClick={() => { setAddReceiverMode("dropdown"); setForm({ ...form, receiver: "" }); setAddReceiverStore(""); }}
+                    className={`px-3 py-1 rounded-md text-[11px] font-semibold transition-all duration-200 ${addReceiverMode === "dropdown" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                    Store
+                  </button>
+                  <button type="button"
+                    onClick={() => { setAddReceiverMode("custom"); setAddReceiverStore(""); setForm({ ...form, receiver: "" }); }}
+                    className={`px-3 py-1 rounded-md text-[11px] font-semibold transition-all duration-200 ${addReceiverMode === "custom" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                    Custom
+                  </button>
+                </div>
+              </div>
+              {addReceiverMode === "dropdown" ? (
+                <select value={addReceiverStore} onChange={(e) => handleReceiverStoreChange(e.target.value, false)}
+                  className={inputClass()}>
+                  <option value="">Pilih store penerima</option>
+                  {storeAddresses.map((s) => <option key={s.id} value={s.store_location}>{s.store_location}</option>)}
+                </select>
+              ) : (
+                <div>
+                  <textarea value={form.receiver}
+                    onChange={(e) => { setForm({ ...form, receiver: e.target.value.slice(0, 200) }); setReceiverError(""); }}
+                    onBlur={() => setReceiverError(validateReceiver(form.receiver))}
+                    rows={4}
+                    placeholder={"Nama Penerima\n08xxxxxxxxxx\nJl. Contoh No. 1, Kota, Provinsi\n12345"}
+                    maxLength={200}
+                    className={`${inputClass(!!receiverError)} resize-none font-mono`} />
+                  <div className="flex items-center justify-between mt-1">
+                    <FieldHint error={receiverError} hint="Nama · HP (08xx/+628xx) · alamat · kode pos 5 digit" />
+                    <p className={`text-[11px] tabular-nums shrink-0 ml-2 ${
+                      form.receiver.length >= 200 ? "text-red-500 font-semibold" : form.receiver.length >= 180 ? "text-yellow-500" : "text-gray-400"}`}>
+                      {form.receiver.length}/200
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <FormDivider />
+
+            <div className="grid grid-cols-[80px_1fr] gap-4 items-start">
+              <div>
+                <FieldLabel required>Berat (kg)</FieldLabel>
+                <input type="number" min="1" step="1" value={form.weight}
+                  onChange={(e) => setForm({ ...form, weight: e.target.value })}
+                  placeholder="1"
+                  className={inputClass()} />
+              </div>
+              <div>
+                <FieldLabel required>Alasan / Keterangan</FieldLabel>
+                <textarea value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} rows={2}
+                  placeholder="Misal: Order WAG, Retur barang rusak..."
+                  className={`${inputClass()} resize-none`} />
+              </div>
+            </div>
+
+            {renderTypeReasonFields(form, setForm, salesOrderError, setSalesOrderError)}
           </div>
-        )}
+        </Modal>
 
         {/* Edit Modal */}
-        {showEditModal && selectedItem && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto max-h-[90vh] flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                <div>
-                  <h2 className="text-base font-bold text-gray-900">Edit Request Shipment</h2>
-                  <p className="text-[11px] text-gray-400 mt-0.5">
-                    <span className="font-mono">{selectedItem.id}</span> · {selectedItem.request_by}
-                  </p>
-                </div>
-                <button
+        {selectedItem && (
+          <Modal
+            open={showEditModal}
+            onClose={() => { setShowEditModal(false); setSelectedItem(null); setReceiverError(""); setEditSalesOrderError(""); }}
+            icon={Plus}
+            title="Edit Request Shipment"
+            description={<><span className="font-mono">{selectedItem.id}</span> · {selectedItem.request_by}</>}
+            footer={
+              <>
+                <Button
+                  variant="secondary"
+                  className="flex-1 justify-center"
                   onClick={() => { setShowEditModal(false); setSelectedItem(null); setReceiverError(""); setEditSalesOrderError(""); }}
-                  className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                  Batal
+                </Button>
+                <Button className="flex-1 justify-center" onClick={handleEdit} loading={submitting}>
+                  {submitting ? "Menyimpan..." : "Simpan Perubahan"}
+                </Button>
+              </>
+            }
+          >
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <FieldLabel>Tanggal</FieldLabel>
+                  <input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                    className={inputClass()} />
+                </div>
+                <div>
+                  <FieldLabel>Assigned To</FieldLabel>
+                  <select value={editForm.assigned_to} onChange={(e) => setEditForm({ ...editForm, assigned_to: e.target.value })}
+                    className={inputClass()}>
+                    <option value="">Pilih assignee</option>
+                    {dropdownData.assignees.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+                  </select>
+                </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Tanggal</label>
-                    <input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors" />
+              <div>
+                <FieldLabel>Ekspedisi</FieldLabel>
+                <div className="flex gap-3">
+                  {EXPEDITIONS.map((exp) => {
+                    const isSelected = editForm.expedition === exp;
+                    return (
+                      <button key={exp} type="button" onClick={() => setEditForm({ ...editForm, expedition: exp })}
+                        className={`flex-1 flex items-center justify-center py-2.5 px-4 rounded-lg border-2 transition-all duration-200 ${
+                          isSelected ? "border-primary bg-primary/5 shadow-sm" : "border-gray-200 hover:border-gray-300 bg-gray-50 hover:bg-white"}`}>
+                        <img src={EXPEDITION_LOGO[exp]} alt={exp} className="h-7 w-auto object-contain" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <FormDivider />
+
+              <div>
+                <FieldLabel>Pengirim (Store)</FieldLabel>
+                <select value={editForm.sender} onChange={(e) => handleSenderChange(e.target.value, true)}
+                  className={inputClass()}>
+                  <option value="">Pilih store pengirim</option>
+                  {storeAddresses.map((s) => <option key={s.id} value={s.store_location}>{s.store_location}</option>)}
+                </select>
+                {editSenderDetails && (
+                  <div className="mt-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-[11px] text-blue-700 space-y-0.5">
+                    <p>{editSenderDetails.phone_number}</p>
+                    <p>{editSenderDetails.address}</p>
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Assigned To</label>
-                    <select value={editForm.assigned_to} onChange={(e) => setEditForm({ ...editForm, assigned_to: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors">
-                      <option value="">Pilih assignee</option>
-                      {dropdownData.assignees.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
-                    </select>
+                )}
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <FieldLabel>Penerima</FieldLabel>
+                  <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
+                    <button type="button"
+                      onClick={() => { setEditReceiverMode("dropdown"); setEditForm({ ...editForm, receiver: "" }); setEditReceiverStore(""); }}
+                      className={`px-3 py-1 rounded-md text-[11px] font-semibold transition-all duration-200 ${editReceiverMode === "dropdown" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                      Store
+                    </button>
+                    <button type="button"
+                      onClick={() => { setEditReceiverMode("custom"); setEditReceiverStore(""); setEditForm({ ...editForm, receiver: "" }); }}
+                      className={`px-3 py-1 rounded-md text-[11px] font-semibold transition-all duration-200 ${editReceiverMode === "custom" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                      Custom
+                    </button>
                   </div>
                 </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Ekspedisi</label>
-                  <div className="flex gap-3">
-                    {EXPEDITIONS.map((exp) => {
-                      const isSelected = editForm.expedition === exp;
-                      return (
-                        <button key={exp} type="button" onClick={() => setEditForm({ ...editForm, expedition: exp })}
-                          className={`flex-1 flex items-center justify-center py-2.5 px-4 rounded-lg border-2 transition-all ${
-                            isSelected ? "border-primary bg-primary/5 shadow-sm" : "border-gray-200 hover:border-gray-300 bg-gray-50 hover:bg-white"}`}>
-                          <img src={EXPEDITION_LOGO[exp]} alt={exp} className="h-7 w-auto object-contain" />
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="border-t border-dashed border-gray-200" />
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Pengirim (Store)</label>
-                  <select value={editForm.sender} onChange={(e) => handleSenderChange(e.target.value, true)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors">
-                    <option value="">Pilih store pengirim</option>
+                {editReceiverMode === "dropdown" ? (
+                  <select value={editReceiverStore} onChange={(e) => handleReceiverStoreChange(e.target.value, true)}
+                    className={inputClass()}>
+                    <option value="">Pilih store penerima</option>
                     {storeAddresses.map((s) => <option key={s.id} value={s.store_location}>{s.store_location}</option>)}
                   </select>
-                  {editSenderDetails && (
-                    <div className="mt-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-[10px] text-blue-700 space-y-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                        </svg>
-                        {editSenderDetails.phone_number}
-                      </div>
-                      <div className="flex items-start gap-1.5">
-                        <svg className="w-3 h-3 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        {editSenderDetails.address}
-                      </div>
+                ) : (
+                  <div>
+                    <textarea value={editForm.receiver}
+                      onChange={(e) => { setEditForm({ ...editForm, receiver: e.target.value.slice(0, 200) }); setReceiverError(""); }}
+                      onBlur={() => setReceiverError(validateReceiver(editForm.receiver))}
+                      rows={4}
+                      placeholder={"Nama Penerima\n08xxxxxxxxxx\nJl. Contoh No. 1, Kota, Provinsi\n12345"}
+                      maxLength={200}
+                      className={`${inputClass(!!receiverError)} resize-none font-mono`} />
+                    <div className="flex items-center justify-between mt-1">
+                      <FieldHint error={receiverError} hint="Nama · HP (08xx/+628xx) · alamat · kode pos 5 digit" />
+                      <p className={`text-[11px] tabular-nums shrink-0 ml-2 ${
+                        editForm.receiver.length >= 200 ? "text-red-500 font-semibold" : editForm.receiver.length >= 180 ? "text-yellow-500" : "text-gray-400"}`}>
+                        {editForm.receiver.length}/200
+                      </p>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+              </div>
 
+              <FormDivider />
+
+              <div className="grid grid-cols-[80px_1fr] gap-4 items-start">
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Penerima</label>
-                    <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
-                      <button type="button"
-                        onClick={() => { setEditReceiverMode("dropdown"); setEditForm({ ...editForm, receiver: "" }); setEditReceiverStore(""); }}
-                        className={`px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${editReceiverMode === "dropdown" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-                        Store
-                      </button>
-                      <button type="button"
-                        onClick={() => { setEditReceiverMode("custom"); setEditReceiverStore(""); setEditForm({ ...editForm, receiver: "" }); }}
-                        className={`px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${editReceiverMode === "custom" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-                        Custom
-                      </button>
-                    </div>
-                  </div>
-                  {editReceiverMode === "dropdown" ? (
-                    <select value={editReceiverStore} onChange={(e) => handleReceiverStoreChange(e.target.value, true)}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors">
-                      <option value="">Pilih store penerima</option>
-                      {storeAddresses.map((s) => <option key={s.id} value={s.store_location}>{s.store_location}</option>)}
-                    </select>
-                  ) : (
-                    <div>
-                      <textarea value={editForm.receiver}
-                        onChange={(e) => { setEditForm({ ...editForm, receiver: e.target.value.slice(0, 200) }); setReceiverError(""); }}
-                        onBlur={() => setReceiverError(validateReceiver(editForm.receiver))}
-                        rows={4}
-                        placeholder={"Nama Penerima\n08xxxxxxxxxx\nJl. Contoh No. 1, Kota, Provinsi\n12345"}
-                        maxLength={200}
-                        className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:ring-2 resize-none font-mono bg-gray-50 hover:bg-white transition-colors ${
-                          receiverError ? "border-red-300 focus:ring-red-200 focus:border-red-400" : "border-gray-200 focus:ring-primary/30 focus:border-primary"}`} />
-                      <div className="flex items-center justify-between mt-1">
-                        {receiverError
-                          ? <p className="text-[10px] text-red-500">⚠ {receiverError}</p>
-                          : <p className="text-[10px] text-gray-400">Nama · HP (08xx/+628xx) · alamat · kode pos 5 digit</p>}
-                        <p className={`text-[10px] tabular-nums shrink-0 ml-2 ${
-                          editForm.receiver.length >= 200 ? "text-red-500 font-semibold" : editForm.receiver.length >= 180 ? "text-yellow-500" : "text-gray-400"}`}>
-                          {editForm.receiver.length}/200
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                  <FieldLabel>Berat (kg)</FieldLabel>
+                  <input type="number" min="1" step="1" value={editForm.weight}
+                    onChange={(e) => setEditForm({ ...editForm, weight: e.target.value })}
+                    className={inputClass()} />
                 </div>
-
-                <div className="border-t border-dashed border-gray-200" />
-
-                <div className="grid grid-cols-[80px_1fr] gap-4 items-start">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Berat (kg)</label>
-                    <input type="number" min="1" step="1" value={editForm.weight}
-                      onChange={(e) => setEditForm({ ...editForm, weight: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-gray-50 hover:bg-white transition-colors" />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Alasan / Keterangan</label>
-                    <textarea value={editForm.reason} onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })} rows={2}
-                      placeholder="Misal: Order WAG, Retur barang rusak..."
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none bg-gray-50 hover:bg-white transition-colors" />
-                  </div>
+                <div>
+                  <FieldLabel>Alasan / Keterangan</FieldLabel>
+                  <textarea value={editForm.reason} onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })} rows={2}
+                    placeholder="Misal: Order WAG, Retur barang rusak..."
+                    className={`${inputClass()} resize-none`} />
                 </div>
-
-                {renderTypeReasonFields(editForm, setEditForm, editSalesOrderError, setEditSalesOrderError)}
               </div>
 
-              <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
-                <button
-                  onClick={() => { setShowEditModal(false); setSelectedItem(null); setReceiverError(""); setEditSalesOrderError(""); }}
-                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-semibold hover:bg-gray-200 transition-colors">
-                  Batal
-                </button>
-                <button onClick={handleEdit} disabled={submitting}
-                  className="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors">
-                  {submitting ? "Menyimpan..." : "Simpan Perubahan"}
-                </button>
-              </div>
+              {renderTypeReasonFields(editForm, setEditForm, editSalesOrderError, setEditSalesOrderError)}
             </div>
-          </div>
+          </Modal>
         )}
 
         {/* Upload Modal */}
-        {showUploadModal && selectedItem && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-5 max-w-sm w-full mx-4 shadow-xl">
-              <h2 className="text-sm font-bold text-primary mb-3">Upload Resi</h2>
-              <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200 mb-3 text-[11px]">
+        {selectedItem && (
+          <Modal
+            open={showUploadModal}
+            onClose={() => { setShowUploadModal(false); setSelectedItem(null); setUploadFile(null); }}
+            title="Upload Resi"
+            maxWidth="max-w-sm"
+            footer={
+              <>
+                <Button
+                  variant="secondary"
+                  className="flex-1 justify-center"
+                  onClick={() => { setShowUploadModal(false); setSelectedItem(null); setUploadFile(null); }}
+                >
+                  Batal
+                </Button>
+                <Button
+                  variant="primary"
+                  className="flex-1 justify-center bg-green-600 border-green-600 hover:bg-green-700"
+                  onClick={handleUpload}
+                  disabled={!uploadFile}
+                  loading={submitting}
+                >
+                  {submitting ? "Mengupload..." : "Upload & Selesaikan"}
+                </Button>
+              </>
+            }
+          >
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 p-2.5 bg-gray-50 rounded-xl border border-gray-200 text-[11px]">
                 <div className="flex-1 min-w-0 space-y-0.5">
                   <div className="flex items-center gap-1.5">
                     <span className="font-mono font-semibold text-gray-800 truncate">{selectedItem.id}</span>
@@ -1632,9 +1076,7 @@ export default function RequestTrackingPage() {
                     <span className="text-gray-600 truncate">{selectedItem.assigned_to}</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-gray-500">
-                    {EXPEDITION_LOGO[selectedItem.expedition]
-                      ? <img src={EXPEDITION_LOGO[selectedItem.expedition]} alt={selectedItem.expedition} className="h-3.5 w-auto object-contain" />
-                      : <span>{selectedItem.expedition}</span>}
+                    <ExpeditionBadge expedition={selectedItem.expedition} />
                     <span className="text-gray-400">·</span>
                     <span className="truncate">{selectedItem.sender}</span>
                     <span className="text-gray-400">·</span>
@@ -1644,36 +1086,28 @@ export default function RequestTrackingPage() {
                     <div className="flex items-center gap-1.5">
                       <TypeReasonBadge typeReason={selectedItem.type_reason} />
                       {selectedItem.sales_order && (
-                        <span className="font-mono text-[10px] text-gray-600">{selectedItem.sales_order}</span>
+                        <span className="font-mono text-[11px] text-gray-600">{selectedItem.sales_order}</span>
                       )}
                     </div>
                   )}
                 </div>
                 <CopyButton text={selectedItem.receiver} id={`upload-${selectedItem.id}`} copiedId={copiedId} onCopy={handleCopyReceiver} />
               </div>
-              <div className="mb-3 px-2 py-1.5 bg-blue-50 border border-blue-100 rounded text-[10px] font-mono text-blue-800 whitespace-pre-line leading-relaxed">
+
+              <div className="px-2.5 py-2 bg-blue-50 border border-blue-100 rounded-xl text-[11px] font-mono text-blue-800 whitespace-pre-line leading-relaxed">
                 {selectedItem.receiver}
               </div>
-              <div className="mb-3 flex items-start gap-1.5 p-2 bg-yellow-50 border border-yellow-200 rounded text-[10px] text-yellow-800">
-                <svg className="w-3 h-3 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+
+              <div className="flex items-start gap-1.5 p-2.5 bg-yellow-50 border border-yellow-200 rounded-xl text-[11px] text-yellow-800">
                 <span>Nomor resi akan terbaca otomatis dari file yang diupload</span>
               </div>
-              <div className="mb-4">
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">File Resi / Bukti</label>
+
+              <div>
+                <FieldLabel>File Resi / Bukti</FieldLabel>
                 <DropZone file={uploadFile} onFile={setUploadFile} inputRef={uploadFileRef} />
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => { setShowUploadModal(false); setSelectedItem(null); setUploadFile(null); }}
-                  className="flex-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200 border border-gray-200">Batal</button>
-                <button onClick={handleUpload} disabled={submitting || !uploadFile}
-                  className="flex-1 px-3 py-1.5 bg-green-600 text-white rounded text-xs hover:bg-green-700 disabled:opacity-40 font-medium">
-                  {submitting ? "Mengupload..." : "Upload & Selesaikan"}
-                </button>
-              </div>
             </div>
-          </div>
+          </Modal>
         )}
 
         <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />

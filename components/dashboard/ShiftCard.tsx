@@ -74,7 +74,7 @@ export function ShiftCard({
                 {taft.name?.charAt(0).toUpperCase() || "?"}
               </span>
               <span
-                className="truncate text-[11px] text-gray-700"
+                className="truncate text-[11px]"
                 title={taft.name}
               >
                 {truncateName(taft.name, 13)}

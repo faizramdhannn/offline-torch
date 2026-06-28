@@ -32,7 +32,7 @@ export function DashboardHeader({
         <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
           Dashboard
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm">
           {dayLabel}, {dateLabel}
         </p>
       </div>
