@@ -142,8 +142,18 @@ async function withRetry<T>(
 // Cache ini per-instance (hilang saat cold start baru), tapi cukup efektif
 // menahan request berulang dalam jangka pendek — termasuk saat beberapa
 // user/tab membuka sheet yang sama hampir bersamaan.
-const CACHE_TTL_MS = 45_000; // 45 detik — sesuaikan kalau perlu data lebih real-time
+const CACHE_TTL_MS = 120_000; // 2 menit — dinaikkan dari 45s karena data stock/master
+// tidak perlu real-time detik-ke-detik, dan supaya lebih tahan terhadap burst traffic.
 const _sheetCache = new Map<string, { data: any; expiresAt: number }>();
+
+// ✅ In-flight de-duplication ("single-flight"): kalau ada beberapa request
+// masuk hampir bersamaan untuk SHEET YANG SAMA sebelum cache terisi (misal 2
+// tab dibuka bareng, atau beberapa user buka halaman yang sama persis dalam
+// hitungan detik), jangan masing-masing bikin call baru ke Sheets API.
+// Request kedua dst cukup "numpang" ke Promise yang sama dari request
+// pertama yang masih berjalan. Ini mengurangi beban di saat-saat paling
+// rawan kena rate limit: traffic yang menumpuk bersamaan.
+const _inFlight = new Map<string, Promise<any>>();
 
 function getCachedSheetData(sheetName: string): any | null {
   const entry = _sheetCache.get(sheetName);
@@ -169,13 +179,17 @@ export async function getSheetData(sheetName: string, opts?: { skipCache?: boole
   if (!opts?.skipCache) {
     const cached = getCachedSheetData(sheetName);
     if (cached !== null) return cached;
+
+    const pending = _inFlight.get(sheetName);
+    if (pending) return pending;
   }
 
   const spreadsheetId = getSpreadsheetId(sheetName);
   if (!spreadsheetId) {
     throw new Error(`No spreadsheet ID configured for sheet: ${sheetName}`);
   }
-  const result = await withRetry(
+
+  const fetchPromise = withRetry(
     async () => {
       const sheets = getSheetsClient();
       const response = await withTimeout(
@@ -200,10 +214,22 @@ export async function getSheetData(sheetName: string, opts?: { skipCache?: boole
     },
     3, // ✅ coba maksimal 3x
     `getSheetData(${sheetName})`
-  );
+  )
+    .then((result) => {
+      setCachedSheetData(sheetName, result);
+      _inFlight.delete(sheetName);
+      return result;
+    })
+    .catch((err) => {
+      _inFlight.delete(sheetName);
+      throw err;
+    });
 
-  setCachedSheetData(sheetName, result);
-  return result;
+  if (!opts?.skipCache) {
+    _inFlight.set(sheetName, fetchPromise);
+  }
+
+  return fetchPromise;
 }
 
 export async function updateSheetDataWithHeader(sheetName: string, data: any[][]) {
