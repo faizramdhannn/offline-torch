@@ -9,8 +9,18 @@ export async function GET(request: NextRequest) {
     const data = await getSheetData(type);
     return NextResponse.json(data);
   } catch (error) {
+    console.error('Stock fetch error:', error);
+    const message = error instanceof Error ? error.message : String(error);
+    // Kalau ini timeout/quota dari Google Sheets, kasih pesan yang lebih jelas
+    // ke user daripada generic "Failed to fetch stock data".
+    const isQuotaOrTimeout = /timeout|quota/i.test(message);
     return NextResponse.json(
-      { error: 'Failed to fetch stock data' },
+      {
+        error: isQuotaOrTimeout
+          ? 'Server sedang sibuk (limit Google Sheets API tercapai). Coba lagi dalam beberapa saat.'
+          : 'Failed to fetch stock data',
+        details: message,
+      },
       { status: 500 }
     );
   }

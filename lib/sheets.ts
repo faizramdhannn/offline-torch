@@ -135,12 +135,47 @@ async function withRetry<T>(
   throw lastError;
 }
 
-export async function getSheetData(sheetName: string) {
+// ✅ Cache in-memory untuk hasil read (getSheetData).
+// Semua fitur (stock, attendance, dashboard, dll) berbagi SATU service account
+// Google yang sama, jadi kuota "read requests per minute per user" gampang
+// habis kalau setiap page load/navigasi langsung nembak Sheets API tanpa cache.
+// Cache ini per-instance (hilang saat cold start baru), tapi cukup efektif
+// menahan request berulang dalam jangka pendek — termasuk saat beberapa
+// user/tab membuka sheet yang sama hampir bersamaan.
+const CACHE_TTL_MS = 45_000; // 45 detik — sesuaikan kalau perlu data lebih real-time
+const _sheetCache = new Map<string, { data: any; expiresAt: number }>();
+
+function getCachedSheetData(sheetName: string): any | null {
+  const entry = _sheetCache.get(sheetName);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    _sheetCache.delete(sheetName);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCachedSheetData(sheetName: string, data: any) {
+  _sheetCache.set(sheetName, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+}
+
+// Dipanggil setiap kali ada write (update/append/delete) supaya read
+// berikutnya tidak menyajikan data basi dari cache.
+function invalidateSheetCache(sheetName: string) {
+  _sheetCache.delete(sheetName);
+}
+
+export async function getSheetData(sheetName: string, opts?: { skipCache?: boolean }) {
+  if (!opts?.skipCache) {
+    const cached = getCachedSheetData(sheetName);
+    if (cached !== null) return cached;
+  }
+
   const spreadsheetId = getSpreadsheetId(sheetName);
   if (!spreadsheetId) {
     throw new Error(`No spreadsheet ID configured for sheet: ${sheetName}`);
   }
-  return withRetry(
+  const result = await withRetry(
     async () => {
       const sheets = getSheetsClient();
       const response = await withTimeout(
@@ -166,6 +201,9 @@ export async function getSheetData(sheetName: string) {
     3, // ✅ coba maksimal 3x
     `getSheetData(${sheetName})`
   );
+
+  setCachedSheetData(sheetName, result);
+  return result;
 }
 
 export async function updateSheetDataWithHeader(sheetName: string, data: any[][]) {
@@ -196,6 +234,7 @@ export async function updateSheetDataWithHeader(sheetName: string, data: any[][]
           `update(${sheetName})`
         );
       }
+      invalidateSheetCache(sheetName);
       return { success: true };
     },
     3,
@@ -222,6 +261,7 @@ export async function appendSheetData(sheetName: string, data: any[][]) {
         15000,
         `appendSheetData(${sheetName})`
       );
+      invalidateSheetCache(sheetName);
       return { success: true };
     },
     3,
@@ -255,6 +295,7 @@ export async function updateSheetRow(
         15000,
         `updateSheetRow(${sheetName}, row=${rowIndex})`
       );
+      invalidateSheetCache(sheetName);
       return { success: true };
     },
     3,
@@ -295,6 +336,7 @@ export async function updateMultipleSheetRows(
         20000,
         `updateMultipleSheetRows(${sheetName}, rows=${updates.length})`
       );
+      invalidateSheetCache(sheetName);
       return { success: true, updated: updates.length };
     },
     3,
@@ -355,6 +397,7 @@ export async function deleteSheetRows(sheetName: string, rowIndexes: number[]) {
         `deleteSheetRows(${sheetName}, rows=${rowIndexes.length})`
       );
 
+      invalidateSheetCache(sheetName);
       return { success: true, deleted: rowIndexes.length };
     },
     3,
@@ -403,6 +446,7 @@ export async function updateSheetRowSkipColumns(
         `updateSheetRowSkipColumns(${sheetName}, row=${rowIndex})`
       );
 
+      invalidateSheetCache(sheetName);
       return { success: true };
     },
     3,

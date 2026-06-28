@@ -222,6 +222,16 @@ export default function StockPage() {
       if (selectedView === "master") sheetName = "master_item";
       const response = await fetch(`/api/stock?type=${sheetName}`);
       const result = await response.json();
+      if (!response.ok || !Array.isArray(result)) {
+        // Backend gagal (misal: Google Sheets API sedang rate-limited/quota
+        // exceeded) — result di sini berupa { error: "..." }, bukan array,
+        // jadi jangan lanjut ke .map() supaya tidak crash dengan pesan generik.
+        throw new Error(
+          (result && typeof result === "object" && "error" in result
+            ? result.error
+            : null) || "Gagal memuat data stock. Coba lagi sebentar."
+        );
+      }
       const normalizedData = result.map((item: any) => ({
         ...item,
         sku: item.sku || item.SKU || "",
@@ -250,7 +260,12 @@ export default function StockPage() {
       setPriceBounds([minPrice, maxPrice]);
       setPriceRange([minPrice, maxPrice]);
     } catch (error) {
-      showMessage("Failed to fetch data", "error");
+      showMessage(
+        error instanceof Error
+          ? error.message
+          : "Gagal memuat data stock. Coba lagi sebentar.",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
@@ -260,7 +275,7 @@ export default function StockPage() {
     try {
       const response = await fetch("/api/stock/last-update");
       const data = await response.json();
-      setLastUpdate(Array.isArray(data) ? data : []);
+      setLastUpdate(response.ok && Array.isArray(data) ? data : []);
     } catch {
       setLastUpdate([]);
     }
