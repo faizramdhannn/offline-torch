@@ -31,8 +31,8 @@ interface EntryTableProps {
   totalValue: number;
 }
 
-const thClass = "px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500";
-const tdClass = "px-3 py-2.5 text-xs text-gray-700";
+const thClass = "px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap";
+const tdClass = "px-2 py-1.5 text-[11px] text-gray-700";
 
 export function EntryTable({
   items,
@@ -76,28 +76,28 @@ export function EntryTable({
                 )}
               >
                 <td className={cn(tdClass, "whitespace-nowrap text-gray-500")}>{item.date}</td>
-                <td className={cn(tdClass, "max-w-[180px] truncate")} title={item.description}>
+                <td className={cn(tdClass, "max-w-[140px] truncate")} title={item.description}>
                   {item.description}
                 </td>
-                <td className={tdClass}>{item.category}</td>
+                <td className={cn(tdClass, "max-w-[90px] truncate")}>{item.category}</td>
                 <td className={cn(tdClass, "text-right tabular-nums font-medium")}>{formatRupiah(item.value)}</td>
-                <td className={cn(tdClass, "max-w-[100px] truncate")}>{item.store}</td>
-                <td className={cn(tdClass, "max-w-[140px] truncate text-gray-500")}>{item.ket || "-"}</td>
+                <td className={cn(tdClass, "max-w-[80px] truncate")}>{item.store}</td>
+                <td className={cn(tdClass, "max-w-[110px] truncate text-gray-500")}>{item.ket || "-"}</td>
                 <td className={cn(tdClass, "text-center")} onClick={(e) => e.stopPropagation()}>
                   {canExport ? (
                     <button
                       onClick={() => onToggleTransfer(item)}
                       disabled={updatingTransfer === item.id}
                       className={cn(
-                        "mx-auto flex h-5 w-5 items-center justify-center rounded-md border-2 transition-colors duration-200",
+                        "mx-auto flex h-4 w-4 items-center justify-center rounded-md border-2 transition-colors duration-200",
                         item.transfer === "TRUE" ? "border-green-500 bg-green-500" : "border-gray-300 bg-white hover:border-green-400",
                         updatingTransfer === item.id ? "cursor-wait opacity-50" : "cursor-pointer"
                       )}
                     >
-                      {item.transfer === "TRUE" && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                      {item.transfer === "TRUE" && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
                     </button>
                   ) : (
-                    <span className="text-gray-400">{item.transfer === "TRUE" ? <Check className="mx-auto h-3.5 w-3.5 text-green-600" /> : "-"}</span>
+                    <span className="text-gray-400">{item.transfer === "TRUE" ? <Check className="mx-auto h-3 w-3 text-green-600" /> : "-"}</span>
                   )}
                 </td>
                 <td className={cn(tdClass, "text-center")} onClick={(e) => e.stopPropagation()}>
@@ -106,9 +106,9 @@ export function EntryTable({
                       href={item.link_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600 transition-colors hover:bg-blue-100"
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-blue-50 text-blue-600 transition-colors hover:bg-blue-100"
                     >
-                      <ExternalLink className="h-3.5 w-3.5" />
+                      <ExternalLink className="h-3 w-3" />
                     </a>
                   ) : (
                     <span className="text-gray-300">—</span>
@@ -116,20 +116,20 @@ export function EntryTable({
                 </td>
                 <td className={tdClass} onClick={(e) => e.stopPropagation()}>
                   {canEditDelete(item) && (
-                    <div className="flex items-center justify-center gap-1">
+                    <div className="flex items-center justify-center gap-0.5">
                       <button
                         onClick={() => onEdit(item)}
                         title="Edit"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-yellow-50 text-yellow-600 transition-colors hover:bg-yellow-100"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-yellow-50 text-yellow-600 transition-colors hover:bg-yellow-100"
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil className="h-3 w-3" />
                       </button>
                       <button
                         onClick={() => onDelete(item.id)}
                         title="Hapus"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-red-600 transition-colors hover:bg-red-100"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-red-50 text-red-600 transition-colors hover:bg-red-100"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3 w-3" />
                       </button>
                     </div>
                   )}
@@ -139,10 +139,10 @@ export function EntryTable({
           </tbody>
           <tfoot>
             <tr className="border-t border-gray-200 bg-gray-50 font-semibold">
-              <td colSpan={3} className="px-3 py-2.5 text-right text-xs text-gray-600">
+              <td colSpan={3} className="px-2 py-2 text-right text-[11px] text-gray-600">
                 Total:
               </td>
-              <td className="px-3 py-2.5 text-right text-xs tabular-nums text-gray-900">{formatRupiah(totalValue)}</td>
+              <td className="px-2 py-2 text-right text-[11px] tabular-nums text-gray-900">{formatRupiah(totalValue)}</td>
               <td colSpan={5} />
             </tr>
           </tfoot>

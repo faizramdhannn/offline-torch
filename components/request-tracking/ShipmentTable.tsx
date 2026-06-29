@@ -45,8 +45,8 @@ interface ShipmentTableProps {
   highlightText: (text: string, query: string) => ReactNode;
 }
 
-const thClass = "px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500";
-const tdClass = "px-3 py-2.5 text-xs text-gray-700";
+const thClass = "px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap";
+const tdClass = "px-2 py-1.5 text-[11px] text-gray-700";
 
 export function ShipmentTable({
   items,
@@ -107,15 +107,15 @@ export function ShipmentTable({
                   )}
                 >
                   <td className={cn(tdClass, "whitespace-nowrap text-gray-500")}>{item.date}</td>
-                  <td className={cn(tdClass, "max-w-[110px] truncate font-medium")}>{item.assigned_to}</td>
+                  <td className={cn(tdClass, "max-w-[80px] truncate font-medium")}>{item.assigned_to}</td>
                   <td className={tdClass}>
                     <ExpeditionBadge expedition={item.expedition} />
                   </td>
-                  <td className={cn(tdClass, "max-w-[120px] truncate")}>{item.sender}</td>
-                  <td className={cn(tdClass, "text-right tabular-nums text-gray-500")}>{item.weight} kg</td>
+                  <td className={cn(tdClass, "max-w-[90px] truncate")}>{item.sender}</td>
+                  <td className={cn(tdClass, "text-right tabular-nums text-gray-500")}>{item.weight}kg</td>
 
                   {/* Penerima */}
-                  <td className={cn(tdClass, "max-w-[160px]")}>
+                  <td className={cn(tdClass, "max-w-[110px]")}>
                     <div className="flex items-center gap-1">
                       <span className="truncate" title={item.receiver}>
                         {hasActiveSearch ? highlightText(item.receiver.split("\n")[0], searchQuery) : item.receiver.split("\n")[0]}
@@ -129,10 +129,10 @@ export function ShipmentTable({
                   </td>
 
                   {/* No. Resi */}
-                  <td className={tdClass} onClick={(e) => e.stopPropagation()}>
+                  <td className={cn(tdClass, "max-w-[120px]")} onClick={(e) => e.stopPropagation()}>
                     {item.tracking_number ? (
-                      <div className="flex items-center gap-1">
-                        <span className="truncate font-mono text-[11px] font-semibold text-blue-700" title={item.tracking_number}>
+                      <div className="flex items-center gap-0.5">
+                        <span className="truncate font-mono text-[10px] font-semibold text-blue-700" title={item.tracking_number}>
                           {hasActiveSearch ? highlightText(item.tracking_number, searchQuery) : item.tracking_number}
                         </span>
                         <CopyButton text={item.tracking_number} id={`resi-${item.id}`} copiedId={copiedId} onCopy={onCopy} />
@@ -149,9 +149,9 @@ export function ShipmentTable({
                   </td>
 
                   {/* Sales Order */}
-                  <td className={cn(tdClass, "max-w-[100px] truncate")}>
+                  <td className={cn(tdClass, "max-w-[80px] truncate")}>
                     {item.sales_order ? (
-                      <span className="font-mono text-[11px] text-gray-600">
+                      <span className="font-mono text-[10px] text-gray-600">
                         {hasActiveSearch ? highlightText(item.sales_order, searchQuery) : item.sales_order}
                       </span>
                     ) : (
@@ -160,7 +160,7 @@ export function ShipmentTable({
                   </td>
 
                   {/* Request By */}
-                  {canEdit && <td className={cn(tdClass, "max-w-[90px] truncate text-gray-500")}>{item.request_by}</td>}
+                  {canEdit && <td className={cn(tdClass, "max-w-[70px] truncate text-gray-500")}>{item.request_by}</td>}
 
                   {/* Status */}
                   <td className={tdClass}>
@@ -176,14 +176,14 @@ export function ShipmentTable({
 
                   {/* Aksi */}
                   <td className={tdClass} onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-center gap-1">
+                    <div className="flex items-center justify-center gap-0.5">
                       {canUpload && status === "pending" && (
                         <button
                           onClick={() => onUpload(item)}
                           title="Upload resi"
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600 transition-colors hover:bg-blue-100"
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-blue-50 text-blue-600 transition-colors hover:bg-blue-100"
                         >
-                          <Upload className="h-3.5 w-3.5" />
+                          <Upload className="h-3 w-3" />
                         </button>
                       )}
                       {status === "completed" && waLink && (
@@ -192,9 +192,9 @@ export function ShipmentTable({
                           target="_blank"
                           rel="noopener noreferrer"
                           title="Kirim via WhatsApp"
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-green-50 text-green-600 transition-colors hover:bg-green-100"
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-green-50 text-green-600 transition-colors hover:bg-green-100"
                         >
-                          <MessageCircle className="h-3.5 w-3.5" />
+                          <MessageCircle className="h-3 w-3" />
                         </a>
                       )}
                       {item.link_tracking && (
@@ -203,9 +203,9 @@ export function ShipmentTable({
                           target="_blank"
                           rel="noopener noreferrer"
                           title="Lihat resi"
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 text-gray-500 transition-colors hover:bg-gray-200"
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-gray-100 text-gray-500 transition-colors hover:bg-gray-200"
                         >
-                          <ExternalLink className="h-3.5 w-3.5" />
+                          <ExternalLink className="h-3 w-3" />
                         </a>
                       )}
                       {canMutate && (
@@ -213,16 +213,16 @@ export function ShipmentTable({
                           <button
                             onClick={() => onEdit(item)}
                             title="Edit"
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-yellow-50 text-yellow-600 transition-colors hover:bg-yellow-100"
+                            className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-yellow-50 text-yellow-600 transition-colors hover:bg-yellow-100"
                           >
-                            <Pencil className="h-3.5 w-3.5" />
+                            <Pencil className="h-3 w-3" />
                           </button>
                           <button
                             onClick={() => onDelete(item)}
                             title="Hapus"
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-red-600 transition-colors hover:bg-red-100"
+                            className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-red-50 text-red-600 transition-colors hover:bg-red-100"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-3 w-3" />
                           </button>
                         </>
                       )}
