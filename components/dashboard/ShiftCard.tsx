@@ -43,15 +43,15 @@ export function ShiftCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: "easeOut", delay }}
       whileHover={{ y: -2 }}
-      className="min-w-[210px] flex-shrink-0 snap-start rounded-2xl border border-gray-200/80 bg-white p-3.5 shadow-sm transition-shadow duration-200 hover:shadow-lg sm:min-w-0"
+      className="min-w-[180px] flex-shrink-0 snap-start rounded-xl border border-gray-200/80 bg-white p-2.5 shadow-sm transition-shadow duration-200 hover:shadow-lg sm:min-w-0"
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 overflow-hidden">
-          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
-            <Store className="h-3.5 w-3.5 text-primary" />
+          <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            <Store className="h-3 w-3 text-primary" />
           </div>
           <span
-            className="truncate text-xs font-semibold text-gray-900"
+            className="truncate text-[11px] font-semibold text-gray-900"
             title={store}
           >
             {toTitleCase(store)}
@@ -63,11 +63,11 @@ export function ShiftCard({
         </span>
       </div>
 
-      <div className="mt-3 space-y-1.5">
+      <div className="mt-2 space-y-1">
         {visible.map((taft) => (
           <div
             key={taft.name}
-            className="flex items-center justify-between gap-2 rounded-lg bg-gray-50/80 px-2 py-1.5"
+            className="flex items-center justify-between gap-1.5 rounded-lg bg-gray-50/80 px-1.5 py-1"
           >
             <div className="flex items-center gap-1.5 overflow-hidden">
               <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-[9px] font-semibold text-gray-600">

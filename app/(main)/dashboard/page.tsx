@@ -276,15 +276,26 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
   const totalPages       = Math.ceil(displayedLogs.length / itemsPerPage);
 
   // ── Derived KPI numbers for summary cards (display-only, reuses existing state) ──
-  const attendanceTodayCount = todayReport.reduce(
-    (sum, store) => sum + store.tafts.filter(t => t.code).length,
-    0
-  );
+  // Jumlah store yang sudah ada minimal 1 attendance hari ini
+  const attendanceTodayCount = todayReport.filter(
+    (store) => store.tafts.some(t => t.code)
+  ).length;
+  const totalStoreCount = todayReport.length;
   const totalTaftToday = todayReport.reduce((sum, store) => sum + store.tafts.length, 0);
   const activeStoreCount = storeAddresses.length;
+  // Hitung log hari ini — coba semua format timestamp yang mungkin
+  const todayStr = todayISO();
   const todayActivityCount = activityLogs.filter((log) => {
-    // best-effort same-day check without altering original timestamp format assumptions
-    return log.timestamp?.startsWith(todayISO()) || log.timestamp?.includes(todayISO());
+    if (!log.timestamp) return false;
+    // Format: "2025-01-15T..." atau "2025-01-15 ..." atau "15/01/2025 ..."
+    const ts = log.timestamp;
+    if (ts.startsWith(todayStr)) return true;
+    if (ts.includes(todayStr)) return true;
+    // Format dd/mm/yyyy
+    const now = new Date();
+    const ddmmyyyy = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+    if (ts.startsWith(ddmmyyyy)) return true;
+    return false;
   }).length;
   const pendingShiftCount = todaySchedules.reduce(
     (sum, s) => sum + s.tafts.filter((t) => !t.code).length,
@@ -319,7 +330,7 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
           <SummaryCard
             label="Attendance Today"
             value={attendanceTodayCount}
-            suffix={totalTaftToday ? `/${totalTaftToday}` : ""}
+            suffix={totalStoreCount ? `/${totalStoreCount} store` : ""}
             icon={UserCheck}
             accent="green"
             delay={0}
@@ -375,7 +386,7 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
               ) : todaySchedules.length === 0 ? (
                 <EmptyState icon={Clock3} message="Tidak ada data jadwal hari ini" />
               ) : (
-                <div className="flex gap-3 overflow-x-auto pb-1 snap-x sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-4">
+                <div className="flex gap-3 overflow-x-auto pb-1 snap-x sm:grid sm:grid-cols-3 sm:overflow-visible lg:grid-cols-5">
                   {todaySchedules.map(({ store, tafts }, i) => (
                     <ShiftCard
                       key={store}
