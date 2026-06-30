@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
+  BookOpenCheck,
 } from "lucide-react";
 import Popup from "@/components/Popup";
 
@@ -25,6 +26,7 @@ import { StatCard } from "@/components/shared/StatCard";
 import { AddEntryModal } from "@/components/step-erp/AddEntryModal";
 import { EntryDetailPanel } from "@/components/step-erp/EntryDetailPanel";
 import { ProgressBar } from "@/components/step-erp/ProgressBar";
+import { MasterChecklistGuide } from "@/components/step-erp/MasterChecklistGuide";
 import {
   STEP_ERP_TYPES,
   STEP_ERP_STORES,
@@ -66,6 +68,9 @@ export default function StepErpPage() {
   const [addErpNumber, setAddErpNumber] = useState("");
   const [submittingAdd, setSubmittingAdd] = useState(false);
 
+  // Master checklist guide (shown automatically the first time this menu is opened)
+  const [showChecklistGuide, setShowChecklistGuide] = useState(false);
+
   // Delete
   const [deleteTarget, setDeleteTarget] = useState<{ entry: Record<string, any>; typeKey: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -106,6 +111,7 @@ export default function StepErpPage() {
     const allAccess = parsedUser.step_erp_all === true || parsedUser.step_erp_all === "TRUE";
     setIsAllAccess(allAccess);
     setUser(parsedUser);
+    setShowChecklistGuide(true);
   }, []);
 
   // Derive user's store from their name (matching STEP_ERP_STORES)
@@ -385,9 +391,19 @@ export default function StepErpPage() {
               : "ChecklistPproses ERP Store"
           }
           actions={
-            <Button icon={Plus} size="sm" onClick={openAddModal}>
-              Tambah Entry
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                icon={BookOpenCheck}
+                size="sm"
+                onClick={() => setShowChecklistGuide(true)}
+              >
+                Lihat Checklist
+              </Button>
+              <Button icon={Plus} size="sm" onClick={openAddModal}>
+                Tambah Entry
+              </Button>
+            </div>
           }
         />
 
@@ -597,6 +613,12 @@ export default function StepErpPage() {
           />
         </div>
       </div>
+
+      {/* Master checklist guide */}
+      <MasterChecklistGuide
+        open={showChecklistGuide}
+        onClose={() => setShowChecklistGuide(false)}
+      />
 
       {/* Add modal */}
       <AddEntryModal
