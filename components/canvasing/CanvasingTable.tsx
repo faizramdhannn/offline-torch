@@ -33,16 +33,17 @@ export function CanvasingTable({
   isOwner,
   toTitleCase,
 }: CanvasingTableProps) {
+  const thClass =
+    "px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400 whitespace-nowrap";
+  const tdClass = "px-4 py-3 whitespace-nowrap";
+
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-xs">
+      <table className="w-full min-w-[1280px] border-collapse text-xs">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50/60">
             {HEADERS.map((h) => (
-              <th
-                key={h}
-                className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400"
-              >
+              <th key={h} className={thClass}>
                 {h}
               </th>
             ))}
@@ -61,27 +62,46 @@ export function CanvasingTable({
                 className="group cursor-pointer transition-colors hover:bg-gray-50/80"
                 onClick={() => onRowClick(item)}
               >
-                <td className="px-4 py-3 font-medium text-gray-700">
+                <td
+                  className={`${tdClass} max-w-[140px] truncate font-medium text-gray-700`}
+                  title={toTitleCase(item.store)}
+                >
                   {toTitleCase(item.store)}
                 </td>
-                <td className="px-4 py-3 font-semibold text-gray-900">
+                <td
+                  className={`${tdClass} max-w-[160px] truncate font-semibold text-gray-900`}
+                  title={item.name}
+                >
                   {item.name}
                 </td>
-                <td className="px-4 py-3 text-gray-500">
+                <td className={`${tdClass} text-gray-500`}>
                   {item.contact_person || "—"}
                 </td>
-                <td className="px-4 py-3 text-gray-600">{item.category}</td>
-                <td className="px-4 py-3 text-gray-600">
+                <td
+                  className={`${tdClass} max-w-[140px] truncate text-gray-600`}
+                  title={item.category}
+                >
+                  {item.category}
+                </td>
+                <td
+                  className={`${tdClass} max-w-[200px] truncate text-gray-600`}
+                  title={item.sub_category}
+                >
                   {item.sub_category}
                 </td>
-                <td className="px-4 py-3 text-gray-600">{item.canvasser}</td>
-                <td className="px-4 py-3 tabular-nums text-gray-500">
+                <td
+                  className={`${tdClass} max-w-[160px] truncate text-gray-600`}
+                  title={item.canvasser}
+                >
+                  {item.canvasser}
+                </td>
+                <td className={`${tdClass} tabular-nums text-gray-500`}>
                   {item.visit_at}
                 </td>
-                <td className="px-4 py-3">
+                <td className={tdClass}>
                   <StatusBadge status={item.result_status} />
                 </td>
-                <td className="px-4 py-3">
+                <td className={tdClass}>
                   {images.length > 0 ? (
                     <div className="flex items-center gap-1">
                       <ImageIcon className="h-3.5 w-3.5 text-gray-400" />
@@ -91,7 +111,7 @@ export function CanvasingTable({
                     <span className="text-gray-300">—</span>
                   )}
                 </td>
-                <td className="px-4 py-3">
+                <td className={tdClass}>
                   {editable && (
                     <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                       <button

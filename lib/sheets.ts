@@ -413,6 +413,68 @@ export async function updateSheetRow(
 // ✅ Update banyak baris dalam SATU request batchUpdate, bukan banyak request
 // values.update paralel. Dipakai ketika satu "group" (id sama) berisi banyak
 // baris (misal puluhan item dalam satu material issue).
+// ✅ Update satu cell berdasarkan kolom kunci (misal user_name) dan nama header
+// kolom target (misal last_activity) — tanpa perlu tahu rowIndex/posisi kolom
+// secara manual. Aman dipakai untuk update ringan seperti "last login".
+export async function updateSheetCellByMatch(
+  sheetName: string,
+  matchColumn: string,
+  matchValue: string,
+  targetColumn: string,
+  newValue: string
+) {
+  const spreadsheetId = getSpreadsheetId(sheetName);
+  if (!spreadsheetId) {
+    throw new Error(`No spreadsheet ID configured for sheet: ${sheetName}`);
+  }
+  return withRetry(
+    async () => {
+      const sheets = getSheetsClient();
+      const range = getSheetRange(sheetName);
+      const res = (await withTimeout(
+        sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: `${sheetName}!${range}`,
+        }),
+        getSheetTimeout(sheetName),
+        `updateSheetCellByMatch:get(${sheetName})`
+      )) as { data: { values?: any[][] } };
+
+      const rows = res.data.values || [];
+      if (rows.length === 0) return { success: false, reason: "empty_sheet" };
+
+      const headers = rows[0];
+      const matchColIndex = headers.indexOf(matchColumn);
+      const targetColIndex = headers.indexOf(targetColumn);
+      if (matchColIndex === -1 || targetColIndex === -1) {
+        return { success: false, reason: "column_not_found" };
+      }
+
+      const rowIndex = rows.findIndex((row: any[], i: number) => i > 0 && row[matchColIndex] === matchValue);
+      if (rowIndex === -1) return { success: false, reason: "row_not_found" };
+
+      const sheetRowNumber = rowIndex + 1; // 1-based, +1 karena header di baris 1
+      const colLetter = getColumnLetter(targetColIndex + 1);
+
+      await withTimeout(
+        sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `${sheetName}!${colLetter}${sheetRowNumber}`,
+          valueInputOption: "RAW",
+          requestBody: { values: [[newValue]] },
+        }),
+        10000,
+        `updateSheetCellByMatch:update(${sheetName})`
+      );
+
+      invalidateSheetCache(sheetName);
+      return { success: true };
+    },
+    2,
+    `updateSheetCellByMatch(${sheetName})`
+  );
+}
+
 export async function updateMultipleSheetRows(
   sheetName: string,
   updates: { rowIndex: number; data: any[] }[]

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSheetData } from '@/lib/sheets';
+import { getSheetData, updateSheetCellByMatch } from '@/lib/sheets';
 import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
@@ -16,6 +16,22 @@ export async function POST(request: NextRequest) {
     if (!isPasswordValid) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
+
+    // ✅ Catat waktu login terakhir ke kolom last_activity di sheet users.
+    // Fail-soft: kalau gagal update sheet, login tetap lanjut tanpa error ke user.
+    const loginTimestamp = new Date().toLocaleString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Jakarta',
+    });
+    updateSheetCellByMatch('users', 'user_name', user.user_name, 'last_activity', loginTimestamp).catch((err) => {
+      console.error('Failed to update last_activity:', err);
+    });
 
     return NextResponse.json({
       id: user.id,

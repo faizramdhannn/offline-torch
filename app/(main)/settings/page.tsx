@@ -458,6 +458,13 @@ export default function SettingsPage() {
                     >
                       <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Username</span>
                     </th>
+                    <th
+                      className="border-r-2 border-gray-300 bg-white px-2 py-1 text-left align-bottom whitespace-nowrap"
+                      rowSpan={2}
+                      style={{ minWidth: 110 }}
+                    >
+                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Last Login</span>
+                    </th>
 
                     {/* Group headers */}
                     {PERM_GROUPS.map((g, gi) => (
@@ -526,6 +533,14 @@ export default function SettingsPage() {
                           style={{ left: 120, zIndex: 10, minWidth: 90 }}
                         >
                           {u.user_name}
+                        </td>
+                        {/* Last Login */}
+                        <td className="px-2 py-1 text-gray-500 border-r-2 border-gray-300 whitespace-nowrap" style={{ minWidth: 110 }}>
+                          {u.last_activity ? (
+                            <span className="text-[10px] text-gray-600">{u.last_activity}</span>
+                          ) : (
+                            <span className="text-[10px] italic text-gray-300">Belum pernah</span>
+                          )}
                         </td>
 
                         {/* Permission checkboxes */}
