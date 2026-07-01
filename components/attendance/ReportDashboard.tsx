@@ -29,7 +29,7 @@ export function MiniBarChart({ data, cfg, maxRows = 43 }: MiniBarChartProps) {
 
   if (rows.length === 0) {
     return (
-      <div className="flex items-center justify-center h-24 text-[10px] text-gray-900">
+      <div className="flex items-center justify-center h-24 text-[10px] text-gray-400">
         Tidak ada data
       </div>
     );
@@ -42,14 +42,14 @@ export function MiniBarChart({ data, cfg, maxRows = 43 }: MiniBarChartProps) {
         const pct = Math.round((val / maxVal) * 100);
         return (
           <div key={`${s.store_name}__${s.taft_name}`} className="flex items-center gap-1.5">
-            <span className={`text-[8px] font-black w-3.5 text-right shrink-0 ${i === 0 ? cfg.textCls : 'text-gray-900'}`}>
+            <span className={`text-[8px] font-black w-3.5 text-right shrink-0 ${i === 0 ? cfg.textCls : 'text-gray-400'}`}>
               {i + 1}
             </span>
             <div className="w-28 shrink-0">
               <p className="text-[9px] font-medium text-gray-700 leading-tight" title={s.taft_name}>
                 {truncName(s.taft_name, 15)}
               </p>
-              <p className="text-[8px] text-gray-900">{toTitleCase(s.store_name)}</p>
+              <p className="text-[8px] text-gray-400">{toTitleCase(s.store_name)}</p>
             </div>
             <div className="flex-1 bg-gray-100 rounded-full h-3 overflow-hidden">
               <div
@@ -186,21 +186,21 @@ export function ReportDashboard({ groupedByTaft }: ReportDashboardProps) {
         {CHART_CFGS.map(cfg => {
           const top = sorted(cfg.key).find(s => s[cfg.key] > 0);
           return (
-            <div key={cfg.key} className="bg-white rounded-lg border border-gray-100 shadow-sm px-3 py-2">
+            <div key={cfg.key} className="bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2.5">
               <p className={`text-[9px] font-bold uppercase tracking-wide mb-1 ${cfg.textCls}`}>{cfg.label}</p>
               {top ? (
                 <>
                   <p className="text-[11px] font-bold text-gray-800 leading-tight" title={top.taft_name}>
                     {truncName(top.taft_name, 18)}
                   </p>
-                  <p className="text-[9px] text-gray-900">{toTitleCase(top.store_name)}</p>
+                  <p className="text-[9px] text-gray-400">{toTitleCase(top.store_name)}</p>
                   <p className={`text-lg font-black leading-none mt-1 ${cfg.textCls}`}>
                     {cfg.key === 'lembur' ? top[cfg.key].toFixed(1) : top[cfg.key]}
-                    <span className="text-[9px] font-normal ml-0.5 text-gray-900">{cfg.unit}</span>
+                    <span className="text-[9px] font-normal ml-0.5 text-gray-400">{cfg.unit}</span>
                   </p>
                 </>
               ) : (
-                <p className="text-[10px] text-gray-900">—</p>
+                <p className="text-[10px] text-gray-400">—</p>
               )}
             </div>
           );
@@ -210,10 +210,10 @@ export function ReportDashboard({ groupedByTaft }: ReportDashboardProps) {
       {/* ── Mini bar charts per KPI ─────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
         {CHART_CFGS.map(cfg => (
-          <div key={cfg.key} className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
+          <div key={cfg.key} className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5">
             <div className="flex items-center justify-between mb-2">
               <h3 className={`text-[10px] font-bold uppercase tracking-wide ${cfg.textCls}`}>{cfg.label}</h3>
-              <span className="text-[9px] text-gray-900">{sorted(cfg.key).filter(s => s[cfg.key] > 0).length}</span>
+              <span className="text-[9px] text-gray-400">{sorted(cfg.key).filter(s => s[cfg.key] > 0).length}</span>
             </div>
             <MiniBarChart data={sorted(cfg.key)} cfg={cfg} />
           </div>
@@ -223,10 +223,10 @@ export function ReportDashboard({ groupedByTaft }: ReportDashboardProps) {
       {/* ── Bottom charts row ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-2">
         {/* Donut: lembur distribution */}
-        <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5">
           <p className="text-[10px] font-bold uppercase tracking-wide text-orange-500 mb-2">Distribusi lembur per TAFT</p>
           {top10Lembur.length === 0 ? (
-            <div className="flex items-center justify-center h-32 text-[10px] text-gray-900">Tidak ada data lembur</div>
+            <div className="flex items-center justify-center h-32 text-[10px] text-gray-400">Tidak ada data lembur</div>
           ) : (
             <>
               <div style={{ position: 'relative', height: '160px' }}>
@@ -251,33 +251,33 @@ export function ReportDashboard({ groupedByTaft }: ReportDashboardProps) {
               </div>
               <div className="flex flex-wrap gap-x-2 gap-y-1 mt-2">
                 {top10Lembur.map((s, i) => (
-                  <span key={s.taft_name} className="flex items-center gap-1 text-[8px] text-gray-900">
+                  <span key={s.taft_name} className="flex items-center gap-1 text-[8px] text-gray-500">
                     <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: DONUT_COLORS[i] }} />
                     {truncName(s.taft_name, 12)} <span className="font-bold text-gray-700">{s.lembur.toFixed(1)}j</span>
                   </span>
                 ))}
               </div>
               <div className="mt-2 pt-2 border-t border-gray-100">
-                <p className="text-[9px] text-gray-900">Total jam lembur</p>
+                <p className="text-[9px] text-gray-400">Total jam lembur</p>
                 <p className="text-[13px] font-bold text-orange-500">{totalLemburJam.toFixed(1)} jam</p>
-                <p className="text-[9px] text-gray-900 mt-0.5">Estimasi biaya lembur</p>
+                <p className="text-[9px] text-gray-400 mt-0.5">Estimasi biaya lembur</p>
                 <p className="text-[13px] font-bold text-orange-600">{fmtRupiah(totalBiayaLembur)}</p>
-                <p className="text-[8px] text-gray-900 mt-0.5">@ Rp 17.500/jam</p>
+                <p className="text-[8px] text-gray-400 mt-0.5">@ Rp 17.500/jam</p>
               </div>
             </>
           )}
         </div>
 
         {/* Bar: shift distribution */}
-        <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-900 mb-2">Distribusi kode shift</p>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-2">Distribusi kode shift</p>
           {shiftLabels.length === 0 ? (
-            <div className="flex items-center justify-center h-32 text-[10px] text-gray-900">Tidak ada data</div>
+            <div className="flex items-center justify-center h-32 text-[10px] text-gray-400">Tidak ada data</div>
           ) : (
             <>
               <div className="flex flex-wrap gap-1 mb-2">
                 {shiftLabels.map((k, i) => (
-                  <span key={k} className="flex items-center gap-1 text-[8px] text-gray-900">
+                  <span key={k} className="flex items-center gap-1 text-[8px] text-gray-500">
                     <span className="w-2 h-2 rounded-sm" style={{ background: shiftBgColors[i] }} />
                     {k}
                   </span>
@@ -291,11 +291,11 @@ export function ReportDashboard({ groupedByTaft }: ReportDashboardProps) {
         </div>
 
         {/* Bar: masuk vs off per store */}
-        <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-900 mb-2">Masuk vs Off per toko</p>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-2">Masuk vs Off per toko</p>
           <div className="flex gap-3 mb-2">
-            <span className="flex items-center gap-1 text-[8px] text-gray-900"><span className="w-2 h-2 rounded-sm bg-blue-500" /> Masuk</span>
-            <span className="flex items-center gap-1 text-[8px] text-gray-900"><span className="w-2 h-2 rounded-sm bg-red-500" /> Off</span>
+            <span className="flex items-center gap-1 text-[8px] text-gray-500"><span className="w-2 h-2 rounded-sm bg-blue-500" /> Masuk</span>
+            <span className="flex items-center gap-1 text-[8px] text-gray-500"><span className="w-2 h-2 rounded-sm bg-red-500" /> Off</span>
           </div>
           <div style={{ position: 'relative', height: '160px' }}>
             <Bar data={barStoreData} options={{ ...chartBaseOptions, scales: { x: { ticks: { font: { size: 8 }, maxRotation: 30 } }, y: { ticks: { font: { size: 9 }, stepSize: 5 } } }, plugins: { legend: { display: false } } }} />
@@ -306,11 +306,11 @@ export function ReportDashboard({ groupedByTaft }: ReportDashboardProps) {
       {/* ── Second row ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-2">
         {/* Top 8 biaya lembur */}
-        <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5">
           <p className="text-[10px] font-bold uppercase tracking-wide text-orange-500 mb-1">Top 8 biaya lembur</p>
-          <p className="text-[8px] text-gray-900 mb-2">@ Rp 17.500/jam</p>
+          <p className="text-[8px] text-gray-400 mb-2">@ Rp 17.500/jam</p>
           {top8Lembur.length === 0 ? (
-            <div className="flex items-center justify-center h-32 text-[10px] text-gray-900">Tidak ada data</div>
+            <div className="flex items-center justify-center h-32 text-[10px] text-gray-400">Tidak ada data</div>
           ) : (
             <div style={{ position: 'relative', height: `${top8Lembur.length * 30 + 20}px` }}>
               <Bar
@@ -330,17 +330,17 @@ export function ReportDashboard({ groupedByTaft }: ReportDashboardProps) {
         </div>
 
         {/* Ketidakhadiran per TAFT */}
-        <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-3">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-900 mb-1">Ketidakhadiran per TAFT</p>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-1">Ketidakhadiran per TAFT</p>
           <div className="flex gap-3 mb-2">
             {[{ label:'Cuti',color:'#ec4899'},{ label:'Sakit',color:'#f97316'},{ label:'Izin',color:'#6366f1'},{ label:'Alpa',color:'#b91c1c'}].map(({ label, color }) => (
-              <span key={label} className="flex items-center gap-1 text-[8px] text-gray-900">
+              <span key={label} className="flex items-center gap-1 text-[8px] text-gray-500">
                 <span className="w-2 h-2 rounded-sm" style={{ background: color }} />{label}
               </span>
             ))}
           </div>
           {top8Absen.length === 0 ? (
-            <div className="flex items-center justify-center h-32 text-[10px] text-gray-900">Tidak ada data absensi</div>
+            <div className="flex items-center justify-center h-32 text-[10px] text-gray-400">Tidak ada data absensi</div>
           ) : (
             <div style={{ position: 'relative', height: `${top8Absen.length * 30 + 20}px` }}>
               <Bar data={barAbsenData} options={{ ...chartBaseOptions, indexAxis: 'y' as const, scales: { x: { stacked: true, ticks: { font: { size: 9 }, stepSize: 1 } }, y: { stacked: true, ticks: { font: { size: 9 } } } }, plugins: { legend: { display: false } } }} />

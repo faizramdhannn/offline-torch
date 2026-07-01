@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 import * as XLSX from "xlsx-js-style";
+import { Download, CalendarX2 } from "lucide-react";
+import { Button } from "@/components/shared/Button";
+import { EmptyState } from "@/components/shared/EmptyState";
 import type { TaftEntry, DateEntry, ReportRow, ScheduleRow, SalesStat, StoreWagesEntry, GroupedByTaft } from "./types";
 import { DAYS, DAY_LABELS_FULL, CODE_COLORS, RECAP_KEYS, OVERTIME_RATE, MONTH_SHORT_ID } from "./constants";
 import {
@@ -266,107 +269,105 @@ export function FullReport({ user }: FullReportProps) {
   };
 
   return (
-    <div>
+    <div className="space-y-3">
       {/* ── Filter Bar ─────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-lg shadow p-2.5 mb-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* View Mode toggle */}
-          <div className="flex items-center gap-1">
-            <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">Tampilan</label>
-            <div className="flex gap-0.5 bg-gray-100 rounded p-0.5 ml-1">
-              {(["monthly","weekly"] as const).map(m => (
-                <button
-                  key={m}
-                  onClick={() => {
-                    setViewMode(m);
-                    setReports([]);
-                    setSchedules([]);
-                    setExpandedTafts(new Set());
-                    setSalesData([]);
-                  }}
-                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${viewMode === m ? 'bg-white text-primary shadow-sm' : 'text-gray-900 hover:text-gray-700'}`}
-                >
-                  {m === 'monthly' ? 'Monthly' : 'Weekly'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Store filter */}
-          <div className="flex items-center gap-1.5">
-            <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">Store</label>
-            <select
-              value={selectedStore}
-              onChange={e => { setSelectedStore(e.target.value); setSelectedTaft(''); setExpandedTafts(new Set()); }}
-              className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="">Semua Store</option>
-              {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
-            </select>
-          </div>
-
-          {/* Monthly-specific filters */}
-          {viewMode === 'monthly' && (
-            <>
-              <div className="flex items-center gap-1.5">
-                <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">TAFT</label>
-                <select
-                  value={selectedTaft}
-                  onChange={e => { setSelectedTaft(e.target.value); setExpandedTafts(new Set()); }}
-                  className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="">Semua TAFT</option>
-                  {filteredTafts.map(t => <option key={t.id} value={t.taft_name}>{t.taft_name}</option>)}
-                </select>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">Bulan</label>
-                <input
-                  type="month"
-                  value={selectedMonth}
-                  onChange={e => setSelectedMonth(e.target.value)}
-                  className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-            </>
-          )}
-
-          {/* Weekly-specific filters */}
-          {viewMode === 'weekly' && (
-            <div className="flex items-center gap-1.5">
-              <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">Periode</label>
-              <select
-                value={selectedDateRange}
-                onChange={e => setSelectedDateRange(e.target.value)}
-                className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
+        {/* View Mode toggle */}
+        <div className="flex items-center gap-1">
+          <label className="whitespace-nowrap text-[11px] font-medium text-gray-500">Tampilan</label>
+          <div className="ml-1 flex gap-0.5 rounded-lg bg-gray-100 p-0.5">
+            {(["monthly","weekly"] as const).map(m => (
+              <button
+                key={m}
+                onClick={() => {
+                  setViewMode(m);
+                  setReports([]);
+                  setSchedules([]);
+                  setExpandedTafts(new Set());
+                  setSalesData([]);
+                }}
+                className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${viewMode === m ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
               >
-                <option value="">Pilih Periode</option>
-                {dateList.map(d => <option key={d.id} value={d.date_range}>{d.date_range}</option>)}
+                {m === 'monthly' ? 'Monthly' : 'Weekly'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Store filter */}
+        <div className="flex items-center gap-1.5">
+          <label className="whitespace-nowrap text-[11px] font-medium text-gray-500">Store</label>
+          <select
+            value={selectedStore}
+            onChange={e => { setSelectedStore(e.target.value); setSelectedTaft(''); setExpandedTafts(new Set()); }}
+            className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] text-gray-700 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20"
+          >
+            <option value="">Semua Store</option>
+            {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
+          </select>
+        </div>
+
+        {/* Monthly-specific filters */}
+        {viewMode === 'monthly' && (
+          <>
+            <div className="flex items-center gap-1.5">
+              <label className="whitespace-nowrap text-[11px] font-medium text-gray-500">TAFT</label>
+              <select
+                value={selectedTaft}
+                onChange={e => { setSelectedTaft(e.target.value); setExpandedTafts(new Set()); }}
+                className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] text-gray-700 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20"
+              >
+                <option value="">Semua TAFT</option>
+                {filteredTafts.map(t => <option key={t.id} value={t.taft_name}>{t.taft_name}</option>)}
               </select>
             </div>
-          )}
+            <div className="flex items-center gap-1.5">
+              <label className="whitespace-nowrap text-[11px] font-medium text-gray-500">Bulan</label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={e => setSelectedMonth(e.target.value)}
+                className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] text-gray-700 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20"
+              />
+            </div>
+          </>
+        )}
 
-          <button
-            onClick={viewMode === 'monthly' ? fetchReports : fetchSchedules}
-            className="px-3 py-1 bg-primary text-white rounded text-[11px] hover:bg-primary/90"
-          >
-            Tampilkan
-          </button>
-
-          {viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (
-            <button
-              onClick={exportReportXlsx}
-              className="px-3 py-1 bg-emerald-600 text-white rounded text-[11px] hover:bg-emerald-700"
+        {/* Weekly-specific filters */}
+        {viewMode === 'weekly' && (
+          <div className="flex items-center gap-1.5">
+            <label className="whitespace-nowrap text-[11px] font-medium text-gray-500">Periode</label>
+            <select
+              value={selectedDateRange}
+              onChange={e => setSelectedDateRange(e.target.value)}
+              className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] text-gray-700 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20"
             >
-              ↓ Export XLSX
-            </button>
-          )}
-        </div>
+              <option value="">Pilih Periode</option>
+              {dateList.map(d => <option key={d.id} value={d.date_range}>{d.date_range}</option>)}
+            </select>
+          </div>
+        )}
+
+        <Button variant="primary" size="sm" onClick={viewMode === 'monthly' ? fetchReports : fetchSchedules}>
+          Tampilkan
+        </Button>
+
+        {viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={Download}
+            onClick={exportReportXlsx}
+            className="bg-emerald-600 text-white hover:bg-emerald-700"
+          >
+            Export XLSX
+          </Button>
+        )}
       </div>
 
       {/* ── Loading ────────────────────────────────────────────────────────── */}
       {loading && (
-        <div className="text-center py-10 text-gray-900 text-sm">Memuat data...</div>
+        <div className="rounded-2xl border border-gray-200 bg-white py-10 text-center text-sm text-gray-400 shadow-sm">Memuat data...</div>
       )}
 
       {/* ── Sales vs Wages Chart ────────────────────────────────────────────── */}
@@ -389,12 +390,12 @@ export function FullReport({ user }: FullReportProps) {
       {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-gray-900 font-medium">{Object.keys(groupedByTaft).length} TAFT</span>
+            <span className="text-[11px] font-medium text-gray-500">{Object.keys(groupedByTaft).length} TAFT</span>
             <div className="flex gap-1.5">
-              <button onClick={expandAll} className="text-[10px] px-2.5 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors font-medium">
+              <button onClick={expandAll} className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-primary hover:text-white">
                 Buka Semua
               </button>
-              <button onClick={collapseAll} className="text-[10px] px-2.5 py-1 rounded-full bg-gray-100 text-gray-900 hover:bg-gray-200 transition-colors font-medium">
+              <button onClick={collapseAll} className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-medium text-gray-500 transition-colors hover:bg-gray-200">
                 Tutup Semua
               </button>
             </div>
@@ -412,33 +413,33 @@ export function FullReport({ user }: FullReportProps) {
             });
 
             return (
-              <div key={key} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div key={key} className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
                 <button onClick={() => toggleTaft(key)} className="w-full text-left">
-                  <div className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/80 transition-colors">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-colors ${isExpanded ? 'bg-primary text-white' : 'bg-gray-100 text-gray-900'}`}>
-                      <span className={`text-[9px] font-black transition-transform duration-200 inline-block ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
+                  <div className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-50/80">
+                    <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors ${isExpanded ? 'bg-primary text-white' : 'bg-gray-100 text-gray-400'}`}>
+                      <span className={`inline-block text-[9px] font-black transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-bold text-gray-900">{taft_name}</span>
                         {!selectedStore && (
-                          <span className="text-[10px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
                             {toTitleCase(store_name)}
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 mt-0.5">
-                        <span className="text-[10px] text-gray-900">{rows.length} hari data</span>
-                        {totalMasuk > 0 && <span className="text-[10px] text-blue-600 font-semibold">{totalMasuk} masuk</span>}
-                        {totalLembur > 0 && <span className="text-[10px] text-orange-500 font-semibold">{totalLembur.toFixed(1)}j lembur</span>}
+                      <div className="mt-0.5 flex items-center gap-3">
+                        <span className="text-[10px] text-gray-400">{rows.length} hari data</span>
+                        {totalMasuk > 0 && <span className="text-[10px] font-semibold text-blue-600">{totalMasuk} masuk</span>}
+                        {totalLembur > 0 && <span className="text-[10px] font-semibold text-orange-500">{totalLembur.toFixed(1)}j lembur</span>}
                       </div>
                     </div>
-                    <div className="flex gap-1 flex-wrap justify-end max-w-[200px]">
+                    <div className="flex max-w-[200px] flex-wrap justify-end gap-1">
                       {RECAP_KEYS.map(({ key: k }) => {
                         const cnt = codeCounts[k] || 0;
                         if (!cnt) return null;
                         return (
-                          <span key={k} className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${CODE_COLORS[k] || 'bg-gray-100 text-gray-900'}`}>
+                          <span key={k} className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${CODE_COLORS[k] || 'bg-gray-100 text-gray-700'}`}>
                             {k} {cnt}
                           </span>
                         );
@@ -450,17 +451,17 @@ export function FullReport({ user }: FullReportProps) {
                 {isExpanded && (
                   <div className="border-t border-gray-100">
                     {rows.length === 0 ? (
-                      <div className="px-6 py-6 text-center text-[11px] text-gray-900">Belum ada data untuk periode ini</div>
+                      <div className="px-6 py-6 text-center text-[11px] text-gray-400">Belum ada data untuk periode ini</div>
                     ) : (
                       <table className="w-full">
                         <thead>
-                          <tr className="bg-gray-50 border-b border-gray-100">
-                            <th className="px-4 py-2 text-left text-[10px] font-semibold text-gray-900 uppercase tracking-wide w-36">Tanggal</th>
-                            <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-900 uppercase tracking-wide w-20">Kode</th>
-                            <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-900 uppercase tracking-wide w-20">Masuk</th>
-                            <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-900 uppercase tracking-wide w-20">Keluar</th>
-                            <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-900 uppercase tracking-wide w-16">Lembur</th>
-                            <th className="px-4 py-2 text-left text-[10px] font-semibold text-gray-900 uppercase tracking-wide">Keterangan</th>
+                          <tr className="border-b border-gray-100 bg-gray-50">
+                            <th className="w-36 px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Tanggal</th>
+                            <th className="w-20 px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500">Kode</th>
+                            <th className="w-20 px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500">Masuk</th>
+                            <th className="w-20 px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500">Keluar</th>
+                            <th className="w-16 px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500">Lembur</th>
+                            <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Keterangan</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -481,34 +482,34 @@ export function FullReport({ user }: FullReportProps) {
                                 </td>
                                 <td className="px-3 py-2 text-center">
                                   {code ? (
-                                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-900'}`}>
+                                    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>
                                       {code}
                                     </span>
                                   ) : (
-                                    <span className="text-gray-900 text-xs">—</span>
+                                    <span className="text-xs text-gray-300">—</span>
                                   )}
                                 </td>
                                 <td className="px-3 py-2 text-center">
-                                  <span className={`text-[11px] font-mono font-medium ${isOff ? 'text-gray-900' : 'text-gray-700'}`}>
+                                  <span className={`font-mono text-[11px] font-medium ${isOff ? 'text-gray-400' : 'text-gray-700'}`}>
                                     {displayTime(r.clock_in) || (isOff ? '—' : '-')}
                                   </span>
                                 </td>
                                 <td className="px-3 py-2 text-center">
-                                  <span className={`text-[11px] font-mono font-medium ${isOff ? 'text-gray-900' : 'text-gray-700'}`}>
+                                  <span className={`font-mono text-[11px] font-medium ${isOff ? 'text-gray-400' : 'text-gray-700'}`}>
                                     {displayTime(r.clock_out) || (isOff ? '—' : '-')}
                                   </span>
                                 </td>
                                 <td className="px-3 py-2 text-center">
                                   {hasOT ? (
-                                    <span className="text-[11px] font-bold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full">
+                                    <span className="rounded-full bg-orange-50 px-1.5 py-0.5 text-[11px] font-bold text-orange-500">
                                       {r.overtime_hours}j
                                     </span>
                                   ) : (
-                                    <span className="text-gray-900 text-xs">—</span>
+                                    <span className="text-xs text-gray-300">—</span>
                                   )}
                                 </td>
                                 <td className="px-4 py-2">
-                                  <span className="text-[11px] text-gray-900 truncate block max-w-[220px]">{r.reason || ''}</span>
+                                  <span className="block max-w-[220px] truncate text-[11px] text-gray-500">{r.reason || ''}</span>
                                 </td>
                               </tr>
                             );
@@ -526,26 +527,26 @@ export function FullReport({ user }: FullReportProps) {
 
       {/* ── Monthly empty state ─────────────────────────────────────────────── */}
       {!loading && viewMode === 'monthly' && Object.keys(groupedByTaft).length === 0 && salesData.length === 0 && storeWages.length === 0 && (
-        <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-900 text-sm">
-          Pilih bulan untuk melihat data
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <EmptyState icon={CalendarX2} title="Belum ada data" description="Pilih bulan untuk melihat data" />
         </div>
       )}
 
       {/* ── Weekly View ─────────────────────────────────────────────────────── */}
       {!loading && viewMode === 'weekly' && (
         selectedDateRange ? (
-          <div className="bg-white rounded-lg shadow overflow-x-auto">
+          <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
             <table className="w-full text-xs">
-              <thead className="bg-gray-100 border-b">
+              <thead className="border-b bg-gray-50">
                 <tr>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-700 text-[11px] min-w-[150px]">Nama TAFT</th>
+                  <th className="min-w-[150px] px-3 py-2 text-left text-[11px] font-semibold text-gray-500">Nama TAFT</th>
                   {!selectedStore && (
-                    <th className="px-3 py-2 text-left font-semibold text-gray-700 text-[11px] min-w-[110px]">Store</th>
+                    <th className="min-w-[110px] px-3 py-2 text-left text-[11px] font-semibold text-gray-500">Store</th>
                   )}
                   {DAY_LABELS_FULL.map((label, i) => (
                     <th
                       key={label}
-                      className={`px-2 py-2 text-center font-semibold text-gray-700 text-[11px] min-w-[56px] ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}
+                      className={`min-w-[56px] px-2 py-2 text-center text-[11px] font-semibold text-gray-500 ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}
                     >
                       {label}
                     </th>
@@ -561,9 +562,9 @@ export function FullReport({ user }: FullReportProps) {
                   );
                   return (
                     <tr key={taft.id} className="border-b hover:bg-gray-50">
-                      <td className="px-3 py-1.5 font-medium text-gray-800 text-[11px]">{taft.taft_name}</td>
+                      <td className="px-3 py-1.5 text-[11px] font-medium text-gray-800">{taft.taft_name}</td>
                       {!selectedStore && (
-                        <td className="px-3 py-1.5 text-gray-900 text-[10px]">{toTitleCase(taft.store_name)}</td>
+                        <td className="px-3 py-1.5 text-[10px] text-gray-500">{toTitleCase(taft.store_name)}</td>
                       )}
                       {DAYS.map((d, i) => {
                         const code = (sched?.[d as keyof ScheduleRow] as string) || '';
@@ -573,11 +574,11 @@ export function FullReport({ user }: FullReportProps) {
                             className={`px-2 py-1.5 text-center ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}
                           >
                             {code ? (
-                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>
+                              <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>
                                 {code}
                               </span>
                             ) : (
-                              <span className="text-gray-900 text-[10px]">-</span>
+                              <span className="text-[10px] text-gray-300">-</span>
                             )}
                           </td>
                         );
@@ -587,7 +588,7 @@ export function FullReport({ user }: FullReportProps) {
                 })}
                 {weeklyTafts.length === 0 && (
                   <tr>
-                    <td colSpan={!selectedStore ? 9 : 8} className="px-3 py-8 text-center text-gray-900 text-sm">
+                    <td colSpan={!selectedStore ? 9 : 8} className="px-3 py-8 text-center text-sm text-gray-400">
                       Tidak ada data taft
                     </td>
                   </tr>
@@ -596,8 +597,8 @@ export function FullReport({ user }: FullReportProps) {
             </table>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-900 text-sm">
-            Pilih periode minggu untuk melihat jadwal
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <EmptyState icon={CalendarX2} title="Pilih periode" description="Pilih periode minggu untuk melihat jadwal" />
           </div>
         )
       )}

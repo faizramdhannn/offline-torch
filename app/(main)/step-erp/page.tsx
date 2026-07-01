@@ -306,12 +306,18 @@ export default function StepErpPage() {
     setShowAddModal(true);
   };
 
-  const handleSubmitAdd = async () => {
+  const handleSubmitAdd = async (preChecked: Record<string, boolean> = {}) => {
     if (!addStore || !addErpNumber.trim()) return;
     const typeDef = getStepErpType(addType);
     if (!typeDef) return;
     setSubmittingAdd(true);
     try {
+      // Build initial step values from the pre-submit checklist
+      const initialSteps: Record<string, string> = {};
+      typeDef.steps.forEach((s) => {
+        initialSteps[s.key] = preChecked[s.key] ? "TRUE" : "FALSE";
+      });
+
       const res = await fetch("/api/step-erp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -320,6 +326,7 @@ export default function StepErpPage() {
           store: addStore,
           erp_number: addErpNumber.trim(),
           created_by: user?.name || user?.user_name || "",
+          ...initialSteps,
         }),
       });
       if (!res.ok) throw new Error();

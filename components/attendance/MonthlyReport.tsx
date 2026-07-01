@@ -2,7 +2,12 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import * as XLSX from "xlsx-js-style";
+import { Download, Upload, RefreshCw, FileSpreadsheet } from "lucide-react";
 import Popup from "@/components/Popup";
+import { Modal } from "@/components/shared/Modal";
+import { Button } from "@/components/shared/Button";
+import { Badge } from "@/components/shared/Badge";
+import { EmptyState } from "@/components/shared/EmptyState";
 import type { TaftEntry, ReportRow, StoreWagesEntry } from "./types";
 import { CODE_COLORS, RECAP_KEYS, OVERTIME_RATE } from "./constants";
 import {
@@ -343,13 +348,13 @@ export function MonthlyReport({ user, isStoreUser, myStoreName }: MonthlyReportP
   const fmtTglRecap = (d: Date) => `${String(d.getDate()).padStart(2,'0')} ${MONTH_ID_FULL[d.getMonth()]} ${d.getFullYear()}`;
 
   return (
-    <div>
+    <div className="space-y-3">
       {/* ── Sub-tabs (import / recap) ──────────────────────────────────────── */}
       {user.attendance_report && (
-        <div className="flex gap-0.5 bg-white rounded-lg p-0.5 shadow border border-gray-100 mb-3 w-fit">
+        <div className="flex w-fit gap-1 rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
           {(['import','recap'] as const).map(t => (
             <button key={t} onClick={() => setSubTab(t)}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${subTab === t ? 'bg-primary text-white shadow-sm' : 'text-gray-900 hover:text-gray-700 hover:bg-gray-50'}`}>
+              className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors ${subTab === t ? 'bg-primary text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}>
               {t === 'import' ? 'Import' : 'Recap'}
             </button>
           ))}
@@ -359,45 +364,45 @@ export function MonthlyReport({ user, isStoreUser, myStoreName }: MonthlyReportP
       {/* ── Import Sub-tab ────────────────────────────────────────────────── */}
       {subTab === 'import' && (
         <>
-          <div className="bg-white rounded-lg shadow p-2.5 mb-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              {isStoreUser ? (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-gray-900">Store:</span>
-                  <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">{toTitleCase(myStoreName)}</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5">
-                  <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">Store</label>
-                  <select value={selectedStore} onChange={e => { setSelectedStore(e.target.value); }}
-                    className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary">
-                    <option value="">Semua Store</option>
-                    {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
-                  </select>
-                </div>
-              )}
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
+            {isStoreUser ? (
               <div className="flex items-center gap-1.5">
-                <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">Bulan</label>
-                <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
-                  className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary" />
+                <span className="text-[11px] text-gray-500">Store:</span>
+                <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">{toTitleCase(myStoreName)}</span>
               </div>
-              <button onClick={() => setShowDownloadModal(true)} className="px-3 py-1 bg-primary text-white rounded text-[11px] hover:bg-primary/90">
-                ↓ Template
-              </button>
-              <label className="px-3 py-1 bg-green-600 text-white rounded text-[11px] hover:bg-green-700 cursor-pointer">
-                {importing ? 'Importing...' : '↑ Import'}
-                <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
-              </label>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <label className="whitespace-nowrap text-[11px] font-medium text-gray-500">Store</label>
+                <select value={selectedStore} onChange={e => { setSelectedStore(e.target.value); }}
+                  className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] text-gray-700 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20">
+                  <option value="">Semua Store</option>
+                  {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5">
+              <label className="whitespace-nowrap text-[11px] font-medium text-gray-500">Bulan</label>
+              <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+                className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] text-gray-700 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20" />
             </div>
+            <Button variant="primary" size="sm" icon={Download} onClick={() => setShowDownloadModal(true)}>
+              Template
+            </Button>
+            <label>
+              <Button variant="secondary" size="sm" icon={Upload} loading={importing} className="cursor-pointer bg-green-600 text-white hover:bg-green-700">
+                {importing ? 'Importing...' : 'Import'}
+              </Button>
+              <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
+            </label>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-3">
-            <p className="text-[11px] font-semibold text-gray-700 mb-1.5">Panduan</p>
-            <p className="text-[11px] text-gray-900 mb-2">Download template XLSX → isi kolom <strong>clock_in</strong>, <strong>clock_out</strong>, <strong>code_time</strong>, <strong>overtime_hours</strong>, <strong>reason</strong> → Import kembali.</p>
-            <p className="text-[11px] text-gray-900 mb-2">Format jam: <code className="bg-gray-100 px-1 rounded">08:30</code> atau <code className="bg-gray-100 px-1 rounded">08.30</code> (titik otomatis dikonversi ke titik dua).</p>
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <p className="mb-1.5 text-[11px] font-semibold text-gray-700">Panduan</p>
+            <p className="mb-2 text-[11px] text-gray-500">Download template XLSX → isi kolom <strong>clock_in</strong>, <strong>clock_out</strong>, <strong>code_time</strong>, <strong>overtime_hours</strong>, <strong>reason</strong> → Import kembali.</p>
+            <p className="mb-2 text-[11px] text-gray-500">Format jam: <code className="rounded bg-gray-100 px-1">08:30</code> atau <code className="rounded bg-gray-100 px-1">08.30</code> (titik otomatis dikonversi ke titik dua).</p>
             <div className="flex flex-wrap gap-1.5">
               {RECAP_KEYS.map(({ key, label }) => (
-                <span key={key} className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${CODE_COLORS[key] || 'bg-gray-100'}`}>
+                <span key={key} className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${CODE_COLORS[key] || 'bg-gray-100'}`}>
                   {key} = {label.replace(/\s*\(.*\)/, '')}
                 </span>
               ))}
@@ -408,39 +413,42 @@ export function MonthlyReport({ user, isStoreUser, myStoreName }: MonthlyReportP
 
       {/* ── Recap Sub-tab ─────────────────────────────────────────────────── */}
       {subTab === 'recap' && user.attendance_report && (
-        <div>
-          <div className="bg-white rounded-lg shadow p-2.5 mb-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-1.5">
-                <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">Store</label>
-                <select value={recapStore} onChange={e => setRecapStore(e.target.value)}
-                  className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary">
-                  <option value="">Semua Store</option>
-                  {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
-                </select>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">Bulan</label>
-                <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
-                  className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary" />
-              </div>
-              <button onClick={fetchRecap} className="px-3 py-1 bg-primary text-white rounded text-[11px] hover:bg-primary/90">
-                Refresh
-              </button>
-              <button
-                onClick={exportRecapXlsx}
-                disabled={recapLoading || recapStoreGroups.length === 0}
-                className="px-3 py-1 bg-emerald-600 text-white rounded text-[11px] hover:bg-emerald-700 disabled:opacity-50"
-              >
-                ↓ Export XLSX
-              </button>
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
+            <div className="flex items-center gap-1.5">
+              <label className="whitespace-nowrap text-[11px] font-medium text-gray-500">Store</label>
+              <select value={recapStore} onChange={e => setRecapStore(e.target.value)}
+                className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] text-gray-700 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20">
+                <option value="">Semua Store</option>
+                {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
+              </select>
             </div>
+            <div className="flex items-center gap-1.5">
+              <label className="whitespace-nowrap text-[11px] font-medium text-gray-500">Bulan</label>
+              <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+                className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] text-gray-700 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20" />
+            </div>
+            <Button variant="outline" size="sm" icon={RefreshCw} onClick={fetchRecap}>
+              Refresh
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={Download}
+              disabled={recapLoading || recapStoreGroups.length === 0}
+              onClick={exportRecapXlsx}
+              className="bg-emerald-600 text-white hover:bg-emerald-700"
+            >
+              Export XLSX
+            </Button>
           </div>
 
           {recapLoading ? (
-            <div className="text-center py-10 text-gray-900 text-sm">Memuat data...</div>
+            <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-400 shadow-sm">Memuat data...</div>
           ) : recapTafts.length === 0 ? (
-            <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-900 text-sm">Tidak ada data taft</div>
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <EmptyState icon={FileSpreadsheet} title="Tidak ada data taft" />
+            </div>
           ) : (
             <div className="space-y-4">
               {recapStoreGroups.map(({ storeName, tafts }) => (
@@ -448,7 +456,7 @@ export function MonthlyReport({ user, isStoreUser, myStoreName }: MonthlyReportP
                   {!recapStore && (
                     <div className="flex items-center gap-2 mb-2 px-1">
                       <span className="text-xs font-bold text-primary uppercase tracking-wide">{toTitleCase(storeName)}</span>
-                      <span className="text-[10px] text-gray-900">{tafts.length} taft</span>
+                      <span className="text-[10px] text-gray-400">{tafts.length} taft</span>
                       <div className="flex-1 h-px bg-primary/10" />
                     </div>
                   )}
@@ -470,13 +478,13 @@ export function MonthlyReport({ user, isStoreUser, myStoreName }: MonthlyReportP
                       ];
 
                       return (
-                        <div key={taft.id} className="rounded-lg border border-gray-700 overflow-hidden text-[10px] shadow-sm">
-                          <div className="bg-yellow-300 border-b border-gray-700 px-2 py-1 text-center">
+                        <div key={taft.id} className="overflow-hidden rounded-xl border border-gray-200 text-[10px] shadow-sm">
+                          <div className="border-b border-gray-200 bg-yellow-300 px-2 py-1 text-center">
                             <p className="font-black text-gray-900 uppercase text-[8px] leading-tight">
                               REKAPAN ABSEN {fmtTglRecap(from).toUpperCase()} - {fmtTglRecap(to).toUpperCase()}
                             </p>
                           </div>
-                          <div className="bg-green-400 border-b border-gray-700 px-2 py-1 flex items-center justify-between">
+                          <div className="flex items-center justify-between border-b border-gray-200 bg-green-400 px-2 py-1">
                             <p className="font-black text-gray-900 uppercase text-[8px] leading-tight">
                               {toTitleCase(taft.taft_name)} / {toTitleCase(storeName)}
                             </p>
@@ -507,65 +515,69 @@ export function MonthlyReport({ user, isStoreUser, myStoreName }: MonthlyReportP
       )}
 
       {/* ── Download Template Modal ────────────────────────────────────────── */}
-      {showDownloadModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h2 className="text-base font-bold text-primary mb-1">Download Template XLSX</h2>
-            <p className="text-[11px] text-gray-900 mb-4">1 file berisi semua TAFT dalam store yang dipilih</p>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Store</label>
-                {isStoreUser
-                  ? <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-900">{toTitleCase(myStoreName)}</div>
-                  : <select value={selectedStore} onChange={e => setSelectedStore(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary">
-                      <option value="">Pilih Store</option>
-                      {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
-                    </select>
-                }
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Bulan</label>
-                <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary" />
-              </div>
-              {(() => {
-                const storeForPreview = isStoreUser ? myStoreName : selectedStore;
-                if (!storeForPreview) return null;
-                const taftsForPreview = taftList.filter(t => t.store_name?.toLowerCase() === storeForPreview.toLowerCase());
-                if (taftsForPreview.length === 0) return null;
-                const fmt = (d: Date) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
-                return (
-                  <div className="bg-gray-50 rounded border border-gray-200 p-3 max-h-48 overflow-y-auto">
-                    <p className="text-[10px] font-semibold text-gray-900 mb-2">{taftsForPreview.length} sheet yang akan dibuat:</p>
-                    {taftsForPreview.map(t => {
-                      const sd = parseInt(t.start_date) || 26;
-                      const ed = parseInt(t.end_date)   || 25;
-                      const dates = buildTaftDates(selectedMonth, sd, ed);
-                      const first = dates[0];
-                      const last  = dates[dates.length - 1];
-                      return (
-                        <div key={t.id} className="flex items-center justify-between py-0.5 border-b border-gray-100 last:border-0">
-                          <span className="text-[11px] text-gray-700 truncate max-w-[200px]" title={t.taft_name}>{t.taft_name}</span>
-                          <span className="text-[10px] text-primary ml-2 whitespace-nowrap">{fmt(first)} – {fmt(last)} ({dates.length}h)</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-            </div>
-            <div className="flex gap-2 mt-5">
-              <button onClick={() => setShowDownloadModal(false)} className="flex-1 px-4 py-2 bg-gray-400 text-white rounded text-sm">Batal</button>
-              <button
-                onClick={handleDownloadTemplate}
-                disabled={!(isStoreUser ? myStoreName : selectedStore)}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
-              >
-                Download
-              </button>
-            </div>
+      <Modal
+        open={showDownloadModal}
+        onClose={() => setShowDownloadModal(false)}
+        icon={Download}
+        title="Download Template XLSX"
+        description="1 file berisi semua TAFT dalam store yang dipilih"
+        maxWidth="max-w-md"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowDownloadModal(false)}>Batal</Button>
+            <Button
+              variant="primary"
+              className="ml-auto"
+              disabled={!(isStoreUser ? myStoreName : selectedStore)}
+              onClick={handleDownloadTemplate}
+            >
+              Download
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500">Store</label>
+            {isStoreUser
+              ? <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">{toTitleCase(myStoreName)}</div>
+              : <select value={selectedStore} onChange={e => setSelectedStore(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20">
+                  <option value="">Pilih Store</option>
+                  {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
+                </select>
+            }
           </div>
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500">Bulan</label>
+            <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20" />
+          </div>
+          {(() => {
+            const storeForPreview = isStoreUser ? myStoreName : selectedStore;
+            if (!storeForPreview) return null;
+            const taftsForPreview = taftList.filter(t => t.store_name?.toLowerCase() === storeForPreview.toLowerCase());
+            if (taftsForPreview.length === 0) return null;
+            const fmt = (d: Date) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+            return (
+              <div className="max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="mb-2 text-[10px] font-semibold text-gray-600">{taftsForPreview.length} sheet yang akan dibuat:</p>
+                {taftsForPreview.map(t => {
+                  const sd = parseInt(t.start_date) || 26;
+                  const ed = parseInt(t.end_date)   || 25;
+                  const dates = buildTaftDates(selectedMonth, sd, ed);
+                  const first = dates[0];
+                  const last  = dates[dates.length - 1];
+                  return (
+                    <div key={t.id} className="flex items-center justify-between border-b border-gray-100 py-0.5 last:border-0">
+                      <span className="truncate max-w-[200px] text-[11px] text-gray-700" title={t.taft_name}>{t.taft_name}</span>
+                      <span className="ml-2 whitespace-nowrap text-[10px] text-primary">{fmt(first)} – {fmt(last)} ({dates.length}h)</span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
-      )}
+      </Modal>
 
       <Popup show={popup.show} message={popup.message} type={popup.type} onClose={() => setPopup(p => ({ ...p, show: false }))} />
     </div>

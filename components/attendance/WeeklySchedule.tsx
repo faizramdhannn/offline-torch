@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { CalendarX2 } from "lucide-react";
 import Popup from "@/components/Popup";
+import { EmptyState } from "@/components/shared/EmptyState";
 import type { DateEntry, TaftEntry, TimeCode, ScheduleRow } from "./types";
 import {
   DAYS, DAY_LABELS, CODE_COLORS, CODE_BG_CELL,
@@ -132,79 +134,77 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
   });
 
   return (
-    <div>
+    <div className="space-y-3">
       {/* ── Filter Bar ─────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-lg shadow p-2.5 mb-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          {isStoreUser ? (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-gray-900">Store:</span>
-              <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">{toTitleCase(myStoreName)}</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">Store</label>
-              <select
-                value={selectedStore}
-                onChange={e => { setSelectedStore(e.target.value); setSchedules([]); setEditingRow(null); }}
-                className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="">Semua Store</option>
-                {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
-              </select>
-            </div>
-          )}
-
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
+        {isStoreUser ? (
           <div className="flex items-center gap-1.5">
-            <label className="text-[11px] font-medium text-gray-900 whitespace-nowrap">Periode</label>
+            <span className="text-[11px] text-gray-500">Store:</span>
+            <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">{toTitleCase(myStoreName)}</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <label className="whitespace-nowrap text-[11px] font-medium text-gray-500">Store</label>
             <select
-              value={selectedDateRange}
-              onChange={e => { setSelectedDateRange(e.target.value); setEditingRow(null); }}
-              className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+              value={selectedStore}
+              onChange={e => { setSelectedStore(e.target.value); setSchedules([]); setEditingRow(null); }}
+              className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] text-gray-700 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20"
             >
-              <option value="">Pilih Periode</option>
-              {dateList.map(d => (
-                <option key={d.id} value={d.date_range}>{d.date_range}</option>
-              ))}
+              <option value="">Semua Store</option>
+              {allStores.map(s => <option key={s} value={s}>{toTitleCase(s)}</option>)}
             </select>
           </div>
+        )}
 
-          {selectedDateRange && (
-            <span className="text-[10px] bg-primary/5 text-primary px-2 py-0.5 rounded font-medium">
-              {selectedDateRange}
-            </span>
-          )}
+        <div className="flex items-center gap-1.5">
+          <label className="whitespace-nowrap text-[11px] font-medium text-gray-500">Periode</label>
+          <select
+            value={selectedDateRange}
+            onChange={e => { setSelectedDateRange(e.target.value); setEditingRow(null); }}
+            className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] text-gray-700 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20"
+          >
+            <option value="">Pilih Periode</option>
+            {dateList.map(d => (
+              <option key={d.id} value={d.date_range}>{d.date_range}</option>
+            ))}
+          </select>
         </div>
+
+        {selectedDateRange && (
+          <span className="rounded-md bg-primary/5 px-2 py-0.5 text-[10px] font-medium text-primary">
+            {selectedDateRange}
+          </span>
+        )}
       </div>
 
       {/* ── Schedule Table ─────────────────────────────────────────────────── */}
       {!selectedDateRange ? (
-        <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-900 text-sm">
-          Pilih periode untuk melihat jadwal
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <EmptyState icon={CalendarX2} title="Pilih periode" description="Pilih periode untuk melihat jadwal" />
         </div>
       ) : storeGroups.length === 0 ? (
-        <div className="bg-white rounded-lg shadow px-4 py-10 text-center text-gray-900 text-sm">
-          Tidak ada data taft
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <EmptyState icon={CalendarX2} title="Tidak ada data taft" />
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-3 py-2 text-left font-semibold text-gray-900 sticky left-0 bg-gray-50 z-10 min-w-[140px] max-w-[160px] w-40 border-r border-gray-200">
+                  <th className="px-3 py-2 text-left font-semibold text-gray-500 sticky left-0 bg-gray-50 z-10 min-w-[140px] max-w-[160px] w-40 border-r border-gray-200">
                     Nama TAFT
                   </th>
                   {DAYS.map((day, i) => (
                     <th
                       key={day}
-                      className={`px-1 py-2 text-center font-semibold text-gray-900 w-16 ${
+                      className={`px-1 py-2 text-center font-semibold text-gray-500 w-16 ${
                         day === todayDayKey ? 'bg-blue-50 text-blue-700' : ''
                       }`}
                     >
                       <div className="text-[11px]">{DAY_LABELS[i]}</div>
                       {weekDates?.[i] && (
-                        <div className="text-[9px] font-normal text-gray-900 mt-0.5">
+                        <div className="text-[9px] font-normal text-gray-400 mt-0.5">
                           {fmtDDMM(weekDates[i])}
                         </div>
                       )}
@@ -213,7 +213,7 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
                       )}
                     </th>
                   ))}
-                  <th className="px-3 py-2 text-center font-semibold text-gray-900 w-24 sticky right-0 bg-gray-50 z-10 border-l border-gray-200">
+                  <th className="px-3 py-2 text-center font-semibold text-gray-500 w-24 sticky right-0 bg-gray-50 z-10 border-l border-gray-200">
                     Aksi
                   </th>
                 </tr>
@@ -225,7 +225,7 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
                       <td colSpan={9} className="px-3 py-1.5 sticky left-0 bg-primary/5 z-10">
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] font-bold text-primary">{toTitleCase(storeName)}</span>
-                          <span className="text-[10px] text-gray-900">{tafts.length} taft</span>
+                          <span className="text-[10px] text-gray-500">{tafts.length} taft</span>
                         </div>
                       </td>
                     </tr>
@@ -268,7 +268,7 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
                                   code ? (
                                     <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>{code}</span>
                                   ) : (
-                                    <span className="text-gray-900 text-[10px]">—</span>
+                                    <span className="text-gray-300 text-[10px]">—</span>
                                   )
                                 )}
                               </td>
@@ -278,15 +278,15 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
                           <td className={`px-2 py-1 text-center sticky right-0 z-10 border-l border-gray-100 ${isEdit ? 'bg-amber-50/60' : 'bg-white'}`}>
                             {isEdit ? (
                               <div className="flex items-center justify-center gap-1">
-                                <button onClick={() => saveRow(taft)} disabled={isSaving} className="px-2 py-1 bg-primary text-white rounded text-[10px] font-medium hover:bg-primary/90 disabled:opacity-50 whitespace-nowrap">
+                                <button onClick={() => saveRow(taft)} disabled={isSaving} className="rounded-md bg-primary px-2 py-1 text-[10px] font-medium text-white whitespace-nowrap transition-colors hover:bg-primary/90 disabled:opacity-50">
                                   {isSaving ? '...' : 'Simpan'}
                                 </button>
-                                <button onClick={cancelEdit} disabled={isSaving} className="px-2 py-1 bg-gray-300 text-gray-700 rounded text-[10px] font-medium hover:bg-gray-400 disabled:opacity-50">✕</button>
+                                <button onClick={cancelEdit} disabled={isSaving} className="rounded-md bg-gray-100 px-2 py-1 text-[10px] font-medium text-gray-600 transition-colors hover:bg-gray-200 disabled:opacity-50">✕</button>
                               </div>
                             ) : (
                               <button
                                 onClick={() => startEdit(taft)}
-                                className={`px-2.5 py-1 rounded text-[10px] font-medium transition-colors whitespace-nowrap ${hasEntry ? 'bg-gray-100 text-gray-900 hover:bg-primary/10 hover:text-primary' : 'bg-primary/10 text-primary hover:bg-primary hover:text-white'}`}
+                                className={`whitespace-nowrap rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors ${hasEntry ? 'bg-gray-100 text-gray-600 hover:bg-primary/10 hover:text-primary' : 'bg-primary/10 text-primary hover:bg-primary hover:text-white'}`}
                               >
                                 {hasEntry ? 'Edit' : '+ Input'}
                               </button>
@@ -302,9 +302,9 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
           </div>
 
           {/* Code Legend */}
-          <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5 border-t border-gray-100 bg-gray-50 px-3 py-2">
             {Object.entries(CODE_COLORS).map(([code, cls]) => (
-              <span key={code} className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${cls}`}>{code}</span>
+              <span key={code} className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${cls}`}>{code}</span>
             ))}
           </div>
         </div>

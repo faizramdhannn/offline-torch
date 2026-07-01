@@ -99,7 +99,7 @@ export function SalesWagesChart({
   const ratioColor = (r: number) =>
     r >= 3   ? 'text-emerald-600 bg-emerald-50'  :
     r >= 1.5 ? 'text-yellow-600 bg-yellow-50'    :
-    r >  0   ? 'text-red-600 bg-red-50'           : 'text-gray-900 bg-gray-50';
+    r >  0   ? 'text-red-600 bg-red-50'           : 'text-gray-500 bg-gray-50';
 
   const profitColor = (n: number) => n >= 0 ? 'text-emerald-600' : 'text-red-500';
 
@@ -174,27 +174,27 @@ export function SalesWagesChart({
                       </span>
                     )}
                   </div>
-                  <p className="text-[9px] text-gray-900">{r.taftCount} TAFT</p>
+                  <p className="text-[9px] text-gray-500">{r.taftCount} TAFT</p>
                 </div>
 
                 <div className="px-3 py-2 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] text-gray-900 font-medium">Sales</span>
+                    <span className="text-[9px] text-gray-500 font-medium">Sales</span>
                     <span className="text-[10px] font-bold text-blue-600">{fmtJt(r.sales)}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] text-gray-900 font-medium">Gaji</span>
+                    <span className="text-[9px] text-gray-500 font-medium">Gaji</span>
                     <span className="text-[10px] font-bold text-orange-500">{fmtJt(r.totalGaji)}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] text-gray-900 font-medium">Lembur</span>
+                    <span className="text-[9px] text-gray-500 font-medium">Lembur</span>
                     <span className="text-[10px] font-bold text-purple-500">
                       {r.biayaLembur > 0 ? fmtJt(r.biayaLembur) : '—'}
                     </span>
                   </div>
                   <div className="border-t border-gray-100 pt-1.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-gray-900 font-semibold">Net</span>
+                      <span className="text-[9px] text-gray-500 font-semibold">Net</span>
                       <span className={`text-[11px] font-black ${profitColor(r.profit)}`}>
                         {isProfit ? '+' : ''}{fmtJt(r.profit)}
                       </span>
@@ -240,12 +240,12 @@ export function SalesWagesChart({
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <div>
-                <p className="text-sm font-black text-gray-900 capitalize">{activeStore}</p>
-                <p className="text-[10px] text-gray-900">{activeRow.taftCount} TAFT · {monthLabel}</p>
+                <p className="text-sm font-black text-gray-800 capitalize">{activeStore}</p>
+                <p className="text-[10px] text-gray-500">{activeRow.taftCount} TAFT · {monthLabel}</p>
               </div>
               <button
                 onClick={() => setActiveStore(null)}
-                className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-900 text-[11px] font-bold transition-colors"
+                className="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 text-[11px] font-bold transition-colors"
               >✕</button>
             </div>
 
@@ -257,7 +257,7 @@ export function SalesWagesChart({
                 { label: 'Net',          val: activeRow.profit,     cls: profitColor(activeRow.profit) },
               ].map(({ label, val, cls }) => (
                 <div key={label} className="px-4 py-3 text-center">
-                  <p className="text-[8px] text-gray-900 uppercase font-semibold mb-0.5">{label}</p>
+                  <p className="text-[8px] text-gray-400 uppercase font-semibold mb-0.5">{label}</p>
                   <p className={`text-[12px] font-black ${cls}`}>
                     {label === 'Net' && val >= 0 ? '+' : ''}{fmtJt(val)}
                   </p>
@@ -267,16 +267,16 @@ export function SalesWagesChart({
 
             <div className="overflow-y-auto flex-1">
               {taftDetails.length === 0 ? (
-                <div className="py-10 text-center text-gray-900 text-sm">Tidak ada data TAFT</div>
+                <div className="py-10 text-center text-gray-400 text-sm">Tidak ada data TAFT</div>
               ) : (
                 <table className="w-full text-[11px]">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50 sticky top-0">
-                      <th className="px-5 py-2.5 text-left font-semibold text-gray-900 text-[9px] uppercase tracking-wide">TAFT</th>
+                      <th className="px-5 py-2.5 text-left font-semibold text-gray-500 text-[9px] uppercase tracking-wide">TAFT</th>
                       <th className="px-4 py-2.5 text-right font-semibold text-orange-400 text-[9px] uppercase tracking-wide">Gaji</th>
                       <th className="px-4 py-2.5 text-right font-semibold text-purple-400 text-[9px] uppercase tracking-wide">Jam Lembur</th>
                       <th className="px-4 py-2.5 text-right font-semibold text-purple-400 text-[9px] uppercase tracking-wide">Biaya Lembur</th>
-                      <th className="px-4 py-2.5 text-right font-semibold text-gray-900 text-[9px] uppercase tracking-wide">Total</th>
+                      <th className="px-4 py-2.5 text-right font-semibold text-gray-500 text-[9px] uppercase tracking-wide">Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -302,7 +302,7 @@ export function SalesWagesChart({
                         {activeRow.lemburJam > 0 ? `${activeRow.lemburJam.toFixed(1)} jam` : '—'}
                       </td>
                       <td className="px-4 py-2.5 text-right text-purple-600 text-[10px]">{fmtJt(activeRow.biayaLembur)}</td>
-                      <td className="px-4 py-2.5 text-right text-gray-900 text-[10px]">{fmtJt(activeRow.totalPengeluaran)}</td>
+                      <td className="px-4 py-2.5 text-right text-gray-700 text-[10px]">{fmtJt(activeRow.totalPengeluaran)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -310,9 +310,9 @@ export function SalesWagesChart({
             </div>
 
             <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between bg-gray-50/60">
-              <p className="text-[9px] text-gray-900">
-                Gaji/orang: <span className="font-semibold text-gray-900">{fmtJt(activeRow.gajiPerOrang)}</span>
-                &nbsp;·&nbsp;Rate lembur: <span className="font-semibold text-gray-900">Rp17.500/jam</span>
+              <p className="text-[9px] text-gray-400">
+                Gaji/orang: <span className="font-semibold text-gray-700">{fmtJt(activeRow.gajiPerOrang)}</span>
+                &nbsp;·&nbsp;Rate lembur: <span className="font-semibold text-gray-700">Rp17.500/jam</span>
               </p>
               <button
                 onClick={() => setActiveStore(null)}
