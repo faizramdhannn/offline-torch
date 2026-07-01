@@ -60,6 +60,34 @@ html.dark .bg-gray-50\/50 { background-color: var(--bg-primary) !important; }
 html.dark .bg-gray-50\/40 { background-color: rgba(30,41,59,0.6) !important; }
 html.dark .bg-gray-50\/80 { background-color: rgba(30,41,59,0.8) !important; }
 html.dark .border-gray-200\/80 { border-color: var(--border-color) !important; }
+html.dark .bg-white\/95 { background-color: rgba(30,41,59,0.92) !important; }
+html.dark .bg-white\/80 { background-color: rgba(30,41,59,0.8) !important; }
+
+/* Map preview (Leaflet) — floating chips + built-in zoom/attribution controls
+   need their own dark styling since they're rendered by the library, not by
+   our own markup */
+html.dark .leaflet-control-zoom a {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+html.dark .leaflet-control-attribution {
+  background-color: rgba(30,41,59,0.85) !important;
+  color: #64748b !important;
+}
+html.dark .leaflet-control-attribution a {
+  color: #94a3b8 !important;
+}
+html.dark .leaflet-container {
+  background-color: #0f172a !important;
+}
+
+/* Dark tile filter — flips the OSM raster tiles to a dark look without a
+   second tile source/CDN. Only the tile pane is filtered, so markers,
+   popups and controls (rendered in separate Leaflet panes) stay untouched. */
+.dark-map-preview .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.7);
+}
 
 /* Text */
 html.dark .text-gray-900 { color: #f1f5f9 !important; }

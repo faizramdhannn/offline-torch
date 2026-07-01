@@ -5,6 +5,7 @@ import { Check, X, MapPin } from "lucide-react";
 import { AttendanceRecord } from "./types";
 import { extractTime, isValidSelfie, toDriveProxyUrl } from "./helpers";
 import { LazyImg, SelfiePlaceholderSm, SelfiePlaceholderMd } from "./LazyImg";
+import { MapPreview } from "./MapPreview";
 
 const thClass =
   "px-2 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap";
@@ -14,6 +15,14 @@ const tdClass = "px-2 py-1.5 text-[10px] text-gray-700";
 
 export function AttendanceTable({ records, isAll }: { records: AttendanceRecord[]; isAll: boolean }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Which map is shown inline per record — "open" | "close" | null (closed).
+  // Keyed by record id so switching rows doesn't leak state between them.
+  const [mapOpenFor, setMapOpenFor] = useState<Record<string, "open" | "close" | null>>({});
+
+  const showMap = (recId: string, which: "open" | "close") => {
+    setExpandedId(recId);
+    setMapOpenFor((prev) => ({ ...prev, [recId]: prev[recId] === which ? null : which }));
+  };
 
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
@@ -151,15 +160,21 @@ export function AttendanceTable({ records, isAll }: { records: AttendanceRecord[
                         </td>
                         <td className="border-r border-gray-200 px-2 py-1.5 text-center">
                           {rec.open_maps_url ? (
-                            <a
-                              href={rec.open_maps_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex justify-center text-gray-500 hover:text-gray-800"
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                showMap(rec.id, "open");
+                              }}
+                              className={`inline-flex justify-center transition-colors ${
+                                isExpanded && mapOpenFor[rec.id] === "open"
+                                  ? "text-primary"
+                                  : "text-gray-500 hover:text-gray-800"
+                              }`}
+                              title="Lihat peta lokasi open"
                             >
                               <MapPin className="h-3 w-3" />
-                            </a>
+                            </button>
                           ) : (
                             <span className="inline-flex justify-center text-gray-200">
                               <MapPin className="h-3 w-3" />
@@ -168,15 +183,21 @@ export function AttendanceTable({ records, isAll }: { records: AttendanceRecord[
                         </td>
                         <td className="px-2 py-1.5 text-center">
                           {rec.close_maps_url ? (
-                            <a
-                              href={rec.close_maps_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex justify-center text-gray-500 hover:text-gray-800"
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                showMap(rec.id, "close");
+                              }}
+                              className={`inline-flex justify-center transition-colors ${
+                                isExpanded && mapOpenFor[rec.id] === "close"
+                                  ? "text-primary"
+                                  : "text-gray-500 hover:text-gray-800"
+                              }`}
+                              title="Lihat peta lokasi close"
                             >
                               <MapPin className="h-3 w-3" />
-                            </a>
+                            </button>
                           ) : (
                             <span className="inline-flex justify-center text-gray-200">
                               <MapPin className="h-3 w-3" />
@@ -213,14 +234,16 @@ export function AttendanceTable({ records, isAll }: { records: AttendanceRecord[
                               <span className="font-medium text-gray-700">{rec.open_timestamp || "-"}</span>
                             </p>
                             {rec.open_maps_url && (
-                              <a
-                                href={rec.open_maps_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="mt-1 inline-flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-800 hover:underline"
+                              <button
+                                type="button"
+                                onClick={() => showMap(rec.id, "open")}
+                                className={`mt-1 inline-flex items-center gap-1 text-[10px] hover:underline ${
+                                  mapOpenFor[rec.id] === "open" ? "font-semibold text-primary" : "text-gray-500 hover:text-gray-800"
+                                }`}
                               >
-                                <MapPin className="h-3 w-3" /> Lihat Peta
-                              </a>
+                                <MapPin className="h-3 w-3" />
+                                {mapOpenFor[rec.id] === "open" ? "Sembunyikan Peta" : "Lihat Peta"}
+                              </button>
                             )}
                           </div>
                           <div>
@@ -246,17 +269,36 @@ export function AttendanceTable({ records, isAll }: { records: AttendanceRecord[
                               <span className="font-medium text-gray-700">{rec.close_timestamp || "-"}</span>
                             </p>
                             {rec.close_maps_url && (
-                              <a
-                                href={rec.close_maps_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="mt-1 inline-flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-800 hover:underline"
+                              <button
+                                type="button"
+                                onClick={() => showMap(rec.id, "close")}
+                                className={`mt-1 inline-flex items-center gap-1 text-[10px] hover:underline ${
+                                  mapOpenFor[rec.id] === "close" ? "font-semibold text-primary" : "text-gray-500 hover:text-gray-800"
+                                }`}
                               >
-                                <MapPin className="h-3 w-3" /> Lihat Peta
-                              </a>
+                                <MapPin className="h-3 w-3" />
+                                {mapOpenFor[rec.id] === "close" ? "Sembunyikan Peta" : "Lihat Peta"}
+                              </button>
                             )}
                           </div>
                         </div>
+
+                        {(() => {
+                          const which = mapOpenFor[rec.id];
+                          if (!which) return null;
+                          const mLat = parseFloat(which === "open" ? rec.open_latitude : rec.close_latitude);
+                          const mLng = parseFloat(which === "open" ? rec.open_longitude : rec.close_longitude);
+                          const mUrl = which === "open" ? rec.open_maps_url : rec.close_maps_url;
+                          if (Number.isNaN(mLat) || Number.isNaN(mLng)) return null;
+                          return (
+                            <div className="mt-4 max-w-md">
+                              <p className="mb-2 text-[9px] font-bold uppercase tracking-widest text-gray-500">
+                                Lokasi Absen {which === "open" ? "Masuk (Open)" : "Pulang (Close)"}
+                              </p>
+                              <MapPreview lat={mLat} lng={mLng} height={220} mapsUrl={mUrl} />
+                            </div>
+                          );
+                        })()}
                         {isAll && (
                           <div className="mt-4 grid grid-cols-3 gap-x-6 gap-y-1 border-t border-gray-200 pt-3 text-[10px] text-gray-600">
                             <div>
