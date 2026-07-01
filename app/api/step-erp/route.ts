@@ -57,9 +57,9 @@ export async function POST(request: NextRequest) {
     if (!store || !STEP_ERP_STORES.includes(store)) {
       return NextResponse.json({ error: "Invalid store" }, { status: 400 });
     }
-    if (!erp_number || !String(erp_number).trim()) {
-      return NextResponse.json({ error: "ERP number is required" }, { status: 400 });
-    }
+    // ERP number is optional at creation time: on some processes the number
+    // is only generated after a step or two is already done, on others it's
+    // known up front. It can always be filled in / edited later via PUT.
 
     const existing = await getSheetData(type);
     const maxId = existing.reduce((max: number, row: any) => {
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       typeDef.id, // id_type
       newId, // id
       store,
-      String(erp_number).trim(),
+      erp_number ? String(erp_number).trim() : "",
       ...typeDef.steps.map(() => "FALSE"),
       created_by || "",
       now,

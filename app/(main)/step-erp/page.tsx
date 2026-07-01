@@ -66,6 +66,7 @@ export default function StepErpPage() {
   const [addType, setAddType] = useState<string>(STEP_ERP_TYPES[0].key);
   const [addStore, setAddStore] = useState("");
   const [addErpNumber, setAddErpNumber] = useState("");
+  const [addChecked, setAddChecked] = useState<Record<string, boolean>>({});
   const [submittingAdd, setSubmittingAdd] = useState(false);
 
   // Master checklist guide (shown automatically the first time this menu is opened)
@@ -303,16 +304,28 @@ export default function StepErpPage() {
     setAddType(activeTab !== "all" ? activeTab : STEP_ERP_TYPES[0].key);
     setAddStore("");
     setAddErpNumber("");
+    setAddChecked({});
     setShowAddModal(true);
   };
 
+  const toggleAddStep = (key: string) =>
+    setAddChecked((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  // Type change resets the checklist (steps differ per type) but keeps store/number
+  const handleAddTypeChange = (v: string) => {
+    setAddType(v);
+    setAddChecked({});
+  };
+
   const handleSubmitAdd = async (preChecked: Record<string, boolean> = {}) => {
-    if (!addStore || !addErpNumber.trim()) return;
+    // ERP Number is optional on purpose — some processes only get their
+    // number after a step or two, some already have it up front.
+    if (!addStore) return;
     const typeDef = getStepErpType(addType);
     if (!typeDef) return;
     setSubmittingAdd(true);
     try {
-      // Build initial step values from the pre-submit checklist
+      // Build initial step values from the checklist
       const initialSteps: Record<string, string> = {};
       typeDef.steps.forEach((s) => {
         initialSteps[s.key] = preChecked[s.key] ? "TRUE" : "FALSE";
@@ -330,7 +343,10 @@ export default function StepErpPage() {
         }),
       });
       if (!res.ok) throw new Error();
-      await logActivity("POST", `Tambah ${typeDef.label}: ${addErpNumber.trim()} (${addStore})`);
+      await logActivity(
+        "POST",
+        `Tambah ${typeDef.label}: ${addErpNumber.trim() || "(tanpa nomor)"} (${addStore})`
+      );
       setShowAddModal(false);
       showMessage("Entry berhasil ditambahkan", "success");
       // Refresh just this type
@@ -527,7 +543,7 @@ export default function StepErpPage() {
                             }`}
                           >
                             <td className="px-4 py-3 font-medium text-gray-800">
-                              {entry.erp_number}
+                              {entry.erp_number || <span className="text-gray-300">–</span>}
                             </td>
                             <td className="px-4 py-3 text-gray-600">{entry.store}</td>
                             {activeTab === "all" && (
@@ -640,8 +656,10 @@ export default function StepErpPage() {
         onSubmit={handleSubmitAdd}
         // Pass extra props for type selector
         typeKey={addType}
-        onTypeChange={setAddType}
+        onTypeChange={handleAddTypeChange}
         showTypeSelector={activeTab === "all"}
+        checked={addChecked}
+        onToggleStep={toggleAddStep}
       />
 
       <ConfirmationDialog
