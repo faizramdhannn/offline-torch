@@ -1,58 +1,53 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "../globals.css";
-import { ThemeProvider } from "@/context/ThemeContext";
-import { SidebarProvider } from "@/context/SidebarContext";
-import { SpeedInsights } from "@vercel/speed-insights/next";
+"use client";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import Sidebar from "@/components/Sidebar";
+import { UserProvider, useUser } from "@/context/UserContext";
+import AttendanceGateModal from "@/components/AttendanceGateModal";
+import { useAttendanceGate } from "@/hooks/useAttendanceGate";
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+function MainLayoutInner({ children }: { children: React.ReactNode }) {
+  const { user } = useUser();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
 
-export const metadata: Metadata = {
-  title: "Offline Torch",
-  description: "Stock Management System",
-  icons: {
-    icon: "/logo_offline_torch.png",
-  },
-};
+  const { showGate, storeName, dismissGate } = useAttendanceGate();
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && !user) {
+      router.push("/login");
+    }
+  }, [user, router, mounted]);
+
+  if (!mounted) return null;
+  if (!user) return null;
+
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* Prevent flash of wrong theme */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                const theme = localStorage.getItem('theme');
-                if (theme === 'dark') {
-                  document.documentElement.classList.add('dark');
-                }
-              } catch(e) {}
-            `,
-          }}
-        />
-      </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ThemeProvider>
-          <SidebarProvider>
-            {children}
-          </SidebarProvider>
-        </ThemeProvider>
-        <SpeedInsights />
-      </body>
-    </html>
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar userName={user.name} permissions={user} />
+      <main className="flex-1 overflow-auto min-w-0">
+        <div className="md:hidden h-12" />
+        {children}
+      </main>
+
+      {/* Attendance gate — only shown when user hasn't checked in yet */}
+      {showGate && storeName && (
+        <AttendanceGateModal storeName={storeName} onDismiss={dismissGate} />
+      )}
+    </div>
+  );
+}
+
+export default function MainLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <UserProvider>
+      <MainLayoutInner>{children}</MainLayoutInner>
+    </UserProvider>
   );
 }
