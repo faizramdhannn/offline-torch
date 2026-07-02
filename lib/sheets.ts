@@ -78,10 +78,10 @@ const SPREADSHEET_MAP: Record<string, string> = {
 // secara signifikan, terutama untuk sheet besar seperti result_stock.
 // Sesuaikan nilai ini jika kolom aktual bertambah.
 const SHEET_RANGE: Record<string, string> = {
-  result_stock: "A1:K",       // ~36 kolom — sheet stok besar, batasi
-  pca_stock: "A1:K",           // ~26 kolom
+  result_stock: "A1:L",       // ~36 kolom — sheet stok besar, batasi (L = tier_product)
+  pca_stock: "A1:L",           // ~26 kolom (L = tier_product)
   erp_stock_balance: "A1:P",
-  master_item: "A1:J",
+  master_item: "A1:K",         // K = tier_product
   javelin: "A1:Z",
   last_update: "A1:D",         // biasanya cuma timestamp + beberapa kolom
   powerbi_threshold: "A1:O",

@@ -13,6 +13,7 @@ interface StockItem {
   item_name: string;
   category: string;
   grade: string;
+  tier_product: string;
   hpp: string;
   hpt: string;
   hpj: string;
@@ -199,6 +200,7 @@ export function StockTable({
             <SortableTh label="Product Name" column="item_name" {...thProps} />
             <SortableTh label="Category" column="category" {...thProps} />
             <SortableTh label="Grade" column="grade" {...thProps} />
+            <SortableTh label="Tier Product" column="tier_product" {...thProps} />
             {selectedView !== "master" && (
               <SortableTh label="Stock" column="stock" {...thProps} />
             )}
@@ -247,6 +249,7 @@ export function StockTable({
               </td>
               <td className="whitespace-nowrap px-3 py-2 text-gray-600">{toProperCase(item.category)}</td>
               <td className="whitespace-nowrap px-3 py-2 text-gray-600">{toProperCase(item.grade)}</td>
+              <td className="whitespace-nowrap px-3 py-2 text-gray-600">{toProperCase(item.tier_product)}</td>
               {selectedView !== "master" && (
                 <td className="whitespace-nowrap px-3 py-2 font-medium text-gray-700">{item.stock}</td>
               )}

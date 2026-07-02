@@ -60,6 +60,8 @@ interface StockItem {
   Category?: string;
   grade: string;
   Grade?: string;
+  tier_product: string;
+  Tier_product?: string;
   hpp: string;
   HPP?: string;
   hpt: string;
@@ -130,6 +132,7 @@ export default function StockPage() {
   const [lastUpdate, setLastUpdate] = useState<LastUpdate[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [grades, setGrades] = useState<string[]>([]);
+  const [tiers, setTiers] = useState<string[]>([]);
   const [warehouses, setWarehouses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedView, setSelectedView] = useState<"store" | "pca" | "master">("store");
@@ -137,6 +140,7 @@ export default function StockPage() {
 
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [gradeFilter, setGradeFilter] = useState<string[]>([]);
+  const [tierFilter, setTierFilter] = useState<string[]>([]);
   const [warehouseFilter, setWarehouseFilter] = useState<string[]>([]);
   // Price range filter (HPJ) — [min, max] in Rupiah. null = not yet initialized from data.
   const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
@@ -149,6 +153,7 @@ export default function StockPage() {
 
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showGradeDropdown, setShowGradeDropdown] = useState(false);
+  const [showTierDropdown, setShowTierDropdown] = useState(false);
   const [showWarehouseDropdown, setShowWarehouseDropdown] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -176,6 +181,7 @@ export default function StockPage() {
 
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const gradeDropdownRef = useRef<HTMLDivElement>(null);
+  const tierDropdownRef = useRef<HTMLDivElement>(null);
   const warehouseDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -184,6 +190,8 @@ export default function StockPage() {
         setShowCategoryDropdown(false);
       if (gradeDropdownRef.current && !gradeDropdownRef.current.contains(event.target as Node))
         setShowGradeDropdown(false);
+      if (tierDropdownRef.current && !tierDropdownRef.current.contains(event.target as Node))
+        setShowTierDropdown(false);
       if (warehouseDropdownRef.current && !warehouseDropdownRef.current.contains(event.target as Node))
         setShowWarehouseDropdown(false);
     };
@@ -205,7 +213,7 @@ export default function StockPage() {
   }, []);
 
   useEffect(() => { fetchData(); }, [selectedView]);
-  useEffect(() => { applyFilters(); }, [categoryFilter, gradeFilter, warehouseFilter, priceRange, searchQuery, data, sortColumn, sortDirection]);
+  useEffect(() => { applyFilters(); }, [categoryFilter, gradeFilter, tierFilter, warehouseFilter, priceRange, searchQuery, data, sortColumn, sortDirection]);
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);
@@ -238,6 +246,7 @@ export default function StockPage() {
         item_name: item.item_name || item.Product_name || "",
         category: item.category || item.Category || "",
         grade: item.grade || item.Grade || "",
+        tier_product: item.tier_product || item.Tier_product || item["Tier Product"] || item.tier || "",
         hpp: item.hpp || item.HPP || "",
         hpt: item.hpt || item.HPT || "",
         hpj: item.hpj || item.HPJ || "",
@@ -248,6 +257,7 @@ export default function StockPage() {
       setFilteredData(normalizedData);
       setCategories([...new Set(normalizedData.map((i: StockItem) => i.category))].filter(Boolean) as string[]);
       setGrades([...new Set(normalizedData.map((i: StockItem) => i.grade))].filter(Boolean) as string[]);
+      setTiers([...new Set(normalizedData.map((i: StockItem) => i.tier_product))].filter(Boolean) as string[]);
       if (selectedView === "store")
         setWarehouses([...new Set(normalizedData.map((i: StockItem) => i.warehouse))].filter(Boolean) as string[]);
 
@@ -328,6 +338,7 @@ export default function StockPage() {
     item_name: { get: (i) => toProperCase(i.item_name || ""), type: "text" },
     category: { get: (i) => toProperCase(i.category || ""), type: "text" },
     grade: { get: (i) => toProperCase(i.grade || ""), type: "text" },
+    tier_product: { get: (i) => toProperCase(i.tier_product || ""), type: "text" },
     stock: { get: (i) => parseInt((i.stock || "0").toString().replace(/[^0-9-]/g, "")) || 0, type: "number" },
     threshold: { get: (i) => parseInt((i.threshold || "0").toString().replace(/[^0-9-]/g, "")) || 0, type: "number" },
     warehouse: { get: (i) => i.warehouse || "", type: "text" },
@@ -340,6 +351,7 @@ export default function StockPage() {
     let filtered = [...data];
     if (categoryFilter.length > 0) filtered = filtered.filter((i) => categoryFilter.includes(i.category));
     if (gradeFilter.length > 0) filtered = filtered.filter((i) => gradeFilter.includes(i.grade));
+    if (tierFilter.length > 0) filtered = filtered.filter((i) => tierFilter.includes(i.tier_product));
     if (selectedView === "store" && warehouseFilter.length > 0)
       filtered = filtered.filter((i) => i.warehouse && warehouseFilter.includes(i.warehouse));
     if (priceRange && (priceRange[0] > priceBounds[0] || priceRange[1] < priceBounds[1])) {
@@ -391,7 +403,7 @@ export default function StockPage() {
   };
 
   const resetFilters = () => {
-    setCategoryFilter([]); setGradeFilter([]); setWarehouseFilter([]);
+    setCategoryFilter([]); setGradeFilter([]); setTierFilter([]); setWarehouseFilter([]);
     setPriceRange(priceBounds[1] > 0 ? [priceBounds[0], priceBounds[1]] : null);
     setSearchQuery(""); setSortColumn(null); setSortDirection("asc");
     setFilteredData(data); setCurrentPage(1);
@@ -399,6 +411,7 @@ export default function StockPage() {
 
   const toggleCategory = (v: string) => setCategoryFilter((p) => p.includes(v) ? p.filter((c) => c !== v) : [...p, v]);
   const toggleGrade = (v: string) => setGradeFilter((p) => p.includes(v) ? p.filter((g) => g !== v) : [...p, v]);
+  const toggleTier = (v: string) => setTierFilter((p) => p.includes(v) ? p.filter((t) => t !== v) : [...p, v]);
   const toggleWarehouse = (v: string) => setWarehouseFilter((p) => p.includes(v) ? p.filter((w) => w !== v) : [...p, v]);
 
   // ── Chart → filter shortcuts ────────────────────────────────────────────
@@ -814,6 +827,15 @@ export default function StockPage() {
               open={showGradeDropdown}
               onOpenChange={setShowGradeDropdown}
               containerRef={gradeDropdownRef}
+            />
+            <FilterDropdown
+              label="Tier Product"
+              options={tiers}
+              selected={tierFilter}
+              onToggle={toggleTier}
+              open={showTierDropdown}
+              onOpenChange={setShowTierDropdown}
+              containerRef={tierDropdownRef}
             />
             {selectedView === "store" && (
               <FilterDropdown
