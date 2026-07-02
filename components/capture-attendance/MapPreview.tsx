@@ -16,12 +16,15 @@ interface MapPreviewProps {
   className?: string;
 }
 
-// Official OpenStreetMap tile server — same source the old iframe embed used,
-// so it works anywhere the previous version worked. Dark mode is done with a
-// CSS filter on the tile pane instead of switching to a second CDN, so there's
-// only ever one tile source to reach and theme-switching needs no re-fetch.
-const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
-const ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors';
+// CARTO basemap tiles — free for reasonable production traffic, no API key
+// required, and (unlike tile.openstreetmap.org) explicitly allows being
+// embedded directly in apps. Dark mode uses CARTO's own dark_all tileset
+// instead of a CSS filter, so both themes render crisp, purpose-made tiles.
+const TILE_URL_LIGHT = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+const TILE_URL_DARK = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+const TILE_SUBDOMAINS = ["a", "b", "c", "d"];
+const ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noreferrer">CARTO</a>';
 
 function isDarkMode() {
   if (typeof document === "undefined") return false;
@@ -29,18 +32,19 @@ function isDarkMode() {
 }
 
 /**
- * Inline, theme-aware map preview (Leaflet + official OSM tiles). Renders in
- * place — never opens a new tab/window. Dark mode is a CSS filter applied to
- * the tile pane, toggled automatically whenever the app's `html.dark` class
- * changes, so switching themes never re-fetches tiles.
+ * Inline, theme-aware map preview (Leaflet + CARTO basemap tiles). Renders in
+ * place — never opens a new tab/window. Dark mode swaps to CARTO's dark_all
+ * tileset (no CSS filter needed), toggled automatically whenever the app's
+ * `html.dark` class changes.
  */
 export function MapPreview({ lat, lng, height = 180, accent = "#0d334d", mapsUrl, className = "" }: MapPreviewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<import("leaflet").Map | null>(null);
+  const tileLayerRef = useRef<import("leaflet").TileLayer | null>(null);
   const [dark, setDark] = useState(isDarkMode);
   const [ready, setReady] = useState(false);
 
-  // Follow theme toggles (html.dark class) so the map's dark filter flips with the app
+  // Follow theme toggles (html.dark class) so the map's tile source flips with the app
   useEffect(() => {
     const el = document.documentElement;
     const observer = new MutationObserver(() => setDark(el.classList.contains("dark")));
@@ -66,7 +70,11 @@ export function MapPreview({ lat, lng, height = 180, accent = "#0d334d", mapsUrl
       L.control.zoom({ position: "bottomright" }).addTo(map);
       L.control.attribution({ position: "bottomleft", prefix: false }).addAttribution(ATTRIBUTION).addTo(map);
 
-      L.tileLayer(TILE_URL, { maxZoom: 19 }).addTo(map);
+      const tileLayer = L.tileLayer(dark ? TILE_URL_DARK : TILE_URL_LIGHT, {
+        subdomains: TILE_SUBDOMAINS,
+        maxZoom: 19,
+      }).addTo(map);
+      tileLayerRef.current = tileLayer;
 
       const icon = L.divIcon({
         className: "",
@@ -93,9 +101,26 @@ export function MapPreview({ lat, lng, height = 180, accent = "#0d334d", mapsUrl
       resizeObserver?.disconnect();
       mapRef.current?.remove();
       mapRef.current = null;
+      tileLayerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lat, lng]);
+
+  // Swap tile source when theme changes, without re-creating the whole map
+  useEffect(() => {
+    if (!mapRef.current) return;
+    import("leaflet").then((mod) => {
+      const L = mod.default;
+      if (tileLayerRef.current) {
+        mapRef.current!.removeLayer(tileLayerRef.current);
+      }
+      const tileLayer = L.tileLayer(dark ? TILE_URL_DARK : TILE_URL_LIGHT, {
+        subdomains: TILE_SUBDOMAINS,
+        maxZoom: 19,
+      }).addTo(mapRef.current!);
+      tileLayerRef.current = tileLayer;
+    });
+  }, [dark]);
 
   const externalUrl = mapsUrl || `https://www.google.com/maps?q=${lat},${lng}`;
 
@@ -104,9 +129,7 @@ export function MapPreview({ lat, lng, height = 180, accent = "#0d334d", mapsUrl
       className={`relative overflow-hidden rounded-xl border border-gray-200 bg-gray-100 ${className}`}
       style={{ height }}
     >
-      {/* dark-map-preview class flips a CSS filter on the tile pane only —
-          see app/globals.css — so the marker/controls/chips stay normal-colored */}
-      <div ref={containerRef} className={`h-full w-full ${dark ? "dark-map-preview" : ""}`} />
+      <div ref={containerRef} className="h-full w-full" />
 
       {!ready && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-gray-100 text-gray-400">

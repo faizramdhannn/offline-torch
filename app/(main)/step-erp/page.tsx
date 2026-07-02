@@ -411,7 +411,7 @@ export default function StepErpPage() {
               ? "Checklist Proses ERP Semua Store"
               : userStore
               ? `Menampilkan Data Store: ${userStore}`
-              : "ChecklistPproses ERP Store"
+              : "Checklist Proses ERP Store"
           }
           actions={
             <div className="flex items-center gap-2">

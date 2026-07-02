@@ -1062,7 +1062,7 @@ export default function RequestTrackingPage() {
                   disabled={!uploadFile}
                   loading={submitting}
                 >
-                  {submitting ? "Mengupload..." : "Upload & Selesaikan"}
+                  {submitting ? "Mengupload..." : "Upload"}
                 </Button>
               </>
             }
