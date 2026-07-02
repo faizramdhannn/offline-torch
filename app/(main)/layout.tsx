@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import "../globals.css";
 import { UserProvider, useUser } from "@/context/UserContext";
 import AttendanceGateModal from "@/components/AttendanceGateModal";
 import { useAttendanceGate } from "@/hooks/useAttendanceGate";
