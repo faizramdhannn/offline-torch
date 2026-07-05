@@ -191,7 +191,7 @@ function LoginPageContent() {
           opacity: 1;
         }
 
-        .sl-right img {
+        .sl-right video {
           position: absolute; inset: 0;
           width: 100%; height: 100%;
           object-fit: cover; object-position: center;
@@ -526,7 +526,14 @@ function LoginPageContent() {
 
         {/* ── Right panel (image) ── */}
         <div className="sl-right">
-          <img src="/cover_login.png" alt="Offline Torch" />
+          <video
+            src="/cover_login.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+          />
           <div className="sl-right-content"></div>
         </div>
       </div>
