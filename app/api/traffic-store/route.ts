@@ -174,9 +174,9 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
 
     // Conditional additions — only fill if relevant traffic_source
-    const wagVal = traffic_source === 'Whatsapp Group' ? (wag_addition || '') : '';
-    const eigerVal = traffic_source === 'Dari Eiger' ? (eiger_addition || '') : '';
-    const organicVal = traffic_source === 'Traffic Organic/Walk In' ? (organic_addition || '') : '';
+    const wagVal = traffic_source === 'WAG' ? (wag_addition || '') : '';
+    const eigerVal = traffic_source === 'Eiger Referral' ? (eiger_addition || '') : '';
+    const organicVal = traffic_source === 'Walk-in' ? (organic_addition || '') : '';
 
     // sales_order only relevant when customer_convert === 'Beli'
     const salesOrderVal = customer_convert === 'Beli' ? (sales_order || '') : '';
@@ -252,9 +252,9 @@ export async function PUT(request: NextRequest) {
     const newTrafficSource = traffic_source ?? existing.traffic_source;
     const newConvert = customer_convert ?? existing.customer_convert;
 
-    const wagVal = newTrafficSource === 'Whatsapp Group' ? (wag_addition ?? existing.wag_addition ?? '') : '';
-    const eigerVal = newTrafficSource === 'Dari Eiger' ? (eiger_addition ?? existing.eiger_addition ?? '') : '';
-    const organicVal = newTrafficSource === 'Traffic Organic/Walk In' ? (organic_addition ?? existing.organic_addition ?? '') : '';
+    const wagVal = newTrafficSource === 'WAG' ? (wag_addition ?? existing.wag_addition ?? '') : '';
+    const eigerVal = newTrafficSource === 'Eiger Referral' ? (eiger_addition ?? existing.eiger_addition ?? '') : '';
+    const organicVal = newTrafficSource === 'Walk-in' ? (organic_addition ?? existing.organic_addition ?? '') : '';
 
     const salesOrderVal = newConvert === 'Beli' ? (sales_order ?? existing.sales_order ?? '') : '';
 

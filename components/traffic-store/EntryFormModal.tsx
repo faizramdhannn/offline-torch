@@ -316,7 +316,7 @@ export function EntryFormModal({
           </select>
         </div>
 
-        {form.traffic_source === "Whatsapp Group" && (
+        {form.traffic_source === "WAG" && (
           <div className="border-l-2 border-blue-200 pl-3">
             <FieldLabel required>Karena apa?</FieldLabel>
             <select
@@ -334,7 +334,7 @@ export function EntryFormModal({
           </div>
         )}
 
-        {form.traffic_source === "Dari Eiger" && (
+        {form.traffic_source === "Eiger Referral" && (
           <div className="border-l-2 border-purple-200 pl-3">
             <FieldLabel required>Karena Apa?</FieldLabel>
             <select
@@ -352,7 +352,7 @@ export function EntryFormModal({
           </div>
         )}
 
-        {form.traffic_source === "Traffic Organic/Walk In" && (
+        {form.traffic_source === "Walk-in" && (
           <div className="border-l-2 border-green-200 pl-3">
             <FieldLabel required>Karena Apa?</FieldLabel>
             <select

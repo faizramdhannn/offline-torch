@@ -45,9 +45,9 @@ interface EntryTableProps {
 }
 
 function getDetail(row: TrafficEntry): string {
-  if (row.traffic_source === "Whatsapp Group") return row.wag_addition;
-  if (row.traffic_source === "Dari Eiger") return row.eiger_addition;
-  if (row.traffic_source === "Traffic Organic/Walk In") return row.organic_addition;
+  if (row.traffic_source === "WAG") return row.wag_addition;
+  if (row.traffic_source === "Eiger Referral") return row.eiger_addition;
+  if (row.traffic_source === "Walk-in") return row.organic_addition;
   return "";
 }
 
@@ -88,9 +88,15 @@ const COLUMNS: ColumnDef[] = [
     render: (row) => row.sales_order || "-" },
   { key: "traffic_source", label: "Traffic Source", defaultVisible: true,
     render: (row) => <Badge variant="info">{row.traffic_source}</Badge> },
-  { key: "source_detail", label: "Detail", defaultVisible: true,
+  { key: "wag_addition", label: "WAG Addition", defaultVisible: true,
     cellClass: "max-w-[110px] truncate text-gray-500",
-    render: (row) => getDetail(row) || "-" },
+    render: (row) => row.wag_addition || "-" },
+  { key: "eiger_addition", label: "Eiger Addition", defaultVisible: true,
+    cellClass: "max-w-[110px] truncate text-gray-500",
+    render: (row) => row.eiger_addition || "-" },
+  { key: "organic_addition", label: "Organic Addition", defaultVisible: true,
+    cellClass: "max-w-[110px] truncate text-gray-500",
+    render: (row) => row.organic_addition || "-" },
   { key: "brand_competitor", label: "Brand", defaultVisible: true,
     cellClass: "max-w-[90px] truncate text-gray-500",
     render: (row) => row.brand_competitor || "-" },

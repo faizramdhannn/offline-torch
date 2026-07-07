@@ -878,9 +878,9 @@ export default function TrafficStorePage() {
   };
 
   const handleSave = async () => {
-    const needsWag = form.traffic_source === "Whatsapp Group" && !form.wag_addition;
-    const needsEiger = form.traffic_source === "Dari Eiger" && !form.eiger_addition;
-    const needsOrganic = form.traffic_source === "Traffic Organic/Walk In" && !form.organic_addition;
+    const needsWag = form.traffic_source === "WAG" && !form.wag_addition;
+    const needsEiger = form.traffic_source === "Eiger Referral" && !form.eiger_addition;
+    const needsOrganic = form.traffic_source === "Walk-in" && !form.organic_addition;
     const needsSalesOrder = form.customer_convert === "Beli" && !form.sales_order?.trim();
     const invalidSalesOrder =
       form.customer_convert === "Beli" &&
@@ -1302,7 +1302,7 @@ export default function TrafficStorePage() {
                           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
                             {wagChartData.length > 0 && (
                               <div className="space-y-4">
-                                <h3 className="text-sm font-semibold text-gray-700">Detail Whatsapp Group</h3>
+                                <h3 className="text-sm font-semibold text-gray-700">Detail WAG</h3>
                                 <ResponsiveContainer width="100%" height={220}>
                                   <BarChart data={wagChartData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -1317,7 +1317,7 @@ export default function TrafficStorePage() {
                             )}
                             {eigerChartData.length > 0 && (
                               <div className="space-y-4">
-                                <h3 className="text-sm font-semibold text-gray-700">Detail Dari Eiger</h3>
+                                <h3 className="text-sm font-semibold text-gray-700">Detail Eiger Referral</h3>
                                 <ResponsiveContainer width="100%" height={220}>
                                   <BarChart data={eigerChartData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -1332,7 +1332,7 @@ export default function TrafficStorePage() {
                             )}
                             {organicChartData.length > 0 && (
                               <div className="space-y-4">
-                                <h3 className="text-sm font-semibold text-gray-700">Detail Traffic Organic/Walk In</h3>
+                                <h3 className="text-sm font-semibold text-gray-700">Detail Walk-in</h3>
                                 <ResponsiveContainer width="100%" height={220}>
                                   <BarChart data={organicChartData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
