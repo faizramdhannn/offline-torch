@@ -42,25 +42,48 @@ async function getTrafficSheetData(sheetName: string) {
     });
 }
 
-async function appendTrafficRow(sheetName: string, row: any[]) {
+// Appends the core row (A–P, 16 cols) and, if provided, the extra "revisi survey"
+// fields (S–Y, 7 cols) on the SAME newly-created row. Columns Q (value_order) and
+// R (discount_code) contain sheet formulas and are always skipped/untouched.
+// Returns the 1-based sheet row number that was written, so callers (or later
+// updates) can reference it if needed.
+async function appendTrafficRow(sheetName: string, row: any[], extraRow?: any[]): Promise<number> {
   const credentials = getGoogleCredentials();
   const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
   const sheets = google.sheets({ version: 'v4', auth });
-  // Only write the first 16 columns (A–P).
-  // Columns Q (value_order) and R (discount_code) contain sheet formulas — do NOT overwrite them.
-  await sheets.spreadsheets.values.append({
+
+  const appendRes = await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_TRAFFIC,
     range: `${sheetName}!A2`,
     valueInputOption: 'RAW',
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [row] },
   });
+
+  // Parse the row number Google Sheets actually used, e.g. "traffic_source!A5:P5" -> 5
+  const updatedRange = appendRes.data.updates?.updatedRange || '';
+  const match = updatedRange.match(/![A-Z]+(\d+)/);
+  const rowIndex = match ? parseInt(match[1], 10) : -1;
+
+  if (extraRow && rowIndex > 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_TRAFFIC,
+      range: `${sheetName}!S${rowIndex}:Y${rowIndex}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [extraRow] },
+    });
+  }
+
+  return rowIndex;
 }
 
-async function updateTrafficRow(sheetName: string, rowIndex: number, row: any[]) {
+// Updates the core row (A–P, 16 cols) and, if provided, the extra "revisi survey"
+// fields (S–Y, 7 cols) for the same row. Columns Q (value_order) and R (discount_code)
+// contain sheet formulas and are always skipped/untouched.
+async function updateTrafficRow(sheetName: string, rowIndex: number, row: any[], extraRow?: any[]) {
   const credentials = getGoogleCredentials();
   const auth = new google.auth.GoogleAuth({
     credentials,
@@ -78,6 +101,15 @@ async function updateTrafficRow(sheetName: string, rowIndex: number, row: any[])
     valueInputOption: 'RAW',
     requestBody: { values: [row] },
   });
+
+  if (extraRow) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_TRAFFIC,
+      range: `${sheetName}!S${rowIndex}:Y${rowIndex}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [extraRow] },
+    });
+  }
 }
 
 // GET: fetch traffic_source data + master_traffic dropdowns
@@ -108,12 +140,18 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// Reasons in reason_not_buy that relate to price — only these unlock budget_range
+const PRICE_REASONS = ['Harga Di Atas Budget', 'Harga Lebih Murah Online', 'Menunggu Promo Lebih Besar'];
+
 // POST: add new traffic entry
 // Sheet columns (A–P, 16 cols):
 //   id | date | store_location | taft_name | customer_convert | traffic_source
 //   | wag_addition | eiger_addition | organic_addition | brand_competitor
 //   | intention | case | notes | sales_order | created_at | update_at
-// Columns Q+ (value_order, discount_code) contain sheet formulas — never written here.
+// Column Q, R (value_order, discount_code) contain sheet formulas — never written here.
+// Sheet columns (S–Y, 7 cols — REVISI SURVEY):
+//   customer_segment | product_category | product_detail | reason_not_buy
+//   | budget_range | alt_purchase_channel | reason_buy
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -121,10 +159,15 @@ export async function POST(request: NextRequest) {
       date, store_location, taft_name, customer_convert, traffic_source,
       wag_addition, eiger_addition, organic_addition, brand_competitor,
       intention, case: caseVal, notes, sales_order, created_by,
+      customer_segment, product_category, product_detail, reason_not_buy,
+      budget_range, alt_purchase_channel, reason_buy,
     } = body;
 
     if (!date || !store_location || !taft_name || !traffic_source) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+    if (customer_convert === 'Tidak Beli' && !reason_not_buy) {
+      return NextResponse.json({ error: 'Alasan tidak beli wajib diisi' }, { status: 400 });
     }
 
     const id = Date.now().toString();
@@ -158,7 +201,24 @@ export async function POST(request: NextRequest) {
       now,              // P: update_at
     ];
 
-    await appendTrafficRow('traffic_source', newRow);
+    // Conditional logic for revisi survey fields
+    const reasonNotBuyVal = customer_convert === 'Tidak Beli' ? (reason_not_buy || '') : '';
+    const budgetRangeVal = reasonNotBuyVal && PRICE_REASONS.includes(reasonNotBuyVal) ? (budget_range || '') : '';
+    const altChannelVal = customer_convert === 'Tidak Beli' ? (alt_purchase_channel || '') : '';
+    const reasonBuyVal = customer_convert === 'Beli' ? (reason_buy || '') : '';
+
+    // 7 columns — S through Y
+    const extraRow = [
+      customer_segment || '',   // S
+      product_category || '',   // T
+      product_detail || '',     // U
+      reasonNotBuyVal,          // V
+      budgetRangeVal,           // W
+      altChannelVal,            // X
+      reasonBuyVal,             // Y
+    ];
+
+    await appendTrafficRow('traffic_source', newRow, extraRow);
 
     return NextResponse.json({ success: true, id });
   } catch (error) {
@@ -175,6 +235,8 @@ export async function PUT(request: NextRequest) {
       id, date, store_location, taft_name, customer_convert, traffic_source,
       wag_addition, eiger_addition, organic_addition, brand_competitor,
       intention, case: caseVal, notes, sales_order,
+      customer_segment, product_category, product_detail, reason_not_buy,
+      budget_range, alt_purchase_channel, reason_buy,
     } = body;
 
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
@@ -196,7 +258,7 @@ export async function PUT(request: NextRequest) {
 
     const salesOrderVal = newConvert === 'Beli' ? (sales_order ?? existing.sales_order ?? '') : '';
 
-    // 16 columns — A through P (Q+ formula columns untouched)
+    // 16 columns — A through P (Q, R formula columns untouched)
     const updatedRow = [
       id,                                                    // A
       date ?? existing.date,                                 // B
@@ -216,7 +278,25 @@ export async function PUT(request: NextRequest) {
       now,                                                    // P
     ];
 
-    await updateTrafficRow('traffic_source', rowIndex, updatedRow);
+    // Revisi survey fields (S–Y), falling back to existing values when not sent
+    const reasonNotBuyVal = newConvert === 'Tidak Beli' ? (reason_not_buy ?? existing.reason_not_buy ?? '') : '';
+    const budgetRangeVal = reasonNotBuyVal && PRICE_REASONS.includes(reasonNotBuyVal)
+      ? (budget_range ?? existing.budget_range ?? '')
+      : '';
+    const altChannelVal = newConvert === 'Tidak Beli' ? (alt_purchase_channel ?? existing.alt_purchase_channel ?? '') : '';
+    const reasonBuyVal = newConvert === 'Beli' ? (reason_buy ?? existing.reason_buy ?? '') : '';
+
+    const extraRow = [
+      customer_segment ?? existing.customer_segment ?? '',   // S
+      product_category ?? existing.product_category ?? '',   // T
+      product_detail ?? existing.product_detail ?? '',       // U
+      reasonNotBuyVal,                                        // V
+      budgetRangeVal,                                         // W
+      altChannelVal,                                          // X
+      reasonBuyVal,                                           // Y
+    ];
+
+    await updateTrafficRow('traffic_source', rowIndex, updatedRow, extraRow);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -237,8 +317,9 @@ export async function DELETE(request: NextRequest) {
     if (idx === -1) return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
 
     const rowIndex = idx + 2;
-    // Clear only the 16 writable columns (A–P); formula columns Q+ are untouched.
-    await updateTrafficRow('traffic_source', rowIndex, Array(16).fill(''));
+    // Clear the 16 writable columns (A–P) and the 7 revisi survey columns (S–Y);
+    // formula columns Q, R are untouched.
+    await updateTrafficRow('traffic_source', rowIndex, Array(16).fill(''), Array(7).fill(''));
 
     return NextResponse.json({ success: true });
   } catch (error) {

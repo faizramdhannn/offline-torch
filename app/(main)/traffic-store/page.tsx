@@ -53,6 +53,14 @@ interface TrafficEntry {
   // formula columns from sheet (read-only, never written)
   value_order?: string;
   discount_code?: string;
+  // ── Revisi Survey (kolom S–Y) ──
+  customer_segment?: string;
+  product_category?: string;
+  product_detail?: string;
+  reason_not_buy?: string;
+  budget_range?: string;
+  alt_purchase_channel?: string;
+  reason_buy?: string;
 }
 
 interface MasterRow {
@@ -65,6 +73,13 @@ interface MasterRow {
   eiger_addition: string;
   organic_addition: string;
   brand_competitor: string;
+  // ── Revisi Survey — master lists untuk dropdown ──
+  customer_segment?: string;
+  product_category?: string;
+  reason_not_buy?: string;
+  budget_range?: string;
+  alt_purchase_channel?: string;
+  reason_buy?: string;
 }
 
 const COLORS = [
@@ -144,6 +159,13 @@ const EMPTY_FORM: TrafficFormData = {
   case: "",
   notes: "",
   sales_order: "",
+  customer_segment: "",
+  product_category: "",
+  product_detail: "",
+  reason_not_buy: "",
+  budget_range: "",
+  alt_purchase_channel: "",
+  reason_buy: "",
 };
 
 // ─── Export XLSX ──────────────────────────────────────────────────────────────
@@ -337,6 +359,9 @@ export default function TrafficStorePage() {
   const [filterStore, setFilterStore] = useState("all");
   const [filterTraffic, setFilterTraffic] = useState("all");
   const [filterConvert, setFilterConvert] = useState("all");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterReasonNotBuy, setFilterReasonNotBuy] = useState("all");
+  const [filterSearch, setFilterSearch] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
 
@@ -446,9 +471,49 @@ export default function TrafficStorePage() {
     )];
   }, [master, form.intention]);
 
+  const customerSegments = useMemo(
+    () => [...new Set(master.map(m => m.customer_segment).filter(Boolean))] as string[],
+    [master]
+  );
+
+  const productCategories = useMemo(
+    () => [...new Set(master.map(m => m.product_category).filter(Boolean))] as string[],
+    [master]
+  );
+
+  const reasonsNotBuy = useMemo(
+    () => [...new Set(master.map(m => m.reason_not_buy).filter(Boolean))] as string[],
+    [master]
+  );
+
+  const budgetRanges = useMemo(
+    () => [...new Set(master.map(m => m.budget_range).filter(Boolean))] as string[],
+    [master]
+  );
+
+  const altPurchaseChannels = useMemo(
+    () => [...new Set(master.map(m => m.alt_purchase_channel).filter(Boolean))] as string[],
+    [master]
+  );
+
+  const reasonsBuy = useMemo(
+    () => [...new Set(master.map(m => m.reason_buy).filter(Boolean))] as string[],
+    [master]
+  );
+
   const allStores = useMemo(
     () => [...new Set(master.map(m => m.store_location).filter(Boolean))].sort(),
     [master]
+  );
+
+  const dataProductCategories = useMemo(
+    () => [...new Set(data.map(r => r.product_category).filter(Boolean))].sort() as string[],
+    [data]
+  );
+
+  const dataReasonsNotBuy = useMemo(
+    () => [...new Set(data.map(r => r.reason_not_buy).filter(Boolean))].sort() as string[],
+    [data]
   );
 
   // ─── Filtered data ──────────────────────────────────────────────────────────
@@ -462,10 +527,21 @@ export default function TrafficStorePage() {
     }
     if (filterTraffic !== "all") rows = rows.filter(r => r.traffic_source === filterTraffic);
     if (filterConvert !== "all") rows = rows.filter(r => r.customer_convert === filterConvert);
+    if (filterCategory !== "all") rows = rows.filter(r => r.product_category === filterCategory);
+    if (filterReasonNotBuy !== "all") rows = rows.filter(r => r.reason_not_buy === filterReasonNotBuy);
+    if (filterSearch.trim()) {
+      const q = filterSearch.trim().toLowerCase();
+      rows = rows.filter(r =>
+        r.taft_name?.toLowerCase().includes(q) ||
+        r.notes?.toLowerCase().includes(q) ||
+        r.product_detail?.toLowerCase().includes(q) ||
+        r.product_category?.toLowerCase().includes(q)
+      );
+    }
     if (filterDateFrom) rows = rows.filter(r => (r.date || "") >= filterDateFrom);
     if (filterDateTo) rows = rows.filter(r => (r.date || "") <= filterDateTo);
     return rows;
-  }, [data, filterStore, filterTraffic, filterConvert, filterDateFrom, filterDateTo, isStoreUser, userStore]);
+  }, [data, filterStore, filterTraffic, filterConvert, filterCategory, filterReasonNotBuy, filterSearch, filterDateFrom, filterDateTo, isStoreUser, userStore]);
 
   const fd = filteredData();
   const paginated = fd.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -477,6 +553,28 @@ export default function TrafficStorePage() {
       const src = r.traffic_source?.trim();
       if (!src) return;
       map[src] = (map[src] || 0) + 1;
+    });
+    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [fd]);
+
+  // ─── Kategori Produk (revisi survey) ─────────────────────────────────────────
+  const categoryChartData = useMemo(() => {
+    const map: Record<string, number> = {};
+    fd.forEach(r => {
+      const cat = r.product_category?.trim();
+      if (!cat) return;
+      map[cat] = (map[cat] || 0) + 1;
+    });
+    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [fd]);
+
+  // ─── Alasan Tidak Beli (revisi survey) ───────────────────────────────────────
+  const reasonNotBuyChartData = useMemo(() => {
+    const map: Record<string, number> = {};
+    fd.filter(r => r.customer_convert === "Tidak Beli").forEach(r => {
+      const reason = r.reason_not_buy?.trim();
+      if (!reason) return;
+      map[reason] = (map[reason] || 0) + 1;
     });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [fd]);
@@ -686,12 +784,55 @@ export default function TrafficStorePage() {
     }));
   }, [fd]);
 
+  // ─── Previous-period comparison (for BI-style trend deltas) ─────────────────
+  // Only computed when a concrete date range is active (today/7d/30d/custom).
+  const previousPeriodData = useMemo(() => {
+    if (!filterDateFrom || !filterDateTo) return null;
+    const from = new Date(filterDateFrom);
+    const to = new Date(filterDateTo);
+    const lengthDays = Math.round((to.getTime() - from.getTime()) / 86400000) + 1;
+    const prevTo = new Date(from); prevTo.setDate(prevTo.getDate() - 1);
+    const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - (lengthDays - 1));
+    const fmt = (d: Date) => { const pad = (n: number) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+    const pf = fmt(prevFrom), pt = fmt(prevTo);
+
+    let rows = data.filter(r => r.id);
+    if (isStoreUser && userStore) rows = rows.filter(r => r.store_location?.toLowerCase().trim() === userStore.toLowerCase().trim());
+    if (filterStore !== "all" && !isStoreUser) rows = rows.filter(r => r.store_location?.toLowerCase() === filterStore.toLowerCase());
+    if (filterTraffic !== "all") rows = rows.filter(r => r.traffic_source === filterTraffic);
+    if (filterConvert !== "all") rows = rows.filter(r => r.customer_convert === filterConvert);
+    if (filterCategory !== "all") rows = rows.filter(r => r.product_category === filterCategory);
+    if (filterReasonNotBuy !== "all") rows = rows.filter(r => r.reason_not_buy === filterReasonNotBuy);
+    rows = rows.filter(r => (r.date || "") >= pf && (r.date || "") <= pt);
+    return rows;
+  }, [data, filterStore, filterTraffic, filterConvert, filterCategory, filterReasonNotBuy, filterDateFrom, filterDateTo, isStoreUser, userStore]);
+
+  const pctDelta = (curr: number, prev: number): number | undefined => {
+    if (previousPeriodData === null) return undefined;
+    if (prev === 0) return curr > 0 ? 100 : 0;
+    return ((curr - prev) / prev) * 100;
+  };
+
   // Summary stats
   const totalEntries = fd.length;
   const totalStores = new Set(fd.map(r => r.store_location).filter(Boolean)).size;
   const topTraffic = trafficChartData[0]?.name || "-";
   const totalBeli = fd.filter(r => r.customer_convert === "Beli").length;
   const convRate = totalEntries ? `${((totalBeli / totalEntries) * 100).toFixed(1)}%` : "0%";
+
+  const prevTotalEntries = previousPeriodData?.length ?? 0;
+  const prevTotalBeli = previousPeriodData?.filter(r => r.customer_convert === "Beli").length ?? 0;
+  const prevConvRateNum = prevTotalEntries ? (prevTotalBeli / prevTotalEntries) * 100 : 0;
+  const currConvRateNum = totalEntries ? (totalBeli / totalEntries) * 100 : 0;
+  const prevTotalValue = previousPeriodData
+    ? previousPeriodData.filter(r => r.customer_convert === "Beli").reduce((s, r) => s + parseValue(r.value_order), 0)
+    : 0;
+
+  const deltaEntries = pctDelta(totalEntries, prevTotalEntries);
+  const deltaBeli = pctDelta(totalBeli, prevTotalBeli);
+  const deltaConvRate = previousPeriodData === null ? undefined : currConvRateNum - prevConvRateNum;
+  const deltaValue = pctDelta(valueOrderStats.totalValue, prevTotalValue);
+  const deltaLabel = previousPeriodData ? `vs ${previousPeriodData.length} data periode sebelumnya` : undefined;
 
   const handleExportXLSX = () => {
     if (fd.length === 0) { showMessage("Tidak ada data untuk diexport", "error"); return; }
@@ -725,6 +866,13 @@ export default function TrafficStorePage() {
       case: entry.case,
       notes: entry.notes,
       sales_order: entry.sales_order || "",
+      customer_segment: entry.customer_segment || "",
+      product_category: entry.product_category || "",
+      product_detail: entry.product_detail || "",
+      reason_not_buy: entry.reason_not_buy || "",
+      budget_range: entry.budget_range || "",
+      alt_purchase_channel: entry.alt_purchase_channel || "",
+      reason_buy: entry.reason_buy || "",
     });
     setShowForm(true);
   };
@@ -738,13 +886,21 @@ export default function TrafficStorePage() {
       form.customer_convert === "Beli" &&
       !!form.sales_order?.trim() &&
       !/^#\d+$/.test(form.sales_order.trim());
-    const needsNotes = form.customer_convert === "Tidak Beli" && !form.notes?.trim();
+    const needsReasonNotBuy = form.customer_convert === "Tidak Beli" && !form.reason_not_buy;
+    const needsBudgetRange =
+      form.customer_convert === "Tidak Beli" &&
+      ["Harga Di Atas Budget", "Harga Lebih Murah Online", "Menunggu Promo Lebih Besar"].includes(form.reason_not_buy) &&
+      !form.budget_range;
+    const needsReasonBuy = form.customer_convert === "Beli" && !form.reason_buy;
 
     if (!form.date) {
       showMessage("Tanggal wajib diisi", "error"); return;
     }
     if (!form.taft_name || !form.traffic_source || !form.intention || !form.case || !form.customer_convert) {
       showMessage("Taft, Status Beli, Traffic Source, Intensi, dan Case wajib diisi", "error"); return;
+    }
+    if (!form.customer_segment || !form.product_category) {
+      showMessage("Segment Customer dan Kategori Produk wajib diisi", "error"); return;
     }
     if (needsWag) { showMessage("Pilih WAG Addition terlebih dahulu", "error"); return; }
     if (needsEiger) { showMessage("Pilih Eiger Addition terlebih dahulu", "error"); return; }
@@ -753,7 +909,9 @@ export default function TrafficStorePage() {
     if (invalidSalesOrder) {
       showMessage("Format Sales Order tidak valid. Gunakan format #angka, contoh: #4098769", "error"); return;
     }
-    if (needsNotes) { showMessage("Notes wajib diisi ketika customer tidak membeli", "error"); return; }
+    if (needsReasonNotBuy) { showMessage("Alasan Tidak Beli wajib diisi", "error"); return; }
+    if (needsBudgetRange) { showMessage("Budget Range wajib diisi ketika alasan tidak beli terkait harga", "error"); return; }
+    if (needsReasonBuy) { showMessage("Alasan Beli wajib diisi ketika customer membeli", "error"); return; }
 
     setSaving(true);
     try {
@@ -831,6 +989,7 @@ export default function TrafficStorePage() {
 
   const resetFilters = () => {
     setFilterStore("all"); setFilterTraffic("all"); setFilterConvert("all");
+    setFilterCategory("all"); setFilterReasonNotBuy("all"); setFilterSearch("");
     setFilterDateFrom(""); setFilterDateTo(""); setPage(1);
   };
 
@@ -877,12 +1036,20 @@ export default function TrafficStorePage() {
             isStoreUser={isStoreUser}
             allStores={allStores}
             trafficSources={trafficSources}
+            productCategories={dataProductCategories}
+            reasonsNotBuy={dataReasonsNotBuy}
             filterStore={filterStore}
             onFilterStoreChange={(v) => { setFilterStore(v); setPage(1); }}
             filterTraffic={filterTraffic}
             onFilterTrafficChange={(v) => { setFilterTraffic(v); setPage(1); }}
             filterConvert={filterConvert}
             onFilterConvertChange={(v) => { setFilterConvert(v); setPage(1); }}
+            filterCategory={filterCategory}
+            onFilterCategoryChange={(v) => { setFilterCategory(v); setPage(1); }}
+            filterReasonNotBuy={filterReasonNotBuy}
+            onFilterReasonNotBuyChange={(v) => { setFilterReasonNotBuy(v); setPage(1); }}
+            filterSearch={filterSearch}
+            onFilterSearchChange={(v) => { setFilterSearch(v); setPage(1); }}
             filterDateFrom={filterDateFrom}
             onFilterDateFromChange={(v) => { setFilterDateFrom(v); setPage(1); }}
             filterDateTo={filterDateTo}
@@ -932,11 +1099,15 @@ export default function TrafficStorePage() {
             <>
               {/* Summary Cards */}
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                <StatCard icon={Users} label="Total Data" value={totalEntries.toLocaleString()} tone="info" />
+                <StatCard icon={Users} label="Total Data" value={totalEntries.toLocaleString()} tone="info"
+                  delta={deltaEntries} deltaLabel={deltaLabel} />
                 <StatCard icon={MapPin} label="Jumlah Store" value={totalStores.toLocaleString()} tone="default" />
-                <StatCard icon={Target} label="Total Beli" value={totalBeli.toLocaleString()} tone="positive" />
-                <StatCard icon={Target} label="Conv. Rate" value={convRate} tone="warning" />
-                <StatCard icon={Target} label="Total Value Beli" value={formatRupiah(valueOrderStats.totalValue)} tone="positive" />
+                <StatCard icon={Target} label="Total Beli" value={totalBeli.toLocaleString()} tone="positive"
+                  delta={deltaBeli} deltaLabel={deltaLabel} />
+                <StatCard icon={Target} label="Conv. Rate" value={convRate} tone="warning"
+                  delta={deltaConvRate} deltaLabel={deltaLabel ? `poin ${deltaLabel}` : undefined} />
+                <StatCard icon={Target} label="Total Value Beli" value={formatRupiah(valueOrderStats.totalValue)} tone="positive"
+                  delta={deltaValue} deltaLabel={deltaLabel} />
               </div>
 
               {/* Chart Card */}
@@ -1035,6 +1206,42 @@ export default function TrafficStorePage() {
                               </ResponsiveContainer>
                             </ChartCard>
                           </div>
+
+                          {/* Kategori Produk & Alasan Tidak Beli (revisi survey) */}
+                          {(categoryChartData.length > 0 || reasonNotBuyChartData.length > 0) && (
+                            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+                              {categoryChartData.length > 0 && (
+                                <ChartCard title="Kategori Produk yang Dicari" span="half">
+                                  <ResponsiveContainer width="100%" height={Math.max(220, categoryChartData.length * 32)}>
+                                    <BarChart data={categoryChartData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
+                                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                      <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={110} axisLine={false} tickLine={false} />
+                                      <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                                      <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={22}>
+                                        {categoryChartData.map((_, i) => (
+                                          <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                                        ))}
+                                      </Bar>
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                </ChartCard>
+                              )}
+                              {reasonNotBuyChartData.length > 0 && (
+                                <ChartCard title="Alasan Tidak Beli" span="half">
+                                  <ResponsiveContainer width="100%" height={Math.max(220, reasonNotBuyChartData.length * 32)}>
+                                    <BarChart data={reasonNotBuyChartData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
+                                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                      <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={150} axisLine={false} tickLine={false} />
+                                      <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                                      <Bar dataKey="value" fill="#ef4444" radius={[0, 4, 4, 0]} maxBarSize={22} />
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                </ChartCard>
+                              )}
+                            </div>
+                          )}
 
                           {/* Total Survey per Store */}
                           <ChartCard title="Total Survey per Store">
@@ -1245,6 +1452,12 @@ export default function TrafficStorePage() {
           brandCompetitors={brandCompetitors}
           intentions={intentions}
           casesForIntention={casesForIntention}
+          customerSegments={customerSegments}
+          productCategories={productCategories}
+          reasonsNotBuy={reasonsNotBuy}
+          budgetRanges={budgetRanges}
+          altPurchaseChannels={altPurchaseChannels}
+          reasonsBuy={reasonsBuy}
           saving={saving}
           onSubmit={handleSave}
           toTitleCase={toTitleCase}

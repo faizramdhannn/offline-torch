@@ -6,6 +6,9 @@ import { Button } from "@/components/shared/Button";
 import { FieldLabel } from "@/components/shared/FormField";
 import { cn } from "@/lib/utils";
 
+// Alasan tidak beli yang berkaitan dengan harga — hanya ini yang membuka budget_range
+export const PRICE_REASONS = ["Harga Di Atas Budget", "Harga Lebih Murah Online", "Menunggu Promo Lebih Besar"];
+
 export interface TrafficFormData {
   date: string;
   taft_name: string;
@@ -20,6 +23,14 @@ export interface TrafficFormData {
   case: string;
   notes: string;
   sales_order: string;
+  // ── Revisi Survey ──
+  customer_segment: string;
+  product_category: string;
+  product_detail: string;
+  reason_not_buy: string;
+  budget_range: string;
+  alt_purchase_channel: string;
+  reason_buy: string;
 }
 
 interface EntryFormModalProps {
@@ -37,6 +48,12 @@ interface EntryFormModalProps {
   brandCompetitors: string[];
   intentions: string[];
   casesForIntention: string[];
+  customerSegments: string[];
+  productCategories: string[];
+  reasonsNotBuy: string[];
+  budgetRanges: string[];
+  altPurchaseChannels: string[];
+  reasonsBuy: string[];
   saving: boolean;
   onSubmit: () => void;
   toTitleCase: (s: string) => string;
@@ -60,6 +77,12 @@ export function EntryFormModal({
   brandCompetitors,
   intentions,
   casesForIntention,
+  customerSegments,
+  productCategories,
+  reasonsNotBuy,
+  budgetRanges,
+  altPurchaseChannels,
+  reasonsBuy,
   saving,
   onSubmit,
   toTitleCase,
@@ -153,6 +176,127 @@ export function EntryFormModal({
             ) : (
               <p className="mt-1 text-[11px] text-gray-400">Wajib diisi dengan format #angka, contoh: #409876</p>
             )}
+          </div>
+        )}
+
+        {form.customer_convert === "Beli" && (
+          <div className="border-l-2 border-green-300 pl-3">
+            <FieldLabel required>Apa yang membuat customer memutuskan beli?</FieldLabel>
+            <select
+              value={form.reason_buy}
+              onChange={(e) => onChange({ ...form, reason_buy: e.target.value })}
+              className="w-full rounded-lg border border-green-200 bg-white px-3 py-2 text-xs outline-none transition-colors focus:ring-2 focus:ring-green-100"
+            >
+              <option value="">-- Pilih Alasan Beli --</option>
+              {reasonsBuy.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div>
+          <FieldLabel required>Segment Customer</FieldLabel>
+          <select
+            value={form.customer_segment}
+            onChange={(e) => onChange({ ...form, customer_segment: e.target.value })}
+            className={inputClass}
+          >
+            <option value="">-- Pilih Segment --</option>
+            {customerSegments.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <FieldLabel required>Kategori Produk yang Dicari</FieldLabel>
+          <select
+            value={form.product_category}
+            onChange={(e) => onChange({ ...form, product_category: e.target.value })}
+            className={inputClass}
+          >
+            <option value="">-- Pilih Kategori --</option>
+            {productCategories.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <FieldLabel>Produk Spesifik (SKU / Deskripsi)</FieldLabel>
+          <input
+            type="text"
+            value={form.product_detail}
+            onChange={(e) => onChange({ ...form, product_detail: e.target.value })}
+            placeholder='Contoh: "Arrafa Black size 42"'
+            className={inputClass}
+          />
+        </div>
+
+        {form.customer_convert === "Tidak Beli" && (
+          <div className="border-l-2 border-red-300 pl-3 space-y-3">
+            <div>
+              <FieldLabel required>Alasan Tidak Beli</FieldLabel>
+              <select
+                value={form.reason_not_buy}
+                onChange={(e) =>
+                  onChange({
+                    ...form,
+                    reason_not_buy: e.target.value,
+                    budget_range: PRICE_REASONS.includes(e.target.value) ? form.budget_range : "",
+                  })
+                }
+                className="w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-xs outline-none transition-colors focus:ring-2 focus:ring-red-100"
+              >
+                <option value="">-- Pilih Alasan --</option>
+                {reasonsNotBuy.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {PRICE_REASONS.includes(form.reason_not_buy) && (
+              <div>
+                <FieldLabel required>Budget Range</FieldLabel>
+                <select
+                  value={form.budget_range}
+                  onChange={(e) => onChange({ ...form, budget_range: e.target.value })}
+                  className="w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-xs outline-none transition-colors focus:ring-2 focus:ring-red-100"
+                >
+                  <option value="">-- Pilih Budget --</option>
+                  {budgetRanges.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <FieldLabel>Akan Beli Di Mana</FieldLabel>
+              <select
+                value={form.alt_purchase_channel}
+                onChange={(e) => onChange({ ...form, alt_purchase_channel: e.target.value })}
+                className="w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-xs outline-none transition-colors focus:ring-2 focus:ring-red-100"
+              >
+                <option value="">-- Pilih Channel --</option>
+                {altPurchaseChannels.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
 
@@ -287,19 +431,16 @@ export function EntryFormModal({
         </div>
 
         <div>
-          <FieldLabel required={form.customer_convert === "Tidak Beli"}>
-            Notes
-            {form.customer_convert === "Tidak Beli" && <span className="ml-1 text-[10px] font-normal text-red-400">(wajib diisi)</span>}
+          <FieldLabel>
+            Catatan Tambahan
+            <span className="ml-1 text-[10px] font-normal text-gray-400">(opsional)</span>
           </FieldLabel>
           <textarea
             value={form.notes}
             onChange={(e) => onChange({ ...form, notes: e.target.value })}
             rows={2}
-            placeholder={form.customer_convert === "Tidak Beli" ? "Jelaskan alasan customer tidak membeli..." : "Catatan tambahan..."}
-            className={cn(
-              "w-full resize-none rounded-lg border px-3 py-2 text-xs outline-none transition-colors focus:ring-2",
-              form.customer_convert === "Tidak Beli" ? "border-red-200 bg-red-50/30 focus:ring-red-100" : "border-gray-200 bg-gray-50 focus:ring-primary/10"
-            )}
+            placeholder="Info tambahan yang tidak tertangkap dropdown di atas..."
+            className="w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs outline-none transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/10"
           />
         </div>
       </div>
