@@ -1,6 +1,7 @@
 "use client";
 
-import { Pencil, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Pencil, Trash2, Columns3, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/shared/Badge";
 import { cn } from "@/lib/utils";
 
@@ -53,87 +54,242 @@ function getDetail(row: TrafficEntry): string {
 const thClass = "px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap";
 const tdClass = "px-2 py-1.5 text-[11px] leading-tight text-gray-700";
 
+// ─── Column registry ──────────────────────────────────────────────────────────
+// `essential: true` columns are always shown and can't be hidden (identity of the row).
+// Everything else can be toggled on/off via the "Kolom" picker.
+interface ColumnDef {
+  key: string;
+  label: string;
+  essential?: boolean;
+  defaultVisible: boolean;
+  storeOnly?: boolean; // only relevant/shown when NOT isStoreUser
+  render: (row: TrafficEntry, ctx: { formatDate: (v: string) => string; toTitleCase: (s: string) => string }) => React.ReactNode;
+  cellClass?: string;
+}
+
+const COLUMNS: ColumnDef[] = [
+  { key: "date", label: "Tanggal", essential: true, defaultVisible: true,
+    cellClass: "whitespace-nowrap text-gray-500",
+    render: (row, { formatDate }) => formatDate(row.date) },
+  { key: "store", label: "Store", essential: true, defaultVisible: true, storeOnly: true,
+    cellClass: "whitespace-nowrap font-medium",
+    render: (row, { toTitleCase }) => toTitleCase(row.store_location) },
+  { key: "taft", label: "Taft", essential: true, defaultVisible: true,
+    cellClass: "whitespace-nowrap",
+    render: (row) => row.taft_name },
+  { key: "convert", label: "Beli?", essential: true, defaultVisible: true,
+    render: (row) => (
+      <Badge variant={row.customer_convert === "Beli" ? "success" : row.customer_convert === "Tidak Beli" ? "error" : "neutral"}>
+        {row.customer_convert || "-"}
+      </Badge>
+    ) },
+  { key: "sales_order", label: "Sales Order", defaultVisible: true,
+    cellClass: "whitespace-nowrap font-mono text-[10px] text-gray-500",
+    render: (row) => row.sales_order || "-" },
+  { key: "traffic_source", label: "Traffic Source", defaultVisible: true,
+    render: (row) => <Badge variant="info">{row.traffic_source}</Badge> },
+  { key: "source_detail", label: "Detail", defaultVisible: true,
+    cellClass: "max-w-[110px] truncate text-gray-500",
+    render: (row) => getDetail(row) || "-" },
+  { key: "brand_competitor", label: "Brand", defaultVisible: true,
+    cellClass: "max-w-[90px] truncate text-gray-500",
+    render: (row) => row.brand_competitor || "-" },
+  { key: "intention", label: "Intensi", defaultVisible: false,
+    cellClass: "max-w-[100px] truncate text-gray-600",
+    render: (row) => row.intention || "-" },
+  { key: "case", label: "Case", defaultVisible: false,
+    cellClass: "max-w-[110px] truncate text-gray-600",
+    render: (row) => row.case || "-" },
+  { key: "notes", label: "Notes", defaultVisible: true,
+    cellClass: "max-w-[130px] truncate text-gray-500",
+    render: (row) => row.notes || "-" },
+  { key: "customer_segment", label: "Segment", defaultVisible: true,
+    cellClass: "max-w-[90px] truncate text-gray-500",
+    render: (row) => row.customer_segment || "-" },
+  { key: "product_category", label: "Kategori", defaultVisible: true,
+    cellClass: "max-w-[100px] truncate text-gray-500",
+    render: (row) => row.product_category || "-" },
+  { key: "product_detail", label: "Produk Spesifik", defaultVisible: true,
+    cellClass: "max-w-[130px] truncate text-gray-500",
+    render: (row) => row.product_detail || "-" },
+  { key: "reason_not_buy", label: "Alasan Tidak Beli", defaultVisible: true,
+    cellClass: "max-w-[130px] truncate text-red-500",
+    render: (row) => row.reason_not_buy || "-" },
+  { key: "budget_range", label: "Budget", defaultVisible: false,
+    cellClass: "whitespace-nowrap text-gray-500",
+    render: (row) => row.budget_range || "-" },
+  { key: "alt_purchase_channel", label: "Akan Beli Di Mana", defaultVisible: false,
+    cellClass: "max-w-[100px] truncate text-gray-500",
+    render: (row) => row.alt_purchase_channel || "-" },
+  { key: "reason_buy", label: "Alasan Beli", defaultVisible: true,
+    cellClass: "max-w-[110px] truncate text-green-600",
+    render: (row) => row.reason_buy || "-" },
+];
+
+const STORAGE_KEY = "traffic_store_visible_columns_v1";
+
+function loadVisibleColumns(): Record<string, boolean> {
+  const defaults = Object.fromEntries(COLUMNS.map((c) => [c.key, c.defaultVisible]));
+  if (typeof window === "undefined") return defaults;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaults;
+    const saved = JSON.parse(raw);
+    return { ...defaults, ...saved };
+  } catch {
+    return defaults;
+  }
+}
+
+// ─── Column picker dropdown ───────────────────────────────────────────────────
+function ColumnPicker({
+  columns, visible, onToggle, onReset,
+}: {
+  columns: ColumnDef[];
+  visible: Record<string, boolean>;
+  onToggle: (key: string) => void;
+  onReset: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  const toggleableCount = columns.filter((c) => !c.essential).length;
+  const visibleToggleableCount = columns.filter((c) => !c.essential && visible[c.key]).length;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
+          open ? "border-primary/40 bg-primary/5 text-primary" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+        )}
+      >
+        <Columns3 className="h-3.5 w-3.5" />
+        Kolom
+        <span className="rounded-full bg-gray-100 px-1.5 text-[10px] text-gray-500">
+          {visibleToggleableCount}/{toggleableCount}
+        </span>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full z-20 mt-1.5 w-56 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
+          <div className="flex items-center justify-between px-1.5 pb-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Tampilkan Kolom</span>
+            <button
+              type="button"
+              onClick={onReset}
+              className="flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
+            >
+              <RotateCcw className="h-2.5 w-2.5" />
+              Reset
+            </button>
+          </div>
+          <div className="max-h-72 overflow-y-auto">
+            {columns.filter((c) => !c.essential).map((c) => (
+              <label
+                key={c.key}
+                className="flex cursor-pointer items-center gap-2 rounded-lg px-1.5 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={!!visible[c.key]}
+                  onChange={() => onToggle(c.key)}
+                  className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary/30"
+                />
+                {c.label}
+              </label>
+            ))}
+          </div>
+          <p className="mt-1 border-t border-gray-100 px-1.5 pt-1.5 text-[10px] text-gray-400">
+            Tanggal, Store, Taft &amp; Beli? selalu tampil
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function EntryTable({ items, isStoreUser, canEdit, onEdit, onDelete, formatDate, toTitleCase }: EntryTableProps) {
+  const [visible, setVisible] = useState<Record<string, boolean>>(() => loadVisibleColumns());
+
+  useEffect(() => {
+    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(visible)); } catch {}
+  }, [visible]);
+
+  const toggleColumn = (key: string) => setVisible((v) => ({ ...v, [key]: !v[key] }));
+  const resetColumns = () => setVisible(Object.fromEntries(COLUMNS.map((c) => [c.key, c.defaultVisible])));
+
+  const activeColumns = useMemo(
+    () => COLUMNS.filter((c) => {
+      if (c.storeOnly && isStoreUser) return false;
+      if (c.essential) return true;
+      return !!visible[c.key];
+    }),
+    [visible, isStoreUser]
+  );
+
   return (
     <>
+      {/* ── Column picker toolbar ── */}
+      <div className="hidden items-center justify-end border-b border-gray-100 px-3 py-2 lg:flex">
+        <ColumnPicker columns={COLUMNS} visible={visible} onToggle={toggleColumn} onReset={resetColumns} />
+      </div>
+
       {/* ── Desktop table ──────────────────────────────────────────────── */}
       <div className="hidden overflow-x-auto lg:block">
         <table className="w-full border-collapse">
           <thead>
             <tr className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50">
-              <th className={thClass}>Tanggal</th>
-              {!isStoreUser && <th className={thClass}>Store</th>}
-              <th className={thClass}>Taft</th>
-              <th className={thClass}>Beli?</th>
-              <th className={thClass}>Sales Order</th>
-              <th className={thClass}>Traffic Source</th>
-              <th className={thClass}>Detail</th>
-              <th className={thClass}>Brand</th>
-              <th className={thClass}>Intensi</th>
-              <th className={thClass}>Case</th>
-              <th className={thClass}>Notes</th>
-              <th className={thClass}>Segment</th>
-              <th className={thClass}>Kategori</th>
-              <th className={thClass}>Produk Spesifik</th>
-              <th className={thClass}>Alasan Tidak Beli</th>
-              <th className={thClass}>Budget</th>
-              <th className={thClass}>Akan Beli Di Mana</th>
-              <th className={thClass}>Alasan Beli</th>
+              {activeColumns.map((c) => (
+                <th key={c.key} className={thClass}>{c.label}</th>
+              ))}
               {canEdit && <th className={cn(thClass, "text-center")}>Aksi</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {items.map((row, idx) => {
-              const detail = getDetail(row);
-              return (
-                <tr key={row.id || idx} className={cn("transition-colors duration-150", idx % 2 === 1 ? "bg-gray-50/40" : "bg-white", "hover:bg-primary/[0.04]")}>
-                  <td className={cn(tdClass, "whitespace-nowrap text-gray-500")}>{formatDate(row.date)}</td>
-                  {!isStoreUser && <td className={cn(tdClass, "whitespace-nowrap font-medium")}>{toTitleCase(row.store_location)}</td>}
-                  <td className={cn(tdClass, "whitespace-nowrap")}>{row.taft_name}</td>
-                  <td className={tdClass}>
-                    <Badge variant={row.customer_convert === "Beli" ? "success" : row.customer_convert === "Tidak Beli" ? "error" : "neutral"}>
-                      {row.customer_convert || "-"}
-                    </Badge>
-                  </td>
-                  <td className={cn(tdClass, "whitespace-nowrap font-mono text-[10px] text-gray-500")}>{row.sales_order || "-"}</td>
-                  <td className={tdClass}>
-                    <Badge variant="info">{row.traffic_source}</Badge>
-                  </td>
-                  <td className={cn(tdClass, "max-w-[110px] truncate text-gray-500")} title={detail}>{detail || "-"}</td>
-                  <td className={cn(tdClass, "max-w-[90px] truncate text-gray-500")} title={row.brand_competitor}>{row.brand_competitor || "-"}</td>
-                  <td className={cn(tdClass, "max-w-[100px] truncate text-gray-600")} title={row.intention}>{row.intention || "-"}</td>
-                  <td className={cn(tdClass, "max-w-[110px] truncate text-gray-600")} title={row.case}>{row.case || "-"}</td>
-                  <td className={cn(tdClass, "max-w-[130px] truncate text-gray-500")} title={row.notes}>{row.notes || "-"}</td>
-                  <td className={cn(tdClass, "max-w-[90px] truncate text-gray-500")} title={row.customer_segment}>{row.customer_segment || "-"}</td>
-                  <td className={cn(tdClass, "max-w-[100px] truncate text-gray-500")} title={row.product_category}>{row.product_category || "-"}</td>
-                  <td className={cn(tdClass, "max-w-[130px] truncate text-gray-500")} title={row.product_detail}>{row.product_detail || "-"}</td>
-                  <td className={cn(tdClass, "max-w-[130px] truncate text-red-500")} title={row.reason_not_buy}>{row.reason_not_buy || "-"}</td>
-                  <td className={cn(tdClass, "whitespace-nowrap text-gray-500")}>{row.budget_range || "-"}</td>
-                  <td className={cn(tdClass, "max-w-[100px] truncate text-gray-500")} title={row.alt_purchase_channel}>{row.alt_purchase_channel || "-"}</td>
-                  <td className={cn(tdClass, "max-w-[110px] truncate text-green-600")} title={row.reason_buy}>{row.reason_buy || "-"}</td>
-                  {canEdit && (
-                    <td className={tdClass}>
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => onEdit(row)}
-                          title="Edit"
-                          className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-yellow-50 text-yellow-600 transition-colors hover:bg-yellow-100"
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </button>
-                        <button
-                          onClick={() => onDelete(row.id)}
-                          title="Hapus"
-                          className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-red-50 text-red-600 transition-colors hover:bg-red-100"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
+            {items.map((row, idx) => (
+              <tr key={row.id || idx} className={cn("transition-colors duration-150", idx % 2 === 1 ? "bg-gray-50/40" : "bg-white", "hover:bg-primary/[0.04]")}>
+                {activeColumns.map((c) => {
+                  const content = c.render(row, { formatDate, toTitleCase });
+                  const titleAttr = typeof content === "string" ? content : undefined;
+                  return (
+                    <td key={c.key} className={cn(tdClass, c.cellClass)} title={titleAttr}>
+                      {content}
                     </td>
-                  )}
-                </tr>
-              );
-            })}
+                  );
+                })}
+                {canEdit && (
+                  <td className={tdClass}>
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        onClick={() => onEdit(row)}
+                        title="Edit"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-yellow-50 text-yellow-600 transition-colors hover:bg-yellow-100"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => onDelete(row.id)}
+                        title="Hapus"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-red-50 text-red-600 transition-colors hover:bg-red-100"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </td>
+                )}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
