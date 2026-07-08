@@ -22,6 +22,7 @@ import { EntryModal, EntryFormData } from "@/components/canvasing/EntryModal";
 import { ReportView, buildReportData } from "@/components/canvasing/ReportView";
 import { EmptyState } from "@/components/canvasing/EmptyState";
 import { TableSkeletonRows } from "@/components/canvasing/LoadingSkeleton";
+import { Button } from "@/components/shared/Button";
 
 // ── Utilities ───────────────────────────────────────────────────────────────
 
@@ -500,23 +501,23 @@ export default function CanvasingPage() {
                 </button>
               </div>
 
-              <button
+              <Button
+                variant="outline"
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:opacity-50"
               >
                 <RefreshCw
                   className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
                 />
                 Refresh
-              </button>
+              </Button>
 
-              <button
+              <Button
+                icon={Plus}
                 onClick={() => handleOpenModal()}
-                className="inline-flex h-9 items-center gap-2 rounded-lg border border-primary bg-primary px-4 text-xs font-medium text-white shadow-sm transition-colors hover:bg-primary/90"
               >
-                <Plus className="h-3.5 w-3.5" /> Add Entry
-              </button>
+                Add Entry
+              </Button>
             </>
           }
         />
@@ -569,12 +570,12 @@ export default function CanvasingPage() {
                   title="Tidak ada data"
                   description="Coba ubah filter atau tambah entri baru"
                   action={
-                    <button
+                    <Button
+                      icon={Plus}
                       onClick={() => handleOpenModal()}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-white hover:bg-primary/90"
                     >
-                      <Plus className="h-3.5 w-3.5" /> Add Entry
-                    </button>
+                      Add Entry
+                    </Button>
                   }
                 />
               ) : (

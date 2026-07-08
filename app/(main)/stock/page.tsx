@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 
 import { PageHeader } from "@/components/stock/PageHeader";
-import { ToolbarButton } from "@/components/stock/ToolbarButton";
+import { Button } from "@/components/shared/Button";
 import { ViewTabs } from "@/components/stock/ViewTabs";
 import { FilterDropdown } from "@/components/stock/FilterDropdown";
 import { ChartPanel } from "@/components/stock/ChartPanel";
@@ -45,6 +45,7 @@ import {
   PCATooltip,
   CategoryTooltip,
 } from "@/components/stock/ChartHelpers";
+import { chartAxisTick, chartGridStroke } from "@/components/shared/chartStyles";
 
 interface StockItem {
   link_url?: string;
@@ -620,21 +621,30 @@ export default function StockPage() {
           actions={
             <>
               {user.stock_import && (
-                <ToolbarButton label="Import Data" icon={Upload} onClick={() => setShowImportModal(true)} />
+                <Button variant="outline" size="sm" icon={Upload} onClick={() => setShowImportModal(true)}>
+                  Import Data
+                </Button>
               )}
               {user.stock_export && (
-                <ToolbarButton label="Export Stock" icon={Download} onClick={exportToExcel} />
+                <Button variant="outline" size="sm" icon={Download} onClick={exportToExcel}>
+                  Export Stock
+                </Button>
               )}
               {user.stock_refresh_javelin && (
-                <ToolbarButton
-                  label={refreshing ? "Refreshing..." : "Refresh Javelin"}
+                <Button
+                  variant="outline"
+                  size="sm"
                   icon={RefreshCw}
                   onClick={handleRefreshJavelin}
                   disabled={refreshing}
                   loading={refreshing}
-                />
+                >
+                  {refreshing ? "Refreshing..." : "Refresh Javelin"}
+                </Button>
               )}
-              <ToolbarButton label="Print Barcode" icon={Printer} onClick={() => setShowBarcodeModal(true)} />
+              <Button variant="outline" size="sm" icon={Printer} onClick={() => setShowBarcodeModal(true)}>
+                Print Barcode
+              </Button>
             </>
           }
         />
@@ -681,9 +691,9 @@ export default function StockPage() {
                   <div style={{ minWidth: "320px" }}>
                     <ResponsiveContainer width="100%" height={180}>
                       <BarChart data={chartData} margin={{ top: 16, right: 4, left: 0, bottom: 0 }} barCategoryGap="30%">
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                         <XAxis dataKey="name" tick={<CustomXTick />} axisLine={false} tickLine={false} interval={0} height={24} />
-                        <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={28} />
+                        <YAxis tick={{ ...chartAxisTick, fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={28} />
                         <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                         <Bar
                           dataKey="stock"
@@ -722,9 +732,9 @@ export default function StockPage() {
                       barCategoryGap="20%"
                       barGap={1}
                     >
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                       <XAxis dataKey="name" tick={<CustomXTick />} axisLine={false} tickLine={false} interval={0} height={24} />
-                      <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={28} />
+                      <YAxis tick={{ ...chartAxisTick, fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={28} />
                       <Tooltip content={<CategoryTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                       {WAREHOUSES.map((wh, i) => (
                         <Bar
@@ -765,9 +775,9 @@ export default function StockPage() {
                 <div style={{ minWidth: "300px" }}>
                   <ResponsiveContainer width="100%" height={180}>
                     <BarChart data={pcaActiveData} margin={{ top: 16, right: 4, left: 0, bottom: 0 }} barCategoryGap="30%">
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                       <XAxis dataKey="name" tick={<CustomXTick />} axisLine={false} tickLine={false} interval={0} height={24} />
-                      <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={28} />
+                      <YAxis tick={{ ...chartAxisTick, fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={28} />
                       <Tooltip content={<PCATooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                       <Bar
                         dataKey="stock"
@@ -872,7 +882,9 @@ export default function StockPage() {
             </div>
           )}
 
-          <ToolbarButton label="Reset Filter" icon={RotateCcw} onClick={resetFilters} />
+          <Button variant="outline" size="sm" icon={RotateCcw} onClick={resetFilters}>
+            Reset Filter
+          </Button>
         </div>
 
         {/* ── Data Table ─────────────────────────────────────────────── */}

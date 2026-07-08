@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import Papa from "papaparse";
+import { Button } from "@/components/shared/Button";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, PieChart, Pie,
@@ -457,14 +458,13 @@ function Pagination({ page, total, pageSize, onChange }: {
 
 function ExportButton({ onClick }: { onClick: () => void }) {
   return (
-    <button onClick={onClick}
-      className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors">
+    <Button onClick={onClick} variant="outline" size="sm">
       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
           d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
       </svg>
       Export XLSX
-    </button>
+    </Button>
   );
 }
 
@@ -586,13 +586,12 @@ function MasterTrafficModal({
                   className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   onKeyDown={(e) => e.key === "Enter" && handleSave()} />
               </div>
-              <button onClick={handleSave} disabled={saving}
-                className="px-3 py-1.5 bg-primary text-white rounded text-xs font-medium hover:bg-primary/90 disabled:opacity-60 transition-colors whitespace-nowrap">
-                {saving ? "..." : formMode === "add" ? "Tambah" : "Simpan"}
-              </button>
-              <button onClick={closeForm} className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded text-xs hover:bg-gray-200 transition-colors">
+              <Button onClick={handleSave} loading={saving} size="sm" className="whitespace-nowrap">
+                {formMode === "add" ? "Tambah" : "Simpan"}
+              </Button>
+              <Button onClick={closeForm} variant="secondary" size="sm">
                 Batal
-              </button>
+              </Button>
             </div>
             {formError && <p className="text-[10px] text-red-600 mt-1.5">{formError}</p>}
           </div>
@@ -604,11 +603,10 @@ function MasterTrafficModal({
               Hapus <strong>{deleteTarget.code_traffic}</strong> – {deleteTarget.notes}?
             </p>
             <div className="flex gap-2 flex-shrink-0">
-              <button onClick={() => setDeleteTarget(null)} className="px-3 py-1 bg-gray-100 text-gray-600 rounded text-xs hover:bg-gray-200">Batal</button>
-              <button onClick={handleDelete} disabled={deleting}
-                className="px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 disabled:opacity-60 font-medium">
-                {deleting ? "..." : "Ya, Hapus"}
-              </button>
+              <Button onClick={() => setDeleteTarget(null)} variant="secondary" size="sm">Batal</Button>
+              <Button onClick={handleDelete} loading={deleting} variant="danger" size="sm">
+                Ya, Hapus
+              </Button>
             </div>
           </div>
         )}
@@ -622,13 +620,12 @@ function MasterTrafficModal({
               placeholder="Cari kode atau keterangan..."
               className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
           </div>
-          <button onClick={openAdd}
-            className="flex items-center gap-1 px-3 py-1.5 bg-primary text-white rounded text-xs font-medium hover:bg-primary/90 transition-colors whitespace-nowrap">
+          <Button onClick={openAdd} size="sm" className="whitespace-nowrap">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Tambah
-          </button>
+          </Button>
         </div>
 
         <div className="overflow-y-auto flex-1">
@@ -1290,12 +1287,12 @@ useEffect(() => {
                   <span className="px-3 py-1.5 bg-gray-400 text-white rounded text-xs opacity-70 cursor-not-allowed">Importing...</span>
                 ) : (
                   <>
-                    <button onClick={() => triggerImport("append")} className="px-3 py-1.5 bg-primary text-white rounded text-xs hover:bg-primary/90 transition-colors font-medium">
+                    <Button onClick={() => triggerImport("append")} size="sm">
                       + Tambah Data
-                    </button>
-                    <button onClick={() => triggerImport("refresh")} className="px-3 py-1.5 bg-gray-700 text-white rounded text-xs hover:bg-gray-600 transition-colors font-medium">
+                    </Button>
+                    <Button onClick={() => triggerImport("refresh")} size="sm" className="bg-gray-700 border-gray-700 hover:bg-gray-600">
                       ↺ Refresh Semua
-                    </button>
+                    </Button>
                     <button onClick={() => setMasterTrafficOpen(true)}
                       className="flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-300 text-gray-600 rounded text-xs hover:bg-gray-50 hover:border-gray-400 transition-colors font-medium">
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1357,7 +1354,7 @@ useEffect(() => {
 
             {/* Filters */}
             <div className="bg-white rounded-lg shadow p-4 mb-4">
-              <div className="grid grid-cols-5 gap-3 items-end">
+              <div className="grid grid-cols-2 gap-3 items-end sm:grid-cols-3 lg:grid-cols-5">
                 {/* Date From */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Date From</label>
@@ -1596,9 +1593,9 @@ useEffect(() => {
                           : "Import CSV Shopify untuk mulai analitik"}
                     </p>
                     {(isTrafficActive || isStoreActive) && activeTab !== "online" && (
-                      <button onClick={handleResetFilter} className="mt-3 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90">
+                      <Button onClick={handleResetFilter} variant="outline" size="sm" className="mt-3">
                         Reset Filter
-                      </button>
+                      </Button>
                     )}
                   </div>
                 ) : (
@@ -2285,10 +2282,10 @@ useEffect(() => {
                 className="block w-full text-center cursor-pointer px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors mb-3">
                 Pilih File CSV
               </label>
-              <button onClick={() => { setShowImportModal(false); setImportMode(null); }}
-                className="w-full px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200 transition-colors">
+              <Button onClick={() => { setShowImportModal(false); setImportMode(null); }}
+                variant="secondary" className="w-full justify-center">
                 Batal
-              </button>
+              </Button>
             </div>
           </div>
         )}

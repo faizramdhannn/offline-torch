@@ -4,6 +4,7 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
+import { Button } from "@/components/shared/Button";
 import { RegistrationRequest } from "@/types";
 
 export default function RegistrationPage() {
@@ -366,14 +367,12 @@ return (
             </div>
 
             <div className="flex gap-2">
-              <button onClick={() => { setShowApprovalModal(false); setSelectedRequest(null); }}
-                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">
+              <Button variant="secondary" className="flex-1" onClick={() => { setShowApprovalModal(false); setSelectedRequest(null); }}>
                 Cancel
-              </button>
-              <button onClick={submitApproval}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90">
+              </Button>
+              <Button className="flex-1" onClick={submitApproval}>
                 Approve & Set Permissions
-              </button>
+              </Button>
             </div>
           </div>
         </div>

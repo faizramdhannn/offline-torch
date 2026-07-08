@@ -1,5 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
+import { CheckCircle2, XCircle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
+
 interface PopupProps {
   show: boolean;
   message: string;
@@ -7,30 +12,57 @@ interface PopupProps {
   onClose: () => void;
 }
 
+/**
+ * Shared success/error popup. Dismisses on any click (inside or outside)
+ * or Escape, so every overlay in the app behaves the same way.
+ */
 export default function Popup({ show, message, type, onClose }: PopupProps) {
-  if (!show) return null;
+  useEffect(() => {
+    if (!show) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [show, onClose]);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <div className={`text-center mb-4 ${type === "success" ? "text-green-600" : "text-red-600"}`}>
-          <div className="text-4xl mb-2">
-            {type === "success" ? "✓" : "✕"}
-          </div>
-          <h3 className="text-lg font-bold">
-            {type === "success" ? "Success" : "Error"}
-          </h3>
-        </div>
-        <p className="text-sm text-gray-700 whitespace-pre-line mb-6 text-center">
-          {message}
-        </p>
-        <button
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
           onClick={onClose}
-          className="w-full px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90"
         >
-          OK
-        </button>
-      </div>
-    </div>
+          <motion.div
+            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"
+            initial={{ opacity: 0, y: 8, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 6, scale: 0.98 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+          >
+            <div className="flex flex-col items-center text-center">
+              {type === "success" ? (
+                <CheckCircle2 className="mb-2 h-9 w-9 text-green-600" />
+              ) : (
+                <XCircle className="mb-2 h-9 w-9 text-red-600" />
+              )}
+              <h3
+                className={cn(
+                  "text-sm font-semibold",
+                  type === "success" ? "text-green-700" : "text-red-700"
+                )}
+              >
+                {type === "success" ? "Success" : "Error"}
+              </h3>
+              <p className="mt-1.5 whitespace-pre-line text-xs text-gray-600">{message}</p>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

@@ -4,6 +4,7 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
+import { Button } from "@/components/shared/Button";
 import { Voucher } from "@/types";
 
 export default function VoucherPage() {
@@ -183,12 +184,13 @@ return (
               </div>
             </div>
             <div className="flex gap-2">
-              <button
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={resetFilters}
-                className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"
               >
                 Reset Filters
-              </button>
+              </Button>
             </div>
           </div>
 

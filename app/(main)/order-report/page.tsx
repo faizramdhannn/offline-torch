@@ -7,6 +7,10 @@ import Popup from "@/components/Popup";
 import { OrderReport } from "@/types";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
+import { Button } from "@/components/shared/Button";
+import { StatCard } from "@/components/shared/StatCard";
+import { ReportCharts } from "@/components/order-report/ReportCharts";
+import { PackageSearch, CalendarRange, FileWarning, ReceiptText } from "lucide-react";
 
 // Mapping username ke warehouse
 const USERNAME_TO_WAREHOUSE: Record<string, string> = {
@@ -457,7 +461,7 @@ export default function OrderReportPage() {
 
             <div className="bg-white rounded-lg shadow p-4 mb-4">
               {/* Row 1: Date From, Date To, Warehouse, Status, Channel Name, Search */}
-              <div className="grid grid-cols-6 gap-2 mb-3">
+              <div className="grid grid-cols-2 gap-2 mb-3 sm:grid-cols-3 lg:grid-cols-6">
                 {/* Date From */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -622,92 +626,96 @@ export default function OrderReportPage() {
               </div>
 
               <div className="flex gap-2">
-                <button
+                <Button
                   onClick={resetFilters}
-                  className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"
+                  variant="secondary"
+                  size="sm"
                 >
                   Reset
-                </button>
+                </Button>
                 {user.order_report_import && (
-                  <button
+                  <Button
                     onClick={() => setShowImportModal(true)}
-                    className="px-4 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                    size="sm"
                   >
                     Import
-                  </button>
+                  </Button>
                 )}
                 {user.order_report_export && (
-                  <button
+                  <Button
                     onClick={exportToExcel}
-                    className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-secondary/90 ml-auto"
+                    variant="secondary"
+                    size="sm"
+                    className="ml-auto"
                   >
                     Export to Excel
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
 
             {/* Summary Statistics */}
-            <div className="bg-white rounded-lg shadow p-4 mb-4">
-              <div className="grid grid-cols-4 gap-4">
-                <div className="border-r border-gray-200 pr-4">
-                  <div className="text-xs text-gray-600 mb-1">Period</div>
-                  <div className="text-sm font-semibold text-gray-800">
-                    {(() => {
-                      if (filteredData.length === 0) return "-";
-                      const dates = filteredData
-                        .map((item) => parseOrderDate(item.order_date))
-                        .filter((d) => !isNaN(d.getTime()))
-                        .sort((a, b) => a.getTime() - b.getTime());
-                      if (dates.length === 0) return "-";
-                      const minDate = dates[0];
-                      const maxDate = dates[dates.length - 1];
-                      const fmt = (date: Date) => {
-                        const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-                        return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
-                      };
-                      if (minDate.getTime() === maxDate.getTime()) return fmt(minDate);
-                      return `${fmt(minDate)} - ${fmt(maxDate)}`;
-                    })()}
-                  </div>
-                </div>
+            <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <StatCard
+                icon={CalendarRange}
+                label="Period"
+                value={(() => {
+                  if (filteredData.length === 0) return "-";
+                  const dates = filteredData
+                    .map((item) => parseOrderDate(item.order_date))
+                    .filter((d) => !isNaN(d.getTime()))
+                    .sort((a, b) => a.getTime() - b.getTime());
+                  if (dates.length === 0) return "-";
+                  const minDate = dates[0];
+                  const maxDate = dates[dates.length - 1];
+                  const fmt = (date: Date) => {
+                    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                    return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+                  };
+                  if (minDate.getTime() === maxDate.getTime()) return fmt(minDate);
+                  return `${fmt(minDate)} - ${fmt(maxDate)}`;
+                })()}
+                tone="default"
+              />
 
-                <div className="border-r border-gray-200 pr-4">
-                  <div className="text-xs text-gray-600 mb-1">Total Orders</div>
-                  <div className="text-sm font-semibold text-gray-800">
-                    {filteredData.length.toLocaleString()}
-                  </div>
-                </div>
+              <StatCard
+                icon={PackageSearch}
+                label="Total Orders"
+                value={filteredData.length.toLocaleString()}
+                tone="info"
+              />
 
-                <div className="border-r border-gray-200 pr-4">
-                  <div className="text-xs text-gray-600 mb-1">Delivery Note Null</div>
-                  <div className="text-sm font-semibold text-red-600">
-                    {filteredData
-                      .filter(
-                        (item) =>
-                          !item.delivery_note ||
-                          item.delivery_note === "" ||
-                          item.delivery_note === "null"
-                      )
-                      .length.toLocaleString()}
-                  </div>
-                </div>
+              <StatCard
+                icon={FileWarning}
+                label="Delivery Note Null"
+                value={filteredData
+                  .filter(
+                    (item) =>
+                      !item.delivery_note ||
+                      item.delivery_note === "" ||
+                      item.delivery_note === "null"
+                  )
+                  .length.toLocaleString()}
+                tone="negative"
+              />
 
-                <div>
-                  <div className="text-xs text-gray-600 mb-1">Sales Invoice Null</div>
-                  <div className="text-sm font-semibold text-red-600">
-                    {filteredData
-                      .filter(
-                        (item) =>
-                          !item.sales_invoice ||
-                          item.sales_invoice === "" ||
-                          item.sales_invoice === "null"
-                      )
-                      .length.toLocaleString()}
-                  </div>
-                </div>
-              </div>
+              <StatCard
+                icon={ReceiptText}
+                label="Sales Invoice Null"
+                value={filteredData
+                  .filter(
+                    (item) =>
+                      !item.sales_invoice ||
+                      item.sales_invoice === "" ||
+                      item.sales_invoice === "null"
+                  )
+                  .length.toLocaleString()}
+                tone="negative"
+              />
             </div>
+
+            {/* BI-style charts */}
+            <ReportCharts data={filteredData} parseOrderDate={parseOrderDate} />
 
             {/* Table */}
             <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -900,7 +908,7 @@ export default function OrderReportPage() {
               </div>
 
               <div className="flex gap-2 mt-6">
-                <button
+                <Button
                   onClick={() => {
                     setShowImportModal(false);
                     setPowerbizFile(null);
@@ -908,17 +916,19 @@ export default function OrderReportPage() {
                     setInvoiceFile(null);
                   }}
                   disabled={importing}
-                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
+                  variant="secondary"
+                  className="flex-1"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleImportAll}
-                  disabled={importing || (!powerbizFile && !deliveryFile && !invoiceFile)}
-                  className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50"
+                  disabled={!powerbizFile && !deliveryFile && !invoiceFile}
+                  loading={importing}
+                  className="flex-1"
                 >
                   {importing ? "Importing..." : "Import Selected Files"}
-                </button>
+                </Button>
               </div>
             </div>
           </div>

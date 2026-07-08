@@ -11,7 +11,7 @@ const thClass =
   "px-2 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap";
 const thSubClass =
   "px-2 py-1.5 text-[9px] font-semibold uppercase tracking-wide text-gray-400 whitespace-nowrap";
-const tdClass = "px-2 py-1.5 text-[10px] text-gray-700";
+const tdClass = "px-2 py-1 text-[10px] text-gray-700";
 
 export function AttendanceTable({ records, isAll }: { records: AttendanceRecord[]; isAll: boolean }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -144,7 +144,7 @@ export function AttendanceTable({ records, isAll }: { records: AttendanceRecord[
                         <td className={`${tdClass} max-w-[64px] truncate border-r border-gray-200 text-gray-600`}>
                           {rec.browser || "—"}
                         </td>
-                        <td className="border-r border-gray-200 px-2 py-1.5 text-center">
+                        <td className="border-r border-gray-200 px-2 py-1 text-center">
                           {isValid ? (
                             <span className="inline-flex items-center gap-0.5 rounded border border-green-200 bg-green-50 px-1 py-0.5 text-[9px] font-semibold text-green-700">
                               <Check className="h-2.5 w-2.5" />
@@ -158,7 +158,7 @@ export function AttendanceTable({ records, isAll }: { records: AttendanceRecord[
                         <td className={`${tdClass} max-w-[80px] truncate border-r border-gray-200 font-mono text-gray-600`}>
                           {rec.ip_address || "—"}
                         </td>
-                        <td className="border-r border-gray-200 px-2 py-1.5 text-center">
+                        <td className="border-r border-gray-200 px-2 py-1 text-center">
                           {rec.open_maps_url ? (
                             <button
                               type="button"
@@ -181,7 +181,7 @@ export function AttendanceTable({ records, isAll }: { records: AttendanceRecord[
                             </span>
                           )}
                         </td>
-                        <td className="px-2 py-1.5 text-center">
+                        <td className="px-2 py-1 text-center">
                           {rec.close_maps_url ? (
                             <button
                               type="button"

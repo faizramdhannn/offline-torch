@@ -16,10 +16,10 @@ export function EntryTable({ entries, typeDef, onRowClick }: EntryTableProps) {
       <table className="w-full text-xs">
         <thead className="border-b border-gray-100 bg-gray-50">
           <tr>
-            <th className="px-4 py-2.5 text-left font-semibold text-gray-500">ERP Number</th>
-            <th className="px-4 py-2.5 text-left font-semibold text-gray-500">Store</th>
-            <th className="px-4 py-2.5 text-left font-semibold text-gray-500">Dibuat</th>
-            <th className="px-4 py-2.5 text-left font-semibold text-gray-500" style={{ minWidth: 170 }}>
+            <th className="px-2 py-1.5 text-left font-semibold text-gray-500">ERP Number</th>
+            <th className="px-2 py-1.5 text-left font-semibold text-gray-500">Store</th>
+            <th className="px-2 py-1.5 text-left font-semibold text-gray-500">Dibuat</th>
+            <th className="px-2 py-1.5 text-left font-semibold text-gray-500" style={{ minWidth: 170 }}>
               Progress
             </th>
           </tr>
@@ -36,10 +36,10 @@ export function EntryTable({ entries, typeDef, onRowClick }: EntryTableProps) {
                 onClick={() => onRowClick(entry)}
                 className="cursor-pointer transition-colors hover:bg-gray-50"
               >
-                <td className="px-4 py-3 font-medium text-gray-800">{entry.erp_number}</td>
-                <td className="px-4 py-3 text-gray-600">{entry.store}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-gray-400">{entry.created_at}</td>
-                <td className="px-4 py-3">
+                <td className="px-2 py-1 font-medium text-gray-800">{entry.erp_number}</td>
+                <td className="px-2 py-1 text-gray-600">{entry.store}</td>
+                <td className="px-2 py-1 whitespace-nowrap text-gray-400">{entry.created_at}</td>
+                <td className="px-2 py-1">
                   <ProgressBar percent={percent} done={done} total={total} size="sm" />
                 </td>
               </motion.tr>

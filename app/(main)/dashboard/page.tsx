@@ -285,16 +285,31 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
   const activeStoreCount = storeAddresses.length;
   // Hitung log hari ini — coba semua format timestamp yang mungkin
   const todayStr = todayISO();
+  const MONTHS_ID: { [key: string]: number } = {
+    Jan: 0, Feb: 1, Mar: 2, Apr: 3, Mei: 4, Jun: 5,
+    Jul: 6, Agu: 7, Sep: 8, Okt: 9, Nov: 10, Des: 11,
+  };
   const todayActivityCount = activityLogs.filter((log) => {
     if (!log.timestamp) return false;
-    // Format: "2025-01-15T..." atau "2025-01-15 ..." atau "15/01/2025 ..."
-    const ts = log.timestamp;
-    if (ts.startsWith(todayStr)) return true;
-    if (ts.includes(todayStr)) return true;
+    const ts = log.timestamp.trim();
+    // Format: "2025-01-15T..." atau "2025-01-15 ..."
+    if (ts.startsWith(todayStr) || ts.includes(todayStr)) return true;
     // Format dd/mm/yyyy
     const now = new Date();
     const ddmmyyyy = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
     if (ts.startsWith(ddmmyyyy)) return true;
+    // Format "08 Jul 2026, 14:23:11" (dari lib/sheets locale id-ID)
+    const idMatch = ts.match(/^(\d{2})\s+([A-Za-z]{3})\s+(\d{4})/);
+    if (idMatch) {
+      const [, day, monShort, year] = idMatch;
+      const monIdx = MONTHS_ID[monShort];
+      if (monIdx !== undefined &&
+          Number(day) === now.getDate() &&
+          monIdx === now.getMonth() &&
+          Number(year) === now.getFullYear()) {
+        return true;
+      }
+    }
     return false;
   }).length;
   const pendingShiftCount = todaySchedules.reduce(

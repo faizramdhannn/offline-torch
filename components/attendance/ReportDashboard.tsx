@@ -182,7 +182,7 @@ export function ReportDashboard({ groupedByTaft }: ReportDashboardProps) {
   return (
     <div className="mb-4 space-y-2">
       {/* ── KPI top cards ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {CHART_CFGS.map(cfg => {
           const top = sorted(cfg.key).find(s => s[cfg.key] > 0);
           return (

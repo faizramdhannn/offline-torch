@@ -16,6 +16,7 @@ import { isValidSelfie, toDriveProxyUrl, nowTimestamp } from "./helpers";
 import { LazyImg } from "./LazyImg";
 import { MapPreview } from "./MapPreview";
 import { TaftSelector } from "./TaftSelector";
+import { Button } from "@/components/shared/Button";
 
 interface CaptureTabProps {
   isStoreUser: boolean;
@@ -411,9 +412,9 @@ export function CaptureTab({
                   {msg.distanceMeters <= 200 ? " · Valid" : " · Terlalu jauh"}
                 </div>
               )}
-              <button onClick={onReset} className="mx-auto block rounded-xl bg-green-600 px-5 py-2 text-sm font-semibold text-white hover:bg-green-700">
+              <Button onClick={onReset} variant="primary" className="mx-auto block">
                 Selesai
-              </button>
+              </Button>
             </div>
           )}
 

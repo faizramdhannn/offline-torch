@@ -4,6 +4,8 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
+import { Button } from "@/components/shared/Button";
+import { RefreshCw } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1811,23 +1813,17 @@ export default function StockOpnamePage() {
               {hasReport ? "Semua store" : `Store: ${user.user_name}`}
             </p>
           </div>
-          <button
+          <Button
             onClick={() => {
               if (tab === "list") fetchStores();
               else fetchReports();
             }}
-            style={{
-              padding: "4px 12px",
-              background: "#1e3a5c",
-              color: "white",
-              border: "none",
-              borderRadius: 6,
-              fontSize: 11,
-              cursor: "pointer",
-            }}
+            size="sm"
+            icon={RefreshCw}
+            className="!bg-[#1e3a5c] !border-[#1e3a5c] hover:!bg-[#16304d]"
           >
             Refresh
-          </button>
+          </Button>
         </div>
 
         {/* Tabs */}

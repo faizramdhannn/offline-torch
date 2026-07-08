@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 import { SectionHeader } from "@/components/request-tracking/SectionHeader";
-import { Button } from "@/components/request-tracking/Button";
+import { Button } from "@/components/shared/Button";
 import { Toolbar, type StatusFilter } from "@/components/request-tracking/Toolbar";
 import { EmptyState } from "@/components/request-tracking/EmptyState";
 import { TableSkeletonRows } from "@/components/request-tracking/LoadingSkeleton";

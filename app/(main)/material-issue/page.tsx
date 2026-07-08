@@ -5,6 +5,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import SearchableSelect from "@/components/SearchableSelect";
+import { Button } from "@/components/shared/Button";
+import { Plus } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface MIItem {
@@ -544,13 +546,9 @@ function SkuScannerSection({
             spellCheck={false}
             className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 bg-gray-50"
           />
-          <button
-            type="button"
-            onClick={() => handleSkuSubmit()}
-            className="px-3 py-2 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary/90"
-          >
+          <Button type="button" onClick={() => handleSkuSubmit()} size="sm">
             Tambah
-          </button>
+          </Button>
         </div>
       )}
 
@@ -1140,15 +1138,9 @@ export default function MaterialIssuePage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-primary">Material Issue</h1>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
+          <Button onClick={() => setShowAddModal(true)} icon={Plus}>
             Add Issue
-          </button>
+          </Button>
         </div>
 
         {/* Search */}
@@ -1591,12 +1583,20 @@ export default function MaterialIssuePage() {
             </div>
 
             <div className="px-6 py-4 border-t flex gap-3">
-              <button onClick={() => { setShowAddModal(false); setForm(emptyForm); }} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-semibold hover:bg-gray-200">
+              <Button
+                variant="secondary"
+                onClick={() => { setShowAddModal(false); setForm(emptyForm); }}
+                className="flex-1"
+              >
                 Batal
-              </button>
-              <button onClick={handleAdd} disabled={submitting} className="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary/90 disabled:opacity-50">
+              </Button>
+              <Button
+                onClick={handleAdd}
+                loading={submitting}
+                className="flex-1"
+              >
                 {submitting ? "Menyimpan..." : "Submit"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1739,12 +1739,20 @@ export default function MaterialIssuePage() {
             </div>
 
             <div className="px-6 py-4 border-t flex gap-3">
-              <button onClick={() => { setShowEditModal(false); setSelectedItem(null); }} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-semibold hover:bg-gray-200">
+              <Button
+                variant="secondary"
+                onClick={() => { setShowEditModal(false); setSelectedItem(null); }}
+                className="flex-1"
+              >
                 Batal
-              </button>
-              <button onClick={handleEdit} disabled={submitting} className="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg text-xs font-semibold hover:bg-primary/90 disabled:opacity-50">
+              </Button>
+              <Button
+                onClick={handleEdit}
+                loading={submitting}
+                className="flex-1"
+              >
                 {submitting ? "Menyimpan..." : "Simpan Perubahan"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

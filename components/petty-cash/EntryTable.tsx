@@ -2,6 +2,7 @@
 
 import { ExternalLink, Pencil, Trash2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { thClass, tdClass } from "@/components/shared/tableStyles";
 
 interface PettyCash {
   id: string;
@@ -30,9 +31,6 @@ interface EntryTableProps {
   formatRupiah: (value: string | number) => string;
   totalValue: number;
 }
-
-const thClass = "px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap";
-const tdClass = "px-2 py-1.5 text-[11px] text-gray-700";
 
 export function EntryTable({
   items,

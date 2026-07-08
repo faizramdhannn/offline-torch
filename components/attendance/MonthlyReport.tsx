@@ -385,11 +385,11 @@ export function MonthlyReport({ user, isStoreUser, myStoreName }: MonthlyReportP
               <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
                 className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] text-gray-700 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20" />
             </div>
-            <Button variant="primary" size="sm" icon={Download} onClick={() => setShowDownloadModal(true)}>
+            <Button variant="outline" size="sm" icon={Download} onClick={() => setShowDownloadModal(true)}>
               Template
             </Button>
             <label>
-              <Button variant="secondary" size="sm" icon={Upload} loading={importing} className="cursor-pointer bg-green-600 text-white hover:bg-green-700">
+              <Button variant="outline" size="sm" icon={Upload} loading={importing} className="cursor-pointer">
                 {importing ? 'Importing...' : 'Import'}
               </Button>
               <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />

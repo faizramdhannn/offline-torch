@@ -7,6 +7,7 @@ import {
 import { Download, X, Calendar } from "lucide-react";
 import { RESULT_STATUS_OPTIONS, STATUS_META } from "./DomainBadges";
 import { Canvasing } from "@/types";
+import { chartTooltipStyle, chartAxisTick, chartGridStroke } from "@/components/shared/chartStyles";
 
 // ── Derived data helpers ──────────────────────────────────────────────────────
 
@@ -151,11 +152,11 @@ export function ReportView({
                   <CartesianGrid
                     strokeDasharray="3 3"
                     horizontal={false}
-                    stroke="#f3f4f6"
+                    stroke={chartGridStroke}
                   />
                   <XAxis
                     type="number"
-                    tick={{ fontSize: 10 }}
+                    tick={{ ...chartAxisTick, fontSize: 10 }}
                     allowDecimals={false}
                     axisLine={false}
                     tickLine={false}
@@ -163,18 +164,13 @@ export function ReportView({
                   <YAxis
                     type="category"
                     dataKey="store"
-                    tick={{ fontSize: 11 }}
+                    tick={{ ...chartAxisTick, fontSize: 11 }}
                     width={90}
                     axisLine={false}
                     tickLine={false}
                   />
                   <Tooltip
-                    contentStyle={{
-                      fontSize: "11px",
-                      padding: "6px 10px",
-                      borderRadius: "8px",
-                      border: "1px solid #e5e7eb",
-                    }}
+                    contentStyle={chartTooltipStyle}
                   />
                   {RESULT_STATUS_OPTIONS.map((status, i) => (
                     <Bar
@@ -228,12 +224,7 @@ export function ReportView({
                   </Pie>
                   <Tooltip
                     formatter={(value, name) => [`${value} visits`, name]}
-                    contentStyle={{
-                      fontSize: "11px",
-                      padding: "6px 10px",
-                      borderRadius: "8px",
-                      border: "1px solid #e5e7eb",
-                    }}
+                    contentStyle={chartTooltipStyle}
                   />
                 </PieChart>
               </ResponsiveContainer>

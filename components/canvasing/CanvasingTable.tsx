@@ -34,8 +34,8 @@ export function CanvasingTable({
   toTitleCase,
 }: CanvasingTableProps) {
   const thClass =
-    "px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400 whitespace-nowrap";
-  const tdClass = "px-4 py-3 whitespace-nowrap";
+    "px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-400 whitespace-nowrap";
+  const tdClass = "px-2 py-1 whitespace-nowrap";
 
   return (
     <div className="overflow-x-auto">

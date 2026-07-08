@@ -5,6 +5,8 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
+import { Plus, X } from "lucide-react";
+import { Button } from "@/components/shared/Button";
 
 interface RequestItem {
   id: string;
@@ -416,15 +418,12 @@ return (
             <h1 className="text-2xl font-bold text-primary">Request Store</h1>
             <div className="flex items-center gap-3">
               {user.request && (
-                <button
+                <Button
+                  icon={Plus}
                   onClick={() => setShowAddModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
                   Add Request
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -470,15 +469,15 @@ return (
 
             {hasActiveFilter && (
               <>
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={X}
                   onClick={handleClearFilters}
-                  className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 border border-gray-200 rounded text-[11px] hover:bg-gray-200 transition-colors"
+                  className="text-[11px]"
                 >
-                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
                   Clear
-                </button>
+                </Button>
                 <span className="text-[10px] text-gray-400">
                   {filteredData.length} result{filteredData.length !== 1 ? "s" : ""}
                 </span>
@@ -737,12 +736,10 @@ return (
               </div>
             </div>
             <div className="flex gap-2 mt-5">
-              <button onClick={() => { setShowAddModal(false); resetAddForm(); }}
-                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600">Cancel</button>
-              <button onClick={handleAdd} disabled={submitting}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">
+              <Button variant="secondary" className="flex-1" onClick={() => { setShowAddModal(false); resetAddForm(); }}>Cancel</Button>
+              <Button className="flex-1" onClick={handleAdd} disabled={submitting} loading={submitting}>
                 {submitting ? "Saving..." : "Submit"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -831,16 +828,16 @@ return (
               </div>
             </div>
             <div className="flex gap-2 mt-5">
-              <button
+              <Button
+                variant="secondary"
+                className="flex-1"
                 onClick={() => { setShowEditModal(false); setSelectedItem(null); setEditImageFile(null); if (editFileRef.current) editFileRef.current.value = ""; }}
-                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
               >
                 Cancel
-              </button>
-              <button onClick={handleEdit} disabled={submitting}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 disabled:opacity-50">
+              </Button>
+              <Button className="flex-1" onClick={handleEdit} disabled={submitting} loading={submitting}>
                 {submitting ? "Saving..." : "Save"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

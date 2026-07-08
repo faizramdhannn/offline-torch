@@ -8,6 +8,8 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, BarChart, Bar, Legend,
 } from "recharts";
+import { Button } from "@/components/shared/Button";
+import { chartAxisTick } from "@/components/shared/chartStyles";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ALL_STORES = [
@@ -663,8 +665,8 @@ function MetricTrendChart({
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? "rgba(255,255,255,0.06)" : "#f1f5f9"} />
-            <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#94a3b8", dy: 4 }} axisLine={false} tickLine={false} interval={0} angle={-45} textAnchor="end" />
-            <YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={fmtY} width={54} domain={[0, 'auto']} />
+            <XAxis dataKey="label" tick={{ ...chartAxisTick, fontSize: 9, dy: 4 }} axisLine={false} tickLine={false} interval={0} angle={-45} textAnchor="end" />
+            <YAxis tick={{ ...chartAxisTick, fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={fmtY} width={54} domain={[0, 'auto']} />
             <Tooltip content={<CustomTooltip />} />
 
             {isSales ? (
@@ -958,9 +960,12 @@ export default function SalesPage() {
             <h1 style={{ fontSize: 19, fontWeight: 800, color: css.textHeading, margin: 0, letterSpacing: "-0.02em" }}>Sales Dashboard</h1>
             {lockedStore && <p style={{ fontSize: 10, color: "#64748b", margin: 0 }}>{STORE_LABELS[lockedStore] || lockedStore}</p>}
           </div>
-          <button onClick={fetchData} style={{ padding: "4px 12px", background: "#1e3a5c", color: "white", border: "none", borderRadius: 6, fontSize: 11, cursor: "pointer" }}>
+          <Button
+            onClick={fetchData}
+            style={{ padding: "4px 12px", background: "#1e3a5c", color: "white", border: "none", borderRadius: 6, fontSize: 11, cursor: "pointer" }}
+          >
             Refresh
-          </button>
+          </Button>
         </div>
 
         {/* ── Tabs ── */}

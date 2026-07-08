@@ -12,6 +12,7 @@ import {
   LineChart, Line, Legend,
 } from "recharts";
 import { MapPin, Plus, FileDown, Target, Users } from "lucide-react";
+import { chartGridStroke, CHART_PALETTE } from "@/components/shared/chartStyles";
 
 import { SectionHeader } from "@/components/shared/SectionHeader";
 import { Button } from "@/components/shared/Button";
@@ -82,12 +83,7 @@ interface MasterRow {
   reason_buy?: string;
 }
 
-const COLORS = [
-  "#3b82f6","#8b5cf6","#ec4899","#f59e0b","#10b981",
-  "#06b6d4","#ef4444","#84cc16","#f97316","#6366f1",
-  "#14b8a6","#e11d48","#a855f7","#22c55e","#fb923c",
-  "#0ea5e9","#d946ef","#facc15","#4ade80","#fb7185",
-];
+const COLORS = CHART_PALETTE;
 
 // formatDate now formats a date value that may be either:
 //  - a plain date string "YYYY-MM-DD" (the new `date` field, no time component), or
@@ -1119,7 +1115,7 @@ export default function TrafficStorePage() {
                     {!loading && fd.length > 0 && (
                       <>
                         <ChartViewToggle view={chartView} onChange={setChartView} />
-                        <Button variant="primary" size="sm" icon={FileDown} onClick={handleExportXLSX} className="bg-green-600 border-green-600 hover:bg-green-700">
+                        <Button variant="outline" size="sm" icon={FileDown} onClick={handleExportXLSX}>
                           Export XLSX
                         </Button>
                       </>
@@ -1160,7 +1156,7 @@ export default function TrafficStorePage() {
                             <ChartCard title="Jumlah per Survey Source" span="half">
                               <ResponsiveContainer width="100%" height={300}>
                                 <BarChart data={trafficChartData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
-                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                                   <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
                                   <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                   <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
@@ -1195,7 +1191,7 @@ export default function TrafficStorePage() {
                             <ChartCard title="Konversi per Survey Source" span="half">
                               <ResponsiveContainer width="100%" height={260}>
                                 <BarChart data={conversionByTraffic} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
-                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                                   <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
                                   <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                   <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
@@ -1214,7 +1210,7 @@ export default function TrafficStorePage() {
                                 <ChartCard title="Kategori Produk yang Dicari" span="half">
                                   <ResponsiveContainer width="100%" height={Math.max(220, categoryChartData.length * 32)}>
                                     <BarChart data={categoryChartData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
-                                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartGridStroke} />
                                       <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                       <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={110} axisLine={false} tickLine={false} />
                                       <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
@@ -1231,7 +1227,7 @@ export default function TrafficStorePage() {
                                 <ChartCard title="Alasan Tidak Beli" span="half">
                                   <ResponsiveContainer width="100%" height={Math.max(220, reasonNotBuyChartData.length * 32)}>
                                     <BarChart data={reasonNotBuyChartData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
-                                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartGridStroke} />
                                       <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                       <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={150} axisLine={false} tickLine={false} />
                                       <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
@@ -1247,7 +1243,7 @@ export default function TrafficStorePage() {
                           <ChartCard title="Total Survey per Store">
                             <ResponsiveContainer width="100%" height={Math.max(260, storeTrafficMatrix.barData.length * 36)}>
                               <BarChart data={storeTrafficMatrix.barData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartGridStroke} />
                                 <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={100} axisLine={false} tickLine={false} />
                                 <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
@@ -1265,7 +1261,7 @@ export default function TrafficStorePage() {
                             <ChartCard title="Discount Code — Pemakai & Value">
                               <ResponsiveContainer width="100%" height={Math.max(240, discountChartData.length * 34)}>
                                 <BarChart data={discountChartData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
-                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartGridStroke} />
                                   <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                   <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={110} axisLine={false} tickLine={false} />
                                   <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
@@ -1284,7 +1280,7 @@ export default function TrafficStorePage() {
                             <ChartCard title="Brand Competitor (Pernah Beli Di)">
                               <ResponsiveContainer width="100%" height={Math.max(240, brandChartData.length * 34)}>
                                 <BarChart data={brandChartData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
-                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartGridStroke} />
                                   <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                   <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={110} axisLine={false} tickLine={false} />
                                   <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
@@ -1305,7 +1301,7 @@ export default function TrafficStorePage() {
                                 <h3 className="text-sm font-semibold text-gray-700">Detail WAG</h3>
                                 <ResponsiveContainer width="100%" height={220}>
                                   <BarChart data={wagChartData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
                                     <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                     <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
@@ -1320,7 +1316,7 @@ export default function TrafficStorePage() {
                                 <h3 className="text-sm font-semibold text-gray-700">Detail Eiger Referral</h3>
                                 <ResponsiveContainer width="100%" height={220}>
                                   <BarChart data={eigerChartData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
                                     <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                     <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
@@ -1335,7 +1331,7 @@ export default function TrafficStorePage() {
                                 <h3 className="text-sm font-semibold text-gray-700">Detail Walk-in</h3>
                                 <ResponsiveContainer width="100%" height={220}>
                                   <BarChart data={organicChartData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
                                     <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                     <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
@@ -1353,7 +1349,7 @@ export default function TrafficStorePage() {
                           <ChartCard title="Distribusi Intensi Kunjungan">
                             <ResponsiveContainer width="100%" height={Math.max(220, intentionData.length * 40)}>
                               <BarChart data={intentionData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartGridStroke} />
                                 <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={130} axisLine={false} tickLine={false} />
                                 <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
@@ -1379,7 +1375,7 @@ export default function TrafficStorePage() {
                             <h3 className="mb-1 text-sm font-semibold text-gray-700">Tren Konversi Harian</h3>
                             <ResponsiveContainer width="100%" height={280}>
                               <LineChart data={dailyConversionData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#6b7280" }} />
                                 <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                 <Tooltip content={<DarkTooltip />} />
@@ -1395,7 +1391,7 @@ export default function TrafficStorePage() {
                             <h3 className="mb-1 text-sm font-semibold text-gray-700">Tren Survey Source Harian (Top 6)</h3>
                             <ResponsiveContainer width="100%" height={280}>
                               <LineChart data={dailyTrafficChartData.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#6b7280" }} />
                                 <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                 <Tooltip content={<DarkTooltip />} />
@@ -1412,7 +1408,7 @@ export default function TrafficStorePage() {
                             <h3 className="mb-1 text-sm font-semibold text-gray-700">Tren Survey Harian per Store</h3>
                             <ResponsiveContainer width="100%" height={280}>
                               <LineChart data={dailyStoreChartData.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#6b7280" }} />
                                 <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                 <Tooltip content={<DarkTooltip />} />

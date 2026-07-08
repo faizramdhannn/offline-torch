@@ -4,6 +4,7 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
+import { Button } from "@/components/shared/Button";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface UserData {
@@ -405,12 +406,12 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
-          <button
+          <Button
+            size="sm"
             onClick={() => setShowJavelinModal(true)}
-            className="shrink-0 px-3 py-1.5 bg-primary text-white rounded text-xs font-medium hover:bg-primary/90 transition-colors"
           >
             {javelinStatus.hasCookies ? "Update" : "Set Cookie"}
-          </button>
+          </Button>
         </div>
 
         {/* ── User Management ───────────────────────────────────────────── */}
@@ -688,20 +689,22 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div className="flex gap-2 pt-1">
-                  <button
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
                     onClick={() => { setShowJavelinModal(false); setManualCookie(""); setJavelinPassword(""); }}
                     disabled={savingJavelin}
-                    className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded text-xs font-medium hover:bg-gray-200 disabled:opacity-50"
                   >
                     Batal
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    className="flex-1"
                     onClick={handleSaveJavelin}
                     disabled={savingJavelin || !manualCookie.trim()}
-                    className="flex-1 px-4 py-2 bg-primary text-white rounded text-xs font-medium hover:bg-primary/90 disabled:opacity-50"
+                    loading={savingJavelin}
                   >
                     {savingJavelin ? "Menyimpan..." : "Simpan"}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

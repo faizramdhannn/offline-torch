@@ -78,9 +78,9 @@ export function StoreTable({
           <table className="w-full text-xs">
             <thead className="sticky top-0 z-10 bg-gray-50">
               <tr>
-                <th className="px-3 py-2 text-left font-medium text-gray-500">Store</th>
-                <th className="px-3 py-2 text-left font-medium text-gray-500">Kontak</th>
-                <th className="w-10 px-3 py-2"></th>
+                <th className="px-2 py-1.5 text-left font-medium text-gray-500">Store</th>
+                <th className="px-2 py-1.5 text-left font-medium text-gray-500">Kontak</th>
+                <th className="w-10 px-2 py-1.5"></th>
               </tr>
             </thead>
             <tbody>
@@ -95,7 +95,7 @@ export function StoreTable({
                     index % 2 === 1 && "bg-gray-50/40"
                   )}
                 >
-                  <td className="px-3 py-2.5">
+                  <td className="px-2 py-1">
                     <div className="flex items-center gap-2">
                       <MapPinned className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
                       <div>
@@ -108,13 +108,13 @@ export function StoreTable({
                       </div>
                     </div>
                   </td>
-                  <td className="px-3 py-2.5 text-gray-600">
+                  <td className="px-2 py-1 text-gray-600">
                     <div className="flex items-center gap-1.5">
                       <Phone className="h-3 w-3 text-gray-400" />
                       {store.phone_number}
                     </div>
                   </td>
-                  <td className="px-3 py-2.5">
+                  <td className="px-2 py-1">
                     <button
                       onClick={() => onCopy(store)}
                       className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-primary"

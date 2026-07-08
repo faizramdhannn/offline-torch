@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Button } from "@/components/shared/Button";
 
 // phase: "idle" | "sliding-out" | "loading" | "sliding-in-error" | "success"
 type Phase = "idle" | "sliding-out" | "loading" | "sliding-in-error" | "success";
@@ -429,9 +430,9 @@ function LoginPageContent() {
                     </div>
                   )}
 
-                  <button type="submit" className="sl-btn" disabled={phase !== "idle"}>
+                  <Button type="submit" className="sl-btn" disabled={phase !== "idle"}>
                     Login
-                  </button>
+                  </Button>
                 </form>
 
                 <div className="sl-divider"><span>or</span></div>
@@ -497,10 +498,9 @@ function LoginPageContent() {
                       </div>
                     )}
 
-                    <button type="submit" className="sl-btn" disabled={regLoading}>
-                      {regLoading && <div className="sl-spin" />}
+                    <Button type="submit" className="sl-btn" disabled={regLoading} loading={regLoading}>
                       {regLoading ? "Sending..." : "Send Request"}
-                    </button>
+                    </Button>
                   </form>
                 )}
 

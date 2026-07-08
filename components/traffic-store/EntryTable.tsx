@@ -51,8 +51,8 @@ function getDetail(row: TrafficEntry): string {
   return "";
 }
 
-const thClass = "px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap";
-const tdClass = "px-2 py-1.5 text-[11px] leading-tight text-gray-700";
+const thClass = "px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap";
+const tdClass = "px-2 py-1 text-[11px] leading-tight text-gray-700";
 
 // ─── Column registry ──────────────────────────────────────────────────────────
 // `essential: true` columns are always shown and can't be hidden (identity of the row).

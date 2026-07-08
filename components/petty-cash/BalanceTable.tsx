@@ -29,7 +29,7 @@ export function BalanceTable({ entries, onEdit, onDelete, formatRupiah, toTitleC
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50">
             {["Date", "Type", "Value", "Notes", "Update By", "Actions"].map((h) => (
-              <th key={h} className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+              <th key={h} className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">
                 {h}
               </th>
             ))}
@@ -40,21 +40,21 @@ export function BalanceTable({ entries, onEdit, onDelete, formatRupiah, toTitleC
             const isCredit = (entry.type_balance || "").toLowerCase() === "credit";
             return (
               <tr key={index} className="transition-colors hover:bg-gray-50">
-                <td className="whitespace-nowrap px-2 py-1.5 text-[11px] text-gray-500">
+                <td className="whitespace-nowrap px-2 py-1 text-[11px] text-gray-500">
                   {entry.created_at ? new Date(entry.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : "-"}
                 </td>
-                <td className="px-2 py-1.5">
+                <td className="px-2 py-1">
                   <Badge variant={isCredit ? "success" : "error"}>{toTitleCase(entry.type_balance || "")}</Badge>
                 </td>
-                <td className={cn("px-2 py-1.5 text-[11px] font-medium tabular-nums", isCredit ? "text-green-600" : "text-red-600")}>
+                <td className={cn("px-2 py-1 text-[11px] font-medium tabular-nums", isCredit ? "text-green-600" : "text-red-600")}>
                   {isCredit ? "+" : "-"}
                   {formatRupiah(entry.value)}
                 </td>
-                <td className="max-w-[160px] truncate px-2 py-1.5 text-[11px] text-gray-600" title={entry.notes}>
+                <td className="max-w-[160px] truncate px-2 py-1 text-[11px] text-gray-600" title={entry.notes}>
                   {entry.notes || "-"}
                 </td>
-                <td className="px-2 py-1.5 text-[11px] text-gray-500">{entry.update_by || "-"}</td>
-                <td className="px-2 py-1.5">
+                <td className="px-2 py-1 text-[11px] text-gray-500">{entry.update_by || "-"}</td>
+                <td className="px-2 py-1">
                   <div className="flex items-center gap-0.5">
                     <button
                       onClick={() => onEdit(entry)}

@@ -85,11 +85,11 @@ function HpjCell({
   const hargaDiskon =
     discountPct > 0 && hpjVal > 0 ? Math.round(hpjVal * (1 - discountPct / 100)) : 0;
 
-  if (!item.hpj) return <td className="px-3 py-2 text-gray-400">-</td>;
+  if (!item.hpj) return <td className="px-2 py-1 text-gray-400">-</td>;
 
   if (discountPct > 0 && hargaDiskon > 0) {
     return (
-      <td className="px-3 py-2">
+      <td className="px-2 py-1">
         <div className="flex flex-col gap-0.5">
           <span className="text-[10px] text-gray-400 line-through">{item.hpj}</span>
           <div className="flex items-center gap-1">
@@ -104,7 +104,7 @@ function HpjCell({
       </td>
     );
   }
-  return <td className="px-3 py-2">{item.hpj}</td>;
+  return <td className="px-2 py-1">{item.hpj}</td>;
 }
 
 function ThresholdCell({ item }: { item: StockItem }) {
@@ -112,11 +112,11 @@ function ThresholdCell({ item }: { item: StockItem }) {
   const stockVal = parseInt(String(item.stock ?? "").replace(/[^0-9-]/g, "")) || 0;
 
   if (!item.threshold && item.threshold !== "0") {
-    return <td className="px-3 py-2 text-gray-300">-</td>;
+    return <td className="px-2 py-1 text-gray-300">-</td>;
   }
   const isBelow = thresholdVal > 0 && stockVal <= thresholdVal;
   return (
-    <td className="px-3 py-2">
+    <td className="px-2 py-1">
       <span
         className={cn(
           "inline-flex min-w-[24px] items-center justify-center rounded px-1.5 py-0.5 text-[10px] font-semibold",
@@ -149,7 +149,7 @@ function SortableTh({
     <th
       onClick={() => onSort?.(column)}
       className={cn(
-        "select-none px-3 py-2.5 text-left font-semibold text-gray-600",
+        "select-none px-2 py-1.5 text-left font-semibold text-gray-600",
         onSort && "cursor-pointer transition-colors hover:bg-gray-100",
         isActive && "text-gray-900",
         className
@@ -195,7 +195,7 @@ export function StockTable({
       <table className="w-full min-w-[480px] text-[11px]">
         <thead className="sticky top-0 z-10 bg-gray-50">
           <tr className="border-b border-gray-100">
-            <th className="w-9 px-3 py-2.5 text-left font-semibold text-gray-600">Img</th>
+            <th className="w-9 px-2 py-1.5 text-left font-semibold text-gray-600">Img</th>
             <SortableTh label="SKU" column="sku" {...thProps} />
             <SortableTh label="Product Name" column="item_name" {...thProps} />
             <SortableTh label="Category" column="category" {...thProps} />
@@ -225,7 +225,7 @@ export function StockTable({
                 index % 2 === 1 && "bg-gray-50/40"
               )}
             >
-              <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+              <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
                 {item.link_url || item.image_url ? (
                   <img
                     src={item.link_url || item.image_url}
@@ -241,24 +241,24 @@ export function StockTable({
                   </div>
                 )}
               </td>
-              <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+              <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
                 <SkuCell sku={item.sku} />
               </td>
-              <td className="max-w-[140px] px-3 py-2 sm:max-w-none">
+              <td className="max-w-[140px] px-2 py-1 sm:max-w-none">
                 <span className="block truncate text-gray-700">{toProperCase(item.item_name)}</span>
               </td>
-              <td className="whitespace-nowrap px-3 py-2 text-gray-600">{toProperCase(item.category)}</td>
-              <td className="whitespace-nowrap px-3 py-2 text-gray-600">{toProperCase(item.grade)}</td>
-              <td className="whitespace-nowrap px-3 py-2 text-gray-600">{toProperCase(item.tier_product)}</td>
+              <td className="whitespace-nowrap px-2 py-1 text-gray-600">{toProperCase(item.category)}</td>
+              <td className="whitespace-nowrap px-2 py-1 text-gray-600">{toProperCase(item.grade)}</td>
+              <td className="whitespace-nowrap px-2 py-1 text-gray-600">{toProperCase(item.tier_product)}</td>
               {selectedView !== "master" && (
-                <td className="whitespace-nowrap px-3 py-2 font-medium text-gray-700">{item.stock}</td>
+                <td className="whitespace-nowrap px-2 py-1 font-medium text-gray-700">{item.stock}</td>
               )}
               {selectedView === "pca" && <ThresholdCell item={item} />}
               {selectedView === "store" && (
-                <td className="whitespace-nowrap px-3 py-2 text-gray-600">{item.warehouse}</td>
+                <td className="whitespace-nowrap px-2 py-1 text-gray-600">{item.warehouse}</td>
               )}
-              {showHpp && <td className="whitespace-nowrap px-3 py-2 text-gray-600">{item.hpp}</td>}
-              {showHpt && <td className="whitespace-nowrap px-3 py-2 text-gray-600">{item.hpt}</td>}
+              {showHpp && <td className="whitespace-nowrap px-2 py-1 text-gray-600">{item.hpp}</td>}
+              {showHpt && <td className="whitespace-nowrap px-2 py-1 text-gray-600">{item.hpt}</td>}
               {showHpj && (
                 <HpjCell
                   item={item}

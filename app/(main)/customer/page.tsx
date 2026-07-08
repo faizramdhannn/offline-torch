@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import { Customer } from "@/types";
 import * as XLSX from "xlsx";
+import { Button } from "@/components/shared/Button";
 
 const RESULT_OPTIONS = [
   "Terkirim",
@@ -492,7 +493,7 @@ return (
 
           {/* Filters */}
           <div className="bg-white rounded-lg shadow p-4 mb-4">
-            <div className="grid grid-cols-4 gap-3 mb-3">
+            <div className="grid grid-cols-2 gap-3 mb-3 sm:grid-cols-4">
               {view === "list" && (
                 <>
                   {!isOwner && (
@@ -611,27 +612,32 @@ return (
               )}
             </div>
             <div className="flex gap-2">
-              <button
+              <Button
                 onClick={resetFilters}
-                className="px-4 py-1.5 bg-gray-500 text-white rounded text-xs hover:bg-gray-600"
+                variant="secondary"
+                size="sm"
               >
                 Reset Filters
-              </button>
+              </Button>
               {view === "report1" && (
-                <button
+                <Button
                   onClick={exportReport1ToExcel}
-                  className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-secondary/90 ml-auto"
+                  variant="secondary"
+                  size="sm"
+                  className="ml-auto"
                 >
                   Export XLSX
-                </button>
+                </Button>
               )}
               {view === "report2" && (
-                <button
+                <Button
                   onClick={exportReport2ToExcel}
-                  className="px-4 py-1.5 bg-gray-400 text-white rounded text-xs hover:bg-secondary/90 ml-auto"
+                  variant="secondary"
+                  size="sm"
+                  className="ml-auto"
                 >
                   Export XLSX
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -767,14 +773,15 @@ return (
                                     )}
 
                                   {isOwner && (
-                                    <button
+                                    <Button
                                       onClick={() =>
                                         openFollowupModal(customer, actualIndex)
                                       }
-                                      className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                                      size="sm"
+                                      className="text-xs px-2 py-1 h-auto"
                                     >
                                       {hasFollowup ? "Edit" : "Add"}
-                                    </button>
+                                    </Button>
                                   )}
                                 </div>
                               </div>
@@ -1092,20 +1099,21 @@ return (
             </div>
 
             <div className="flex gap-2 mt-6">
-              <button
+              <Button
                 onClick={closeFollowupModal}
                 disabled={uploading}
-                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
+                variant="secondary"
+                className="flex-1"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleFollowupSubmit}
-                disabled={uploading}
-                className="flex-1 px-4 py-2 bg-green-500 text-white rounded text-sm hover:bg-green-600 disabled:opacity-50"
+                loading={uploading}
+                className="flex-1"
               >
                 {uploading ? "Saving..." : "Save Followup"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

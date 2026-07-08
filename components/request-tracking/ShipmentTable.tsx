@@ -4,6 +4,7 @@ import { ReactNode } from "react";
 import { MessageCircle, ExternalLink, Pencil, Trash2, Upload } from "lucide-react";
 import { ExpeditionBadge, TypeReasonBadge, ShipmentStatusBadge, CopyButton, CheckResiButton, ProcessToggle } from "./DomainBadges";
 import { cn } from "@/lib/utils";
+import { thClass, tdClass } from "@/components/shared/tableStyles";
 
 interface TrackingItem {
   id: string;
@@ -45,8 +46,6 @@ interface ShipmentTableProps {
   highlightText: (text: string, query: string) => ReactNode;
 }
 
-const thClass = "px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap";
-const tdClass = "px-2 py-1.5 text-[11px] text-gray-700";
 
 export function ShipmentTable({
   items,

@@ -66,7 +66,7 @@ export function SnapshotModal({ entry, onClose, canRestore, restoring, onRestore
       footer={
         <>
           {entry.action === "DELETE" && canRestore && (
-            <Button variant="primary" className="bg-purple-600 border-purple-600 hover:bg-purple-700" icon={Undo2} onClick={onRestore} loading={restoring}>
+            <Button variant="primary" icon={Undo2} onClick={onRestore} loading={restoring}>
               Restore Entry
             </Button>
           )}

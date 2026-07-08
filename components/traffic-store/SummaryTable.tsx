@@ -30,12 +30,12 @@ export function SummaryTable({ trafficChartData, fd, parseValue, formatRupiah }:
         <table className="w-full border-collapse">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50">
-              <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">Survey Source</th>
-              <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-500">Jumlah</th>
-              <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-500">Beli</th>
-              <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-500">Conv. Rate</th>
-              <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-500">Total Sales</th>
-              <th className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-500">% Total</th>
+              <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Survey Source</th>
+              <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-gray-500">Jumlah</th>
+              <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-gray-500">Beli</th>
+              <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-gray-500">Conv. Rate</th>
+              <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-gray-500">Total Sales</th>
+              <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-gray-500">% Total</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -47,15 +47,15 @@ export function SummaryTable({ trafficChartData, fd, parseValue, formatRupiah }:
               const convPct = t.value ? `${((trafficBeli / t.value) * 100).toFixed(1)}%` : "-";
               return (
                 <tr key={i} className="transition-colors hover:bg-gray-50">
-                  <td className="flex items-center gap-2 px-3 py-2 text-xs">
+                  <td className="flex items-center gap-2 px-2 py-1 text-[11px]">
                     <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
                     <span className="text-gray-700">{t.name}</span>
                   </td>
-                  <td className="px-3 py-2 text-right text-xs font-medium text-gray-700">{t.value}</td>
-                  <td className="px-3 py-2 text-right text-xs font-medium text-green-700">{trafficBeli}</td>
-                  <td className="px-3 py-2 text-right text-xs text-orange-600">{convPct}</td>
-                  <td className="px-3 py-2 text-right text-xs font-medium text-teal-700">{trafficSales > 0 ? formatRupiah(trafficSales) : "-"}</td>
-                  <td className="px-3 py-2 text-right text-xs text-gray-500">{total ? `${((t.value / total) * 100).toFixed(1)}%` : "-"}</td>
+                  <td className="px-2 py-1 text-right text-[11px] font-medium text-gray-700">{t.value}</td>
+                  <td className="px-2 py-1 text-right text-[11px] font-medium text-green-700">{trafficBeli}</td>
+                  <td className="px-2 py-1 text-right text-[11px] text-orange-600">{convPct}</td>
+                  <td className="px-2 py-1 text-right text-[11px] font-medium text-teal-700">{trafficSales > 0 ? formatRupiah(trafficSales) : "-"}</td>
+                  <td className="px-2 py-1 text-right text-[11px] text-gray-500">{total ? `${((t.value / total) * 100).toFixed(1)}%` : "-"}</td>
                 </tr>
               );
             })}

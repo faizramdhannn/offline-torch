@@ -45,7 +45,7 @@ export function ChecklistModal({
       maxWidth="max-w-xl"
       footer={
         <>
-          <Button variant="ghost" className="text-red-500 hover:bg-red-50 hover:text-red-600" icon={Trash2} onClick={onRequestDelete}>
+          <Button variant="danger" icon={Trash2} onClick={onRequestDelete}>
             Hapus Entry
           </Button>
           <Button variant="primary" className="ml-auto" onClick={onClose}>
