@@ -328,7 +328,7 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50/50">
-      <div className="mx-auto max-w-7xl p-4 sm:p-6">
+      <div className="mx-auto max-w-7xl p-4">
 
         {/* ── Header ─────────────────────────────────────────────── */}
         <DashboardHeader

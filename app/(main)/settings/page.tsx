@@ -372,7 +372,7 @@ export default function SettingsPage() {
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50">
-      <div className="p-5">
+      <div className="p-4">
         <h1 className="text-xl font-bold text-primary mb-4">Settings</h1>
 
         {/* ── Javelin Card ──────────────────────────────────────────────── */}

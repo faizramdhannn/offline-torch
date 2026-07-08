@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSheetData, appendSheetData, updateSheetRow } from '@/lib/sheets';
+import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
 import { uploadToGoogleDrive } from '@/lib/drive';
 
 export async function GET(request: NextRequest) {
@@ -150,7 +150,7 @@ export async function PUT(request: NextRequest) {
       image_url = body.image_url;
     }
 
-    const data = await getSheetData('request_store');
+    const data = await getSheetData('request_store', { skipCache: true });
     const idx = data.findIndex((row: any) => row.id === id);
 
     if (idx === -1) {
@@ -197,7 +197,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    const data = await getSheetData('request_store');
+    const data = await getSheetData('request_store', { skipCache: true });
     const idx = data.findIndex((row: any) => row.id === id);
 
     if (idx === -1) {
@@ -205,8 +205,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const rowIndex = idx + 2;
-    const emptyRow = Array(15).fill('');
-    await updateSheetRow('request_store', rowIndex, emptyRow);
+    await deleteSheetRows('request_store', [rowIndex]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

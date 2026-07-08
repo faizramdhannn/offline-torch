@@ -54,7 +54,7 @@ export default function CaptureAttendancePage() {
 
   return (
     <div className="flex-1 overflow-auto">
-      <div className="p-6">
+      <div className="p-4">
         <h1 className="mb-6 text-2xl font-bold text-primary">Capture Attendance</h1>
         <CaptureAttendanceContent isStoreUser={isStoreUser} myStoreName={myStoreName} isAll={isAll} />
       </div>

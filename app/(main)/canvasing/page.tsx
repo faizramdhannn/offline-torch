@@ -462,7 +462,7 @@ export default function CanvasingPage() {
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50/50">
-      <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+      <div className="mx-auto max-w-7xl space-y-6 p-4">
 
         {/* Header */}
         <SectionHeader

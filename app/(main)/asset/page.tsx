@@ -179,7 +179,7 @@ export default function AssetPage() {
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50">
-      <div className="space-y-5 p-5">
+      <div className="space-y-5 p-4">
         {/* Header */}
         <SectionHeader
           icon={FolderOpen}

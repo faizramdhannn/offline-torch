@@ -454,7 +454,7 @@ export default function OrderReportPage() {
 
   return (
     <div className="flex-1 overflow-auto">
-      <div className="p-6">
+      <div className="p-4">
         <div className="flex-1 overflow-auto">
           <div className="p-6">
             <h1 className="text-2xl font-bold text-primary mb-6">Order Report</h1>

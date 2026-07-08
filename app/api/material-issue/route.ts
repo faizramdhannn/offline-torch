@@ -160,7 +160,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Missing id' }, { status: 400 });
     }
 
-    const rows = await getSheetData('material_issue');
+    const rows = await getSheetData('material_issue', { skipCache: true });
     const now = toJakartaTimestamp();
 
     const resolvedMode: string = mode || (item_sku ? 'row' : 'group-status');
@@ -323,14 +323,13 @@ export async function DELETE(request: NextRequest) {
     const sku = searchParams.get('sku');
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
-    const rows = await getSheetData('material_issue');
-    const emptyRow = Array(20).fill('');
+    const rows = await getSheetData('material_issue', { skipCache: true });
 
     if (sku) {
       const idx = findRowIndex(rows, id, sku);
       if (idx === -1) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-      await updateSheetRow('material_issue', idx + 2, emptyRow);
+      await deleteSheetRows('material_issue', [idx + 2]);
       return NextResponse.json({ success: true, deleted: 1 });
     }
 
@@ -339,10 +338,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
-    await updateMultipleSheetRows(
-      'material_issue',
-      groupIndexes.map((idx) => ({ rowIndex: idx + 2, data: emptyRow }))
-    );
+    await deleteSheetRows('material_issue', groupIndexes.map((idx) => idx + 2));
 
     return NextResponse.json({ success: true, deleted: groupIndexes.length });
   } catch (error) {

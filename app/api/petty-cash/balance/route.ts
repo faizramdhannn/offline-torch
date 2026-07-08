@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { deleteSheetRows } from '@/lib/sheets';
 
 const SPREADSHEET_BALANCE = process.env.SPREADSHEET_BALANCE || '';
 
@@ -266,17 +267,10 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const credentials = getGoogleCredentials();
-    const auth = new google.auth.GoogleAuth({
-      credentials,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-    const sheets = google.sheets({ version: 'v4', auth });
-
     // Get all balance data
     const balanceData = await getBalanceSheetData();
     const entryIndex = balanceData.findIndex((item: any) => item.id === id);
-    
+
     if (entryIndex === -1) {
       return NextResponse.json(
         { error: 'Entry not found' },
@@ -285,16 +279,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const rowIndex = entryIndex + 2;
-    
-    // Clear the row by updating with empty values
-    const emptyRow = Array(7).fill(''); // 7 columns (id, type_balance, value, notes, update_by, created_at, update_at)
-    
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SPREADSHEET_BALANCE,
-      range: `petty_cash_balance!A${rowIndex}:G${rowIndex}`,
-      valueInputOption: 'RAW',
-      requestBody: { values: [emptyRow] },
-    });
+    await deleteSheetRows('petty_cash_balance', [rowIndex]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

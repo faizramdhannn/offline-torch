@@ -481,13 +481,13 @@ function CalendarGrid({
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
         <thead>
-          <tr>{DAYS.map((d) => <th key={d} style={{ padding: "5px 4px", textAlign: "center", color: "#93c5fd", fontSize: 9, fontWeight: 600, borderBottom: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.15)" }}>{d}</th>)}</tr>
+          <tr>{DAYS.map((d) => <th key={d} style={{ padding: "3px 4px", textAlign: "center", color: "#93c5fd", fontSize: 8.5, fontWeight: 600, borderBottom: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.15)" }}>{d}</th>)}</tr>
         </thead>
         <tbody>
           {weeks.map((week, wi) => (
             <tr key={wi}>
               {week.map((day, di) => {
-                if (day === null) return <td key={di} style={{ border: "1px solid rgba(255,255,255,0.07)", background: css.cellBgEmpty, height: 68 }} />;
+                if (day === null) return <td key={di} style={{ border: "1px solid rgba(255,255,255,0.07)", background: css.cellBgEmpty, height: 50 }} />;
                 const val = cellData[day] || 0;
                 const tgt = targetData[day] || 0;
                 const traffic = trafficData?.[day] || 0;
@@ -511,10 +511,10 @@ function CalendarGrid({
                 };
                 return (
                   <td key={di} onMouseEnter={handleMouseEnter} onMouseLeave={() => setTooltip(null)}
-                    style={{ border: "1px solid rgba(255,255,255,0.07)", background: bg, verticalAlign: "top", padding: "5px 7px", height: 68, overflow: "hidden", cursor: hasValue || (tgt > 0) ? "pointer" : "default", transition: "filter 0.1s" }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: dayNumColor, marginBottom: 2 }}>{day}</div>
-                    {hasValue && <div style={{ fontSize: 9.5, fontWeight: 800, color: valueColor, lineHeight: 1.2 }}>{fmtRpCell(val)}</div>}
-                    {showConditional && traffic > 0 && <div style={{ fontSize: 8, fontWeight: 500, color: trafficColor, marginTop: 2, lineHeight: 1.2, display: "flex", alignItems: "center", gap: 2 }}><span style={{ opacity: 0.7 }}>👤</span>{traffic.toLocaleString("id-ID")}</div>}
+                    style={{ border: "1px solid rgba(255,255,255,0.07)", background: bg, verticalAlign: "top", padding: "3px 5px", height: 50, overflow: "hidden", cursor: hasValue || (tgt > 0) ? "pointer" : "default", transition: "filter 0.1s" }}>
+                    <div style={{ fontSize: 9.5, fontWeight: 700, color: dayNumColor, marginBottom: 1 }}>{day}</div>
+                    {hasValue && <div style={{ fontSize: 8.5, fontWeight: 800, color: valueColor, lineHeight: 1.15 }}>{fmtRpCell(val)}</div>}
+                    {showConditional && traffic > 0 && <div style={{ fontSize: 7.5, fontWeight: 500, color: trafficColor, marginTop: 1, lineHeight: 1.15, display: "flex", alignItems: "center", gap: 2 }}><span style={{ opacity: 0.7 }}>👤</span>{traffic.toLocaleString("id-ID")}</div>}
                   </td>
                 );
               })}

@@ -1134,7 +1134,7 @@ export default function MaterialIssuePage() {
 
   return (
     <div className="flex-1 overflow-auto">
-      <div className="p-6">
+      <div className="p-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-primary">Material Issue</h1>

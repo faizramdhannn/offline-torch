@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSheetData, appendSheetData, updateSheetRow } from '@/lib/sheets';
+import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
 import { uploadToGoogleDrive } from '@/lib/drive';
 
 async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
@@ -189,7 +189,7 @@ export async function PUT(request: NextRequest) {
       } = body);
     }
 
-    const data = await getSheetData('request_tracking');
+    const data = await getSheetData('request_tracking', { skipCache: true });
     const idx = data.findIndex((row: any) => row.id === id);
 
     if (idx === -1) {
@@ -265,7 +265,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    const data = await getSheetData('request_tracking');
+    const data = await getSheetData('request_tracking', { skipCache: true });
     const idx = data.findIndex((row: any) => row.id === id);
 
     if (idx === -1) {
@@ -273,7 +273,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const rowIndex = idx + 2;
-    await updateSheetRow('request_tracking', rowIndex, Array(17).fill(''));
+    await deleteSheetRows('request_tracking', [rowIndex]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

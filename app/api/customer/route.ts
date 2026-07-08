@@ -104,7 +104,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get current data
-    const data = await getSheetData(storeName);
+    const data = await getSheetData(storeName, { skipCache: true });
     const rowData = data[rowIndex - 2]; // -2 because rowIndex is 1-based and includes header
     
     if (!rowData) {

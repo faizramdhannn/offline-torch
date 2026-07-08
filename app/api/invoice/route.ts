@@ -171,7 +171,7 @@ export async function PUT(request: NextRequest) {
       signature_pic,
     } = body;
 
-    const invoices = await getSheetData('invoices');
+    const invoices = await getSheetData('invoices', { skipCache: true });
     const idx = invoices.findIndex((r: any) => r.invoice_id === invoice_id);
     if (idx === -1) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
 
@@ -191,7 +191,7 @@ export async function PUT(request: NextRequest) {
       grand_total = subtotal; // grand_total = subtotal
       amount_in_words = terbilang(grand_total);
 
-      const allItems = await getSheetData('invoice_items');
+      const allItems = await getSheetData('invoice_items', { skipCache: true });
       const oldItemIndexes = allItems
         .map((r: any, i: number) => ({ r, i }))
         .filter(({ r }: any) => r.invoice_id === invoice_id);
@@ -265,7 +265,7 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
-    const invoices = await getSheetData('invoices');
+    const invoices = await getSheetData('invoices', { skipCache: true });
     const idx = invoices.findIndex((r: any) => r.invoice_id === id);
     if (idx === -1) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 

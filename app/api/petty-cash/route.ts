@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSheetData, appendSheetData, updateSheetRow } from '@/lib/sheets';
+import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
 import { uploadToGoogleDrive } from '@/lib/drive';
 import { google } from 'googleapis';
 
@@ -227,7 +227,7 @@ export async function PUT(request: NextRequest) {
     const file = formData.get('file') as File | null;
     const username = formData.get('username') as string;
 
-    const pettyCashData = await getSheetData('petty_cash');
+    const pettyCashData = await getSheetData('petty_cash', { skipCache: true });
     const entryIndex = pettyCashData.findIndex((item: any) => item.id === id);
 
     if (entryIndex === -1) {
@@ -341,7 +341,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    const pettyCashData = await getSheetData('petty_cash');
+    const pettyCashData = await getSheetData('petty_cash', { skipCache: true });
     const entryIndex = pettyCashData.findIndex((item: any) => item.id === id);
 
     if (entryIndex === -1) {
@@ -376,9 +376,10 @@ export async function DELETE(request: NextRequest) {
       `Deleted by ${deletedBy} — was: ${entry.description} | ${entry.category} | ${entry.value} | ${entry.store}`
     );
 
-    // Clear the row
-    const updatedRow = Array(12).fill('');
-    await updateSheetRow('petty_cash', rowIndex, updatedRow);
+    // Real row delete — history snapshot above preserves the data for Restore,
+    // which already falls back to appending a fresh row if there's no
+    // reusable blank row, so removing the row entirely is safe.
+    await deleteSheetRows('petty_cash', [rowIndex]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

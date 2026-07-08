@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { id, permissions } = await request.json();
-    const users = await getSheetData("users");
+    const users = await getSheetData("users", { skipCache: true });
     const userIndex = users.findIndex((u: any) => u.id === id);
     if (userIndex === -1) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });

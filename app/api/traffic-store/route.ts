@@ -31,10 +31,17 @@ async function getTrafficSheetData(sheetName: string) {
   const rows = response.data.values || [];
   if (rows.length === 0) return [];
   const headers = rows[0] as string[];
-  return rows.slice(1)
-    .filter((row) => row.some((cell) => cell !== null && cell !== undefined && cell !== ''))
-    .map((row) => {
-      const obj: any = {};
+  // Keep the TRUE 1-based sheet row number on each object (as __rowIndex),
+  // computed BEFORE filtering out blank rows — callers that edit/delete by
+  // id must use this instead of recomputing from the filtered array's
+  // position, otherwise any leftover blank row above the target silently
+  // shifts every index below it and edits/deletes land on the wrong row.
+  return rows
+    .map((row, i) => ({ row, sheetRowNumber: i + 1 }))
+    .slice(1)
+    .filter(({ row }) => row.some((cell) => cell !== null && cell !== undefined && cell !== ''))
+    .map(({ row, sheetRowNumber }) => {
+      const obj: any = { __rowIndex: sheetRowNumber };
       headers.forEach((header, index) => {
         obj[header] = row[index] || '';
       });
@@ -112,6 +119,36 @@ async function updateTrafficRow(sheetName: string, rowIndex: number, row: any[],
   }
 }
 
+// Deletes a row entirely (shift-up), same semantics as lib/sheets.ts's
+// deleteSheetRows — used instead of blanking so deleted entries don't leave
+// an empty row behind in the spreadsheet. Google Sheets auto-adjusts
+// row-relative formulas (like the Q/R formula columns) when a row is
+// deleted, the same as a manual row delete in the UI.
+async function deleteTrafficRow(sheetName: string, rowIndex: number) {
+  const credentials = getGoogleCredentials();
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+  const sheets = google.sheets({ version: 'v4', auth });
+
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_TRAFFIC });
+  const sheetMeta = (meta.data.sheets || []).find((s: any) => s.properties?.title === sheetName);
+  if (!sheetMeta) throw new Error(`Sheet not found: ${sheetName}`);
+  const sheetId = sheetMeta.properties?.sheetId;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_TRAFFIC,
+    requestBody: {
+      requests: [{
+        deleteDimension: {
+          range: { sheetId, dimension: 'ROWS', startIndex: rowIndex - 1, endIndex: rowIndex },
+        },
+      }],
+    },
+  });
+}
+
 // GET: fetch traffic_source data + master_traffic dropdowns
 export async function GET(request: NextRequest) {
   try {
@@ -120,7 +157,7 @@ export async function GET(request: NextRequest) {
 
     if (type === 'master') {
       const master = await getTrafficSheetData('master_traffic');
-      return NextResponse.json(master);
+      return NextResponse.json(master.map(({ __rowIndex, ...rest }: any) => rest));
     }
 
     // Fetch traffic data
@@ -133,7 +170,10 @@ export async function GET(request: NextRequest) {
       return bTime - aTime;
     });
 
-    return NextResponse.json(sorted);
+    // __rowIndex is an internal detail for locating rows on edit/delete — don't leak it to the client.
+    const publicData = sorted.map(({ __rowIndex, ...rest }: any) => rest);
+
+    return NextResponse.json(publicData);
   } catch (error) {
     console.error('Error fetching traffic store:', error);
     return NextResponse.json({ error: 'Failed to fetch traffic data' }, { status: 500 });
@@ -246,7 +286,7 @@ export async function PUT(request: NextRequest) {
     if (idx === -1) return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
 
     const existing = data[idx];
-    const rowIndex = idx + 2;
+    const rowIndex = existing.__rowIndex;
     const now = new Date().toISOString();
 
     const newTrafficSource = traffic_source ?? existing.traffic_source;
@@ -305,7 +345,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE: clear a traffic row (16 cols only, formula cols preserved)
+// DELETE: remove a traffic row entirely
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -316,10 +356,7 @@ export async function DELETE(request: NextRequest) {
     const idx = data.findIndex((r: any) => r.id === id);
     if (idx === -1) return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
 
-    const rowIndex = idx + 2;
-    // Clear the 16 writable columns (A–P) and the 7 revisi survey columns (S–Y);
-    // formula columns Q, R are untouched.
-    await updateTrafficRow('traffic_source', rowIndex, Array(16).fill(''), Array(7).fill(''));
+    await deleteTrafficRow('traffic_source', data[idx].__rowIndex);
 
     return NextResponse.json({ success: true });
   } catch (error) {

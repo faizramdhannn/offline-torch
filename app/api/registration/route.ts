@@ -31,7 +31,7 @@ export async function PUT(request: NextRequest) {
   try {
     const { id, status, permissions } = await request.json();
 
-    const requests = await getSheetData('registration_request');
+    const requests = await getSheetData('registration_request', { skipCache: true });
     const requestIndex = requests.findIndex((r: any) => r.id === id);
 
     if (requestIndex === -1) {

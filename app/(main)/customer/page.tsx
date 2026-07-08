@@ -446,7 +446,7 @@ export default function CustomerPage() {
 
 return (
   <div className="flex-1 overflow-auto">
-    <div className="p-6">
+    <div className="p-4">
 
       <div className="flex-1 overflow-auto">
         <div className="p-6">

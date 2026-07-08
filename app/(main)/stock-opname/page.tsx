@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import { Button } from "@/components/shared/Button";
 import { RefreshCw } from "lucide-react";
+import { OpnameCharts } from "@/components/stock-opname/OpnameCharts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -110,7 +111,12 @@ function parsePercent(val: string | null | undefined): number {
 
 function parseNum(val: string | null | undefined): number {
   if (!val) return 0;
-  return parseFloat(String(val).replace(/\./g, "").replace(",", ".")) || 0;
+  const s = String(val).trim();
+  // Accounting notation: "(4.000)" means -4000 — not handled by a plain numeric strip.
+  const isNegParen = s.startsWith("(") && s.endsWith(")");
+  const cleaned = s.replace(/[()]/g, "").replace(/\./g, "").replace(",", ".");
+  const n = parseFloat(cleaned) || 0;
+  return isNegParen ? -Math.abs(n) : n;
 }
 
 const MONTH_ORDER: Record<string, number> = {
@@ -1538,6 +1544,9 @@ function ReportSection({
           </span>
         </div>
       </div>
+
+      {/* BI-style KPI/chart/table summary */}
+      {hasReportAccess && <OpnameCharts reports={filtered} isDark={isDark} css={css} />}
 
       {/* Empty state */}
       {filtered.length === 0 && (

@@ -104,7 +104,7 @@ export async function PUT(request: NextRequest) {
       status,
     } = body;
 
-    const bundlings = await getSheetData('master_bundling');
+    const bundlings = await getSheetData('master_bundling', { skipCache: true });
     const bundlingIndex = bundlings.findIndex((b: any) => b.id === id);
 
     if (bundlingIndex === -1) {
@@ -142,7 +142,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    const bundlings = await getSheetData('master_bundling');
+    const bundlings = await getSheetData('master_bundling', { skipCache: true });
     const bundlingIndex = bundlings.findIndex((b: any) => b.id === id);
 
     if (bundlingIndex === -1) {

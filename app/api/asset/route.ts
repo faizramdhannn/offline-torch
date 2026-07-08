@@ -46,7 +46,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const existing = await getSheetData("asset_store");
+    const existing = await getSheetData("asset_store", { skipCache: true });
     const rowIndex = existing.findIndex((row: any) => String(row.id) === String(id));
 
     if (rowIndex === -1) {
@@ -75,7 +75,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
-    const existing = await getSheetData("asset_store");
+    const existing = await getSheetData("asset_store", { skipCache: true });
     const rowIndex = existing.findIndex((row: any) => String(row.id) === String(id));
 
     if (rowIndex === -1) {

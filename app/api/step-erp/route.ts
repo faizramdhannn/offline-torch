@@ -105,7 +105,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Invalid store" }, { status: 400 });
     }
 
-    const existing = await getSheetData(type);
+    const existing = await getSheetData(type, { skipCache: true });
     const rowIndex = existing.findIndex((row: any) => String(row.id) === String(id));
     if (rowIndex === -1) {
       return NextResponse.json({ error: "Entry not found" }, { status: 404 });
@@ -160,7 +160,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
-    const existing = await getSheetData(type);
+    const existing = await getSheetData(type, { skipCache: true });
     const rowIndex = existing.findIndex((row: any) => String(row.id) === String(id));
     if (rowIndex === -1) {
       return NextResponse.json({ error: "Entry not found" }, { status: 404 });

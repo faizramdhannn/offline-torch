@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSheetData, appendSheetData, updateSheetRow } from '@/lib/sheets';
+import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
 import { uploadToGoogleDrive } from '@/lib/drive';
 
 export async function GET(request: NextRequest) {
@@ -145,9 +145,9 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get existing entry
-    const entries = await getSheetData('canvasing_store');
+    const entries = await getSheetData('canvasing_store', { skipCache: true });
     const entryIndex = entries.findIndex((item: any) => item.id === id);
-    
+
     if (entryIndex === -1) {
       return NextResponse.json(
         { error: 'Entry not found' },
@@ -228,9 +228,9 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Get all entries
-    const entries = await getSheetData('canvasing_store');
+    const entries = await getSheetData('canvasing_store', { skipCache: true });
     const entryIndex = entries.findIndex((item: any) => item.id === id);
-    
+
     if (entryIndex === -1) {
       return NextResponse.json(
         { error: 'Entry not found' },
@@ -239,11 +239,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const rowIndex = entryIndex + 2;
-    
-    // Clear the row
-    const updatedRow = Array(13).fill('');
-    
-    await updateSheetRow('canvasing_store', rowIndex, updatedRow);
+    await deleteSheetRows('canvasing_store', [rowIndex]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

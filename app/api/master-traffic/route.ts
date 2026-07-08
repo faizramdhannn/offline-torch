@@ -61,7 +61,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'original_code, code_traffic, and notes are required' }, { status: 400 });
     }
 
-    const existing = await getSheetData(SHEET);
+    const existing = await getSheetData(SHEET, { skipCache: true });
 
     // Check duplicate code (excluding self)
     const isDuplicate = existing.some(
@@ -98,7 +98,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'code_traffic is required' }, { status: 400 });
     }
 
-    const existing = await getSheetData(SHEET);
+    const existing = await getSheetData(SHEET, { skipCache: true });
     const filtered = existing.filter(
       (row: any) => row['code_traffic']?.trim().toUpperCase() !== code_traffic.trim().toUpperCase()
     );
