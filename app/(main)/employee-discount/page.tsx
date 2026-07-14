@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import SearchableSelect from "@/components/SearchableSelect";
 import { Button } from "@/components/shared/Button";
-import { Plus, Pencil, Trash2, Check, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, Mail } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface EDItem {
@@ -307,30 +307,41 @@ export default function EmployeeDiscountPage() {
     } catch {}
   };
 
-  // ── Buka draft email (mailto:) setelah request dibuat ──────────────────────
-  // Tidak ada pengiriman email dari server — cukup membuka aplikasi email
-  // default user dengan subject & body yang sudah terisi otomatis.
-  const openDiscountEmailDraft = (f: typeof emptyForm) => {
+  // ── Buka draft email Gmail — dipicu manual lewat tombol di kolom Aksi ──────
+  // `mailto:` bergantung pada aplikasi mail default OS (belum tentu Gmail,
+  // dan sering tidak ke-setup sama sekali di browser/OS user sehingga klik
+  // terasa "tidak terjadi apa-apa"). Supaya PASTI pindah ke Gmail, pakai URL
+  // compose Gmail langsung (dibuka di tab baru), bukan skema mailto:.
+  const openDiscountEmailDraft = (groupId: string) => {
+    const groupItems = data.filter((d) => d.id === groupId);
+    if (groupItems.length === 0) return;
+    const meta = groupItems[0];
+
     const to = "odi@torch.id,faizramdhan17@gmail.com";
-    const requesterName = toCapitalEachWord(user?.name || "");
-    const taftBy = f.taft_by || requesterName;
+    const requesterName = toCapitalEachWord(meta.name || "");
+    const taftBy = meta.taft_by || requesterName;
     const subject = `Pengajuan Employee Discount - ${taftBy}`;
-    const itemLines = f.items.map((it, idx) => `${idx + 1}. ${it.sku}: ${it.name} - ${it.qty}`);
+    const itemLines = groupItems.map((it, idx) => `${idx + 1}. ${it.item_sku}: ${it.item_name} - ${it.item_qty}`);
     const body = [
       `Saya ${taftBy} dari ${requesterName},`,
-      `ingin mengajukan discount ${f.discount_code} untuk item berikut`,
+      `ingin mengajukan discount ${meta.discount_code} untuk item berikut`,
       "",
       ...itemLines,
       "",
-      `dengan tujuan, ${f.type_reason}`,
+      `dengan tujuan, ${meta.type_reason}`,
       "",
       "terimakasih",
       "",
       "Best Regard,",
       taftBy,
     ].join("\n");
-    const mailto = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.location.href = mailto;
+
+    const gmailUrl =
+      `https://mail.google.com/mail/?view=cm&fs=1&tf=1` +
+      `&to=${encodeURIComponent(to)}` +
+      `&su=${encodeURIComponent(subject)}` +
+      `&body=${encodeURIComponent(body)}`;
+    window.open(gmailUrl, "_blank", "noopener,noreferrer");
   };
 
   // ── Create ───────────────────────────────────────────────────────────────────
@@ -369,7 +380,6 @@ export default function EmployeeDiscountPage() {
       if (!res.ok) throw new Error();
       showMessage("Request berhasil dibuat", "success");
       setShowAddModal(false);
-      openDiscountEmailDraft(form);
       setForm(emptyForm);
       fetchData();
     } catch {
@@ -587,7 +597,10 @@ export default function EmployeeDiscountPage() {
                 paged.map((item) => {
                   const groupItems = getGroupItems(item.id);
                   const totalQty = groupItems.reduce((sum, g) => sum + Number(g.item_qty || 0), 0);
-                  const isOwner = item.created_by === user.user_name && canEditOwn;
+                  // Pemilik request (employee_discount) hanya bisa edit/delete miliknya
+                  // sendiri, tapi user dengan employee_discount_approval bisa edit/delete
+                  // request SIAPA PUN, bukan cuma approve/reject.
+                  const isOwner = (item.created_by === user.user_name && canEditOwn) || canApprove;
                   const showApprove = canApprove && item.status_request !== "Approved" && item.status_request !== "Rejected";
                   return (
                     <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
@@ -607,6 +620,15 @@ export default function EmployeeDiscountPage() {
                       </td>
                       <td className="px-1.5 py-1.5 text-center">
                         <div className="flex items-center justify-center gap-1 flex-wrap">
+                          {canCreate && (
+                            <button
+                              onClick={() => openDiscountEmailDraft(item.id)}
+                              className="p-1 rounded hover:bg-blue-50 text-blue-600"
+                              title="Kirim email (buka Gmail)"
+                            >
+                              <Mail className="w-3 h-3" />
+                            </button>
+                          )}
                           {isOwner && (
                             <>
                               <button

@@ -226,72 +226,76 @@ function LoginPageContent() {
           pointer-events: auto;
         }
 
-        /* ─── Futuristic loader: dual counter-rotating rings + scan sweep + pulsing core ─── */
+        /* ─── Brand loader: logo Offline Torch + orbiting ring + embers ─── */
         .sl-loader {
           position: relative;
-          width: 96px; height: 96px;
+          width: 110px; height: 110px;
           display: flex; align-items: center; justify-content: center;
-          filter: drop-shadow(0 0 6px rgba(37,99,235,0.35));
         }
-        .sl-loader svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 
-        .sl-ring-outer {
-          animation: slSpinCW 2.6s linear infinite;
-          transform-origin: 50% 50%;
+        /* Soft breathing glow behind everything */
+        .sl-flame-glow {
+          position: absolute;
+          width: 72px; height: 72px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(37,99,235,0.35) 0%, rgba(37,99,235,0) 70%);
+          animation: slGlowBreathe 2.2s ease-in-out infinite;
+          filter: blur(2px);
         }
-        .sl-ring-inner {
-          animation: slSpinCCW 1.7s linear infinite;
-          transform-origin: 50% 50%;
+        @keyframes slGlowBreathe {
+          0%, 100% { transform: scale(0.85); opacity: 0.55; }
+          50%      { transform: scale(1.15); opacity: 1; }
         }
-        .sl-ring-tick {
-          animation: slSpinCW 8s linear infinite;
-          transform-origin: 50% 50%;
+
+        /* Logo sendiri berdenyut halus di tengah */
+        .sl-logo-img {
+          position: relative;
+          width: 46px; height: 46px;
+          object-fit: contain;
+          border-radius: 10px;
+          animation: slLogoPulse 1.8s ease-in-out infinite;
+          filter: drop-shadow(0 0 8px rgba(37,99,235,0.5));
+        }
+        @keyframes slLogoPulse {
+          0%, 100% { transform: scale(1);    opacity: 0.92; }
+          50%      { transform: scale(1.07); opacity: 1; }
+        }
+
+        /* Dua cincin dashed berputar arah berlawanan mengelilingi logo */
+        .sl-orbit-ring {
+          position: absolute; inset: 0;
+          border-radius: 50%;
+        }
+        .sl-orbit-ring.outer {
+          border: 1.5px dashed rgba(37,99,235,0.45);
+          animation: slSpinCW 5s linear infinite;
+        }
+        .sl-orbit-ring.inner {
+          inset: 10px;
+          border: 1px dashed rgba(96,165,250,0.55);
+          animation: slSpinCCW 3.4s linear infinite;
         }
         @keyframes slSpinCW  { to { transform: rotate(360deg); } }
         @keyframes slSpinCCW { to { transform: rotate(-360deg); } }
 
-        /* Radar-style scanning sweep across the core */
-        .sl-scan {
-          position: absolute; inset: 0;
+        /* Tiga embers mengorbit keluar, staggered */
+        .sl-ember {
+          position: absolute;
+          width: 5px; height: 5px;
           border-radius: 50%;
-          overflow: hidden;
-          animation: slSpinCW 1.4s linear infinite;
-          transform-origin: 50% 50%;
+          background: #60a5fa;
+          box-shadow: 0 0 6px 1.5px rgba(96,165,250,0.85);
+          top: 50%; left: 50%;
+          animation: slEmberOrbit 2.8s linear infinite;
         }
-        .sl-scan::before {
-          content: '';
-          position: absolute; inset: 0;
-          background: conic-gradient(from 0deg, rgba(37,99,235,0) 0deg, rgba(37,99,235,0) 260deg, rgba(37,99,235,0.55) 340deg, rgba(96,165,250,0.9) 360deg);
-        }
-
-        .sl-core {
-          position: relative;
-          width: 12px; height: 12px;
-          border-radius: 50%;
-          background: #2563eb;
-          box-shadow: 0 0 10px 2px rgba(37,99,235,0.7);
-          animation: slCorePulse 1.2s ease-in-out infinite;
-        }
-        @keyframes slCorePulse {
-          0%, 100% { transform: scale(1);   opacity: 1; }
-          50%      { transform: scale(1.4); opacity: 0.7; }
-        }
-
-        .sl-loader-text {
-          margin-top: 1.1rem;
-          font-family: 'IBM Plex Mono', monospace;
-          font-size: 0.72rem; letter-spacing: 0.16em;
-          color: #6b7280; text-transform: uppercase;
-          display: flex; align-items: center; gap: 0.15rem;
-        }
-        .sl-loader-text .sl-dot {
-          animation: slDotBlink 1.2s ease-in-out infinite;
-        }
-        .sl-loader-text .sl-dot:nth-child(2) { animation-delay: 0.2s; }
-        .sl-loader-text .sl-dot:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes slDotBlink {
-          0%, 80%, 100% { opacity: 0.25; }
-          40%           { opacity: 1; }
+        .sl-ember:nth-child(1) { animation-delay: 0s; }
+        .sl-ember:nth-child(2) { animation-delay: 0.93s; }
+        .sl-ember:nth-child(3) { animation-delay: 1.86s; }
+        @keyframes slEmberOrbit {
+          0%   { transform: translate(-50%, -50%) rotate(0deg)   translateX(52px) rotate(0deg)   scale(0.4); opacity: 0; }
+          15%  { opacity: 1; }
+          85%  { opacity: 0.5; }
+          100% { transform: translate(-50%, -50%) rotate(360deg) translateX(52px) rotate(-360deg) scale(1.1); opacity: 0; }
         }
 
         /* ─── Brand / form styles (unchanged) ─── */
@@ -572,32 +576,18 @@ function LoginPageContent() {
           <div className="sl-footer">© 2026 OFFLINE TORCH</div>
         </div>
 
-        {/* ── Loading overlay (centre) ── */}
+        {/* ── Loading overlay (centre) — logo Offline Torch + animasi orbit, tanpa teks ── */}
         <div className="sl-loading-overlay">
           <div className="sl-loader">
-            <svg className="sl-ring-outer" viewBox="0 0 96 96">
-              <circle cx="48" cy="48" r="44" fill="none" stroke="#2563eb" strokeWidth="1.5"
-                strokeDasharray="12 10" strokeLinecap="round" opacity="0.55" />
-            </svg>
-            <svg className="sl-ring-inner" viewBox="0 0 96 96">
-              <circle cx="48" cy="48" r="33" fill="none" stroke="#60a5fa" strokeWidth="2"
-                strokeDasharray="4 90" strokeLinecap="round" />
-              <circle cx="48" cy="48" r="33" fill="none" stroke="#93c5fd" strokeWidth="1"
-                strokeDasharray="1 14" opacity="0.6" />
-            </svg>
-            <svg className="sl-ring-tick" viewBox="0 0 96 96">
-              <circle cx="48" cy="48" r="24" fill="none" stroke="#bfdbfe" strokeWidth="1"
-                strokeDasharray="1 7.5" opacity="0.8" />
-            </svg>
-            <div className="sl-scan" />
-            <div className="sl-core" />
+            <div className="sl-flame-glow" />
+            <div className="sl-orbit-ring outer" />
+            <div className="sl-orbit-ring inner" />
+            <div className="sl-ember" />
+            <div className="sl-ember" />
+            <div className="sl-ember" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo_offline_torch.png" alt="Offline Torch" className="sl-logo-img" />
           </div>
-          <p className="sl-loader-text">
-            <span>{phase === "success" ? "Redirecting" : "Authenticating"}</span>
-            <span className="sl-dot">.</span>
-            <span className="sl-dot">.</span>
-            <span className="sl-dot">.</span>
-          </p>
         </div>
 
         {/* ── Right panel (image) ── */}
