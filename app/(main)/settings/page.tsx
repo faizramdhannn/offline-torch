@@ -61,6 +61,8 @@ interface UserData {
   asset_store: string;
   step_erp: string;
   step_erp_all: string;
+  employee_discount: string;
+  employee_discount_approval: string;
   last_activity: string;
 }
 
@@ -157,6 +159,8 @@ const PERM_GROUPS: {
       { key: "material_issue",   label: "Material" },
       { key: "material_issue_all",label: "Mat All" },
       { key: "asset_store",      label: "Asset" },
+      { key: "employee_discount",          label: "Emp. Discount" },
+      { key: "employee_discount_approval", label: "Disc. Approval" },
     ],
   },
   {

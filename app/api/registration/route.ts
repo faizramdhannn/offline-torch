@@ -43,56 +43,71 @@ export async function PUT(request: NextRequest) {
 
     if (status === 'approved') {
       // Create user in users sheet
+      // ⚠️ Urutan array ini HARUS persis sama dengan urutan kolom di
+      // app/api/users/route.ts (PUT /api/users), yang merupakan sumber
+      // kebenaran untuk layout kolom sheet `users` (A..BE, 57 kolom).
+      // Sebelumnya array ini sudah lama tidak sinkron (offset sejak kolom
+      // stock_opname / X), sehingga user yang baru di-approve mendapat
+      // permission yang salah tempat / hilang. Jika menambah permission baru,
+      // tambahkan di KEDUA file ini di posisi yang sama.
       const newUser = [
-        requestData.id,
-        requestData.name,
-        requestData.user_name,
-        requestData.password,
-        permissions.dashboard ? 'TRUE' : 'FALSE',
-        permissions.order_report ? 'TRUE' : 'FALSE',
-        permissions.stock ? 'TRUE' : 'FALSE',
-        permissions.registration_request ? 'TRUE' : 'FALSE',
-        permissions.user_setting ? 'TRUE' : 'FALSE',
-        permissions.petty_cash ? 'TRUE' : 'FALSE',
-        permissions.petty_cash_add ? 'TRUE' : 'FALSE',
-        permissions.petty_cash_export ? 'TRUE' : 'FALSE',
-        permissions.petty_cash_balance ? 'TRUE' : 'FALSE',
-        permissions.order_report_import ? 'TRUE' : 'FALSE',
-        permissions.order_report_export ? 'TRUE' : 'FALSE',
-        permissions.customer ? 'TRUE' : 'FALSE',
-        permissions.voucher ? 'TRUE' : 'FALSE',
-        permissions.bundling ? 'TRUE' : 'FALSE',
-        permissions.canvasing ? 'TRUE' : 'FALSE',
-        permissions.canvasing_export ? 'TRUE' : 'FALSE',
-        permissions.request ? 'TRUE' : 'FALSE',
-        permissions.edit_request ? 'TRUE' : 'FALSE',
-        permissions.analytics_order ? 'TRUE' : 'FALSE',
-        permissions.stock_opname ? 'TRUE' : 'FALSE',
-        permissions.attendance ? 'TRUE' : 'FALSE',
-        permissions.attendance_report ? 'TRUE' : 'FALSE',
-        // Stock permissions
-        permissions.stock_import ? 'TRUE' : 'FALSE',
-        permissions.stock_export ? 'TRUE' : 'FALSE',
-        permissions.stock_view_store ? 'TRUE' : 'FALSE',
-        permissions.stock_view_pca ? 'TRUE' : 'FALSE',
-        permissions.stock_view_master ? 'TRUE' : 'FALSE',
-        permissions.stock_view_hpp ? 'TRUE' : 'FALSE',
-        permissions.stock_view_hpt ? 'TRUE' : 'FALSE',
-        permissions.stock_view_hpj ? 'TRUE' : 'FALSE',
-        permissions.stock_refresh_javelin ? 'TRUE' : 'FALSE',
-        permissions.invoice ? 'TRUE' : 'FALSE',
-        permissions.invoice_create ? 'TRUE' : 'FALSE',
-        permissions.invoice_edit ? 'TRUE' : 'FALSE',
-        permissions.invoice_delete ? 'TRUE' : 'FALSE',
-        permissions.invoice_master ? 'TRUE' : 'FALSE',
-        '', // last_activity (empty on creation)
-        permissions.traffic_store ? 'TRUE' : 'FALSE',
-        permissions.report_store ? 'TRUE' : 'FALSE',
-        // Shipment permissions
-        permissions.request_tracking ? 'TRUE' : 'FALSE',
-        permissions.tracking_edit ? 'TRUE' : 'FALSE',
-        new Date().toISOString(),
-        permissions.step_erp ? 'TRUE' : 'FALSE',
+        requestData.id,                                            // A
+        requestData.name,                                          // B
+        requestData.user_name,                                     // C
+        requestData.password,                                      // D
+        permissions.dashboard ? 'TRUE' : 'FALSE',                   // E
+        permissions.order_report ? 'TRUE' : 'FALSE',                // F
+        permissions.stock ? 'TRUE' : 'FALSE',                       // G
+        permissions.registration_request ? 'TRUE' : 'FALSE',        // H
+        permissions.user_setting ? 'TRUE' : 'FALSE',                // I
+        permissions.petty_cash ? 'TRUE' : 'FALSE',                  // J
+        permissions.petty_cash_add ? 'TRUE' : 'FALSE',              // K
+        permissions.petty_cash_export ? 'TRUE' : 'FALSE',           // L
+        permissions.petty_cash_balance ? 'TRUE' : 'FALSE',          // M
+        permissions.order_report_import ? 'TRUE' : 'FALSE',         // N
+        permissions.order_report_export ? 'TRUE' : 'FALSE',         // O
+        permissions.customer ? 'TRUE' : 'FALSE',                    // P
+        permissions.voucher ? 'TRUE' : 'FALSE',                     // Q
+        permissions.bundling ? 'TRUE' : 'FALSE',                    // R
+        permissions.canvasing ? 'TRUE' : 'FALSE',                   // S
+        permissions.canvasing_export ? 'TRUE' : 'FALSE',            // T
+        permissions.request ? 'TRUE' : 'FALSE',                     // U
+        permissions.edit_request ? 'TRUE' : 'FALSE',                // V
+        permissions.analytics_order ? 'TRUE' : 'FALSE',             // W
+        permissions.stock_opname ? 'TRUE' : 'FALSE',                // X
+        permissions.stock_import ? 'TRUE' : 'FALSE',                // Y
+        permissions.stock_export ? 'TRUE' : 'FALSE',                // Z
+        permissions.stock_view_store ? 'TRUE' : 'FALSE',            // AA
+        permissions.stock_view_pca ? 'TRUE' : 'FALSE',              // AB
+        permissions.stock_view_master ? 'TRUE' : 'FALSE',           // AC
+        permissions.stock_view_hpp ? 'TRUE' : 'FALSE',              // AD
+        permissions.stock_view_hpt ? 'TRUE' : 'FALSE',              // AE
+        permissions.stock_view_hpj ? 'TRUE' : 'FALSE',              // AF
+        permissions.stock_refresh_javelin ? 'TRUE' : 'FALSE',       // AG
+        permissions.traffic_store ? 'TRUE' : 'FALSE',               // AH
+        permissions.report_store ? 'TRUE' : 'FALSE',                // AI
+        permissions.request_tracking ? 'TRUE' : 'FALSE',            // AJ
+        permissions.tracking_edit ? 'TRUE' : 'FALSE',               // AK
+        permissions.stock_opname_report ? 'TRUE' : 'FALSE',         // AL
+        permissions.attendance ? 'TRUE' : 'FALSE',                  // AM
+        permissions.attendance_report ? 'TRUE' : 'FALSE',           // AN
+        permissions.invoice ? 'TRUE' : 'FALSE',                     // AO
+        permissions.invoice_create ? 'TRUE' : 'FALSE',              // AP
+        permissions.invoice_edit ? 'TRUE' : 'FALSE',                // AQ
+        permissions.invoice_delete ? 'TRUE' : 'FALSE',              // AR
+        permissions.invoice_master ? 'TRUE' : 'FALSE',              // AS
+        permissions.sales_view ? 'TRUE' : 'FALSE',                  // AT
+        permissions.sales_view_all ? 'TRUE' : 'FALSE',              // AU
+        permissions.attendance_store ? 'TRUE' : 'FALSE',            // AV
+        permissions.attendance_store_all ? 'TRUE' : 'FALSE',        // AW
+        permissions.material_issue ? 'TRUE' : 'FALSE',              // AX
+        permissions.material_issue_all ? 'TRUE' : 'FALSE',          // AY
+        permissions.asset_store ? 'TRUE' : 'FALSE',                 // AZ
+        '', // last_activity (empty on creation)                   // BA
+        permissions.step_erp ? 'TRUE' : 'FALSE',                    // BB
+        permissions.step_erp_all ? 'TRUE' : 'FALSE',                // BC
+        permissions.employee_discount ? 'TRUE' : 'FALSE',           // BD
+        permissions.employee_discount_approval ? 'TRUE' : 'FALSE', // BE
       ];
 
       await appendSheetData('users', [newUser]);

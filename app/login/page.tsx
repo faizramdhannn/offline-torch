@@ -68,6 +68,9 @@ function LoginPageContent() {
       const user = await response.json();
       user._loginAt = Date.now();
       localStorage.setItem("user", JSON.stringify(user));
+      // Ditangkap sekali oleh (main)/layout.tsx untuk memicu animasi masuk
+      // (sidebar dari kiri, konten dari kanan), lalu dihapus di sana.
+      sessionStorage.setItem("justLoggedIn", "1");
 
       // Success: keep loading then navigate
       setPhase("success");
@@ -223,20 +226,73 @@ function LoginPageContent() {
           pointer-events: auto;
         }
 
-        .sl-loader-ring {
-          width: 52px; height: 52px;
-          border: 3px solid #e5e7eb;
-          border-top-color: #2563eb;
+        /* ─── Futuristic loader: dual counter-rotating rings + scan sweep + pulsing core ─── */
+        .sl-loader {
+          position: relative;
+          width: 96px; height: 96px;
+          display: flex; align-items: center; justify-content: center;
+          filter: drop-shadow(0 0 6px rgba(37,99,235,0.35));
+        }
+        .sl-loader svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+        .sl-ring-outer {
+          animation: slSpinCW 2.6s linear infinite;
+          transform-origin: 50% 50%;
+        }
+        .sl-ring-inner {
+          animation: slSpinCCW 1.7s linear infinite;
+          transform-origin: 50% 50%;
+        }
+        .sl-ring-tick {
+          animation: slSpinCW 8s linear infinite;
+          transform-origin: 50% 50%;
+        }
+        @keyframes slSpinCW  { to { transform: rotate(360deg); } }
+        @keyframes slSpinCCW { to { transform: rotate(-360deg); } }
+
+        /* Radar-style scanning sweep across the core */
+        .sl-scan {
+          position: absolute; inset: 0;
           border-radius: 50%;
-          animation: spin 0.75s linear infinite;
+          overflow: hidden;
+          animation: slSpinCW 1.4s linear infinite;
+          transform-origin: 50% 50%;
         }
+        .sl-scan::before {
+          content: '';
+          position: absolute; inset: 0;
+          background: conic-gradient(from 0deg, rgba(37,99,235,0) 0deg, rgba(37,99,235,0) 260deg, rgba(37,99,235,0.55) 340deg, rgba(96,165,250,0.9) 360deg);
+        }
+
+        .sl-core {
+          position: relative;
+          width: 12px; height: 12px;
+          border-radius: 50%;
+          background: #2563eb;
+          box-shadow: 0 0 10px 2px rgba(37,99,235,0.7);
+          animation: slCorePulse 1.2s ease-in-out infinite;
+        }
+        @keyframes slCorePulse {
+          0%, 100% { transform: scale(1);   opacity: 1; }
+          50%      { transform: scale(1.4); opacity: 0.7; }
+        }
+
         .sl-loader-text {
-          margin-top: 1rem;
+          margin-top: 1.1rem;
           font-family: 'IBM Plex Mono', monospace;
-          font-size: 0.72rem; letter-spacing: 0.1em;
+          font-size: 0.72rem; letter-spacing: 0.16em;
           color: #6b7280; text-transform: uppercase;
+          display: flex; align-items: center; gap: 0.15rem;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .sl-loader-text .sl-dot {
+          animation: slDotBlink 1.2s ease-in-out infinite;
+        }
+        .sl-loader-text .sl-dot:nth-child(2) { animation-delay: 0.2s; }
+        .sl-loader-text .sl-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes slDotBlink {
+          0%, 80%, 100% { opacity: 0.25; }
+          40%           { opacity: 1; }
+        }
 
         /* ─── Brand / form styles (unchanged) ─── */
         .sl-brand { display: flex; align-items: center; gap: 0.6rem; }
@@ -518,9 +574,29 @@ function LoginPageContent() {
 
         {/* ── Loading overlay (centre) ── */}
         <div className="sl-loading-overlay">
-          <div className="sl-loader-ring" />
+          <div className="sl-loader">
+            <svg className="sl-ring-outer" viewBox="0 0 96 96">
+              <circle cx="48" cy="48" r="44" fill="none" stroke="#2563eb" strokeWidth="1.5"
+                strokeDasharray="12 10" strokeLinecap="round" opacity="0.55" />
+            </svg>
+            <svg className="sl-ring-inner" viewBox="0 0 96 96">
+              <circle cx="48" cy="48" r="33" fill="none" stroke="#60a5fa" strokeWidth="2"
+                strokeDasharray="4 90" strokeLinecap="round" />
+              <circle cx="48" cy="48" r="33" fill="none" stroke="#93c5fd" strokeWidth="1"
+                strokeDasharray="1 14" opacity="0.6" />
+            </svg>
+            <svg className="sl-ring-tick" viewBox="0 0 96 96">
+              <circle cx="48" cy="48" r="24" fill="none" stroke="#bfdbfe" strokeWidth="1"
+                strokeDasharray="1 7.5" opacity="0.8" />
+            </svg>
+            <div className="sl-scan" />
+            <div className="sl-core" />
+          </div>
           <p className="sl-loader-text">
-            {phase === "success" ? "Redirecting..." : "Authenticating..."}
+            <span>{phase === "success" ? "Redirecting" : "Authenticating"}</span>
+            <span className="sl-dot">.</span>
+            <span className="sl-dot">.</span>
+            <span className="sl-dot">.</span>
           </p>
         </div>
 

@@ -39,6 +39,8 @@ interface SidebarProps {
     sales_view?: boolean;
     sales_view_all?: boolean;
     step_erp?: boolean;
+    employee_discount?: boolean;
+    employee_discount_approval?: boolean;
   };
 }
 
@@ -200,13 +202,16 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
   );
   const hasInvoiceAccess = !!permissions.invoice;
   const hasMaterialIssueAccess = !!permissions.material_issue;
+  const hasEmployeeDiscountAccess =
+    !!permissions.employee_discount || !!permissions.employee_discount_approval;
   const showRequestGroup =
-    hasRequestAccess || hasTrackingAccess || hasInvoiceAccess || hasMaterialIssueAccess;
+    hasRequestAccess || hasTrackingAccess || hasInvoiceAccess || hasMaterialIssueAccess || hasEmployeeDiscountAccess;
   const isRequestActive =
     pathname === "/request-store" ||
     pathname === "/request-tracking" ||
     pathname === "/invoice" ||
-    pathname === "/material-issue";
+    pathname === "/material-issue" ||
+    pathname === "/employee-discount";
 
   const hasAnalyticsAccess = !!permissions.analytics_order;
   const hasOrderReportAccess = !!permissions.order_report;
@@ -460,8 +465,8 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
                     onClick={() => jellyNavigate(sub.path)}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${pathname === sub.path ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"}`}
                   >
-                    {sub.icon}
-                    {sub.label}
+                    <span className="shrink-0">{sub.icon}</span>
+                    <span className="truncate min-w-0 flex-1 text-left">{sub.label}</span>
                   </button>
                 )
             )}
@@ -528,8 +533,8 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
                       onClick={() => jellyNavigate(sub.path)}
                       className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors rounded-r-lg ${pathname === sub.path ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/15 hover:text-white"}`}
                     >
-                      {sub.icon}
-                      {sub.label}
+                      <span className="shrink-0">{sub.icon}</span>
+                      <span className="truncate min-w-0 flex-1 text-left">{sub.label}</span>
                       {pathname === sub.path && (
                         <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white shrink-0" />
                       )}
@@ -558,6 +563,11 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h1a2 2 0 002-2v-3a2 2 0 00-2-2h-1m-16 0h1a2 2 0 012 2v3a2 2 0 01-2 2H4m16 0v1a2 2 0 01-2 2h-3a2 2 0 01-2-2v-1m6 0H9" />
     </svg>
   );
+  const employeeDiscountIcon = (
+    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 14l6-6m-5.5-.5h.01M14.5 14.5h.01M4 4h6.586a2 2 0 011.414.586l7.414 7.414a2 2 0 010 2.828l-6.586 6.586a2 2 0 01-2.828 0L2.586 14A2 2 0 012 12.586V6a2 2 0 012-2z" />
+    </svg>
+  );
   const shipmentIcon = (
     <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
@@ -583,6 +593,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     { path: "/request-store", label: "Cancel Order", icon: cancelOrderIcon, show: hasRequestAccess },
     { path: "/invoice", label: "Invoice", icon: invoiceIcon, show: hasInvoiceAccess },
     { path: "/material-issue", label: "Material Issue", icon: materialIssueIcon, show: hasMaterialIssueAccess },
+    { path: "/employee-discount", label: "Employee Discount", icon: employeeDiscountIcon, show: hasEmployeeDiscountAccess },
     { path: "/request-tracking", label: "Shipment", icon: shipmentIcon, show: hasTrackingAccess },
   ];
 

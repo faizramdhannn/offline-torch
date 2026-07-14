@@ -156,6 +156,8 @@ export async function PUT(request: NextRequest) {
       timestamp,                    // BA
       r("step_erp"),                 // BB
       r("step_erp_all"),             // BC
+      r("employee_discount"),        // BD
+      r("employee_discount_approval"), // BE
     ];
 
     console.log(`Updating row ${rowIndex} with ${updatedRow.length} columns`);

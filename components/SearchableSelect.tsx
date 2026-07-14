@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 interface Option {
   value: string;
@@ -27,8 +28,16 @@ export default function SearchableSelect({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  // wrapperRef hanya membungkus BUTTON (bukan panel dropdown), supaya
+  // getBoundingClientRect tidak pernah ikut terpengaruh oleh tinggi panel
+  // itu sendiri — panel dropdown di-render lewat portal ke document.body,
+  // jadi benar-benar terpisah dari flow layout field ini.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => setMounted(true), []);
 
   const filtered = options.filter((o) =>
     o.label.toLowerCase().includes(search.toLowerCase())
@@ -37,8 +46,8 @@ export default function SearchableSelect({
   const selectedLabel = options.find((o) => o.value === value)?.label || "";
 
   const updateDropdownPosition = () => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
+    if (!wrapperRef.current) return;
+    const rect = wrapperRef.current.getBoundingClientRect();
     setDropdownStyle({
       position: "fixed",
       top: rect.bottom + 4,
@@ -50,7 +59,13 @@ export default function SearchableSelect({
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(target) &&
+        panelRef.current &&
+        !panelRef.current.contains(target)
+      ) {
         setOpen(false);
         setSearch("");
       }
@@ -63,9 +78,16 @@ export default function SearchableSelect({
     if (!open) return;
     const handler = () => updateDropdownPosition();
     window.addEventListener("scroll", handler, true);
-    return () => window.removeEventListener("scroll", handler, true);
+    window.addEventListener("resize", handler);
+    return () => {
+      window.removeEventListener("scroll", handler, true);
+      window.removeEventListener("resize", handler);
+    };
   }, [open]);
 
+  // Ukur posisi SEBELUM browser paint (bukan useEffect biasa), supaya tidak
+  // ada frame di mana panel sempat dirender di posisi salah / mempengaruhi
+  // tinggi elemen lain lebih dulu.
   useEffect(() => {
     if (open) {
       updateDropdownPosition();
@@ -86,8 +108,50 @@ export default function SearchableSelect({
     setSearch("");
   };
 
+  const panel = open && (
+    <div
+      ref={panelRef}
+      style={dropdownStyle}
+      className="bg-white border border-gray-300 rounded shadow-lg"
+    >
+      <div className="p-2 border-b border-gray-100">
+        <input
+          ref={inputRef}
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Cari artikel..."
+          className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+      </div>
+      <ul className="max-h-48 overflow-y-auto">
+        <li
+          onClick={() => handleSelect("")}
+          className="px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer"
+        >
+          {placeholder}
+        </li>
+        {filtered.length === 0 ? (
+          <li className="px-3 py-2 text-xs text-gray-400 text-center">Tidak ditemukan</li>
+        ) : (
+          filtered.map((o, idx) => (
+            <li
+              key={`${o.value}-${idx}`}
+              onClick={() => handleSelect(o.value)}
+              className={`px-3 py-1.5 text-xs cursor-pointer hover:bg-primary/10
+                ${o.value === value ? "bg-primary/10 font-semibold text-primary" : "text-gray-700"}
+              `}
+            >
+              {o.label}
+            </li>
+          ))
+        )}
+      </ul>
+    </div>
+  );
+
   return (
-    <div ref={containerRef} className={`relative ${className}`}>
+    <div ref={wrapperRef} className={`relative ${className}`}>
       <button
         type="button"
         disabled={disabled}
@@ -114,46 +178,7 @@ export default function SearchableSelect({
         </span>
       </button>
 
-      {open && (
-        <div
-          style={dropdownStyle}
-          className="bg-white border border-gray-300 rounded shadow-lg"
-        >
-          <div className="p-2 border-b border-gray-100">
-            <input
-              ref={inputRef}
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari artikel..."
-              className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-          <ul className="max-h-48 overflow-y-auto">
-            <li
-              onClick={() => handleSelect("")}
-              className="px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer"
-            >
-              {placeholder}
-            </li>
-            {filtered.length === 0 ? (
-              <li className="px-3 py-2 text-xs text-gray-400 text-center">Tidak ditemukan</li>
-            ) : (
-              filtered.map((o, idx) => (
-                <li
-                  key={`${o.value}-${idx}`}
-                  onClick={() => handleSelect(o.value)}
-                  className={`px-3 py-1.5 text-xs cursor-pointer hover:bg-primary/10
-                    ${o.value === value ? "bg-primary/10 font-semibold text-primary" : "text-gray-700"}
-                  `}
-                >
-                  {o.label}
-                </li>
-              ))
-            )}
-          </ul>
-        </div>
-      )}
+      {mounted && panel && createPortal(panel, document.body)}
     </div>
   );
 }
