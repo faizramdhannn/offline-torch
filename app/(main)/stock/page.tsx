@@ -179,6 +179,10 @@ export default function StockPage() {
 
   const [qrItem, setQrItem] = useState<StockItem | null>(null);
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
+  // Map "sku::warehouse" -> stock kemarin, dari result_stock_yesterday /
+  // pca_stock_yesterday (snapshot yang diisi otomatis oleh proses import,
+  // lihat app/api/stock/import/route.ts). Kosong untuk view "master".
+  const [yesterdayStockMap, setYesterdayStockMap] = useState<Record<string, string>>({});
 
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const gradeDropdownRef = useRef<HTMLDivElement>(null);
@@ -278,6 +282,31 @@ export default function StockPage() {
       );
     } finally {
       setLoading(false);
+    }
+    fetchYesterdayData();
+  };
+
+  // Stock "kemarin" hanya relevan untuk view store/pca (view master tidak
+  // punya kolom stock sama sekali). Gagal diam-diam kalau sheet *_yesterday
+  // belum pernah ke-snapshot (misal belum ada import sejak fitur ini dibuat)
+  // — detail panel akan menampilkan "-" untuk stock kemarin.
+  const fetchYesterdayData = async () => {
+    if (selectedView === "master") { setYesterdayStockMap({}); return; }
+    try {
+      const sheetName = selectedView === "pca" ? "pca_stock_yesterday" : "result_stock_yesterday";
+      const response = await fetch(`/api/stock?type=${sheetName}`);
+      const result = await response.json();
+      if (!response.ok || !Array.isArray(result)) { setYesterdayStockMap({}); return; }
+      const map: Record<string, string> = {};
+      result.forEach((item: any) => {
+        const sku = item.sku || item.SKU || "";
+        const warehouse = item.warehouse || item.Warehouse || "";
+        const stock = item.stock || item.Stock || "";
+        if (sku) map[`${sku}::${warehouse}`] = stock;
+      });
+      setYesterdayStockMap(map);
+    } catch {
+      setYesterdayStockMap({});
     }
   };
 
@@ -905,7 +934,8 @@ export default function StockPage() {
                 parseDiscount={parseDiscount}
                 parseHarga={parseHarga}
                 formatRupiah={formatRupiah}
-                onRowClick={setQrItem}
+                yesterdayStockMap={yesterdayStockMap}
+                onBarcodeClick={setQrItem}
                 sortColumn={sortColumn}
                 sortDirection={sortDirection}
                 onSort={handleSort}

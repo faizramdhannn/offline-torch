@@ -1,7 +1,7 @@
 "use client";
 
-import { Copy, Check, ImageOff, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
-import { useState } from "react";
+import { Copy, Check, ImageOff, ChevronUp, ChevronDown, ChevronsUpDown, QrCode } from "lucide-react";
+import { useState, Fragment } from "react";
 import { cn } from "@/lib/utils";
 
 interface StockItem {
@@ -31,7 +31,10 @@ interface StockTableProps {
   parseDiscount: (v: string | undefined | null) => number;
   parseHarga: (v: string | undefined | null) => number;
   formatRupiah: (v: number) => string;
-  onRowClick: (item: StockItem) => void;
+  /** Map "sku::warehouse" -> stock kemarin (dari result_stock_yesterday/pca_stock_yesterday). */
+  yesterdayStockMap?: Record<string, string>;
+  /** Dipanggil saat tombol "Barcode" di detail panel diklik. */
+  onBarcodeClick: (item: StockItem) => void;
   /** Active sort column key (matches the keys used in SortableTh below), or null for unsorted. */
   sortColumn?: string | null;
   sortDirection?: "asc" | "desc";
@@ -184,12 +187,24 @@ export function StockTable({
   parseDiscount,
   parseHarga,
   formatRupiah,
-  onRowClick,
+  yesterdayStockMap = {},
+  onBarcodeClick,
   sortColumn,
   sortDirection,
   onSort,
 }: StockTableProps) {
   const thProps = { sortColumn, sortDirection, onSort };
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+
+  const columnCount =
+    6 + // Img, SKU, Product Name, Category, Grade, Tier Product
+    (selectedView !== "master" ? 1 : 0) + // Stock
+    (selectedView === "pca" ? 1 : 0) + // Threshold
+    (selectedView === "store" ? 1 : 0) + // Warehouse
+    (showHpp ? 1 : 0) +
+    (showHpt ? 1 : 0) +
+    (showHpj ? 1 : 0);
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[480px] text-[11px]">
@@ -216,13 +231,18 @@ export function StockTable({
           </tr>
         </thead>
         <tbody>
-          {items.map((item, index) => (
+          {items.map((item, index) => {
+            const rowKey = `${item.sku}-${item.warehouse ?? ""}-${index}`;
+            const isExpanded = expandedKey === rowKey;
+            const yesterdayStock = yesterdayStockMap[`${item.sku}::${item.warehouse ?? ""}`];
+            return (
+          <Fragment key={rowKey}>
             <tr
-              key={`${item.sku}-${item.warehouse ?? ""}-${index}`}
-              onClick={() => onRowClick(item)}
+              onClick={() => setExpandedKey(isExpanded ? null : rowKey)}
               className={cn(
                 "cursor-pointer border-b border-gray-50 transition-colors hover:bg-gray-50 active:bg-gray-100",
-                index % 2 === 1 && "bg-gray-50/40"
+                isExpanded && "bg-primary/5",
+                index % 2 === 1 && !isExpanded && "bg-gray-50/40"
               )}
             >
               <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
@@ -268,7 +288,31 @@ export function StockTable({
                 />
               )}
             </tr>
-          ))}
+            {isExpanded && (
+              <tr className="border-b border-gray-100 bg-primary/5">
+                <td colSpan={columnCount} className="px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-6">
+                    <div>
+                      <div className="text-[9px] uppercase tracking-wide text-gray-400">Stock Hari Ini</div>
+                      <div className="text-sm font-semibold text-gray-800">{item.stock || "-"}</div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] uppercase tracking-wide text-gray-400">Stock Kemarin</div>
+                      <div className="text-sm font-semibold text-gray-800">{yesterdayStock ?? "-"}</div>
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onBarcodeClick(item); }}
+                      className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      <QrCode className="h-3.5 w-3.5" /> Barcode
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            )}
+          </Fragment>
+            );
+          })}
         </tbody>
       </table>
     </div>

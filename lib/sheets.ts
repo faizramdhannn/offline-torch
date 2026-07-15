@@ -16,6 +16,13 @@ const SPREADSHEET_MAP: Record<string, string> = {
   javelin: process.env.SPREADSHEET_STOCK || "",
   result_stock: process.env.SPREADSHEET_STOCK || "",
   pca_stock: process.env.SPREADSHEET_STOCK || "",
+  // Snapshot "kemarin" result_stock/pca_stock — diisi lewat getRawSheetValues()
+  // + updateSheetDataWithHeader() tepat sebelum import baru (lihat
+  // app/api/stock/import/route.ts), karena result_stock/pca_stock adalah
+  // sheet RUMUS yang recalculate otomatis begitu erp_stock_balance/javelin
+  // berubah — tidak ada "versi lama" tersimpan kecuali di-snapshot manual.
+  result_stock_yesterday: process.env.SPREADSHEET_STOCK || "",
+  pca_stock_yesterday: process.env.SPREADSHEET_STOCK || "",
   powerbi_threshold: process.env.SPREADSHEET_STOCK || "",
   last_update: process.env.SPREADSHEET_STOCK || "",
   // ✅ system_config pakai spreadsheet terpisah agar tidak kena beban SPREADSHEET_STOCK
@@ -81,6 +88,8 @@ const SPREADSHEET_MAP: Record<string, string> = {
 const SHEET_RANGE: Record<string, string> = {
   result_stock: "A1:L",       // ~36 kolom — sheet stok besar, batasi (L = tier_product)
   pca_stock: "A1:L",           // ~26 kolom (L = tier_product)
+  result_stock_yesterday: "A1:L", // header sama persis dengan result_stock
+  pca_stock_yesterday: "A1:L",     // header sama persis dengan pca_stock
   erp_stock_balance: "A1:P",
   master_item: "A1:K",         // K = tier_product
   javelin: "A1:Z",
@@ -313,6 +322,35 @@ export async function getSheetData(
   }
 
   return fetchPromise;
+}
+
+// ✅ Ambil isi sheet APA ADANYA (header di baris 1 + seluruh baris data),
+// tanpa dikonversi jadi array-of-object seperti getSheetData. Dipakai untuk
+// snapshot mentah (misal result_stock/pca_stock → *_yesterday) supaya urutan
+// kolom dan header persis sama, tanpa bergantung pada urutan key object JS.
+export async function getRawSheetValues(sheetName: string): Promise<any[][]> {
+  const spreadsheetId = getSpreadsheetId(sheetName);
+  if (!spreadsheetId) {
+    throw new Error(`No spreadsheet ID configured for sheet: ${sheetName}`);
+  }
+  const timeout = getSheetTimeout(sheetName);
+  const range = getSheetRange(sheetName);
+  return withRetry(
+    async () => {
+      const sheets = getSheetsClient();
+      const response = await withTimeout(
+        sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: `${sheetName}!${range}`,
+        }),
+        timeout,
+        `getRawSheetValues(${sheetName})`
+      ) as { data: { values?: any[][] } };
+      return response.data.values || [];
+    },
+    3,
+    `getRawSheetValues(${sheetName})`
+  );
 }
 
 export async function updateSheetDataWithHeader(sheetName: string, data: any[][]) {
