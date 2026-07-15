@@ -129,12 +129,13 @@ export default function NotificationBell({ userName, canAddCustom, isCollapsed }
         )}
       </button>
 
-      {/* Bubble chat "Ada notifikasi yang belum dibaca" */}
+      {/* Bubble chat "Ada notifikasi yang belum dibaca" — anchor dari kiri
+          (bukan center) supaya tidak overflow keluar sidebar yang sempit. */}
       {showBubble && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-max max-w-[180px]">
-          <div className="relative bg-white text-gray-800 text-[10px] font-medium rounded-lg shadow-lg px-2.5 py-1.5">
+        <div className="absolute bottom-full left-0 mb-2 z-50 w-max max-w-[200px]">
+          <div className="relative bg-white text-gray-800 text-[10px] font-medium rounded-lg shadow-lg px-2.5 py-1.5 whitespace-nowrap">
             Ada notifikasi yang belum dibaca
-            <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-white rotate-45 -mt-1" />
+            <div className="absolute left-3 top-full w-2 h-2 bg-white rotate-45 -mt-1" />
           </div>
         </div>
       )}
@@ -161,14 +162,14 @@ export default function NotificationBell({ userName, canAddCustom, isCollapsed }
                 placeholder="Judul notifikasi"
                 value={addTitle}
                 onChange={(e) => setAddTitle(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs"
+                className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs bg-white text-gray-900 placeholder:text-gray-400"
               />
               <textarea
                 placeholder="Isi notifikasi"
                 value={addMessage}
                 onChange={(e) => setAddMessage(e.target.value)}
                 rows={2}
-                className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs"
+                className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs bg-white text-gray-900 placeholder:text-gray-400"
               />
               <button
                 onClick={handleAddCustom}
