@@ -1,7 +1,7 @@
 // app/api/attendance/meta/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData } from '@/lib/sheets';
-import { getActiveStoreNameSet } from '@/lib/storeAddress';
+import { getActiveStoreNameSet, normalizeStoreName } from '@/lib/storeAddress';
 
 /**
  * Normalise store list rows: the sheet header might be "store_wadges" (typo)
@@ -25,7 +25,7 @@ function normalizeStoreList(rows: any[]): any[] {
 async function filterActiveStores(storeList: any[]): Promise<any[]> {
   try {
     const activeNames = await getActiveStoreNameSet();
-    return storeList.filter((s: any) => activeNames.has((s.store_name || '').toLowerCase().trim()));
+    return storeList.filter((s: any) => activeNames.has(normalizeStoreName(s.store_name)));
   } catch (err) {
     console.error('Failed to filter store_list by store_address status, showing unfiltered:', err);
     return storeList; // gagal ambil status → jangan sampai daftar toko malah kosong semua

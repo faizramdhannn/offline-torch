@@ -280,17 +280,22 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
   // Store yang statusnya Active di store_address (kosong = dianggap Active,
   // untuk baris lama sebelum kolom status ditambahkan). Store Draft/Archived
   // tidak dihitung di manapun di dashboard ini.
+  //
+  // PENTING: penamaan toko di store_address ("Torch Cirebon") beda format
+  // dari taft_list yang dipakai todayReport ("cirebon", tanpa prefix) — jadi
+  // dinormalisasi dulu (lowercase + buang prefix "torch ") sebelum dicocokkan.
+  const normalizeStoreName = (name: string) => (name || "").toLowerCase().trim().replace(/^torch\s+/, "");
   const activeStoreNames = new Set(
     storeAddresses
       .filter((s) => !s.status || s.status.trim().toLowerCase() === "active")
-      .map((s) => s.store_location.toLowerCase().trim())
+      .map((s) => normalizeStoreName(s.store_location))
   );
   const activeStoreCount = activeStoreNames.size;
 
   // Attendance Today = berapa store AKTIF yang sudah capture attendance hari
   // ini, dari total store aktif (bukan lagi dari daftar toko di taft_list).
   const attendanceTodayCount = todayReport.filter(
-    (store) => activeStoreNames.has(store.store.toLowerCase().trim()) && store.tafts.some(t => t.code)
+    (store) => activeStoreNames.has(normalizeStoreName(store.store)) && store.tafts.some(t => t.code)
   ).length;
   const totalStoreCount = activeStoreCount;
   const totalTaftToday = todayReport.reduce((sum, store) => sum + store.tafts.length, 0);

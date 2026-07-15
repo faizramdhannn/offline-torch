@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData } from '@/lib/sheets';
-import { getActiveStoreNameSet } from '@/lib/storeAddress';
+import { getActiveStoreNameSet, normalizeStoreName } from '@/lib/storeAddress';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       try {
         const activeNames = await getActiveStoreNameSet();
         const filtered = (stores || []).filter((s: any) =>
-          activeNames.has((s.store_name || '').toLowerCase().trim())
+          activeNames.has(normalizeStoreName(s.store_name))
         );
         return NextResponse.json(filtered);
       } catch (err) {

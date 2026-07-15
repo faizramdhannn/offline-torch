@@ -64,15 +64,31 @@ function isActiveStatus(status: string): boolean {
   return s === '' || s === 'active'; // kosong = Active (baris lama sebelum kolom status ada)
 }
 
-// Set nama toko (lowercase, trimmed) yang statusnya Active — dipakai untuk
-// filter store_list di fitur Attendance supaya toko Draft/Archived tidak
-// muncul di sana, TANPA perlu menduplikasi kolom status ke sheet store_list.
+// PENTING: penamaan toko di store_address BEDA FORMAT dari store_list
+// (Attendance) —
+//   store_address.store_location: "Torch Cirebon", "Torch Jogja", dst
+//   store_list.store_name:        "cirebon", "jogja", dst (tanpa prefix "Torch")
+// Jadi tidak bisa exact-match langsung. Normalisasi: lowercase, trim, buang
+// prefix "torch " kalau ada — supaya "Torch Cirebon" dan "cirebon" match.
+export function normalizeStoreName(name: string): string {
+  return (name || '')
+    .toLowerCase()
+    .trim()
+    .replace(/^torch\s+/, '');
+}
+
+// Set nama toko yang statusnya Active (SUDAH dinormalisasi lewat
+// normalizeStoreName) — dipakai untuk filter store_list di fitur Attendance
+// supaya toko Draft/Archived tidak muncul di sana, TANPA perlu menduplikasi
+// kolom status ke sheet store_list. Baris "PCA" (bukan nama toko fisik) ikut
+// masuk apa adanya kalau statusnya Active — tidak masalah karena tidak akan
+// pernah match dengan store_name manapun di store_list.
 export async function getActiveStoreNameSet(): Promise<Set<string>> {
   const list = await getStoreAddressList();
   return new Set(
     list
       .filter((s) => isActiveStatus(s.status))
-      .map((s) => s.store_location.toLowerCase().trim())
+      .map((s) => normalizeStoreName(s.store_location))
       .filter(Boolean)
   );
 }
