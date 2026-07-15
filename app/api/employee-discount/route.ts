@@ -41,6 +41,7 @@ function buildRow(existing: any, fields: any, update_by: string | undefined, now
     update_by ?? existing.update_by ?? '',
     existing.created_at,
     now,
+    fields.link_drive ?? existing.link_drive ?? '', // kolom baru, ditaruh di akhir (Q)
   ];
 }
 
@@ -125,6 +126,7 @@ export async function POST(request: NextRequest) {
       item.update_by || '',
       item.created_at || now,
       now,
+      item.link_drive || '',
     ]);
 
     await appendSheetData('request_discount', rows);
@@ -193,6 +195,7 @@ export async function PUT(request: NextRequest) {
         discount_code: fields.discount_code,
         type_reason: fields.type_reason,
         sales_order: fields.sales_order,
+        link_drive: fields.link_drive,
       };
       const updates = groupIndexes.map((idx) => ({
         rowIndex: idx + 2,
@@ -215,6 +218,7 @@ export async function PUT(request: NextRequest) {
         discount_code: fields.discount_code,
         type_reason: fields.type_reason,
         sales_order: fields.sales_order,
+        link_drive: fields.link_drive,
       };
 
       const existingRows = groupIndexes.map((idx) => ({ idx, row: rows[idx] }));

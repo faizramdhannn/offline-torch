@@ -6,6 +6,10 @@ const CANVASING_FOLDER_ID = process.env.DRIVE_CANVASING_FOLDER_ID || '';
 const TRACKING_FOLDER_ID = process.env.DRIVE_TRACKING_FOLDER_ID || '';
 // Folder ID untuk request store: https://drive.google.com/drive/folders/0AMy7t8kP47--Uk9PVA
 const REQUEST_STORE_FOLDER_ID = process.env.DRIVE_REQUEST_STORE_FOLDER_ID || '';
+// Shared Drive untuk foto Employee Discount — tiap user punya 1 subfolder sendiri
+// di dalamnya (nama subfolder = user_name, lihat pemanggilan di
+// app/api/employee-discount/upload/route.ts).
+const EMPLOYEE_DISCOUNT_FOLDER_ID = process.env.DRIVE_EMPLOYEE_DISCOUNT_FOLDER_ID || '';
 
 const userFolderCache = new Map<string, string>();
 
@@ -113,6 +117,12 @@ export async function uploadToGoogleDrive(
     } else if (username === 'request_tracking') {
       parentFolderId = TRACKING_FOLDER_ID;
       folderUsername = 'tracking';
+    } else if (username.startsWith('employee_discount:')) {
+      // Per-user subfolder di dalam Shared Drive Employee Discount —
+      // nama subfolder = user_name asli (bagian setelah prefix), BUKAN
+      // konstanta tetap seperti kasus lain di atas.
+      parentFolderId = EMPLOYEE_DISCOUNT_FOLDER_ID;
+      folderUsername = username.slice('employee_discount:'.length);
     }
 
     const userFolderId = await getUserFolder(folderUsername, drive, parentFolderId);

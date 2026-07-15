@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import SearchableSelect from "@/components/SearchableSelect";
 import { Button } from "@/components/shared/Button";
-import { Plus, Pencil, Trash2, Check, X, Mail } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, X, Mail, Camera, Upload, Image as ImageIcon } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface EDItem {
@@ -26,6 +26,7 @@ interface EDItem {
   update_by: string;
   created_at: string;
   update_at: string;
+  link_drive: string;
 }
 
 interface MasterItem {
@@ -191,6 +192,93 @@ function ItemPickerSection({
   );
 }
 
+// ─── Upload foto: kamera atau pilih file — hasil disimpan sebagai link_drive ──
+function PhotoUploadSection({
+  userName,
+  value,
+  uploading,
+  onUploadStart,
+  onUploaded,
+  onError,
+}: {
+  userName: string;
+  value: string;
+  uploading: boolean;
+  onUploadStart: () => void;
+  onUploaded: (url: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const cameraInputId = `ed-photo-camera-${userName}`;
+  const fileInputId = `ed-photo-file-${userName}`;
+
+  const doUpload = async (file: File) => {
+    onUploadStart();
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("userName", userName);
+      const res = await fetch("/api/employee-discount/upload", { method: "POST", body: fd });
+      if (!res.ok) throw new Error();
+      const j = await res.json();
+      onUploaded(j.url || "");
+    } catch {
+      onError("Gagal upload foto");
+    }
+  };
+
+  const handlePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // supaya bisa pilih file yang sama lagi
+    if (file) doUpload(file);
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="text-xs text-gray-500">Foto / Link Drive (opsional)</label>
+      <div className="flex items-center gap-2 flex-wrap">
+        <input
+          id={cameraInputId}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={handlePick}
+        />
+        <input
+          id={fileInputId}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handlePick}
+        />
+        <label
+          htmlFor={cameraInputId}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs cursor-pointer hover:bg-gray-50 ${uploading ? "opacity-50 pointer-events-none" : ""}`}
+        >
+          <Camera className="w-3.5 h-3.5" /> Ambil Foto
+        </label>
+        <label
+          htmlFor={fileInputId}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs cursor-pointer hover:bg-gray-50 ${uploading ? "opacity-50 pointer-events-none" : ""}`}
+        >
+          <Upload className="w-3.5 h-3.5" /> Upload Foto
+        </label>
+        {uploading && <span className="text-[11px] text-gray-400">Mengupload...</span>}
+      </div>
+      {value && !uploading && (
+        <a
+          href={value}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline"
+        >
+          <ImageIcon className="w-3 h-3" /> Lihat foto yang sudah diupload
+        </a>
+      )}
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function EmployeeDiscountPage() {
   const router = useRouter();
@@ -224,10 +312,13 @@ export default function EmployeeDiscountPage() {
     discount_code: "",
     type_reason: "",
     sales_order: "",
+    link_drive: "",
     items: [] as PickedItem[],
   };
   const [form, setForm] = useState(emptyForm);
   const [editForm, setEditForm] = useState(emptyForm);
+  const [uploadingAdd, setUploadingAdd] = useState(false);
+  const [uploadingEdit, setUploadingEdit] = useState(false);
 
   const showMessage = (msg: string, type: "success" | "error") => {
     setPopupMessage(msg);
@@ -368,6 +459,7 @@ export default function EmployeeDiscountPage() {
         status_request: "Need Approval",
         type_reason: form.type_reason,
         sales_order: form.sales_order,
+        link_drive: form.link_drive,
         created_by: user.user_name,
         update_by: "",
       }));
@@ -401,6 +493,7 @@ export default function EmployeeDiscountPage() {
       discount_code: meta.discount_code || "",
       type_reason: meta.type_reason || "",
       sales_order: meta.sales_order || "",
+      link_drive: meta.link_drive || "",
       items: groupItems.map((g) => ({
         sku: g.item_sku || "",
         name: g.item_name || "",
@@ -436,6 +529,7 @@ export default function EmployeeDiscountPage() {
           discount_code: editForm.discount_code,
           type_reason: editForm.type_reason,
           sales_order: editForm.sales_order,
+          link_drive: editForm.link_drive,
         }),
       });
       if (!res.ok) throw new Error();
@@ -584,15 +678,16 @@ export default function EmployeeDiscountPage() {
                 <th className="px-1.5 py-1.5 text-center font-semibold border-r border-gray-200 w-[90px]"><span className="text-[8px] uppercase tracking-wide">Discount Code</span></th>
                 <th className="px-1.5 py-1.5 text-center font-semibold border-r border-gray-200 w-[140px]"><span className="text-[8px] uppercase tracking-wide">Type Reason</span></th>
                 <th className="px-1.5 py-1.5 text-center font-semibold border-r border-gray-200 w-[90px]"><span className="text-[8px] uppercase tracking-wide">Sales Order</span></th>
+                <th className="px-1.5 py-1.5 text-center font-semibold border-r border-gray-200 w-[45px]"><span className="text-[8px] uppercase tracking-wide">Foto</span></th>
                 <th className="px-1.5 py-1.5 text-center font-semibold border-r border-gray-200 w-[80px]"><span className="text-[8px] uppercase tracking-wide">Status</span></th>
                 <th className="px-1.5 py-1.5 text-center font-semibold w-[60px]"><span className="text-[8px] uppercase tracking-wide">Aksi</span></th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={11} className="text-center py-6 text-gray-400">Memuat data...</td></tr>
+                <tr><td colSpan={12} className="text-center py-6 text-gray-400">Memuat data...</td></tr>
               ) : paged.length === 0 ? (
-                <tr><td colSpan={11} className="text-center py-6 text-gray-400">Tidak ada data</td></tr>
+                <tr><td colSpan={12} className="text-center py-6 text-gray-400">Tidak ada data</td></tr>
               ) : (
                 paged.map((item) => {
                   const groupItems = getGroupItems(item.id);
@@ -615,6 +710,15 @@ export default function EmployeeDiscountPage() {
                       <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate">{item.discount_code}</td>
                       <td className="px-1.5 py-1.5 border-r border-gray-200 truncate">{item.type_reason}</td>
                       <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate">{item.sales_order || "-"}</td>
+                      <td className="px-1.5 py-1.5 text-center border-r border-gray-200">
+                        {item.link_drive ? (
+                          <a href={item.link_drive} target="_blank" rel="noreferrer" title="Lihat foto" className="inline-flex text-blue-600 hover:text-blue-800">
+                            <ImageIcon className="w-3.5 h-3.5" />
+                          </a>
+                        ) : (
+                          <span className="text-gray-300">-</span>
+                        )}
+                      </td>
                       <td className="px-1.5 py-1.5 text-center border-r border-gray-200">
                         <StatusBadge value={item.status_request} />
                       </td>
@@ -763,6 +867,15 @@ export default function EmployeeDiscountPage() {
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                 />
               </div>
+
+              <PhotoUploadSection
+                userName={user.user_name}
+                value={form.link_drive}
+                uploading={uploadingAdd}
+                onUploadStart={() => setUploadingAdd(true)}
+                onUploaded={(url) => { setUploadingAdd(false); setForm((p) => ({ ...p, link_drive: url })); }}
+                onError={(msg) => { setUploadingAdd(false); showMessage(msg, "error"); }}
+              />
             </div>
             <div className="flex justify-end gap-2 mt-5">
               <Button variant="outline" onClick={() => setShowAddModal(false)}>Batal</Button>
@@ -838,6 +951,15 @@ export default function EmployeeDiscountPage() {
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                 />
               </div>
+
+              <PhotoUploadSection
+                userName={user.user_name}
+                value={editForm.link_drive}
+                uploading={uploadingEdit}
+                onUploadStart={() => setUploadingEdit(true)}
+                onUploaded={(url) => { setUploadingEdit(false); setEditForm((p) => ({ ...p, link_drive: url })); }}
+                onError={(msg) => { setUploadingEdit(false); showMessage(msg, "error"); }}
+              />
             </div>
             <div className="flex justify-end gap-2 mt-5">
               <Button variant="outline" onClick={() => setShowEditModal(false)}>Batal</Button>
