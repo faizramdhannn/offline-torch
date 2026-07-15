@@ -18,17 +18,21 @@ function normalizeStoreList(rows: any[]): any[] {
   });
 }
 
-// store_list (sheet Attendance) tidak punya kolom status sendiri — statusnya
-// ditentukan lewat store_address (kolom status: Active/Draft/Archived),
-// dicocokkan lewat nama toko. Toko Draft/Archived difilter keluar dari sini
-// supaya tidak muncul di manapun fitur Attendance memakai daftar toko.
-async function filterActiveStores(storeList: any[]): Promise<any[]> {
+// Baik `store_list` (daftar toko) MAUPUN `taft_list` (roster staff per toko)
+// sama-sama punya kolom `store_name` tapi TIDAK punya status sendiri —
+// statusnya ditentukan lewat store_address (kolom status: Active/Draft/
+// Archived), dicocokkan lewat nama toko. Toko Draft/Archived harus difilter
+// keluar dari KEDUANYA, karena `taft_list` yang menggerakkan widget "Jadwal
+// Shift Hari Ini" di dashboard dan berbagai tampilan laporan attendance —
+// kalau cuma store_list yang difilter, toko Draft tetap muncul lewat jalur
+// taft_list ini.
+async function filterActiveByStoreName(rows: any[]): Promise<any[]> {
   try {
     const activeNames = await getActiveStoreNameSet();
-    return storeList.filter((s: any) => activeNames.has(normalizeStoreName(s.store_name)));
+    return rows.filter((s: any) => activeNames.has(normalizeStoreName(s.store_name)));
   } catch (err) {
-    console.error('Failed to filter store_list by store_address status, showing unfiltered:', err);
-    return storeList; // gagal ambil status → jangan sampai daftar toko malah kosong semua
+    console.error('Failed to filter by store_address status, showing unfiltered:', err);
+    return rows; // gagal ambil status → jangan sampai daftar toko malah kosong semua
   }
 }
 
@@ -44,13 +48,14 @@ export async function GET(request: NextRequest) {
 
     if (type === 'taft_list') {
       const data = await getSheetData('taft_list');
+      const activeOnly = await filterActiveByStoreName(data);
       const store = searchParams.get('store');
       if (store) {
         return NextResponse.json(
-          data.filter((r: any) => r.store_name?.toLowerCase() === store.toLowerCase())
+          activeOnly.filter((r: any) => r.store_name?.toLowerCase() === store.toLowerCase())
         );
       }
-      return NextResponse.json(data);
+      return NextResponse.json(activeOnly);
     }
 
     if (type === 'time_schedule') {
@@ -60,7 +65,7 @@ export async function GET(request: NextRequest) {
 
     if (type === 'store_list') {
       const data = await getSheetData('store_list');
-      return NextResponse.json(await filterActiveStores(normalizeStoreList(data)));
+      return NextResponse.json(await filterActiveByStoreName(normalizeStoreList(data)));
     }
 
     // type === 'all'
@@ -71,11 +76,16 @@ export async function GET(request: NextRequest) {
       getSheetData('store_list'),
     ]);
 
+    const [filteredTaftList, filteredStoreList] = await Promise.all([
+      filterActiveByStoreName(taftList),
+      filterActiveByStoreName(normalizeStoreList(storeList)),
+    ]);
+
     return NextResponse.json({
       dateList,
-      taftList,
+      taftList: filteredTaftList,
       timeSchedule,
-      storeList: await filterActiveStores(normalizeStoreList(storeList)),
+      storeList: filteredStoreList,
     });
   } catch (error) {
     console.error('Error fetching attendance meta:', error);

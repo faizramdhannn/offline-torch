@@ -26,11 +26,16 @@ export async function GET(request: NextRequest) {
     if (type === 'taft_list') {
       const storeName = searchParams.get('store_name');
       const tafts = await getSheetData('taft_list');
+      let activeTafts = tafts || [];
+      try {
+        const activeNames = await getActiveStoreNameSet();
+        activeTafts = activeTafts.filter((t: any) => activeNames.has(normalizeStoreName(t.store_name)));
+      } catch (err) {
+        console.error('Failed to filter taft_list by store_address status, showing unfiltered:', err);
+      }
       const filtered = storeName
-        ? (tafts || []).filter(
-            (t: any) => t.store_name?.toLowerCase() === storeName.toLowerCase()
-          )
-        : (tafts || []);
+        ? activeTafts.filter((t: any) => t.store_name?.toLowerCase() === storeName.toLowerCase())
+        : activeTafts;
       return NextResponse.json(filtered);
     }
 
