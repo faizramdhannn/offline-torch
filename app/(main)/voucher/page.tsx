@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import { Button } from "@/components/shared/Button";
 import { Voucher } from "@/types";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 
 export default function VoucherPage() {
   const router = useRouter();
@@ -26,6 +27,16 @@ export default function VoucherPage() {
   const itemsPerPage = 20;
 
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
+
+  const canManage = !!user?.user_setting;
+
+  const emptyForm = { voucher_name: "", category: "", description: "" };
+  const [form, setForm] = useState(emptyForm);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<Voucher | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
   const handleClickOutside = (event: MouseEvent) => {
@@ -118,6 +129,83 @@ export default function VoucherPage() {
     showMessage("Voucher name copied to clipboard!", "success");
   };
 
+  const handleCreate = async () => {
+    if (!form.voucher_name.trim()) {
+      showMessage("Voucher name wajib diisi", "error");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/voucher", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) throw new Error();
+      showMessage("Voucher berhasil ditambahkan", "success");
+      setShowAddModal(false);
+      setForm(emptyForm);
+      fetchData();
+    } catch {
+      showMessage("Gagal menambahkan voucher", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openEdit = (voucher: Voucher) => {
+    setSelectedVoucher(voucher);
+    setForm({
+      voucher_name: voucher.voucher_name || "",
+      category: voucher.category || "",
+      description: voucher.description || "",
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedVoucher) return;
+    if (!form.voucher_name.trim()) {
+      showMessage("Voucher name wajib diisi", "error");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/voucher", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: selectedVoucher.id, ...form }),
+      });
+      if (!res.ok) throw new Error();
+      showMessage("Voucher berhasil diperbarui", "success");
+      setShowEditModal(false);
+      setSelectedVoucher(null);
+      fetchData();
+    } catch {
+      showMessage("Gagal memperbarui voucher", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!showDeleteConfirm) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/voucher?id=${encodeURIComponent(showDeleteConfirm.id)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error();
+      showMessage("Voucher berhasil dihapus", "success");
+      setShowDeleteConfirm(null);
+      fetchData();
+    } catch {
+      showMessage("Gagal menghapus voucher", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
@@ -131,7 +219,14 @@ return (
       
       <div className="flex-1 overflow-auto">
         <div className="p-6">
-          <h1 className="text-2xl font-bold text-primary mb-6">Voucher List</h1>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-primary">Voucher List</h1>
+            {canManage && (
+              <Button icon={Plus} onClick={() => { setForm(emptyForm); setShowAddModal(true); }}>
+                Add Voucher
+              </Button>
+            )}
+          </div>
 
           <div className="bg-white rounded-lg shadow p-4 mb-4">
             <div className="grid grid-cols-3 gap-3 mb-3">
@@ -218,13 +313,33 @@ return (
                           <td className="px-3 py-2">{voucher.description}</td>
                           <td className="px-3 py-2">{voucher.created_at}</td>
                           <td className="px-3 py-2">
-                            <button
-                              onClick={() => copyToClipboard(voucher.voucher_name)}
-                              className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
-                              title="Copy voucher name"
-                            >
-                              Copy
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => copyToClipboard(voucher.voucher_name)}
+                                className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+                                title="Copy voucher name"
+                              >
+                                Copy
+                              </button>
+                              {canManage && (
+                                <>
+                                  <button
+                                    onClick={() => openEdit(voucher)}
+                                    className="p-1.5 rounded hover:bg-gray-100 text-gray-500"
+                                    title="Edit"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => setShowDeleteConfirm(voucher)}
+                                    className="p-1.5 rounded hover:bg-red-50 text-red-500"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -289,12 +404,110 @@ return (
         </div>
       </div>
 
-      <Popup 
+      <Popup
         show={showPopup}
         message={popupMessage}
         type={popupType}
         onClose={() => setShowPopup(false)}
       />
+
+      {/* ── Add Modal ── */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-xl w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold mb-4">Add Voucher</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-500">Voucher Name</label>
+                <input
+                  type="text"
+                  value={form.voucher_name}
+                  onChange={(e) => setForm((p) => ({ ...p, voucher_name: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Category</label>
+                <input
+                  type="text"
+                  value={form.category}
+                  onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <Button variant="outline" onClick={() => setShowAddModal(false)}>Batal</Button>
+              <Button onClick={handleCreate} loading={saving}>Simpan</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Modal ── */}
+      {showEditModal && selectedVoucher && (
+        <div className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4" onClick={() => setShowEditModal(false)}>
+          <div className="bg-white rounded-xl w-full max-w-md p-5" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold mb-4">Edit Voucher</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-500">Voucher Name</label>
+                <input
+                  type="text"
+                  value={form.voucher_name}
+                  onChange={(e) => setForm((p) => ({ ...p, voucher_name: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Category</label>
+                <input
+                  type="text"
+                  value={form.category}
+                  onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <Button variant="outline" onClick={() => setShowEditModal(false)}>Batal</Button>
+              <Button onClick={handleSaveEdit} loading={saving}>Simpan</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Confirm ── */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4" onClick={() => setShowDeleteConfirm(null)}>
+          <div className="bg-white rounded-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold mb-2">Hapus Voucher?</h2>
+            <p className="text-sm text-gray-500 mb-5">Tindakan ini tidak dapat dibatalkan.</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowDeleteConfirm(null)}>Batal</Button>
+              <Button variant="danger" onClick={handleDelete} loading={saving}>Hapus</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   </div>
   );

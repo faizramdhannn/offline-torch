@@ -110,6 +110,40 @@ function HpjCell({
   return <td className="px-2 py-1">{item.hpj}</td>;
 }
 
+function parseStockNum(v: string | undefined | null): number | null {
+  if (v === undefined || v === null || v === "") return null;
+  const n = parseInt(String(v).replace(/[^0-9-]/g, ""), 10);
+  return isNaN(n) ? null : n;
+}
+
+// Keterangan Sold/Restock: bandingkan stock kemarin vs hari ini.
+// - kemarin > hari ini  → "Sold", gap = kemarin - hari ini
+// - hari ini > kemarin  → "Restock", gap = hari ini - kemarin
+// - sama / data tidak lengkap → tidak ada keterangan
+function StockChangeBadge({ today, yesterday }: { today: string; yesterday: string | undefined }) {
+  const todayNum = parseStockNum(today);
+  const yesterdayNum = parseStockNum(yesterday);
+
+  if (todayNum === null || yesterdayNum === null) {
+    return <span className="text-[11px] text-gray-400">-</span>;
+  }
+  const gap = Math.abs(todayNum - yesterdayNum);
+  if (gap === 0) {
+    return <span className="text-[11px] text-gray-400">Tidak ada perubahan</span>;
+  }
+  const isSold = yesterdayNum > todayNum;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold",
+        isSold ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+      )}
+    >
+      {isSold ? "Sold" : "Restock"} {gap} pcs
+    </span>
+  );
+}
+
 function ThresholdCell({ item }: { item: StockItem }) {
   const thresholdVal = parseInt(String(item.threshold ?? "").replace(/[^0-9]/g, "")) || 0;
   const stockVal = parseInt(String(item.stock ?? "").replace(/[^0-9-]/g, "")) || 0;
@@ -299,6 +333,10 @@ export function StockTable({
                     <div>
                       <div className="text-[9px] uppercase tracking-wide text-gray-400">Stock Kemarin</div>
                       <div className="text-sm font-semibold text-gray-800">{yesterdayStock ?? "-"}</div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] uppercase tracking-wide text-gray-400">Keterangan</div>
+                      <StockChangeBadge today={item.stock} yesterday={yesterdayStock} />
                     </div>
                     <button
                       onClick={(e) => { e.stopPropagation(); onBarcodeClick(item); }}
