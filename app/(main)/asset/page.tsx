@@ -133,7 +133,7 @@ export default function AssetPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           modalMode === "add"
-            ? { type_asset: form.type_asset, asset_name: form.asset_name, link_url: form.link_url }
+            ? { type_asset: form.type_asset, asset_name: form.asset_name, link_url: form.link_url, actorName: user?.user_name }
             : { id: form.id, type_asset: form.type_asset, asset_name: form.asset_name, link_url: form.link_url }
         ),
       });
@@ -159,7 +159,7 @@ export default function AssetPage() {
       const res = await fetch("/api/asset", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: deleteTarget.id }),
+        body: JSON.stringify({ id: deleteTarget.id, actorName: user?.user_name, asset_name: deleteTarget.asset_name }),
       });
       if (res.ok) {
         showMessage("Asset berhasil dihapus", "success");

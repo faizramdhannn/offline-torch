@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
 import { uploadToGoogleDrive } from '@/lib/drive';
+import { notifyUser } from '@/lib/notifications';
 
 async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
   try {
@@ -244,6 +245,22 @@ export async function PUT(request: NextRequest) {
     ];
 
     await updateSheetRow('request_tracking', rowIndex, updatedRow);
+
+    const finalHasProcessed = has_processed ?? existing.has_processed ?? 'FALSE';
+    if (finalHasProcessed === 'TRUE' && existing.has_processed !== 'TRUE') {
+      try {
+        await notifyUser(existing.request_by, {
+          type: 'shipment_completed',
+          title: 'Shipment selesai',
+          message: `Pengiriman untuk ${existing.receiver || existing.sender || id} sudah selesai diproses.`,
+          sourceFeature: 'request_tracking',
+          sourceId: id,
+          createdBy: update_by,
+        });
+      } catch (err) {
+        console.error('Failed to send shipment completed notification:', err);
+      }
+    }
 
     return NextResponse.json({
       success: true,

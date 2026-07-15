@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, updateMultipleSheetRows, deleteSheetRows } from '@/lib/sheets';
 import { getEmployeeDiscountDropdown } from './lib/dropdown';
 import { getEmployeeDiscountTaft } from './lib/taft';
+import { notifyUser, notifyUsersWithPermission } from '@/lib/notifications';
 
 // Fitur Employee Discount: SATU "group" (id sama) bisa berisi BANYAK item
 // (item_sku/item_name/item_qty berbeda per baris), sama seperti pola Material
@@ -130,6 +131,21 @@ export async function POST(request: NextRequest) {
     ]);
 
     await appendSheetData('request_discount', rows);
+
+    try {
+      const first = items[0];
+      await notifyUsersWithPermission('employee_discount_approval', {
+        type: 'employee_discount_need_approval',
+        title: 'Request Employee Discount baru',
+        message: `${first.name || first.user_name} mengajukan discount ${first.discount_code || ''} (${items.length} item).`,
+        sourceFeature: 'employee_discount',
+        sourceId: first.id,
+        createdBy: first.created_by,
+      });
+    } catch (err) {
+      console.error('Failed to send employee-discount create notification:', err);
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('POST request_discount error:', error);
@@ -184,6 +200,21 @@ export async function PUT(request: NextRequest) {
         data: buildRow(rows[idx], { status_request: fields.status_request }, update_by, now),
       }));
       await updateMultipleSheetRows('request_discount', updates);
+
+      try {
+        const meta = rows[groupIndexes[0]];
+        await notifyUser(meta.created_by, {
+          type: fields.status_request === 'Approved' ? 'employee_discount_approved' : 'employee_discount_rejected',
+          title: `Request Employee Discount ${fields.status_request === 'Approved' ? 'disetujui' : 'ditolak'}`,
+          message: `Request discount ${meta.discount_code || ''} kamu telah ${fields.status_request === 'Approved' ? 'disetujui' : 'ditolak'}.`,
+          sourceFeature: 'employee_discount',
+          sourceId: id,
+          createdBy: update_by,
+        });
+      } catch (err) {
+        console.error('Failed to send employee-discount approve notification:', err);
+      }
+
       return NextResponse.json({ success: true, updated: groupIndexes.length });
     }
 

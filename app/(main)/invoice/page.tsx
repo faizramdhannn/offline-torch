@@ -79,7 +79,8 @@ function statusBadge(status: string) {
   const s = (status || "").toLowerCase();
   const map: Record<string, string> = {
     draft: "bg-gray-100 text-gray-600",
-    submitted: "bg-blue-100 text-blue-700",
+    submitted: "bg-[#FFEB3B] text-amber-800", // "Need Approval"
+    approved: "bg-green-100 text-green-700",
     deleted: "bg-red-100 text-red-600",
   };
   return map[s] || "bg-gray-100 text-gray-500";
@@ -88,7 +89,8 @@ function statusBadge(status: string) {
 function statusLabel(status: string) {
   const map: Record<string, string> = {
     draft: "Draft",
-    submitted: "Submitted",
+    submitted: "Need Approval",
+    approved: "Approved",
     deleted: "Deleted",
   };
   return map[(status || "").toLowerCase()] || status;
@@ -233,6 +235,13 @@ export default function InvoicePage() {
     const matchS = statusFilter === "all" || inv.status === statusFilter;
     return matchQ && matchS;
   });
+
+  // ── Pagination ─────────────────────────────────────────────────────────────
+  const itemsPerPage = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter]);
+  const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / itemsPerPage));
+  const pagedInvoices = filteredInvoices.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   // ── Open detail ────────────────────────────────────────────────────────────
   const openDetail = async (inv: Invoice) => {
@@ -449,7 +458,8 @@ export default function InvoicePage() {
   };
 
   // ── PDF Preview & Download ─────────────────────────────────────────────────
-  const canDownloadPdf = (inv: Invoice) => inv.status === "submitted";
+  // Word/PDF baru muncul setelah invoice di-approve (bukan lagi begitu submitted).
+  const canDownloadPdf = (inv: Invoice) => inv.status === "approved";
 
   const previewPdf = async (invoice_id: string, invoice_number: string) => {
     setGeneratingPdf(true);
@@ -639,7 +649,7 @@ export default function InvoicePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredInvoices.map((inv) => (
+                    {pagedInvoices.map((inv) => (
                       <tr
                         key={inv.invoice_id}
                         className="border-b hover:bg-gray-50 cursor-pointer"
@@ -683,7 +693,7 @@ export default function InvoicePage() {
                             </div>
                           ) : (
                             <span className="px-2 py-1 text-gray-300 text-[10px]">
-                              {inv.status === "draft" ? "Draft" : "—"}
+                              {inv.status === "draft" ? "Draft" : inv.status === "submitted" ? "Need Approval" : "—"}
                             </span>
                           )}
                         </td>
@@ -695,6 +705,26 @@ export default function InvoicePage() {
                   <div className="p-8 text-center text-gray-400 text-sm">Tidak ada invoice</div>
                 )}
               </div>
+
+              {filteredInvoices.length > 0 && totalPages > 1 && (
+                <div className="flex items-center justify-end gap-2 px-3 py-3 border-t text-xs">
+                  <button
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    className="px-2 py-1 border rounded disabled:opacity-40"
+                  >
+                    Prev
+                  </button>
+                  <span>{currentPage} / {totalPages}</span>
+                  <button
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    className="px-2 py-1 border rounded disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -1198,13 +1228,26 @@ export default function InvoicePage() {
 
                   {[
                     { status: "draft", label: "→ Draft", cls: "bg-gray-100 text-gray-700 hover:bg-gray-200" },
-                    { status: "submitted", label: "→ Submit", cls: "bg-blue-100 text-blue-700 hover:bg-blue-200" },
+                    { status: "submitted", label: "→ Need Approval", cls: "bg-[#FFEB3B] text-amber-800 hover:bg-yellow-300" },
                   ].filter(s => s.status !== selectedInvoice.status).map(s => (
                     <button key={s.status} onClick={() => updateStatus(selectedInvoice.invoice_id, s.status)}
                       className={`px-3 py-1.5 rounded text-xs font-medium ${s.cls}`}>
                       {s.label}
                     </button>
                   ))}
+
+                  {/* Approve — hanya untuk user dengan akses invoice_master, dan hanya
+                      kalau statusnya sedang Need Approval (submitted). Setelah approved,
+                      Word/PDF baru muncul (lihat canDownloadPdf). */}
+                  {user?.invoice_master && selectedInvoice.status === "submitted" && (
+                    <button
+                      onClick={() => updateStatus(selectedInvoice.invoice_id, "approved")}
+                      className="px-3 py-1.5 rounded text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200"
+                    >
+                      ✓ Approve
+                    </button>
+                  )}
+
                   {user?.invoice_delete && (
                     <Button
                       size="sm"
@@ -1220,7 +1263,13 @@ export default function InvoicePage() {
 
               {!user?.invoice_edit && selectedInvoice.status === "draft" && user?.invoice_create && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs text-yellow-700">
-                  ⏳ Dokumen masih dalam status <strong>Draft</strong>. PDF akan tersedia setelah disubmit oleh tim yang berwenang.
+                  ⏳ Dokumen masih dalam status <strong>Draft</strong>. Word/PDF akan tersedia setelah disubmit dan di-approve oleh tim yang berwenang.
+                </div>
+              )}
+
+              {selectedInvoice.status === "submitted" && !user?.invoice_master && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs text-yellow-700">
+                  ⏳ Dokumen sedang <strong>Need Approval</strong>. Word/PDF akan tersedia setelah di-approve.
                 </div>
               )}
             </div>

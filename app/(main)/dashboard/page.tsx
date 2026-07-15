@@ -35,6 +35,7 @@ interface StoreAddress {
   store_location: string;
   phone_number: string;
   address: string;
+  status: string; // 'Active' | 'Draft' | 'Archived' — kosong dianggap Active
 }
 
 interface TaftEntry {
@@ -276,13 +277,23 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
   const totalPages       = Math.ceil(displayedLogs.length / itemsPerPage);
 
   // ── Derived KPI numbers for summary cards (display-only, reuses existing state) ──
-  // Jumlah store yang sudah ada minimal 1 attendance hari ini
+  // Store yang statusnya Active di store_address (kosong = dianggap Active,
+  // untuk baris lama sebelum kolom status ditambahkan). Store Draft/Archived
+  // tidak dihitung di manapun di dashboard ini.
+  const activeStoreNames = new Set(
+    storeAddresses
+      .filter((s) => !s.status || s.status.trim().toLowerCase() === "active")
+      .map((s) => s.store_location.toLowerCase().trim())
+  );
+  const activeStoreCount = activeStoreNames.size;
+
+  // Attendance Today = berapa store AKTIF yang sudah capture attendance hari
+  // ini, dari total store aktif (bukan lagi dari daftar toko di taft_list).
   const attendanceTodayCount = todayReport.filter(
-    (store) => store.tafts.some(t => t.code)
+    (store) => activeStoreNames.has(store.store.toLowerCase().trim()) && store.tafts.some(t => t.code)
   ).length;
-  const totalStoreCount = todayReport.length;
+  const totalStoreCount = activeStoreCount;
   const totalTaftToday = todayReport.reduce((sum, store) => sum + store.tafts.length, 0);
-  const activeStoreCount = storeAddresses.length;
   // Hitung log hari ini — coba semua format timestamp yang mungkin
   const todayStr = todayISO();
   const MONTHS_ID: { [key: string]: number } = {
@@ -432,7 +443,7 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
         <div className="mb-6">
           <SectionCard title="Store Location">
             <StoreTable
-              stores={storeAddresses}
+              stores={storeAddresses.filter((s) => !s.status || s.status.trim().toLowerCase() === "active")}
               onCopy={handleCopy}
               copiedId={copiedId}
               onRefresh={fetchStoreAddresses}

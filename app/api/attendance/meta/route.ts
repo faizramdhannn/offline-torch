@@ -1,6 +1,7 @@
 // app/api/attendance/meta/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData } from '@/lib/sheets';
+import { getActiveStoreNameSet } from '@/lib/storeAddress';
 
 /**
  * Normalise store list rows: the sheet header might be "store_wadges" (typo)
@@ -15,6 +16,20 @@ function normalizeStoreList(rows: any[]): any[] {
     }
     return r;
   });
+}
+
+// store_list (sheet Attendance) tidak punya kolom status sendiri — statusnya
+// ditentukan lewat store_address (kolom status: Active/Draft/Archived),
+// dicocokkan lewat nama toko. Toko Draft/Archived difilter keluar dari sini
+// supaya tidak muncul di manapun fitur Attendance memakai daftar toko.
+async function filterActiveStores(storeList: any[]): Promise<any[]> {
+  try {
+    const activeNames = await getActiveStoreNameSet();
+    return storeList.filter((s: any) => activeNames.has((s.store_name || '').toLowerCase().trim()));
+  } catch (err) {
+    console.error('Failed to filter store_list by store_address status, showing unfiltered:', err);
+    return storeList; // gagal ambil status → jangan sampai daftar toko malah kosong semua
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -45,7 +60,7 @@ export async function GET(request: NextRequest) {
 
     if (type === 'store_list') {
       const data = await getSheetData('store_list');
-      return NextResponse.json(normalizeStoreList(data));
+      return NextResponse.json(await filterActiveStores(normalizeStoreList(data)));
     }
 
     // type === 'all'
@@ -60,7 +75,7 @@ export async function GET(request: NextRequest) {
       dateList,
       taftList,
       timeSchedule,
-      storeList: normalizeStoreList(storeList),
+      storeList: await filterActiveStores(normalizeStoreList(storeList)),
     });
   } catch (error) {
     console.error('Error fetching attendance meta:', error);

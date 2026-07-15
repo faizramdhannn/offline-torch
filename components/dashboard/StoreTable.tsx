@@ -11,6 +11,7 @@ interface StoreAddress {
   store_location: string;
   phone_number: string;
   address: string;
+  status: string;
 }
 
 interface StoreTableProps {

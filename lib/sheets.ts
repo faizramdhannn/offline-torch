@@ -27,6 +27,10 @@ const SPREADSHEET_MAP: Record<string, string> = {
   last_update: process.env.SPREADSHEET_STOCK || "",
   // ✅ system_config pakai spreadsheet terpisah agar tidak kena beban SPREADSHEET_STOCK
   system_config: process.env.SPREADSHEET_SYSTEM || process.env.SPREADSHEET_STOCK || "",
+  // Notifikasi in-app (bell icon di sidebar) — pakai spreadsheet yang sama
+  // dengan system_config, sheet baru (dibuat manual di spreadsheet itu).
+  notifications: process.env.SPREADSHEET_SYSTEM || process.env.SPREADSHEET_STOCK || "",
+  notification_reads: process.env.SPREADSHEET_SYSTEM || process.env.SPREADSHEET_STOCK || "",
   invoices: process.env.SPREADSHEET_STOCK || "",
   invoice_items: process.env.SPREADSHEET_STOCK || "",
   master_invoice: process.env.SPREADSHEET_STOCK || "",
@@ -99,6 +103,8 @@ const SHEET_RANGE: Record<string, string> = {
   invoice_items: "A1:AJ",
   master_invoice: "A1:AJ",
   system_config: "A1:D",       // key-value config, kolom sedikit
+  notifications: "A1:J",       // id, scope, target_user, type, title, message, source_feature, source_id, created_by, created_at
+  notification_reads: "A1:C",  // id, notification_id, user_name (kombinasi notification_id+user_name = sudah dibaca)
   attendance_store: "A1:AJ",
   attendance_store_all: "A1:AJ",
   material_issue: "A1:AJ",

@@ -6,6 +6,7 @@ import { useState, ReactNode, useRef, useEffect, useCallback } from "react";
 import { useSidebar } from "@/context/SidebarContext";
 import { useTheme } from "@/context/ThemeContext";
 import NotificationListener from "@/components/NotificationListener";
+import NotificationBell from "@/components/NotificationBell";
 
 interface SidebarProps {
   userName: string;
@@ -841,6 +842,13 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
               </svg>
             )}
           </button>
+
+          <NotificationBell
+            userName={loginName}
+            canAddCustom={!!permissions.user_setting}
+            isCollapsed={isCollapsed}
+          />
+
           {!isCollapsed ? (
             <button
               onClick={handleLogout}

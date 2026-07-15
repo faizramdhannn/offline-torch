@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, updateMultipleSheetRows, deleteSheetRows } from '@/lib/sheets';
+import { notifyUser } from '@/lib/notifications';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function toJakartaTimestamp(): string {
@@ -215,6 +216,35 @@ export async function PUT(request: NextRequest) {
         data: buildRow(rows[idx], metaFields, update_by, now),
       }));
       await updateMultipleSheetRows('material_issue', updates);
+
+      // Notifikasi ke pembuat request begitu status_request/status_issue
+      // berubah jadi 'Approved' (hanya kalau memang berubah lewat request ini).
+      try {
+        const meta = rows[groupIndexes[0]];
+        if (fields.status_request === 'Approved' && meta.status_request !== 'Approved') {
+          await notifyUser(meta.created_by, {
+            type: 'material_issue_request_approved',
+            title: 'Material Issue: Request Approved',
+            message: `Request material issue ${id} sudah di-approve.`,
+            sourceFeature: 'material_issue',
+            sourceId: id,
+            createdBy: update_by,
+          });
+        }
+        if (fields.status_issue === 'Approved' && meta.status_issue !== 'Approved') {
+          await notifyUser(meta.created_by, {
+            type: 'material_issue_issue_approved',
+            title: 'Material Issue: Issue Approved',
+            message: `Issue material issue ${id} sudah di-approve.`,
+            sourceFeature: 'material_issue',
+            sourceId: id,
+            createdBy: update_by,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to send material-issue notification:', err);
+      }
+
       return NextResponse.json({ success: true, updated: groupIndexes.length });
     }
 

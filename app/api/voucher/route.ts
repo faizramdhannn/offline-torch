@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
+import { createNotification } from '@/lib/notifications';
 
 // Sheet voucher_list, kolom (A-F): id, voucher_name, category, description, created_at, update_at
 // CRUD ini hanya boleh dipakai dari frontend oleh user dengan akses `user_setting`
@@ -40,6 +41,22 @@ export async function POST(request: NextRequest) {
       now,
     ];
     await appendSheetData('voucher_list', [row]);
+
+    // voucher_list adalah master data bersama, notifikasi broadcast ke semua user.
+    try {
+      await createNotification({
+        scope: 'all',
+        type: 'voucher_added',
+        title: 'Voucher baru ditambahkan',
+        message: `${body.actorName ? body.actorName + ' menambahkan' : 'Ada'} voucher baru: ${body.voucher_name}.`,
+        sourceFeature: 'voucher',
+        sourceId: row[0],
+        createdBy: body.actorName || '',
+      });
+    } catch (err) {
+      console.error('Failed to send voucher-added notification:', err);
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error creating voucher:', error);
@@ -79,6 +96,8 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const actorName = searchParams.get('actorName') || '';
+    const voucherName = searchParams.get('voucher_name') || '';
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
     const rows = await getSheetData('voucher_list', { skipCache: true });
@@ -86,6 +105,21 @@ export async function DELETE(request: NextRequest) {
     if (idx === -1) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
     await deleteSheetRows('voucher_list', [idx + 2]);
+
+    try {
+      await createNotification({
+        scope: 'all',
+        type: 'voucher_deleted',
+        title: 'Voucher dihapus',
+        message: `${actorName ? actorName + ' menghapus' : 'Ada'} voucher: ${voucherName || id}.`,
+        sourceFeature: 'voucher',
+        sourceId: id,
+        createdBy: actorName,
+      });
+    } catch (err) {
+      console.error('Failed to send voucher-deleted notification:', err);
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting voucher:', error);

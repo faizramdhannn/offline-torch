@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow } from '@/lib/sheets';
+import { notifyUser, notifyUsersWithPermission } from '@/lib/notifications';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function terbilang(n: number): string {
@@ -251,6 +252,36 @@ export async function PUT(request: NextRequest) {
     ];
 
     await updateSheetRow('invoices', idx + 2, updatedRow);
+
+    // Notifikasi in-app — hanya kalau status BENAR-BENAR berubah lewat request ini.
+    if (status && status !== existing.status) {
+      try {
+        if (status === 'submitted') {
+          // Butuh approval — kasih tahu semua user yang punya akses invoice_master.
+          await notifyUsersWithPermission('invoice_master', {
+            type: 'invoice_need_approval',
+            title: 'Invoice perlu di-approve',
+            message: `Invoice ${existing.invoice_number || invoice_id} (${existing.customer_name}) menunggu approval.`,
+            sourceFeature: 'invoice',
+            sourceId: invoice_id,
+            createdBy: updated_by,
+          });
+        } else if (status === 'approved') {
+          // Kasih tahu pembuat invoice bahwa dokumennya sudah di-approve.
+          await notifyUser(existing.created_by, {
+            type: 'invoice_approved',
+            title: 'Invoice di-approve',
+            message: `Invoice ${existing.invoice_number || invoice_id} (${existing.customer_name}) sudah di-approve. Word/PDF sudah bisa diunduh.`,
+            sourceFeature: 'invoice',
+            sourceId: invoice_id,
+            createdBy: updated_by,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to send invoice notification:', err);
+      }
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error updating invoice:', error);

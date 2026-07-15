@@ -139,7 +139,7 @@ export default function VoucherPage() {
       const res = await fetch("/api/voucher", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, actorName: user?.user_name }),
       });
       if (!res.ok) throw new Error();
       showMessage("Voucher berhasil ditambahkan", "success");
@@ -192,9 +192,10 @@ export default function VoucherPage() {
     if (!showDeleteConfirm) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/voucher?id=${encodeURIComponent(showDeleteConfirm.id)}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `/api/voucher?id=${encodeURIComponent(showDeleteConfirm.id)}&actorName=${encodeURIComponent(user?.user_name || "")}&voucher_name=${encodeURIComponent(showDeleteConfirm.voucher_name || "")}`,
+        { method: "DELETE" }
+      );
       if (!res.ok) throw new Error();
       showMessage("Voucher berhasil dihapus", "success");
       setShowDeleteConfirm(null);

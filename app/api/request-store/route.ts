@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
 import { uploadToGoogleDrive } from '@/lib/drive';
+import { notifyUser } from '@/lib/notifications';
 
 export async function GET(request: NextRequest) {
   try {
@@ -180,6 +181,21 @@ export async function PUT(request: NextRequest) {
     ];
 
     await updateSheetRow('request_store', rowIndex, updatedRow);
+
+    if (status === 'Completed' && existing.status !== 'Completed') {
+      try {
+        await notifyUser(existing.created_by, {
+          type: 'cancel_order_completed',
+          title: 'Cancel Order selesai',
+          message: `Request cancel order (${existing.requester}) sudah selesai diproses.`,
+          sourceFeature: 'request_store',
+          sourceId: id,
+          createdBy: update_by,
+        });
+      } catch (err) {
+        console.error('Failed to send request-store completed notification:', err);
+      }
+    }
 
     return NextResponse.json({ success: true, image_url: image_url ?? existing.image_url ?? '' });
   } catch (error) {

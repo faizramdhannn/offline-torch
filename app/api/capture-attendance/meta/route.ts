@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData } from '@/lib/sheets';
+import { getActiveStoreNameSet } from '@/lib/storeAddress';
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,7 +9,18 @@ export async function GET(request: NextRequest) {
 
     if (type === 'store_list') {
       const stores = await getSheetData('store_list');
-      return NextResponse.json(stores || []);
+      // Toko berstatus Draft/Archived di store_address (dicocokkan lewat
+      // nama toko) tidak boleh muncul untuk capture attendance.
+      try {
+        const activeNames = await getActiveStoreNameSet();
+        const filtered = (stores || []).filter((s: any) =>
+          activeNames.has((s.store_name || '').toLowerCase().trim())
+        );
+        return NextResponse.json(filtered);
+      } catch (err) {
+        console.error('Failed to filter store_list by store_address status, showing unfiltered:', err);
+        return NextResponse.json(stores || []);
+      }
     }
 
     if (type === 'taft_list') {
