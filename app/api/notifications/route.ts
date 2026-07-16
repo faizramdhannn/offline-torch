@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData } from '@/lib/sheets';
 import { createNotification } from '@/lib/notifications';
 
+// Batas jumlah notifikasi yang ditampilkan (terbaru), supaya dropdown tidak
+// makin berat/panjang tanpa batas seiring waktu. Notifikasi lama tetap ada
+// di sheet, cuma tidak ikut ditampilkan/dihitung di badge unread.
+const MAX_NOTIFICATIONS = 30;
+
 // GET ?userName=xxx
 // Menggabungkan notifikasi scope 'all' (custom broadcast dari admin) dengan
 // scope 'user' yang target_user-nya = userName, lalu tandai masing-masing
@@ -29,7 +34,7 @@ export async function GET(request: NextRequest) {
       const tA = new Date(a.created_at || 0).getTime();
       const tB = new Date(b.created_at || 0).getTime();
       return tB - tA;
-    });
+    }).slice(0, MAX_NOTIFICATIONS);
 
     const result = sorted.map((n: any) => ({ ...n, read: readSet.has(n.id) }));
     return NextResponse.json(result);

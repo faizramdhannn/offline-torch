@@ -196,8 +196,8 @@ export default function NotificationBell({ userName, canAddCustom, isCollapsed }
                   <div className="flex items-start gap-2">
                     {!n.read && <span className="mt-1 w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
                     <div className={`min-w-0 flex-1 ${n.read ? "pl-3.5" : ""}`}>
-                      <p className="text-xs font-semibold text-gray-800 truncate">{n.title}</p>
-                      <p className="text-[11px] text-gray-500 line-clamp-2">{n.message}</p>
+                      <p className="text-xs font-semibold text-gray-800 break-words">{n.title}</p>
+                      <p className="text-[11px] text-gray-500 break-words whitespace-pre-wrap">{n.message}</p>
                       <p className="text-[9px] text-gray-400 mt-0.5">{n.created_at}</p>
                     </div>
                   </div>
