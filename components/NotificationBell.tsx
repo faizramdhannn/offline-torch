@@ -181,7 +181,8 @@ export default function NotificationBell({ userName, canAddCustom, isCollapsed }
             </div>
           )}
 
-          <div className="max-h-80 overflow-y-auto">
+          {/* Tinggi dipatok supaya cuma ~3 notifikasi yang terlihat, sisanya di-scroll. */}
+          <div className="max-h-[240px] overflow-y-auto">
             {items.length === 0 ? (
               <div className="p-6 text-center text-xs text-gray-400">Belum ada notifikasi</div>
             ) : (

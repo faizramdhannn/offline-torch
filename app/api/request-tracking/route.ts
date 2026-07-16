@@ -141,6 +141,22 @@ export async function POST(request: NextRequest) {
     ];
 
     await appendSheetData('request_tracking', [newRow]);
+
+    // Notifikasi in-app ke user yang di-assign (assigned_to di sini adalah
+    // user_name, sama seperti yang dipakai push-notify sebelumnya).
+    try {
+      await notifyUser(assigned_to, {
+        type: 'shipment_assigned',
+        title: 'Request Shipment Baru',
+        message: `${request_by} menugaskan kamu untuk resi ${expedition} → ${(receiver || '').split('\n')[0]}.`,
+        sourceFeature: 'request_tracking',
+        sourceId: id,
+        createdBy: request_by,
+      });
+    } catch (err) {
+      console.error('Failed to send shipment-assigned notification:', err);
+    }
+
     return NextResponse.json({ success: true, id });
   } catch (error) {
     console.error('Error creating request tracking:', error);
@@ -245,6 +261,24 @@ export async function PUT(request: NextRequest) {
     ];
 
     await updateSheetRow('request_tracking', rowIndex, updatedRow);
+
+    // "Resi selesai" yang sebenarnya = resi/file BERHASIL di-upload (bukan
+    // toggle has_processed terpisah, yang jarang dipakai di frontend). Kasih
+    // tahu requester begitu resi sudah diinput oleh yang menangani.
+    if (newFile && newFile.size > 0 && fileBuffer) {
+      try {
+        await notifyUser(existing.request_by, {
+          type: 'shipment_resi_uploaded',
+          title: 'Resi Sudah Diupload',
+          message: `Resi ${trackingNumber || '-'} untuk ${existing.expedition || ''} (${(existing.receiver || '').split('\n')[0]}) sudah diinput oleh ${update_by}.`,
+          sourceFeature: 'request_tracking',
+          sourceId: id,
+          createdBy: update_by,
+        });
+      } catch (err) {
+        console.error('Failed to send shipment resi-uploaded notification:', err);
+      }
+    }
 
     const finalHasProcessed = has_processed ?? existing.has_processed ?? 'FALSE';
     if (finalHasProcessed === 'TRUE' && existing.has_processed !== 'TRUE') {

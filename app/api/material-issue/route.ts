@@ -11,6 +11,43 @@ function toJakartaTimestamp(): string {
   });
 }
 
+// Notifikasi ke pembuat request begitu status_request/status_issue berubah
+// jadi 'Approved' — dipanggil dari SEMUA mode yang bisa mengubah field ini
+// (group-meta MAUPUN group-items, lewat form Edit), supaya tidak ada jalur
+// yang diam-diam bypass notifikasi (kasus yang sama pernah kejadian di
+// request-tracking — approve lewat Edit form dulu tidak ikut memicu notif).
+async function notifyMaterialIssueApproval(
+  meta: any,
+  fields: { status_request?: string; status_issue?: string },
+  update_by: string | undefined,
+  id: string
+) {
+  try {
+    if (fields.status_request === 'Approved' && meta.status_request !== 'Approved') {
+      await notifyUser(meta.created_by, {
+        type: 'material_issue_request_approved',
+        title: 'Material Issue: Request Approved',
+        message: `Request material issue ${id} sudah di-approve.`,
+        sourceFeature: 'material_issue',
+        sourceId: id,
+        createdBy: update_by,
+      });
+    }
+    if (fields.status_issue === 'Approved' && meta.status_issue !== 'Approved') {
+      await notifyUser(meta.created_by, {
+        type: 'material_issue_issue_approved',
+        title: 'Material Issue: Issue Approved',
+        message: `Issue material issue ${id} sudah di-approve.`,
+        sourceFeature: 'material_issue',
+        sourceId: id,
+        createdBy: update_by,
+      });
+    }
+  } catch (err) {
+    console.error('Failed to send material-issue notification:', err);
+  }
+}
+
 // Baris di sheet diidentifikasi secara unik oleh kombinasi (id, item_sku),
 // karena satu "group" (id sama) bisa berisi banyak item_sku berbeda.
 function findRowIndex(rows: any[], id: string, sku?: string | null): number {
@@ -216,35 +253,7 @@ export async function PUT(request: NextRequest) {
         data: buildRow(rows[idx], metaFields, update_by, now),
       }));
       await updateMultipleSheetRows('material_issue', updates);
-
-      // Notifikasi ke pembuat request begitu status_request/status_issue
-      // berubah jadi 'Approved' (hanya kalau memang berubah lewat request ini).
-      try {
-        const meta = rows[groupIndexes[0]];
-        if (fields.status_request === 'Approved' && meta.status_request !== 'Approved') {
-          await notifyUser(meta.created_by, {
-            type: 'material_issue_request_approved',
-            title: 'Material Issue: Request Approved',
-            message: `Request material issue ${id} sudah di-approve.`,
-            sourceFeature: 'material_issue',
-            sourceId: id,
-            createdBy: update_by,
-          });
-        }
-        if (fields.status_issue === 'Approved' && meta.status_issue !== 'Approved') {
-          await notifyUser(meta.created_by, {
-            type: 'material_issue_issue_approved',
-            title: 'Material Issue: Issue Approved',
-            message: `Issue material issue ${id} sudah di-approve.`,
-            sourceFeature: 'material_issue',
-            sourceId: id,
-            createdBy: update_by,
-          });
-        }
-      } catch (err) {
-        console.error('Failed to send material-issue notification:', err);
-      }
-
+      await notifyMaterialIssueApproval(rows[groupIndexes[0]], fields, update_by, id);
       return NextResponse.json({ success: true, updated: groupIndexes.length });
     }
 
@@ -323,6 +332,8 @@ export async function PUT(request: NextRequest) {
       if (toAppend.length > 0) {
         await appendSheetData('material_issue', toAppend);
       }
+
+      await notifyMaterialIssueApproval(rows[groupIndexes[0]], fields, update_by, id);
 
       return NextResponse.json({
         success: true,
