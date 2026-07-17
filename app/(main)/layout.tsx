@@ -7,6 +7,9 @@ import "../globals.css";
 import { UserProvider, useUser } from "@/context/UserContext";
 import AttendanceGateModal from "@/components/AttendanceGateModal";
 import { useAttendanceGate } from "@/hooks/useAttendanceGate";
+import DailyChecklistGateModal from "@/components/DailyChecklistGateModal";
+import { useDailyChecklistGate } from "@/hooks/useDailyChecklistGate";
+import DailyJobAlertBanner from "@/components/DailyJobAlertBanner";
 
 function MainLayoutInner({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
@@ -20,6 +23,9 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
   const [entering, setEntering] = useState(false);
 
   const { showGate, storeName, dismissGate } = useAttendanceGate();
+  // Checklist gate is only shown once the attendance gate isn't currently
+  // blocking (attendance gate takes priority — see composition below).
+  const { showGate: showChecklistGate, dismissGate: dismissChecklistGate } = useDailyChecklistGate();
 
   useEffect(() => {
     setMounted(true);
@@ -59,12 +65,19 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
       </div>
       <main className={`flex-1 overflow-auto min-w-0 ${entering ? "ml-enter-content" : ""}`}>
         <div className="md:hidden h-12" />
+        <DailyJobAlertBanner />
         {children}
       </main>
 
       {/* Attendance gate — only shown when user hasn't checked in yet */}
       {showGate && storeName && (
         <AttendanceGateModal storeName={storeName} onDismiss={dismissGate} />
+      )}
+
+      {/* Daily Checklist gate — attendance gate takes priority; this only
+          shows once attendance is satisfied/not-applicable. */}
+      {!showGate && showChecklistGate && (
+        <DailyChecklistGateModal onDismiss={dismissChecklistGate} />
       )}
     </div>
   );

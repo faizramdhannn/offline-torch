@@ -55,6 +55,13 @@ const SPREADSHEET_MAP: Record<string, string> = {
   material_issue: process.env.SPREADSHEET_MATERIAL_ISSUE || "",
   material_issue_all: process.env.SPREADSHEET_MATERIAL_ISSUE || "",
   request_discount: process.env.SPREADSHEET_MATERIAL_ISSUE || "",
+  // Daily Job (checklist harian taft + 3 tipe laporan error) — sheet baru,
+  // sama spreadsheet dengan material_issue/request_discount (dikonfirmasi
+  // langsung dari export Google Sheet user).
+  daily_checklist: process.env.SPREADSHEET_MATERIAL_ISSUE || "",
+  delivery_note_report: process.env.SPREADSHEET_MATERIAL_ISSUE || "",
+  sales_order_report: process.env.SPREADSHEET_MATERIAL_ISSUE || "",
+  stock_entry_report: process.env.SPREADSHEET_MATERIAL_ISSUE || "",
   asset_store: process.env.SPREADSHEET_STORE || "",
   "Torch Cirebon": process.env.SPREADSHEET_CUSTOMER || "",
   "Torch Jogja": process.env.SPREADSHEET_CUSTOMER || "",
@@ -110,6 +117,10 @@ const SHEET_RANGE: Record<string, string> = {
   material_issue: "A1:AJ",
   material_issue_all: "A1:AJ",
   request_discount: "A1:R",
+  daily_checklist: "A1:X",          // 24 kolom, lihat app/api/daily-job/checklist/route.ts
+  delivery_note_report: "A1:L",     // 12 kolom
+  sales_order_report: "A1:L",       // 12 kolom
+  stock_entry_report: "A1:L",       // 12 kolom
   schedule_report: "A1:AJ",
   daily_sales: "A1:AJ",
   target_sales: "A1:AJ",

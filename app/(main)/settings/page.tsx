@@ -63,6 +63,8 @@ interface UserData {
   step_erp_all: string;
   employee_discount: string;
   employee_discount_approval: string;
+  daily_checklist: string;
+  daily_checklist_all: string;
   last_activity: string;
 }
 
@@ -171,6 +173,14 @@ const PERM_GROUPS: {
       { key: "attendance_report",    label: "Laporan" },
       { key: "attendance_store",     label: "Store" },
       { key: "attendance_store_all", label: "Semua" },
+    ],
+  },
+  {
+    label: "Daily Job",
+    color: "bg-amber-50",
+    fields: [
+      { key: "daily_checklist",     label: "Checklist" },
+      { key: "daily_checklist_all", label: "Semua" },
     ],
   },
   {
