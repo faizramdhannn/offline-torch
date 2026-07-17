@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
 import { getEmployeeDiscountTaft } from '@/app/api/employee-discount/lib/taft';
+import { jakartaDateKeyFromCreatedAt, todayJakartaKey, parseCreatedAtForSort } from '@/lib/dailyJobDate';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // daily_checklist — SATU baris per taft PER HARI (Asia/Jakarta), mirip pola
@@ -36,28 +37,6 @@ function toJakartaTimestamp(): string {
     hour: '2-digit', minute: '2-digit', second: '2-digit',
     hour12: false, timeZone: 'Asia/Jakarta',
   });
-}
-
-// Sama pola normalisasi dengan app/api/notifications/route.ts parseCreatedAt:
-// format "24 Jul 2026, 14.54.19" tidak bisa langsung di-parse `new Date()`
-// (koma + titik sebagai pemisah jam bikin Invalid Date). Ganti koma & titik
-// jam jadi format yang bisa di-parse.
-function parseCreatedAt(str: string): number {
-  if (!str) return 0;
-  const cleaned = str.replace(',', '').replace(/\./g, ':');
-  const t = new Date(cleaned).getTime();
-  return isNaN(t) ? 0 : t;
-}
-
-// Ambil bagian tanggal (YYYY-MM-DD, berdasar Asia/Jakarta) dari timestamp
-// created_at, untuk dibandingkan dengan "hari ini" di Asia/Jakarta.
-function jakartaDateKey(epochMs: number): string {
-  if (!epochMs) return '';
-  return new Date(epochMs).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }); // 'en-CA' -> YYYY-MM-DD
-}
-
-function todayJakartaKey(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
 }
 
 function generateId(): string {
@@ -143,7 +122,7 @@ export async function GET(request: NextRequest) {
 
     // ?all=true — seluruh riwayat checklist taft ini (bukan hanya hari ini).
     if (all) {
-      const sorted = [...mine].sort((a: any, b: any) => parseCreatedAt(b.created_at) - parseCreatedAt(a.created_at));
+      const sorted = [...mine].sort((a: any, b: any) => parseCreatedAtForSort(b.created_at) - parseCreatedAtForSort(a.created_at));
       return NextResponse.json(sorted);
     }
 
@@ -152,7 +131,7 @@ export async function GET(request: NextRequest) {
     // gate absensi (useAttendanceGate) untuk cek apakah checklist hari ini
     // sudah diisi.
     const todayKey = todayJakartaKey();
-    const todayRow = mine.find((r: any) => jakartaDateKey(parseCreatedAt(r.created_at)) === todayKey);
+    const todayRow = mine.find((r: any) => jakartaDateKeyFromCreatedAt(r.created_at) === todayKey);
 
     return NextResponse.json(todayRow || null);
   } catch (error) {

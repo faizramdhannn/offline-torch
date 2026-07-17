@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import { Button } from "@/components/shared/Button";
 import { useDailyJobRemaining } from "@/hooks/useDailyJobRemaining";
+import { jakartaDateKeyFromCreatedAt, todayJakartaKey } from "@/lib/dailyJobDate";
 import { Plus, Pencil, Trash2, Image as ImageIcon, Camera, Upload, Clock, Bell } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -42,21 +43,6 @@ export interface ErrorReportPageConfig {
   dropdownSolvedKey: string;
 }
 
-function parseCreatedAt(str: string): number {
-  if (!str) return 0;
-  const cleaned = str.replace(",", "").replace(/\./g, ":");
-  const t = new Date(cleaned).getTime();
-  return isNaN(t) ? 0 : t;
-}
-
-function jakartaDateKey(epochMs: number): string {
-  if (!epochMs) return "";
-  return new Date(epochMs).toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
-}
-
-function todayJakartaKey(): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
-}
 
 function toJakartaTimestamp(): string {
   return new Date().toLocaleString("id-ID", {
@@ -172,7 +158,7 @@ export default function ErrorReportPage({ config }: { config: ErrorReportPageCon
 
   const canEdit = !!user?.daily_checklist;
 
-  const todayRows = rows.filter((r) => jakartaDateKey(parseCreatedAt(r.created_at)) === todayJakartaKey());
+  const todayRows = rows.filter((r) => jakartaDateKeyFromCreatedAt(r.created_at) === todayJakartaKey());
   const displayedRows = showHistory ? rows : todayRows;
 
   const buildFormData = (existingId?: string) => {

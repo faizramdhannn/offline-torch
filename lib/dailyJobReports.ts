@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
 import { uploadDailyJobErrorPhoto, DailyJobReportType } from '@/lib/dailyJobDrive';
 import { getEmployeeDiscountTaft } from '@/app/api/employee-discount/lib/taft';
+import { parseCreatedAtForSort } from '@/lib/dailyJobDate';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Factory bersama untuk 3 route CRUD yang identik strukturnya:
@@ -56,12 +57,6 @@ function toJakartaTimestamp(): string {
   });
 }
 
-function parseCreatedAt(str: string): number {
-  if (!str) return 0;
-  const cleaned = str.replace(',', '').replace(/\./g, ':');
-  const t = new Date(cleaned).getTime();
-  return isNaN(t) ? 0 : t;
-}
 
 function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
@@ -132,7 +127,7 @@ export function makeDailyJobReportRoutes(map: ReportFieldMap) {
         });
       }
 
-      const sorted = [...filtered].sort((a: any, b: any) => parseCreatedAt(b.created_at) - parseCreatedAt(a.created_at));
+      const sorted = [...filtered].sort((a: any, b: any) => parseCreatedAtForSort(b.created_at) - parseCreatedAtForSort(a.created_at));
       return NextResponse.json(sorted);
     } catch (error) {
       console.error(`GET ${sheetName} error:`, error);

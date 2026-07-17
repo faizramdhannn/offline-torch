@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData } from '@/lib/sheets';
+import { jakartaDateKeyFromCreatedAt, todayJakartaKey, parseCreatedAtForSort } from '@/lib/dailyJobDate';
 
 // GET /api/daily-job/report?from=YYYY-MM-DD&to=YYYY-MM-DD
 //
@@ -26,22 +27,6 @@ import { getSheetData } from '@/lib/sheets';
 // denominator would require importing the HR/store employee roster, which is
 // out of scope for this backend pass. Treat `completion_rate` as an
 // approximation, not an authoritative HR metric.
-
-function parseCreatedAt(str: string): number {
-  if (!str) return 0;
-  const cleaned = str.replace(',', '').replace(/\./g, ':');
-  const t = new Date(cleaned).getTime();
-  return isNaN(t) ? 0 : t;
-}
-
-function jakartaDateKey(epochMs: number): string {
-  if (!epochMs) return '';
-  return new Date(epochMs).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
-}
-
-function todayJakartaKey(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
-}
 
 function daysAgoJakartaKey(days: number): string {
   const d = new Date();
@@ -70,13 +55,13 @@ export async function GET(request: NextRequest) {
     const inRange = (dateKey: string) => dateKey && dateKey >= from && dateKey <= to;
 
     const checklistInRange = checklistRows.filter((r: any) =>
-      inRange(jakartaDateKey(parseCreatedAt(r.created_at)))
+      inRange(jakartaDateKeyFromCreatedAt(r.created_at))
     );
 
     // ── dailyTrend: sum of total_error_* per calendar day across all taft ──
     const trendMap = new Map<string, { total_error_delivery_note: number; total_error_sales_order: number; total_error_stock_entry: number }>();
     for (const r of checklistInRange as any[]) {
-      const key = jakartaDateKey(parseCreatedAt(r.created_at));
+      const key = jakartaDateKeyFromCreatedAt(r.created_at);
       if (!key) continue;
       const entry = trendMap.get(key) || { total_error_delivery_note: 0, total_error_sales_order: 0, total_error_stock_entry: 0 };
       entry.total_error_delivery_note += num(r.total_error_delivery_note);
@@ -96,7 +81,7 @@ export async function GET(request: NextRequest) {
 
     const completedByDay = new Map<string, Set<string>>();
     for (const r of checklistInRange as any[]) {
-      const key = jakartaDateKey(parseCreatedAt(r.created_at));
+      const key = jakartaDateKeyFromCreatedAt(r.created_at);
       if (!key || !r.taft_by) continue;
       if (!completedByDay.has(key)) completedByDay.set(key, new Set());
       completedByDay.get(key)!.add(r.taft_by);
@@ -109,7 +94,7 @@ export async function GET(request: NextRequest) {
         return { date, completed_count, total_taft_count: totalTaftCount, completion_rate };
       });
 
-    const sortDesc = (rows: any[]) => [...rows].sort((a, b) => parseCreatedAt(b.created_at) - parseCreatedAt(a.created_at));
+    const sortDesc = (rows: any[]) => [...rows].sort((a, b) => parseCreatedAtForSort(b.created_at) - parseCreatedAtForSort(a.created_at));
 
     return NextResponse.json({
       dailyTrend,

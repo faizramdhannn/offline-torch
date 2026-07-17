@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { jakartaDateKeyFromCreatedAt, todayJakartaKey } from "@/lib/dailyJobDate";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared "remaining error reports" computation for Daily Job, used by both
@@ -28,25 +29,9 @@ export interface DailyJobRemaining {
   refresh: () => void;
 }
 
-function parseCreatedAt(str: string): number {
-  if (!str) return 0;
-  const cleaned = str.replace(",", "").replace(/\./g, ":");
-  const t = new Date(cleaned).getTime();
-  return isNaN(t) ? 0 : t;
-}
-
-function jakartaDateKey(epochMs: number): string {
-  if (!epochMs) return "";
-  return new Date(epochMs).toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
-}
-
-function todayJakartaKey(): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
-}
-
 function countToday(rows: any[]): number {
   const todayKey = todayJakartaKey();
-  return rows.filter((r) => jakartaDateKey(parseCreatedAt(r?.created_at)) === todayKey).length;
+  return rows.filter((r) => jakartaDateKeyFromCreatedAt(r?.created_at) === todayKey).length;
 }
 
 export function useDailyJobRemaining(
