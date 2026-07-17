@@ -21,7 +21,7 @@ const EXEMPT_PATHS = ["/login", "/capture-attendance", "/daily-job/checklist"];
  *   per explicit product decision — they never fill a checklist).
  * - Users without `daily_checklist` are unaffected (gate doesn't apply).
  * - Users with `daily_checklist`: gate shows whenever today's checklist row
- *   (`GET /api/daily-job/checklist?userName=...`) is null/empty.
+ *   (`GET /api/daily-job/checklist?userName=...&name=...`) is null/empty.
  *
  * This hook does NOT know about the attendance gate — composition (attendance
  * gate takes priority, checklist gate only shows once attendance is
