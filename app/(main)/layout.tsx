@@ -9,7 +9,6 @@ import AttendanceGateModal from "@/components/AttendanceGateModal";
 import { useAttendanceGate } from "@/hooks/useAttendanceGate";
 import DailyChecklistGateModal from "@/components/DailyChecklistGateModal";
 import { useDailyChecklistGate } from "@/hooks/useDailyChecklistGate";
-import DailyJobAlertBanner from "@/components/DailyJobAlertBanner";
 
 function MainLayoutInner({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
@@ -65,7 +64,6 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
       </div>
       <main className={`flex-1 overflow-auto min-w-0 ${entering ? "ml-enter-content" : ""}`}>
         <div className="md:hidden h-12" />
-        <DailyJobAlertBanner />
         {children}
       </main>
 

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import { Button } from "@/components/shared/Button";
 import { useDailyJobRemaining } from "@/hooks/useDailyJobRemaining";
-import { Plus, Pencil, Trash2, Image as ImageIcon, Camera, Upload, Clock } from "lucide-react";
+import { Plus, Pencil, Trash2, Image as ImageIcon, Camera, Upload, Clock, Bell } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared implementation for the 3 near-identical Daily Job error-report CRUD
@@ -108,7 +108,7 @@ export default function ErrorReportPage({ config }: { config: ErrorReportPageCon
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
 
-  const remaining = useDailyJobRemaining(user?.user_name);
+  const remaining = useDailyJobRemaining(user?.user_name, user?.name);
 
   const showMessage = (msg: string, type: "success" | "error") => {
     setPopupMessage(msg);
@@ -154,7 +154,7 @@ export default function ErrorReportPage({ config }: { config: ErrorReportPageCon
     if (!user) return;
     setLoading(true);
     try {
-      const res = await fetch(`${endpoint}?userName=${encodeURIComponent(user.user_name)}`, { cache: "no-store" });
+      const res = await fetch(`${endpoint}?userName=${encodeURIComponent(user.user_name)}&name=${encodeURIComponent(user.name || "")}`, { cache: "no-store" });
       if (res.ok) setRows(await res.json());
     } catch {
       showMessage("Gagal memuat data", "error");
@@ -279,6 +279,17 @@ export default function ErrorReportPage({ config }: { config: ErrorReportPageCon
   return (
     <div className="p-3 md:p-4 max-w-[1200px] mx-auto">
       <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
+
+      {/* Pemberitahuan gaya notifikasi — hanya muncul DI HALAMAN INI, kalau
+          report jenis ini sendiri masih punya sisa error yang harus diisi. */}
+      {!remaining.loading && remainingForType > 0 && (
+        <div className="mb-3 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+          <Bell className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-800">
+            Lengkapi <span className="font-semibold">{remainingForType} laporan {title}</span> hari ini sesuai jumlah error yang tercatat di Daily Checklist.
+          </p>
+        </div>
+      )}
 
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <div>

@@ -59,7 +59,7 @@ export function useDailyChecklistGate(): DailyChecklistGateState {
       }
 
       const res = await fetch(
-        `/api/daily-job/checklist?userName=${encodeURIComponent(user.user_name || "")}`,
+        `/api/daily-job/checklist?userName=${encodeURIComponent(user.user_name || "")}&name=${encodeURIComponent(user.name || "")}`,
         { cache: "no-store" }
       );
       if (!res.ok) {

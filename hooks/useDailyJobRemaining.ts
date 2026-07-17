@@ -49,7 +49,10 @@ function countToday(rows: any[]): number {
   return rows.filter((r) => jakartaDateKey(parseCreatedAt(r?.created_at)) === todayKey).length;
 }
 
-export function useDailyJobRemaining(userName: string | undefined | null): DailyJobRemaining {
+export function useDailyJobRemaining(
+  userName: string | undefined | null,
+  name?: string | undefined | null
+): DailyJobRemaining {
   const [state, setState] = useState({
     delivery_note: 0,
     sales_order: 0,
@@ -63,7 +66,7 @@ export function useDailyJobRemaining(userName: string | undefined | null): Daily
       return;
     }
     try {
-      const qs = `userName=${encodeURIComponent(userName)}`;
+      const qs = `userName=${encodeURIComponent(userName)}${name ? `&name=${encodeURIComponent(name)}` : ""}`;
       const [checklistRes, dnRes, soRes, seRes] = await Promise.all([
         fetch(`/api/daily-job/checklist?${qs}`, { cache: "no-store" }),
         fetch(`/api/daily-job/delivery-note?${qs}`, { cache: "no-store" }),
@@ -93,7 +96,7 @@ export function useDailyJobRemaining(userName: string | undefined | null): Daily
     } catch {
       setState((s) => ({ ...s, loading: false }));
     }
-  }, [userName]);
+  }, [userName, name]);
 
   useEffect(() => {
     load();

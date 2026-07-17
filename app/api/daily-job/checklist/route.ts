@@ -97,6 +97,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const userName = (searchParams.get('userName') || '').trim();
+    const name = (searchParams.get('name') || '').trim();
     const all = searchParams.get('all') === 'true';
     const scope = searchParams.get('scope');
 
@@ -111,26 +112,34 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing userName' }, { status: 400 });
     }
 
-    // "taft_by" sekarang adalah nama taft yang DIPILIH dari dropdown (konsep
-    // sama seperti request_discount/Employee Discount), BUKAN lagi identitas
-    // login persis — jadi tidak bisa lagi match exact `taft_by === userName`.
-    // Checklist ini logically "per TOKO per hari" (siapa pun taft di toko itu
-    // yang mengisi dianggap tugas toko selesai) — resolve dulu daftar nama
-    // taft yang valid untuk toko user ini (sama resolusi yang dipakai
-    // Employee Discount, berdasarkan master_traffic), lalu match taft_by ke
-    // salah satu nama itu. Fallback ke exact-match kalau resolusi toko gagal
-    // (misal user tidak match store manapun) supaya tidak selalu "belum
-    // pernah isi" untuk data lama yang taft_by-nya kebetulan = user_name.
-    let mine: any[];
+    // "taft_by" adalah nama taft yang DIPILIH dari dropdown (konsep sama
+    // seperti request_discount/Employee Discount), BUKAN identitas login
+    // persis — jadi tidak bisa exact-match ke userName. Checklist ini
+    // logically "per TOKO per hari" (siapa pun taft di toko itu yang mengisi
+    // dianggap tugas toko selesai).
+    //
+    // Dua jalur pencocokan, digabung (OR) supaya lebih tahan terhadap
+    // kegagalan salah satu:
+    //  1. `name` (kolom `name`, selalu = user.name, sama persis konsisten
+    //     seperti fitur lain di app ini) — paling andal, tidak tergantung
+    //     resolusi toko lain berhasil atau tidak.
+    //  2. taft_by ada di daftar taft valid untuk toko user (resolusi sama
+    //     seperti Employee Discount, berdasarkan master_traffic) — fallback
+    //     kalau `name` tidak dikirim oleh caller lama.
+    let validNames = new Set<string>();
     try {
       const { taftsForStore } = await getEmployeeDiscountTaft(userName);
-      const validNames = new Set((taftsForStore || []).map((t: string) => t.toLowerCase().trim()));
-      mine = validNames.size > 0
-        ? rows.filter((r: any) => validNames.has((r.taft_by || '').toLowerCase().trim()))
-        : rows.filter((r: any) => r.taft_by === userName);
+      validNames = new Set((taftsForStore || []).map((t: string) => t.toLowerCase().trim()));
     } catch {
-      mine = rows.filter((r: any) => r.taft_by === userName);
+      // ignore — fall through to name-based / exact-match matching below
     }
+
+    const mine = rows.filter((r: any) => {
+      if (name && r.name === name) return true;
+      if (validNames.size > 0 && validNames.has((r.taft_by || '').toLowerCase().trim())) return true;
+      if (validNames.size === 0 && !name && r.taft_by === userName) return true;
+      return false;
+    });
 
     // ?all=true — seluruh riwayat checklist taft ini (bukan hanya hari ini).
     if (all) {

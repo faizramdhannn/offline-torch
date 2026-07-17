@@ -267,7 +267,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     pathname === "/daily-job/stock-entry" ||
     pathname === "/daily-job/report";
 
-  const dailyJobRemaining = useDailyJobRemaining(showDailyJobGroup ? loginName : undefined);
+  const dailyJobRemaining = useDailyJobRemaining(showDailyJobGroup ? loginName : undefined, showDailyJobGroup ? userName : undefined);
 
   const menuItems: MenuItem[] = [
     {

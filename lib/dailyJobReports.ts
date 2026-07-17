@@ -101,28 +101,35 @@ export function makeDailyJobReportRoutes(map: ReportFieldMap) {
     try {
       const { searchParams } = new URL(request.url);
       const userName = (searchParams.get('userName') || '').trim();
+      const name = (searchParams.get('name') || '').trim();
       const all = searchParams.get('all') === 'true';
 
       const rows = await getSheetData(sheetName);
 
       // "taft_by" adalah nama taft yang DIPILIH dari dropdown (konsep sama
       // seperti request_discount), bukan identitas login persis — jadi tidak
-      // bisa exact-match ke userName. Resolve dulu daftar nama taft yang
-      // valid untuk toko user ini (sama seperti app/api/daily-job/checklist),
-      // fallback ke exact-match kalau resolusi toko gagal/kosong.
+      // bisa exact-match ke userName. Dua jalur pencocokan digabung (OR),
+      // sama seperti app/api/daily-job/checklist/route.ts:
+      //  1. `name` (kolom `name`, selalu = user.name) — paling andal.
+      //  2. taft_by ada di daftar taft valid untuk toko user (resolusi
+      //     berdasarkan master_traffic, sama seperti Employee Discount).
       let filtered: any[];
-      if (all || !userName) {
+      if (all || (!userName && !name)) {
         filtered = rows;
       } else {
+        let validNames = new Set<string>();
         try {
           const { taftsForStore } = await getEmployeeDiscountTaft(userName);
-          const validNames = new Set((taftsForStore || []).map((t: string) => t.toLowerCase().trim()));
-          filtered = validNames.size > 0
-            ? rows.filter((r: any) => validNames.has((r.taft_by || '').toLowerCase().trim()))
-            : rows.filter((r: any) => r.taft_by === userName);
+          validNames = new Set((taftsForStore || []).map((t: string) => t.toLowerCase().trim()));
         } catch {
-          filtered = rows.filter((r: any) => r.taft_by === userName);
+          // ignore — fall through to name-based / exact-match matching below
         }
+        filtered = rows.filter((r: any) => {
+          if (name && r.name === name) return true;
+          if (validNames.size > 0 && validNames.has((r.taft_by || '').toLowerCase().trim())) return true;
+          if (validNames.size === 0 && !name && r.taft_by === userName) return true;
+          return false;
+        });
       }
 
       const sorted = [...filtered].sort((a: any, b: any) => parseCreatedAt(b.created_at) - parseCreatedAt(a.created_at));
