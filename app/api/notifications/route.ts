@@ -7,6 +7,19 @@ import { createNotification } from '@/lib/notifications';
 // di sheet, cuma tidak ikut ditampilkan/dihitung di badge unread.
 const MAX_NOTIFICATIONS = 30;
 
+// created_at disimpan dalam format locale id-ID, contoh: "24 Jul 2026, 14.54.19".
+// `new Date(...)` TIDAK bisa parse format ini langsung (jadi Invalid Date /
+// NaN), yang bikin sort "terbaru dulu" diam-diam gagal dan balik ke urutan
+// alami sheet (lama di atas). Normalisasi dulu sebelum di-parse — pola yang
+// sama dipakai di beberapa halaman frontend (mis. material-issue) untuk
+// masalah yang sama.
+function parseCreatedAt(str: string): number {
+  if (!str) return 0;
+  const cleaned = str.replace(",", "").replace(/\./g, ":");
+  const t = new Date(cleaned).getTime();
+  return isNaN(t) ? 0 : t;
+}
+
 // GET ?userName=xxx
 // Menggabungkan notifikasi scope 'all' (custom broadcast dari admin) dengan
 // scope 'user' yang target_user-nya = userName, lalu tandai masing-masing
@@ -31,9 +44,7 @@ export async function GET(request: NextRequest) {
     const visible = allRows.filter((n: any) => n.scope === 'all' || n.target_user === userName);
 
     const sorted = [...visible].sort((a: any, b: any) => {
-      const tA = new Date(a.created_at || 0).getTime();
-      const tB = new Date(b.created_at || 0).getTime();
-      return tB - tA;
+      return parseCreatedAt(b.created_at) - parseCreatedAt(a.created_at);
     }).slice(0, MAX_NOTIFICATIONS);
 
     const result = sorted.map((n: any) => ({ ...n, read: readSet.has(n.id) }));
