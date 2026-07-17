@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
 import { uploadDailyJobErrorPhoto, DailyJobReportType } from '@/lib/dailyJobDrive';
+import { getEmployeeDiscountTaft } from '@/app/api/employee-discount/lib/taft';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Factory bersama untuk 3 route CRUD yang identik strukturnya:
@@ -103,7 +104,26 @@ export function makeDailyJobReportRoutes(map: ReportFieldMap) {
       const all = searchParams.get('all') === 'true';
 
       const rows = await getSheetData(sheetName);
-      const filtered = all || !userName ? rows : rows.filter((r: any) => r.taft_by === userName);
+
+      // "taft_by" adalah nama taft yang DIPILIH dari dropdown (konsep sama
+      // seperti request_discount), bukan identitas login persis — jadi tidak
+      // bisa exact-match ke userName. Resolve dulu daftar nama taft yang
+      // valid untuk toko user ini (sama seperti app/api/daily-job/checklist),
+      // fallback ke exact-match kalau resolusi toko gagal/kosong.
+      let filtered: any[];
+      if (all || !userName) {
+        filtered = rows;
+      } else {
+        try {
+          const { taftsForStore } = await getEmployeeDiscountTaft(userName);
+          const validNames = new Set((taftsForStore || []).map((t: string) => t.toLowerCase().trim()));
+          filtered = validNames.size > 0
+            ? rows.filter((r: any) => validNames.has((r.taft_by || '').toLowerCase().trim()))
+            : rows.filter((r: any) => r.taft_by === userName);
+        } catch {
+          filtered = rows.filter((r: any) => r.taft_by === userName);
+        }
+      }
 
       const sorted = [...filtered].sort((a: any, b: any) => parseCreatedAt(b.created_at) - parseCreatedAt(a.created_at));
       return NextResponse.json(sorted);

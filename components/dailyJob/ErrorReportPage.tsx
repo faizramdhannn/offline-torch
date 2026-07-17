@@ -67,6 +67,7 @@ function toJakartaTimestamp(): string {
 }
 
 interface FormState {
+  taftBy: string;
   errorValue: string;
   category: string;
   notes: string;
@@ -75,7 +76,7 @@ interface FormState {
   file: File | null;
 }
 
-const emptyForm: FormState = { errorValue: "", category: "", notes: "", solved: "", solvedAt: "", file: null };
+const emptyForm: FormState = { taftBy: "", errorValue: "", category: "", notes: "", solved: "", solvedAt: "", file: null };
 
 export default function ErrorReportPage({ config }: { config: ErrorReportPageConfig }) {
   const router = useRouter();
@@ -93,6 +94,7 @@ export default function ErrorReportPage({ config }: { config: ErrorReportPageCon
   const [showHistory, setShowHistory] = useState(false);
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
   const [solvedOptions, setSolvedOptions] = useState<string[]>([]);
+  const [taftOptions, setTaftOptions] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -133,6 +135,21 @@ export default function ErrorReportPage({ config }: { config: ErrorReportPageCon
     } catch {}
   }, [dropdownCategoryKey, dropdownSolvedKey]);
 
+  // Taft By: sama konsep seperti Employee Discount/Daily Checklist — dipilih
+  // dari daftar taft toko ini, BUKAN otomatis = user.user_name. Penting supaya
+  // hitungan "sudah diisi hari ini" (useDailyJobRemaining) match dengan cara
+  // backend meresolusi taft_by (lihat lib/dailyJobReports.ts).
+  const fetchTaftOptions = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await fetch(`/api/employee-discount?resource=taft&userName=${encodeURIComponent(user.user_name || "")}`);
+      if (res.ok) {
+        const j = await res.json();
+        setTaftOptions(j.taftsForStore || []);
+      }
+    } catch {}
+  }, [user]);
+
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -149,8 +166,9 @@ export default function ErrorReportPage({ config }: { config: ErrorReportPageCon
   useEffect(() => {
     if (!user) return;
     fetchDropdowns();
+    fetchTaftOptions();
     fetchData();
-  }, [user, fetchDropdowns, fetchData]);
+  }, [user, fetchDropdowns, fetchTaftOptions, fetchData]);
 
   const canEdit = !!user?.daily_checklist;
 
@@ -160,7 +178,7 @@ export default function ErrorReportPage({ config }: { config: ErrorReportPageCon
   const buildFormData = (existingId?: string) => {
     const fd = new FormData();
     if (existingId) fd.append("id", existingId);
-    fd.append("taft_by", user.user_name);
+    fd.append("taft_by", form.taftBy);
     fd.append("name", user.name);
     fd.append("role_taft", user.role_taft || "");
     fd.append(errorField, form.errorValue);
@@ -173,6 +191,10 @@ export default function ErrorReportPage({ config }: { config: ErrorReportPageCon
   };
 
   const handleCreate = async () => {
+    if (!form.taftBy) {
+      showMessage("Taft By wajib dipilih", "error");
+      return;
+    }
     if (!form.errorValue.trim()) {
       showMessage("Field error wajib diisi", "error");
       return;
@@ -196,6 +218,7 @@ export default function ErrorReportPage({ config }: { config: ErrorReportPageCon
   const openEdit = (row: ErrorReportRow) => {
     setEditingRow(row);
     setForm({
+      taftBy: row.taft_by || "",
       errorValue: row[errorField] || "",
       category: row[categoryField] || "",
       notes: row[notesField] || "",
@@ -287,6 +310,7 @@ export default function ErrorReportPage({ config }: { config: ErrorReportPageCon
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
                 <th className="px-2 py-2 text-left border-r border-gray-200">Tanggal</th>
+                <th className="px-2 py-2 text-left border-r border-gray-200">Taft By</th>
                 <th className="px-2 py-2 text-left border-r border-gray-200">{errorFieldLabel}</th>
                 <th className="px-2 py-2 text-left border-r border-gray-200">Kategori</th>
                 <th className="px-2 py-2 text-left border-r border-gray-200">Notes</th>
@@ -298,13 +322,14 @@ export default function ErrorReportPage({ config }: { config: ErrorReportPageCon
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="text-center py-6 text-gray-400">Memuat data...</td></tr>
+                <tr><td colSpan={9} className="text-center py-6 text-gray-400">Memuat data...</td></tr>
               ) : displayedRows.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-6 text-gray-400">Tidak ada data</td></tr>
+                <tr><td colSpan={9} className="text-center py-6 text-gray-400">Tidak ada data</td></tr>
               ) : (
                 displayedRows.map((r) => (
                   <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-2 py-2 border-r border-gray-200 whitespace-nowrap">{r.created_at?.split(",")[0]}</td>
+                    <td className="px-2 py-2 border-r border-gray-200">{r.taft_by || "-"}</td>
                     <td className="px-2 py-2 border-r border-gray-200">{r[errorField] || "-"}</td>
                     <td className="px-2 py-2 border-r border-gray-200">{r[categoryField] || "-"}</td>
                     <td className="px-2 py-2 border-r border-gray-200 max-w-[220px] truncate" title={r[notesField]}>{r[notesField] || "-"}</td>
@@ -347,6 +372,19 @@ export default function ErrorReportPage({ config }: { config: ErrorReportPageCon
           <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-semibold mb-4">{showEditModal ? "Edit" : "Tambah"} Laporan {title}</h2>
             <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-500">Taft By</label>
+                <select
+                  value={form.taftBy}
+                  onChange={(e) => setForm((p) => ({ ...p, taftBy: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mt-1"
+                >
+                  <option value="">-- Pilih Taft --</option>
+                  {taftOptions.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label className="text-xs text-gray-500">{errorFieldLabel}</label>
                 <input

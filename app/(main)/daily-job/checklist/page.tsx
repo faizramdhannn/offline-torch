@@ -34,7 +34,10 @@ interface ChecklistRow {
   stock_entry_notes: string;
 }
 
+const STATUS_OPTIONS = ["Clear", "Issue"];
+
 interface FormState {
+  taft_by: string;
   role_taft: string;
   cleaning_store_checklist: boolean;
   vm_report_checklist: boolean;
@@ -57,6 +60,7 @@ interface FormState {
 }
 
 const emptyForm: FormState = {
+  taft_by: "",
   role_taft: "",
   cleaning_store_checklist: false,
   vm_report_checklist: false,
@@ -87,6 +91,7 @@ function strBool(v: string | undefined): boolean {
 
 function rowToForm(row: ChecklistRow): FormState {
   return {
+    taft_by: row.taft_by || "",
     role_taft: row.role_taft || "",
     cleaning_store_checklist: strBool(row.cleaning_store_checklist),
     vm_report_checklist: strBool(row.vm_report_checklist),
@@ -152,6 +157,7 @@ export default function DailyChecklistPage() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [roleTaftOptions, setRoleTaftOptions] = useState<string[]>([]);
+  const [taftOptions, setTaftOptions] = useState<string[]>([]);
 
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
@@ -182,6 +188,19 @@ export default function DailyChecklistPage() {
     } catch {}
   }, []);
 
+  // Taft By: sama konsepnya seperti Employee Discount — resolve dari
+  // master_traffic berdasarkan toko akun yang login (bukan free text).
+  const fetchTaftOptions = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await fetch(`/api/employee-discount?resource=taft&userName=${encodeURIComponent(user.user_name || "")}`);
+      if (res.ok) {
+        const j = await res.json();
+        setTaftOptions(j.taftsForStore || []);
+      }
+    } catch {}
+  }, [user]);
+
   const fetchToday = useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -209,18 +228,23 @@ export default function DailyChecklistPage() {
   useEffect(() => {
     if (!user) return;
     fetchDropdowns();
+    fetchTaftOptions();
     fetchToday();
-  }, [user, fetchDropdowns, fetchToday]);
+  }, [user, fetchDropdowns, fetchTaftOptions, fetchToday]);
 
   const canEdit = !!user?.daily_checklist;
 
   const handleSubmit = async () => {
     if (!user) return;
+    if (!form.taft_by) {
+      showMessage("Taft By wajib dipilih", "error");
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
         id: row?.id,
-        taft_by: user.user_name,
+        taft_by: form.taft_by,
         name: user.name,
         role_taft: form.role_taft,
         cleaning_store_checklist: boolStr(form.cleaning_store_checklist),
@@ -310,6 +334,7 @@ export default function DailyChecklistPage() {
             Diisi: {row.created_at} {row.update_at && row.update_at !== row.created_at ? `(update: ${row.update_at})` : ""}
           </div>
           <div className="grid grid-cols-2 gap-3 text-xs">
+            <div><span className="text-gray-500">Taft By</span><p className="font-semibold">{row.taft_by || "-"}</p></div>
             <div><span className="text-gray-500">Role Taft</span><p className="font-semibold">{row.role_taft || "-"}</p></div>
           </div>
 
@@ -349,6 +374,20 @@ export default function DailyChecklistPage() {
       ) : (
         <div className="bg-white rounded-lg shadow p-4 space-y-4">
           <div>
+            <label className="text-xs text-gray-500">Taft By</label>
+            <select
+              value={form.taft_by}
+              onChange={(e) => setForm((p) => ({ ...p, taft_by: e.target.value }))}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mt-1"
+            >
+              <option value="">-- Pilih Taft --</option>
+              {taftOptions.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label className="text-xs text-gray-500">Role Taft</label>
             <select
               value={form.role_taft}
@@ -371,7 +410,7 @@ export default function DailyChecklistPage() {
           <div className="border-t pt-3 space-y-2">
             <p className="text-xs font-bold text-gray-700">Delivery Note</p>
             <ToggleSwitch label="Checklist selesai" checked={form.delivery_note_checklist} onChange={(v) => setForm((p) => ({ ...p, delivery_note_checklist: v }))} />
-            <FormField label="Status" value={form.status_delivery_note} onChange={(v) => setForm((p) => ({ ...p, status_delivery_note: v }))} />
+            <StatusSelect value={form.status_delivery_note} onChange={(v) => setForm((p) => ({ ...p, status_delivery_note: v }))} />
             <div className="grid grid-cols-2 gap-2">
               <FormField label="Total" value={form.total_delivery_note} onChange={(v) => setForm((p) => ({ ...p, total_delivery_note: v }))} type="number" />
               <FormField label="Total Error" value={form.total_error_delivery_note} onChange={(v) => setForm((p) => ({ ...p, total_error_delivery_note: v }))} type="number" />
@@ -382,7 +421,7 @@ export default function DailyChecklistPage() {
           <div className="border-t pt-3 space-y-2">
             <p className="text-xs font-bold text-gray-700">Sales Order</p>
             <ToggleSwitch label="Checklist selesai" checked={form.sales_order_checklist} onChange={(v) => setForm((p) => ({ ...p, sales_order_checklist: v }))} />
-            <FormField label="Status" value={form.status_sales_order} onChange={(v) => setForm((p) => ({ ...p, status_sales_order: v }))} />
+            <StatusSelect value={form.status_sales_order} onChange={(v) => setForm((p) => ({ ...p, status_sales_order: v }))} />
             <div className="grid grid-cols-2 gap-2">
               <FormField label="Total" value={form.total_sales_order} onChange={(v) => setForm((p) => ({ ...p, total_sales_order: v }))} type="number" />
               <FormField label="Total Error" value={form.total_error_sales_order} onChange={(v) => setForm((p) => ({ ...p, total_error_sales_order: v }))} type="number" />
@@ -393,7 +432,7 @@ export default function DailyChecklistPage() {
           <div className="border-t pt-3 space-y-2">
             <p className="text-xs font-bold text-gray-700">Stock Entry</p>
             <ToggleSwitch label="Checklist selesai" checked={form.stock_entry_checklist} onChange={(v) => setForm((p) => ({ ...p, stock_entry_checklist: v }))} />
-            <FormField label="Status" value={form.status_stock_entry} onChange={(v) => setForm((p) => ({ ...p, status_stock_entry: v }))} />
+            <StatusSelect value={form.status_stock_entry} onChange={(v) => setForm((p) => ({ ...p, status_stock_entry: v }))} />
             <div className="grid grid-cols-2 gap-2">
               <FormField label="Total" value={form.total_stock_entry} onChange={(v) => setForm((p) => ({ ...p, total_stock_entry: v }))} type="number" />
               <FormField label="Total Error" value={form.total_error_stock_entry} onChange={(v) => setForm((p) => ({ ...p, total_error_stock_entry: v }))} type="number" />
@@ -442,6 +481,30 @@ function ReadField({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between text-xs py-1">
       <span className="text-gray-500">{label}</span>
       <span className="font-medium text-gray-800">{value || "-"}</span>
+    </div>
+  );
+}
+
+function StatusSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <label className="text-[11px] text-gray-500">Status</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm mt-0.5"
+      >
+        <option value="">-- Pilih Status --</option>
+        {STATUS_OPTIONS.map((s) => (
+          <option key={s} value={s}>{s}</option>
+        ))}
+      </select>
     </div>
   );
 }
