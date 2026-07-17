@@ -113,10 +113,11 @@ export async function GET(request: NextRequest) {
       // ignore — fall through to name-based / exact-match matching below
     }
 
+    const nameKey = name.toLowerCase().trim();
     const mine = rows.filter((r: any) => {
-      if (name && r.name === name) return true;
+      if (nameKey && (r.name || '').toLowerCase().trim() === nameKey) return true;
       if (validNames.size > 0 && validNames.has((r.taft_by || '').toLowerCase().trim())) return true;
-      if (validNames.size === 0 && !name && r.taft_by === userName) return true;
+      if (validNames.size === 0 && !nameKey && (r.taft_by || '').toLowerCase().trim() === userName.toLowerCase().trim()) return true;
       return false;
     });
 
