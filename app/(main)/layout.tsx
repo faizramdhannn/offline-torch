@@ -22,7 +22,7 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
   // tidak memicu animasi ini lagi.
   const [entering, setEntering] = useState(false);
 
-  const { showGate, storeName, dismissGate } = useAttendanceGate();
+  const { showGate, storeName, dismissGate, checked: attendanceChecked } = useAttendanceGate();
   // Checklist gate is only shown once the attendance gate isn't currently
   // blocking (attendance gate takes priority — see composition below).
   const { showGate: showChecklistGate, dismissGate: dismissChecklistGate } = useDailyChecklistGate();
@@ -74,9 +74,12 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
         <AttendanceGateModal storeName={storeName} onDismiss={dismissGate} />
       )}
 
-      {/* Daily Checklist gate — attendance gate takes priority; this only
-          shows once attendance is satisfied/not-applicable. */}
-      {!showGate && showChecklistGate && (
+      {/* Daily Checklist gate — attendance gate takes priority. Wait until
+          attendance's own check has FULLY resolved (attendanceChecked) before
+          ever showing this, otherwise a faster daily-job-checklist fetch can
+          flash this gate before attendance status is confirmed — showing the
+          two gates in the wrong order. */}
+      {attendanceChecked && !showGate && showChecklistGate && (
         <DailyChecklistGateModal onDismiss={dismissChecklistGate} />
       )}
     </div>

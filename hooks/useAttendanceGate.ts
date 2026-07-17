@@ -7,6 +7,11 @@ interface AttendanceGateState {
   showGate: boolean;
   storeName: string;
   dismissGate: () => void;
+  /** True once the attendance check has resolved (success or failure). Used
+   *  by useDailyChecklistGate's composition in layout.tsx to make sure it
+   *  never shows before attendance status is confirmed — otherwise the
+   *  faster daily-job-checklist fetch could flash the wrong gate first. */
+  checked: boolean;
 }
 
 const EXEMPT_PATHS = ["/login", "/capture-attendance"];
@@ -99,5 +104,5 @@ export function useAttendanceGate(): AttendanceGateState {
     setShowGate(false);
   }, []);
 
-  return { showGate: checked ? showGate : false, storeName, dismissGate };
+  return { showGate: checked ? showGate : false, storeName, dismissGate, checked };
 }
