@@ -6,17 +6,19 @@ import { jakartaDateKeyFromCreatedAt, todayJakartaKey, parseCreatedAtForSort } f
 //
 // Aggregation endpoint for the `daily_checklist_all` permission — users with
 // this permission see EVERY taft's data (no per-user filtering), used to
-// power charts/tables in the follow-up frontend pass. Defaults to the last
-// 30 days (Asia/Jakarta) when `from`/`to` are omitted.
+// power charts/tables in the follow-up frontend pass. Defaults to ALL
+// history (Asia/Jakarta) up to today when `from`/`to` are omitted — the
+// frontend's per-tab date filter narrows this by passing both params.
 //
 // Response shape:
 //   {
 //     dailyTrend: { date, total_error_delivery_note, total_error_sales_order, total_error_stock_entry }[],
 //     completionTrend: { date, completed_count, total_taft_count, completion_rate }[],
-//     checklistRows: [...raw daily_checklist rows, newest first],
-//     deliveryNoteRows: [...raw delivery_note_report rows, newest first],
-//     salesOrderRows: [...raw sales_order_report rows, newest first],
-//     stockEntryRows: [...raw stock_entry_report rows, newest first],
+//     deliveryNoteTrend: { date, count }[],
+//     salesOrderTrend: { date, count }[],
+//     stockEntryTrend: { date, count }[],
+//     checklistRows/deliveryNoteRows/salesOrderRows/stockEntryRows:
+//       [...raw rows within [from, to], newest first],
 //   }
 //
 // KNOWN SIMPLIFICATION (documented for the frontend-building agent):
@@ -28,35 +30,45 @@ import { jakartaDateKeyFromCreatedAt, todayJakartaKey, parseCreatedAtForSort } f
 // out of scope for this backend pass. Treat `completion_rate` as an
 // approximation, not an authoritative HR metric.
 
-function daysAgoJakartaKey(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
-}
-
 function num(v: any): number {
   const n = parseFloat(v);
   return isNaN(n) ? 0 : n;
 }
 
+function countByDay(rows: any[]): { date: string; count: number }[] {
+  const map = new Map<string, number>();
+  for (const r of rows) {
+    const key = jakartaDateKeyFromCreatedAt(r.created_at);
+    if (!key) continue;
+    map.set(key, (map.get(key) || 0) + 1);
+  }
+  return [...map.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([date, count]) => ({ date, count }));
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const from = searchParams.get('from') || daysAgoJakartaKey(30);
+    const from = searchParams.get('from') || '';
     const to = searchParams.get('to') || todayJakartaKey();
 
-    const [checklistRows, deliveryNoteRows, salesOrderRows, stockEntryRows] = await Promise.all([
+    const [checklistRowsAll, deliveryNoteRowsAll, salesOrderRowsAll, stockEntryRowsAll] = await Promise.all([
       getSheetData('daily_checklist'),
       getSheetData('delivery_note_report'),
       getSheetData('sales_order_report'),
       getSheetData('stock_entry_report'),
     ]);
 
-    const inRange = (dateKey: string) => dateKey && dateKey >= from && dateKey <= to;
+    const inRange = (dateKey: string) => !!dateKey && (!from || dateKey >= from) && dateKey <= to;
+    const filterByRange = (rows: any[]) => rows.filter((r: any) => inRange(jakartaDateKeyFromCreatedAt(r.created_at)));
 
-    const checklistInRange = checklistRows.filter((r: any) =>
-      inRange(jakartaDateKeyFromCreatedAt(r.created_at))
-    );
+    const checklistRows = filterByRange(checklistRowsAll);
+    const deliveryNoteRows = filterByRange(deliveryNoteRowsAll);
+    const salesOrderRows = filterByRange(salesOrderRowsAll);
+    const stockEntryRows = filterByRange(stockEntryRowsAll);
+
+    const checklistInRange = checklistRows;
 
     // ── dailyTrend: sum of total_error_* per calendar day across all taft ──
     const trendMap = new Map<string, { total_error_delivery_note: number; total_error_sales_order: number; total_error_stock_entry: number }>();
@@ -76,7 +88,7 @@ export async function GET(request: NextRequest) {
     // ── completionTrend: distinct taft who filled a checklist that day ─────
     // Denominator: distinct taft_by across ALL daily_checklist rows (full
     // dataset, not just the selected range) — see KNOWN SIMPLIFICATION above.
-    const allTaftEver = new Set((checklistRows as any[]).map((r: any) => r.taft_by).filter(Boolean));
+    const allTaftEver = new Set((checklistRowsAll as any[]).map((r: any) => r.taft_by).filter(Boolean));
     const totalTaftCount = allTaftEver.size;
 
     const completedByDay = new Map<string, Set<string>>();
@@ -99,6 +111,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       dailyTrend,
       completionTrend,
+      deliveryNoteTrend: countByDay(deliveryNoteRows),
+      salesOrderTrend: countByDay(salesOrderRows),
+      stockEntryTrend: countByDay(stockEntryRows),
       checklistRows: sortDesc(checklistRows),
       deliveryNoteRows: sortDesc(deliveryNoteRows),
       salesOrderRows: sortDesc(salesOrderRows),
