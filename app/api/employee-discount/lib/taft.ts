@@ -18,27 +18,52 @@ const STORE_NAME_MAP: Record<string, string> = {
   purwokerto: 'Purwokerto', surabaya: 'Surabaya', tambun: 'Tambun',
 };
 
-async function getMasterTraffic() {
-  const auth = new google.auth.GoogleAuth({
-    credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
-  const sheets = google.sheets({ version: 'v4', auth });
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: process.env.SPREADSHEET_TRAFFIC || '',
-    range: 'master_traffic!A1:ZZ',
-  });
+// getEmployeeDiscountTaft() is called on nearly every Daily Job /
+// Employee Discount request (checklist, delivery-note, sales-order,
+// stock-entry, badges, gates...), so without a cache it hits the Google
+// Sheets API directly every single time — a major contributor to the
+// "Quota exceeded for quota metric 'Read requests'" errors seen in
+// production. Cache + single-flight dedup here, mirroring the pattern
+// already used by lib/sheets.ts for everything else.
+const MASTER_TRAFFIC_CACHE_TTL_MS = 60_000;
+let masterTrafficCache: { data: any[]; expiresAt: number } | null = null;
+let masterTrafficInFlight: Promise<any[]> | null = null;
 
-  const rows = response.data.values || [];
-  if (rows.length === 0) return [];
-  const headers = rows[0];
-  return rows.slice(1).map((row: string[]) => {
-    const obj: any = {};
-    headers.forEach((header: string, i: number) => {
-      obj[header] = row[i] || '';
+async function getMasterTraffic(): Promise<any[]> {
+  if (masterTrafficCache && masterTrafficCache.expiresAt > Date.now()) {
+    return masterTrafficCache.data;
+  }
+  if (masterTrafficInFlight) return masterTrafficInFlight;
+
+  masterTrafficInFlight = (async () => {
+    const auth = new google.auth.GoogleAuth({
+      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
-    return obj;
-  });
+    const sheets = google.sheets({ version: 'v4', auth });
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SPREADSHEET_TRAFFIC || '',
+      range: 'master_traffic!A1:ZZ',
+    });
+
+    const rows = response.data.values || [];
+    const data = rows.length === 0 ? [] : rows.slice(1).map((row: string[]) => {
+      const obj: any = {};
+      rows[0].forEach((header: string, i: number) => {
+        obj[header] = row[i] || '';
+      });
+      return obj;
+    });
+
+    masterTrafficCache = { data, expiresAt: Date.now() + MASTER_TRAFFIC_CACHE_TTL_MS };
+    return data;
+  })();
+
+  try {
+    return await masterTrafficInFlight;
+  } finally {
+    masterTrafficInFlight = null;
+  }
 }
 
 export async function getEmployeeDiscountTaft(userNameRaw: string) {
