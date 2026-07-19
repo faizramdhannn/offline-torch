@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { jakartaDateKeyFromCreatedAt, todayJakartaKey } from "@/lib/dailyJobDate";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -83,11 +84,21 @@ export function useDailyJobRemaining(
     }
   }, [userName, name]);
 
+  const pathname = usePathname();
+  const inDailyJobMenu = !!pathname?.startsWith("/daily-job");
+
   useEffect(() => {
     load();
-    const interval = setInterval(load, 30_000);
-    return () => clearInterval(interval);
   }, [load]);
+
+  // Sidebar mounts this hook globally for the whole session, so instead of
+  // polling every 30s on every page (4 sheet reads x every logged-in user —
+  // a major Fluid CPU cost driver), only refresh again when the user actually
+  // opens a Daily Job menu (badges only need to be fresh right before/while
+  // acting on them there).
+  useEffect(() => {
+    if (inDailyJobMenu) load();
+  }, [inDailyJobMenu, load]);
 
   return { ...state, totalRemaining: state.delivery_note + state.sales_order + state.stock_entry, refresh: load };
 }

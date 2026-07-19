@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { usePathname } from "next/navigation";
 
 interface DailyChecklistGateState {
@@ -12,6 +12,16 @@ interface DailyChecklistGateState {
 // must be exempt so the gate doesn't block the very page it sends the user
 // to.
 const EXEMPT_PATHS = ["/login", "/capture-attendance", "/daily-job/checklist"];
+
+// This hook runs from app/(main)/layout.tsx, so it re-mounts/re-fires on
+// EVERY client-side navigation across the whole app — without a cache that
+// means one GET /api/daily-job/checklist per page visit, all day, for every
+// user with daily_checklist access (a real Fluid CPU cost driver). Cache the
+// result in module scope for CACHE_TTL_MS so rapid navigation reuses the same
+// answer instead of re-fetching; it's invalidated early when the user leaves
+// /daily-job/checklist (they likely just submitted today's row).
+const CACHE_TTL_MS = 60_000;
+let cache: { userKey: string; filled: boolean; ts: number } | null = null;
 
 /**
  * useDailyChecklistGate
@@ -32,8 +42,9 @@ export function useDailyChecklistGate(): DailyChecklistGateState {
   const pathname = usePathname();
   const [showGate, setShowGate] = useState(false);
   const [checked, setChecked] = useState(false);
+  const prevPathRef = useRef<string | null>(null);
 
-  const checkChecklist = useCallback(async () => {
+  const checkChecklist = useCallback(async (forceRefresh: boolean) => {
     if (EXEMPT_PATHS.some((p) => pathname?.startsWith(p))) {
       setShowGate(false);
       return;
@@ -58,6 +69,14 @@ export function useDailyChecklistGate(): DailyChecklistGateState {
         return;
       }
 
+      const userKey = user.user_name || user.name || "";
+      const now = Date.now();
+      if (!forceRefresh && cache && cache.userKey === userKey && now - cache.ts < CACHE_TTL_MS) {
+        setShowGate(!cache.filled);
+        setChecked(true);
+        return;
+      }
+
       const res = await fetch(
         `/api/daily-job/checklist?userName=${encodeURIComponent(user.user_name || "")}&name=${encodeURIComponent(user.name || "")}`,
         { cache: "no-store" }
@@ -67,7 +86,9 @@ export function useDailyChecklistGate(): DailyChecklistGateState {
         return;
       }
       const row = await res.json();
-      setShowGate(!row);
+      const filled = !!row;
+      cache = { userKey, filled, ts: now };
+      setShowGate(!filled);
     } catch {
       // Silently fail — never block the user on network errors
     } finally {
@@ -76,8 +97,14 @@ export function useDailyChecklistGate(): DailyChecklistGateState {
   }, [pathname]);
 
   useEffect(() => {
-    if (!EXEMPT_PATHS.some((p) => pathname?.startsWith(p))) {
-      checkChecklist();
+    const isExempt = EXEMPT_PATHS.some((p) => pathname?.startsWith(p));
+    // Leaving /daily-job/checklist likely means the user just submitted
+    // today's row — force a fresh check instead of trusting the cache.
+    const leftChecklistPage = !!prevPathRef.current?.startsWith("/daily-job/checklist") && !pathname?.startsWith("/daily-job/checklist");
+    prevPathRef.current = pathname;
+
+    if (!isExempt) {
+      checkChecklist(leftChecklistPage);
     } else {
       setShowGate(false);
     }
