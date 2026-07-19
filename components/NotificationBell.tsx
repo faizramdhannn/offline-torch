@@ -36,17 +36,52 @@ export default function NotificationBell({ userName, canAddCustom, isCollapsed }
 
   const unreadCount = items.filter((n) => !n.read).length;
 
-  const fetchNotifications = async () => {
+  // Cache hasil fetch di localStorage per user, supaya (a) tampilan langsung
+  // terisi dari cache saat komponen mount (bukan blank sambil nunggu network),
+  // dan (b) hard-refresh/re-mount yang terjadi dalam CACHE_TTL_MS tidak perlu
+  // nembak API lagi — mengurangi jumlah invocation /api/notifications yang
+  // sebelumnya terus-menerus muncul di log Vercel dari banyak user aktif.
+  const CACHE_TTL_MS = 60_000;
+  const cacheKey = `notif_cache_${userName}`;
+
+  const fetchNotifications = async (opts?: { skipIfFresh?: boolean }) => {
     if (!userName) return;
+    if (opts?.skipIfFresh) {
+      try {
+        const raw = localStorage.getItem(cacheKey);
+        if (raw) {
+          const cached = JSON.parse(raw);
+          if (Date.now() - cached.ts < CACHE_TTL_MS) {
+            setItems(cached.items);
+            return;
+          }
+        }
+      } catch {}
+    }
     try {
       const res = await fetch(`/api/notifications?userName=${encodeURIComponent(userName)}`);
-      if (res.ok) setItems(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setItems(data);
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({ items: data, ts: Date.now() }));
+        } catch {}
+      }
     } catch {}
   };
 
   useEffect(() => {
+    // Tampilkan cache dulu (kalau ada) supaya tidak blank, lalu tetap fetch
+    // fresh di background (bukan skip) supaya read-status tetap akurat.
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (raw) setItems(JSON.parse(raw).items || []);
+    } catch {}
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30_000);
+    // Interval dinaikkan dari 30s -> 90s: notifikasi tidak butuh real-time
+    // sedetail itu, dan ini memotong jumlah request ~3x untuk setiap user
+    // yang sedang aktif di aplikasi.
+    const interval = setInterval(() => fetchNotifications(), 90_000);
     return () => clearInterval(interval);
   }, [userName]);
 
