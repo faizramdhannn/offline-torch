@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { usePathname } from "next/navigation";
 
 interface AttendanceGateState {
@@ -16,6 +16,17 @@ interface AttendanceGateState {
 
 const EXEMPT_PATHS = ["/login", "/capture-attendance"];
 
+// This hook lives in app/(main)/layout.tsx, so it re-fires on EVERY
+// client-side navigation across the whole app — without a cache that's two
+// GET requests (store_list meta + today's attendance) per page visit, for
+// every store-PIC login, all day (a real Fluid CPU cost driver — same issue
+// the daily-job checklist gate had). Cache the result in module scope for
+// CACHE_TTL_MS so rapid navigation reuses the same answer instead of
+// re-fetching; invalidated early when leaving /capture-attendance (the user
+// likely just checked in).
+const CACHE_TTL_MS = 60_000;
+let cache: { userKey: string; showGate: boolean; storeName: string; ts: number } | null = null;
+
 /**
  * useAttendanceGate
  *
@@ -30,8 +41,9 @@ export function useAttendanceGate(): AttendanceGateState {
   const [showGate, setShowGate] = useState(false);
   const [storeName, setStoreName] = useState("");
   const [checked, setChecked] = useState(false);
+  const prevPathRef = useRef<string | null>(null);
 
-  const checkAttendance = useCallback(async () => {
+  const checkAttendance = useCallback(async (forceRefresh: boolean) => {
     if (EXEMPT_PATHS.some((p) => pathname?.startsWith(p))) {
       setShowGate(false);
       return;
@@ -46,6 +58,15 @@ export function useAttendanceGate(): AttendanceGateState {
       // Only relevant for users with capture-attendance permission
       if (!user.attendance_store && !user.attendance_store_all) return;
 
+      const userKey = user.user_name || "";
+      const now0 = Date.now();
+      if (!forceRefresh && cache && cache.userKey === userKey && now0 - cache.ts < CACHE_TTL_MS) {
+        setShowGate(cache.showGate);
+        setStoreName(cache.storeName);
+        setChecked(true);
+        return;
+      }
+
       // ── Step 1: Is this user a store PIC? ─────────────────────────────────
      const storeRes = await fetch("/api/capture-attendance/meta?type=store_list",
   { cache: 'no-store' }
@@ -59,6 +80,7 @@ export function useAttendanceGate(): AttendanceGateState {
 
       // Not in store_list → free access, no gate
       if (!matchedStore) {
+        cache = { userKey, showGate: false, storeName: "", ts: now0 };
         setShowGate(false);
         setChecked(true);
         return;
@@ -84,6 +106,7 @@ export function useAttendanceGate(): AttendanceGateState {
       // Sudah open (dengan atau tanpa close) → bebas akses.
       const hasCheckedIn = !!record?.open_timestamp;
 
+      cache = { userKey, showGate: !hasCheckedIn, storeName: matchedStore.store_name, ts: now0 };
       setShowGate(!hasCheckedIn);
     } catch {
       // Silently fail — never block the user on network errors
@@ -93,12 +116,18 @@ export function useAttendanceGate(): AttendanceGateState {
   }, [pathname]);
 
   useEffect(() => {
-  if (!EXEMPT_PATHS.some((p) => pathname?.startsWith(p))) {
-    checkAttendance();
+  const isExempt = EXEMPT_PATHS.some((p) => pathname?.startsWith(p));
+  // Leaving /capture-attendance likely means the user just checked in —
+  // force a fresh check instead of trusting the cache.
+  const leftAttendancePage = !!prevPathRef.current?.startsWith("/capture-attendance") && !pathname?.startsWith("/capture-attendance");
+  prevPathRef.current = pathname;
+
+  if (!isExempt) {
+    checkAttendance(leftAttendancePage);
   } else {
     setShowGate(false);
   }
-}, [pathname]);
+}, [pathname, checkAttendance]);
 
   const dismissGate = useCallback(() => {
     setShowGate(false);

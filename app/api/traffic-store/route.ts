@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { withCache } from '@/lib/sheets';
 
 const SPREADSHEET_TRAFFIC = process.env.SPREADSHEET_TRAFFIC || '';
 
@@ -156,7 +157,10 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type') || 'data';
 
     if (type === 'master') {
-      const master = await getTrafficSheetData('master_traffic');
+      // master_traffic is dropdown-only data here (rarely written, read on
+      // every Traffic Store page load) — cache it instead of hitting Sheets
+      // API directly every time.
+      const master = await withCache('traffic_store_master_traffic', 60_000, () => getTrafficSheetData('master_traffic'));
       return NextResponse.json(master.map(({ __rowIndex, ...rest }: any) => rest));
     }
 

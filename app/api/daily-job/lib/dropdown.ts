@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import { withCache } from '@/lib/sheets';
 
 // Sama persis pola app/api/employee-discount/lib/dropdown.ts: baca tab
 // master_dropdown di spreadsheet SPREADSHEET_MATERIAL_ISSUE lewat client
@@ -13,25 +14,27 @@ import { google } from 'googleapis';
 //  - error_category_sales_order   / error_solved_sales_order
 //  - error_category_stock_entry   / error_solved_stock_entry
 async function getMasterDropdownRows() {
-  const auth = new google.auth.GoogleAuth({
-    credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
-  const sheets = google.sheets({ version: 'v4', auth });
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: process.env.SPREADSHEET_MATERIAL_ISSUE || '',
-    range: 'master_dropdown!A1:ZZ',
-  });
-
-  const rows = response.data.values || [];
-  if (rows.length === 0) return [];
-  const headers = rows[0];
-  return rows.slice(1).map((row: string[]) => {
-    const obj: any = {};
-    headers.forEach((header: string, i: number) => {
-      obj[header] = row[i] || null;
+  return withCache('daily_job_master_dropdown', 120_000, async () => {
+    const auth = new google.auth.GoogleAuth({
+      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
-    return obj;
+    const sheets = google.sheets({ version: 'v4', auth });
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SPREADSHEET_MATERIAL_ISSUE || '',
+      range: 'master_dropdown!A1:ZZ',
+    });
+
+    const rows = response.data.values || [];
+    if (rows.length === 0) return [];
+    const headers = rows[0];
+    return rows.slice(1).map((row: string[]) => {
+      const obj: any = {};
+      headers.forEach((header: string, i: number) => {
+        obj[header] = row[i] || null;
+      });
+      return obj;
+    });
   });
 }
 

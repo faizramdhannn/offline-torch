@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import { withCache } from './sheets';
 
 // store_address hidup di spreadsheet TERPISAH (SPREADSHEET_STORE) dari sheet
 // yang dipakai fitur Attendance (`store_list`, di SPREADSHEET_ATTENDANCE) —
@@ -26,37 +27,42 @@ function getGoogleCredentials() {
   }
 }
 
+// Dipanggil dari gate/meta hooks yang bisa fire di hampir setiap navigasi
+// (useAttendanceGate, attendance/meta, capture-attendance/meta) — cache di
+// sini supaya tidak nembak Sheets API di setiap pindah halaman.
 export async function getStoreAddressList(): Promise<StoreAddressRow[]> {
-  const spreadsheetId = process.env.SPREADSHEET_STORE;
-  if (!spreadsheetId) {
-    throw new Error('SPREADSHEET_STORE environment variable is not set');
-  }
+  return withCache('store_address_list', 60_000, async () => {
+    const spreadsheetId = process.env.SPREADSHEET_STORE;
+    if (!spreadsheetId) {
+      throw new Error('SPREADSHEET_STORE environment variable is not set');
+    }
 
-  const credentials = getGoogleCredentials();
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    const credentials = getGoogleCredentials();
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    });
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: 'store_address!A:E', // E = status (kolom baru)
+    });
+
+    const rows = response.data.values || [];
+    if (rows.length < 2) return [];
+
+    return rows
+      .slice(1)
+      .filter((row: string[]) => row.some((cell) => cell && cell.trim() !== ''))
+      .map((row: string[]) => ({
+        id: row[0] || '',
+        store_location: row[1] || '',
+        phone_number: row[2] || '',
+        address: row[3] || '',
+        status: row[4] || '',
+      }));
   });
-  const sheets = google.sheets({ version: 'v4', auth });
-
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: 'store_address!A:E', // E = status (kolom baru)
-  });
-
-  const rows = response.data.values || [];
-  if (rows.length < 2) return [];
-
-  return rows
-    .slice(1)
-    .filter((row: string[]) => row.some((cell) => cell && cell.trim() !== ''))
-    .map((row: string[]) => ({
-      id: row[0] || '',
-      store_location: row[1] || '',
-      phone_number: row[2] || '',
-      address: row[3] || '',
-      status: row[4] || '',
-    }));
 }
 
 function isActiveStatus(status: string): boolean {

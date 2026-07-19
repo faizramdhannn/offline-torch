@@ -341,6 +341,39 @@ export async function getSheetData(
   return fetchPromise;
 }
 
+// ✅ Cache generik (TTL + single-flight) untuk pembacaan yang TIDAK lewat
+// getSheetData di atas — misal modul yang bikin google.sheets client-nya
+// sendiri (lib/storeAddress.ts, app/api/*/lib/dropdown.ts, traffic-store,
+// dsb). Tanpa ini, tiap modul begini nembak Sheets API langsung setiap
+// request, yang gampang kena "Quota exceeded... Read requests per minute"
+// kalau banyak user/tab akses hampir bersamaan. Pakai key unik per data
+// (bukan per sheet-name saja, karena beberapa modul baca spreadsheet yang
+// berbeda dari getSheetData's SPREADSHEET_MAP untuk nama sheet yang sama).
+const _genericCache = new Map<string, { data: any; expiresAt: number }>();
+const _genericInFlight = new Map<string, Promise<any>>();
+
+export async function withCache<T>(key: string, ttlMs: number, fetcher: () => Promise<T>): Promise<T> {
+  const cached = _genericCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+  const pending = _genericInFlight.get(key);
+  if (pending) return pending;
+
+  const promise = fetcher()
+    .then((data) => {
+      _genericCache.set(key, { data, expiresAt: Date.now() + ttlMs });
+      _genericInFlight.delete(key);
+      return data;
+    })
+    .catch((err) => {
+      _genericInFlight.delete(key);
+      throw err;
+    });
+
+  _genericInFlight.set(key, promise);
+  return promise;
+}
+
 // ✅ Ambil isi sheet APA ADANYA (header di baris 1 + seluruh baris data),
 // tanpa dikonversi jadi array-of-object seperti getSheetData. Dipakai untuk
 // snapshot mentah (misal result_stock/pca_stock → *_yesterday) supaya urutan

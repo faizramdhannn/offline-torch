@@ -1,27 +1,33 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { getSheetData } from '@/lib/sheets';
+import { getSheetData, withCache } from '@/lib/sheets';
 
+// Cache key ('daily_job_master_dropdown') sengaja SAMA dengan
+// app/api/daily-job/lib/dropdown.ts dan app/api/employee-discount/lib/dropdown.ts
+// — ketiganya baca sheet & range yang identik (master_dropdown di
+// SPREADSHEET_MATERIAL_ISSUE), jadi berbagi satu hasil cache.
 async function getMasterDropdown() {
-  const auth = new google.auth.GoogleAuth({
-    credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
-  const sheets = google.sheets({ version: 'v4', auth });
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: process.env.SPREADSHEET_MATERIAL_ISSUE || '',
-    range: 'master_dropdown!A1:ZZ',
-  });
-
-  const rows = response.data.values || [];
-  if (rows.length === 0) return [];
-  const headers = rows[0];
-  return rows.slice(1).map((row: string[]) => {
-    const obj: any = {};
-    headers.forEach((header: string, i: number) => {
-      obj[header] = row[i] || null;
+  return withCache('daily_job_master_dropdown', 120_000, async () => {
+    const auth = new google.auth.GoogleAuth({
+      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
-    return obj;
+    const sheets = google.sheets({ version: 'v4', auth });
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SPREADSHEET_MATERIAL_ISSUE || '',
+      range: 'master_dropdown!A1:ZZ',
+    });
+
+    const rows = response.data.values || [];
+    if (rows.length === 0) return [];
+    const headers = rows[0];
+    return rows.slice(1).map((row: string[]) => {
+      const obj: any = {};
+      headers.forEach((header: string, i: number) => {
+        obj[header] = row[i] || null;
+      });
+      return obj;
+    });
   });
 }
 

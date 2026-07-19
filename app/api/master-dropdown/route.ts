@@ -1,26 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { getSheetData } from '@/lib/sheets';
+import { getSheetData, withCache } from '@/lib/sheets';
 
 async function getMasterDropdownFromStore() {
-  const auth = new google.auth.GoogleAuth({
-    credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
-  const sheets = google.sheets({ version: 'v4', auth });
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: process.env.SPREADSHEET_STORE || '',
-    range: 'master_dropdown!A1:ZZ',
-  });
-  const rows = response.data.values || [];
-  if (rows.length === 0) return [];
-  const headers = rows[0];
-  return rows.slice(1).map((row: string[]) => {
-    const obj: any = {};
-    headers.forEach((header: string, index: number) => {
-      obj[header] = row[index] || null;
+  return withCache('store_master_dropdown', 120_000, async () => {
+    const auth = new google.auth.GoogleAuth({
+      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
-    return obj;
+    const sheets = google.sheets({ version: 'v4', auth });
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SPREADSHEET_STORE || '',
+      range: 'master_dropdown!A1:ZZ',
+    });
+    const rows = response.data.values || [];
+    if (rows.length === 0) return [];
+    const headers = rows[0];
+    return rows.slice(1).map((row: string[]) => {
+      const obj: any = {};
+      headers.forEach((header: string, index: number) => {
+        obj[header] = row[index] || null;
+      });
+      return obj;
+    });
   });
 }
 
