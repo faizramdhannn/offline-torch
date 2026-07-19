@@ -23,7 +23,28 @@ interface NotificationBellProps {
   isCollapsed?: boolean;
 }
 
+// Notifikasi dimatikan sementara (banyak invocation /api/notifications di
+// Fluid Compute) — icon lonceng tetap tampil di sidebar tapi tidak melakukan
+// fetch/polling/aktivitas apapun. Kodenya sengaja DIPERTAHANKAN (bukan
+// dihapus) di bawah supaya gampang dinyalakan lagi: tinggal ubah ke `false`.
+const NOTIFICATIONS_DISABLED = true;
+
 export default function NotificationBell({ userName, canAddCustom, isCollapsed }: NotificationBellProps) {
+  if (NOTIFICATIONS_DISABLED) {
+    return (
+      <button
+        type="button"
+        title="Notifikasi (nonaktif sementara)"
+        aria-disabled="true"
+        className={`relative flex items-center justify-center rounded-lg text-white/60 bg-white/8 cursor-default ${
+          isCollapsed ? "w-full h-8" : "w-8 h-8 shrink-0"
+        }`}
+      >
+        <Bell className="w-4 h-4" />
+      </button>
+    );
+  }
+
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [open, setOpen] = useState(false);
   const [showBubble, setShowBubble] = useState(false);
