@@ -27,6 +27,10 @@ interface StockTableProps {
   showHpp: boolean;
   showHpt: boolean;
   showHpj: boolean;
+  /** Kolom Stock di tab PCA khusus digate akses stock_pca_view — beda dari
+   *  stock_view_pca (yang gate akses ke seluruh tab PCA). Tidak berlaku
+   *  untuk tab store, yang selalu menampilkan Stock. */
+  showStockPca: boolean;
   toProperCase: (s: string) => string;
   parseDiscount: (v: string | undefined | null) => number;
   parseHarga: (v: string | undefined | null) => number;
@@ -217,6 +221,7 @@ export function StockTable({
   showHpp,
   showHpt,
   showHpj,
+  showStockPca,
   toProperCase,
   parseDiscount,
   parseHarga,
@@ -230,9 +235,11 @@ export function StockTable({
   const thProps = { sortColumn, sortDirection, onSort };
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
+  const showStockColumn = selectedView === "store" || (selectedView === "pca" && showStockPca);
+
   const columnCount =
     6 + // Img, SKU, Product Name, Category, Grade, Tier Product
-    (selectedView !== "master" ? 1 : 0) + // Stock
+    (showStockColumn ? 1 : 0) + // Stock
     (selectedView === "pca" ? 1 : 0) + // Threshold
     (selectedView === "store" ? 1 : 0) + // Warehouse
     (showHpp ? 1 : 0) +
@@ -250,7 +257,7 @@ export function StockTable({
             <SortableTh label="Category" column="category" {...thProps} />
             <SortableTh label="Grade" column="grade" {...thProps} />
             <SortableTh label="Tier Product" column="tier_product" {...thProps} />
-            {selectedView !== "master" && (
+            {showStockColumn && (
               <SortableTh label="Stock" column="stock" {...thProps} />
             )}
             {selectedView === "pca" && (
@@ -304,7 +311,7 @@ export function StockTable({
               <td className="whitespace-nowrap px-2 py-1 text-gray-600">{toProperCase(item.category)}</td>
               <td className="whitespace-nowrap px-2 py-1 text-gray-600">{toProperCase(item.grade)}</td>
               <td className="whitespace-nowrap px-2 py-1 text-gray-600">{toProperCase(item.tier_product)}</td>
-              {selectedView !== "master" && (
+              {showStockColumn && (
                 <td className="whitespace-nowrap px-2 py-1 font-medium text-gray-700">{item.stock}</td>
               )}
               {selectedView === "pca" && <ThresholdCell item={item} />}

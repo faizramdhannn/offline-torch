@@ -40,6 +40,7 @@ interface UserData {
   stock_view_hpp: string;
   stock_view_hpt: string;
   stock_view_hpj: string;
+  stock_pca_view: string;
   stock_refresh_javelin: string;
   traffic_store: string;
   report_store: string;
@@ -121,6 +122,7 @@ const PERM_GROUPS: {
       { key: "stock_view_hpp",       label: "HPP" },
       { key: "stock_view_hpt",       label: "HPT" },
       { key: "stock_view_hpj",       label: "HPJ" },
+      { key: "stock_pca_view",       label: "Stock PCA" },
       { key: "stock_opname",         label: "STO" },
       { key: "stock_opname_report",  label: "STO Rpt" },
     ],

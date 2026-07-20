@@ -110,6 +110,7 @@ export async function PUT(request: NextRequest) {
         permissions.employee_discount_approval ? 'TRUE' : 'FALSE', // BE
         permissions.daily_checklist ? 'TRUE' : 'FALSE',             // BF
         permissions.daily_checklist_all ? 'TRUE' : 'FALSE',         // BG
+        permissions.stock_pca_view ? 'TRUE' : 'FALSE',              // BH
       ];
 
       await appendSheetData('users', [newUser]);

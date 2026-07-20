@@ -19,15 +19,15 @@ interface ChecklistRow {
   taft_by: string;
   role_taft: string;
   name: string;
-  opening_checklist: string;
-  operational_checklist: string;
-  closing_checklist: string;
+  checklist_opening: string;
+  checklist_operational: string;
+  checklist_closing: string;
 }
 
 const CATEGORIES = [
-  { key: "opening_checklist", label: "Opening Store" },
-  { key: "operational_checklist", label: "Operational Store" },
-  { key: "closing_checklist", label: "Closing Store" },
+  { key: "checklist_opening", label: "Opening Store" },
+  { key: "checklist_operational", label: "Operational Store" },
+  { key: "checklist_closing", label: "Closing Store" },
 ] as const;
 
 type CategoryKey = (typeof CATEGORIES)[number]["key"];
@@ -40,9 +40,9 @@ interface DropdownData {
 }
 
 const CATEGORY_TO_DROPDOWN_KEY: Record<CategoryKey, keyof DropdownData> = {
-  opening_checklist: "checklist_opening",
-  operational_checklist: "checklist_operational",
-  closing_checklist: "checklist_closing",
+  checklist_opening: "checklist_opening",
+  checklist_operational: "checklist_operational",
+  checklist_closing: "checklist_closing",
 };
 
 function parseItems(str: string | undefined | null): string[] {

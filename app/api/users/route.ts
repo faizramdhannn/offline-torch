@@ -160,6 +160,7 @@ export async function PUT(request: NextRequest) {
       r("employee_discount_approval"), // BE
       r("daily_checklist"),           // BF
       r("daily_checklist_all"),       // BG
+      r("stock_pca_view"),             // BH
     ];
 
     console.log(`Updating row ${rowIndex} with ${updatedRow.length} columns`);

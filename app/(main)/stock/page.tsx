@@ -545,7 +545,7 @@ export default function StockPage() {
   const exportToExcel = () => {
     const exportData = filteredData.map((item) => {
       const base: any = { SKU: item.sku, "Product Name": toProperCase(item.item_name), Category: toProperCase(item.category), Grade: toProperCase(item.grade) };
-      if (selectedView !== "master") base["Stock"] = item.stock;
+      if (selectedView === "store" || (selectedView === "pca" && user?.stock_pca_view)) base["Stock"] = item.stock;
       if (selectedView === "store") base["Warehouse"] = item.warehouse;
       if (selectedView === "pca") base["Threshold"] = item.threshold || "";
       if (user?.stock_view_hpp) base["HPP"] = item.hpp;
@@ -930,6 +930,7 @@ export default function StockPage() {
                 showHpp={!!user.stock_view_hpp}
                 showHpt={!!user.stock_view_hpt}
                 showHpj={!!user.stock_view_hpj}
+                showStockPca={!!user.stock_pca_view}
                 toProperCase={toProperCase}
                 parseDiscount={parseDiscount}
                 parseHarga={parseHarga}

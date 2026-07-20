@@ -10,9 +10,9 @@ import { jakartaDateKeyFromCreatedAt, todayJakartaKey, parseCreatedAtForSort } f
 //
 // Kolom (A-I, 9 kolom, urutan HARUS persis seperti ini):
 //   id, created_at, update_at, taft_by, role_taft, name,
-//   opening_checklist, operational_checklist, closing_checklist
+//   checklist_opening, checklist_operational, checklist_closing
 //
-// opening_checklist/operational_checklist/closing_checklist masing-masing
+// checklist_opening/checklist_operational/checklist_closing masing-masing
 // berisi STRING dipisah koma dari nama-nama item yang SUDAH dicentang, mis.
 // "Cleaning Store,VM Report,WhatsApp Group" — BUKAN kolom boolean per item.
 // Daftar item per kategori itu sendiri dinamis, datang dari master_dropdown
@@ -52,9 +52,9 @@ function generateId(): string {
 }
 
 const CHECKLIST_FIELDS = [
-  'opening_checklist',
-  'operational_checklist',
-  'closing_checklist',
+  'checklist_opening',
+  'checklist_operational',
+  'checklist_closing',
 ] as const;
 
 function buildRow(existing: any, fields: any, now: string): any[] {

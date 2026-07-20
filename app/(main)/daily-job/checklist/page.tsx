@@ -16,18 +16,18 @@ interface ChecklistRow {
   taft_by: string;
   role_taft: string;
   name: string;
-  opening_checklist: string;
-  operational_checklist: string;
-  closing_checklist: string;
+  checklist_opening: string;
+  checklist_operational: string;
+  checklist_closing: string;
 }
 
 // Item checklist per kategori sekarang dinamis (dari master_dropdown, lihat
 // /api/daily-job/dropdown), BUKAN daftar hardcoded — supaya nambah/hapus
 // item cukup edit master_dropdown, tanpa ubah kode.
 const CATEGORIES = [
-  { key: "opening_checklist", label: "Opening Store" },
-  { key: "operational_checklist", label: "Operational Store" },
-  { key: "closing_checklist", label: "Closing Store" },
+  { key: "checklist_opening", label: "Opening Store" },
+  { key: "checklist_operational", label: "Operational Store" },
+  { key: "checklist_closing", label: "Closing Store" },
 ] as const;
 
 type CategoryKey = (typeof CATEGORIES)[number]["key"];
@@ -40,9 +40,9 @@ interface DropdownData {
 }
 
 const CATEGORY_TO_DROPDOWN_KEY: Record<CategoryKey, keyof DropdownData> = {
-  opening_checklist: "checklist_opening",
-  operational_checklist: "checklist_operational",
-  closing_checklist: "checklist_closing",
+  checklist_opening: "checklist_opening",
+  checklist_operational: "checklist_operational",
+  checklist_closing: "checklist_closing",
 };
 
 // "Item A,Item B" -> ["Item A", "Item B"]
@@ -57,26 +57,26 @@ function joinItems(items: string[]): string {
 interface FormState {
   taft_by: string;
   role_taft: string;
-  opening_checklist: string[];
-  operational_checklist: string[];
-  closing_checklist: string[];
+  checklist_opening: string[];
+  checklist_operational: string[];
+  checklist_closing: string[];
 }
 
 const emptyForm = (): FormState => ({
   taft_by: "",
   role_taft: "",
-  opening_checklist: [],
-  operational_checklist: [],
-  closing_checklist: [],
+  checklist_opening: [],
+  checklist_operational: [],
+  checklist_closing: [],
 });
 
 function rowToForm(row: ChecklistRow): FormState {
   return {
     taft_by: row.taft_by || "",
     role_taft: row.role_taft || "",
-    opening_checklist: parseItems(row.opening_checklist),
-    operational_checklist: parseItems(row.operational_checklist),
-    closing_checklist: parseItems(row.closing_checklist),
+    checklist_opening: parseItems(row.checklist_opening),
+    checklist_operational: parseItems(row.checklist_operational),
+    checklist_closing: parseItems(row.checklist_closing),
   };
 }
 
@@ -251,9 +251,9 @@ export default function DailyChecklistPage() {
         taft_by: form.taft_by,
         name: user.name,
         role_taft: form.role_taft,
-        opening_checklist: joinItems(form.opening_checklist),
-        operational_checklist: joinItems(form.operational_checklist),
-        closing_checklist: joinItems(form.closing_checklist),
+        checklist_opening: joinItems(form.checklist_opening),
+        checklist_operational: joinItems(form.checklist_operational),
+        checklist_closing: joinItems(form.checklist_closing),
       };
 
       const res = await fetch("/api/daily-job/checklist", {
