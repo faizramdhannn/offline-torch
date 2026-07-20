@@ -591,6 +591,14 @@ export default function StockPage() {
   });
 
   // ── PCA chart data ────────────────────────────────────────────────────────
+  // Kolom Stock di tab PCA sendiri sudah digate stock_pca_view (lihat
+  // StockTable) — chart-nya juga tidak boleh diam-diam bocorin angka stock
+  // yang sama lewat visualisasi ke user yang tidak punya akses itu. Untuk
+  // user TANPA stock_pca_view, chart PCA pakai kolom Threshold sebagai
+  // gantinya.
+  const pcaChartField: "stock" | "threshold" = user?.stock_pca_view ? "stock" : "threshold";
+  const pcaChartLabel = pcaChartField === "stock" ? "Stock" : "Threshold";
+
   const parseStock = (val: string | number) =>
     parseInt((val || "0").toString().replace(/[^0-9-]/g, "")) || 0;
 
@@ -598,14 +606,14 @@ export default function StockPage() {
     .sort()
     .map((cat) => ({
       name: cat,
-      stock: filteredData.filter((i) => i.category === cat).reduce((s, i) => s + parseStock(i.stock), 0),
+      stock: filteredData.filter((i) => i.category === cat).reduce((s, i) => s + parseStock(i[pcaChartField] || ""), 0),
     }));
 
   const pcaGradeChartData = [...new Set(filteredData.map((i) => i.grade).filter(Boolean))]
     .sort()
     .map((grade) => ({
       name: grade,
-      stock: filteredData.filter((i) => i.grade === grade).reduce((s, i) => s + parseStock(i.stock), 0),
+      stock: filteredData.filter((i) => i.grade === grade).reduce((s, i) => s + parseStock(i[pcaChartField] || ""), 0),
     }));
 
   const pcaActiveData = pcaChartMode === "category" ? pcaCategoryChartData : pcaGradeChartData;
@@ -788,8 +796,8 @@ export default function StockPage() {
 
           {selectedView === "pca" && (
             <ChartPanel
-              title="PCA Stock Summary"
-              totalLabel="Total Stock"
+              title={`PCA ${pcaChartLabel} Summary`}
+              totalLabel={`Total ${pcaChartLabel}`}
               totalValue={pcaTotalStock.toLocaleString()}
               modes={[{ key: "category", label: "Category" }, { key: "grade", label: "Grade" }]}
               activeMode={pcaChartMode}
@@ -807,7 +815,7 @@ export default function StockPage() {
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                       <XAxis dataKey="name" tick={<CustomXTick />} axisLine={false} tickLine={false} interval={0} height={24} />
                       <YAxis tick={{ ...chartAxisTick, fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={28} />
-                      <Tooltip content={<PCATooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                      <Tooltip content={<PCATooltip metricLabel={pcaChartLabel} />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                       <Bar
                         dataKey="stock"
                         radius={[3, 3, 0, 0]}
