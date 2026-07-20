@@ -18,13 +18,12 @@ const STORE_NAME_MAP: Record<string, string> = {
   purwokerto: 'Purwokerto', surabaya: 'Surabaya', tambun: 'Tambun',
 };
 
-// getEmployeeDiscountTaft() is called on nearly every Daily Job /
-// Employee Discount request (checklist, delivery-note, sales-order,
-// stock-entry, badges, gates...), so without a cache it hits the Google
-// Sheets API directly every single time — a major contributor to the
-// "Quota exceeded for quota metric 'Read requests'" errors seen in
-// production. Cache + single-flight dedup here, mirroring the pattern
-// already used by lib/sheets.ts for everything else.
+// getEmployeeDiscountTaft() is called on nearly every Daily Job checklist /
+// Employee Discount request, so without a cache it hits the Google Sheets
+// API directly every single time — a major contributor to the "Quota
+// exceeded for quota metric 'Read requests'" errors seen in production.
+// Cache + single-flight dedup here, mirroring the pattern already used by
+// lib/sheets.ts for everything else.
 const MASTER_TRAFFIC_CACHE_TTL_MS = 60_000;
 let masterTrafficCache: { data: any[]; expiresAt: number } | null = null;
 let masterTrafficInFlight: Promise<any[]> | null = null;

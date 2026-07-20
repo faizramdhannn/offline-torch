@@ -1,118 +1,79 @@
 "use client";
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-} from "recharts";
-import { CHART_PALETTE, chartTooltipStyle, chartAxisTick, chartGridStroke } from "@/components/shared/chartStyles";
 import { Pagination } from "@/components/shared/Pagination";
+import { Button } from "@/components/shared/Button";
+import { Eye, Check, X } from "lucide-react";
+import { jakartaDateKeyFromCreatedAt } from "@/lib/dailyJobDate";
 
-interface DailyTrendPoint {
-  date: string;
-  total_error_delivery_note: number;
-  total_error_sales_order: number;
-  total_error_stock_entry: number;
+// Daily Job Report — akses KHUSUS daily_checklist_all: lihat riwayat
+// checklist SEMUA toko (read-only). User dengan hanya daily_checklist
+// (bukan _all) tidak bisa masuk ke halaman ini sama sekali — mereka cuma
+// bisa lihat/isi punya toko sendiri di /daily-job/checklist.
+interface ChecklistRow {
+  id: string;
+  created_at: string;
+  update_at: string;
+  taft_by: string;
+  role_taft: string;
+  name: string;
+  opening_checklist: string;
+  operational_checklist: string;
+  closing_checklist: string;
 }
 
-interface CompletionTrendPoint {
-  date: string;
-  completed_count: number;
-  total_taft_count: number;
-  completion_rate: number;
+const CATEGORIES = [
+  { key: "opening_checklist", label: "Opening Store" },
+  { key: "operational_checklist", label: "Operational Store" },
+  { key: "closing_checklist", label: "Closing Store" },
+] as const;
+
+type CategoryKey = (typeof CATEGORIES)[number]["key"];
+
+interface DropdownData {
+  role_taft: string[];
+  checklist_opening: string[];
+  checklist_operational: string[];
+  checklist_closing: string[];
 }
 
-interface CountTrendPoint {
-  date: string;
-  count: number;
+const CATEGORY_TO_DROPDOWN_KEY: Record<CategoryKey, keyof DropdownData> = {
+  opening_checklist: "checklist_opening",
+  operational_checklist: "checklist_operational",
+  closing_checklist: "checklist_closing",
+};
+
+function parseItems(str: string | undefined | null): string[] {
+  if (!str) return [];
+  return str.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
-interface ReportResponse {
-  dailyTrend: DailyTrendPoint[];
-  completionTrend: CompletionTrendPoint[];
-  deliveryNoteTrend: CountTrendPoint[];
-  salesOrderTrend: CountTrendPoint[];
-  stockEntryTrend: CountTrendPoint[];
-  checklistRows: any[];
-  deliveryNoteRows: any[];
-  salesOrderRows: any[];
-  stockEntryRows: any[];
+function countDone(storedCsv: string, currentItems: string[]): { done: number; total: number } {
+  const stored = new Set(parseItems(storedCsv));
+  const done = currentItems.filter((i) => stored.has(i)).length;
+  return { done, total: currentItems.length };
 }
 
 const ITEMS_PER_PAGE = 10;
-
-const TABS = [
-  { key: "checklist", label: "Daily Checklist" },
-  { key: "delivery", label: "Delivery Note" },
-  { key: "sales", label: "Sales Order" },
-  { key: "stock", label: "Stock Entry" },
-] as const;
-
-type TabKey = (typeof TABS)[number]["key"];
-
-function RawTable({ title, rows, columns }: { title: string; rows: any[]; columns: string[] }) {
-  const [page, setPage] = useState(1);
-  useEffect(() => setPage(1), [rows]);
-  const totalPages = Math.max(1, Math.ceil(rows.length / ITEMS_PER_PAGE));
-  const paged = rows.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
-
-  return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
-        <h3 className="text-sm font-bold text-gray-800">{title}</h3>
-        <span className="text-[11px] text-gray-400">{rows.length} baris</span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-[11px] border-collapse">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
-              {columns.map((c) => (
-                <th key={c} className="px-2 py-2 text-left border-r border-gray-200 whitespace-nowrap last:border-r-0">
-                  {c}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {paged.length === 0 ? (
-              <tr><td colSpan={columns.length} className="text-center py-6 text-gray-400">Tidak ada data</td></tr>
-            ) : (
-              paged.map((r, idx) => (
-                <tr key={r.id || idx} className="border-b border-gray-100 hover:bg-gray-50">
-                  {columns.map((c) => (
-                    <td key={c} className="px-2 py-2 border-r border-gray-200 whitespace-nowrap max-w-[220px] truncate last:border-r-0">
-                      {String(r[c] ?? "-")}
-                    </td>
-                  ))}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-      <Pagination
-        currentPage={page}
-        totalPages={totalPages}
-        onPageChange={setPage}
-        rangeLabel={`${rows.length === 0 ? 0 : (page - 1) * ITEMS_PER_PAGE + 1}-${Math.min(page * ITEMS_PER_PAGE, rows.length)} dari ${rows.length}`}
-      />
-    </div>
-  );
-}
 
 export default function DailyJobReportPage() {
   const router = useRouter();
   useSessionGuard();
 
   const [user, setUser] = useState<any>(null);
-  const [data, setData] = useState<ReportResponse | null>(null);
+  const [rows, setRows] = useState<ChecklistRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabKey>("checklist");
+  const [dropdowns, setDropdowns] = useState<DropdownData>({
+    role_taft: [], checklist_opening: [], checklist_operational: [], checklist_closing: [],
+  });
+  const [page, setPage] = useState(1);
+  const [detailRow, setDetailRow] = useState<ChecklistRow | null>(null);
 
-  // Filter tanggal — kosong berarti "semua hari" (tidak dibatasi rentang).
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [filterStore, setFilterStore] = useState("");
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -122,212 +83,210 @@ export default function DailyJobReportPage() {
     setUser(u);
   }, []);
 
-  const fetchReport = useCallback(async () => {
+  const fetchDropdowns = useCallback(async () => {
+    try {
+      const res = await fetch("/api/daily-job/dropdown");
+      if (res.ok) setDropdowns(await res.json());
+    } catch {}
+  }, []);
+
+  const fetchRows = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (fromDate) params.set("from", fromDate);
-      if (toDate) params.set("to", toDate);
-      const qs = params.toString();
-      const res = await fetch(`/api/daily-job/report${qs ? `?${qs}` : ""}`, { cache: "no-store" });
-      if (res.ok) setData(await res.json());
+      const res = await fetch(`/api/daily-job/checklist?scope=all`, { cache: "no-store" });
+      if (res.ok) setRows(await res.json());
     } catch {
-      // ignore — table stays empty
     } finally {
       setLoading(false);
     }
-  }, [fromDate, toDate]);
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
-    fetchReport();
-  }, [user, fetchReport]);
+    fetchDropdowns();
+    fetchRows();
+  }, [user, fetchDropdowns, fetchRows]);
 
-  const resetFilter = () => {
-    setFromDate("");
-    setToDate("");
-  };
+  useEffect(() => {
+    setPage(1);
+  }, [filterStore, filterFrom, filterTo]);
 
-  const completionTrendPct = useMemo(
-    () =>
-      (data?.completionTrend || []).map((p) => ({
-        ...p,
-        completion_rate_pct: Math.round(p.completion_rate * 1000) / 10,
-      })),
-    [data]
-  );
+  const categoryItems = (key: CategoryKey): string[] => dropdowns[CATEGORY_TO_DROPDOWN_KEY[key]] || [];
 
   if (!user) return null;
 
+  const storeKey = filterStore.trim().toLowerCase();
+  const filteredRows = rows.filter((r) => {
+    if (storeKey && !(r.name || "").toLowerCase().includes(storeKey)) return false;
+    const dateKey = jakartaDateKeyFromCreatedAt(r.created_at);
+    if (filterFrom && (!dateKey || dateKey < filterFrom)) return false;
+    if (filterTo && (!dateKey || dateKey > filterTo)) return false;
+    return true;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / ITEMS_PER_PAGE));
+  const paged = filteredRows.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+  const colCount = 5 + CATEGORIES.length;
+
   return (
-    <div className="p-3 md:p-4 max-w-[1600px] mx-auto space-y-4">
-      <div>
+    <div className="p-3 md:p-4 max-w-full mx-auto">
+      <div className="mb-3">
         <h1 className="text-lg font-bold text-gray-800">Daily Job Report</h1>
-        <p className="text-xs text-gray-500">Ringkasan checklist &amp; laporan error harian seluruh taft</p>
+        <p className="text-xs text-gray-500">Riwayat checklist harian — semua toko</p>
       </div>
 
-      {/* Filter tanggal */}
-      <div className="bg-white rounded-lg shadow p-3 flex flex-wrap items-end gap-3">
+      <div className="bg-white rounded-lg shadow p-3 mb-3 flex flex-wrap items-end gap-3">
+        <div>
+          <label className="block text-[11px] text-gray-500 mb-1">Cari Toko</label>
+          <input
+            type="text"
+            value={filterStore}
+            onChange={(e) => setFilterStore(e.target.value)}
+            placeholder="mis. Torch Tambun"
+            className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs w-48"
+          />
+        </div>
         <div>
           <label className="block text-[11px] text-gray-500 mb-1">Dari Tanggal</label>
           <input
             type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs"
+            value={filterFrom}
+            onChange={(e) => setFilterFrom(e.target.value)}
+            className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs"
           />
         </div>
         <div>
           <label className="block text-[11px] text-gray-500 mb-1">Sampai Tanggal</label>
           <input
             type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs"
+            value={filterTo}
+            onChange={(e) => setFilterTo(e.target.value)}
+            className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs"
           />
         </div>
-        <button
-          onClick={resetFilter}
-          className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50"
-        >
-          Semua Hari
-        </button>
-        <span className="text-[11px] text-gray-400 ml-auto">
-          {fromDate || toDate ? `Menampilkan ${fromDate || "awal"} s/d ${toDate || "hari ini"}` : "Menampilkan semua hari"}
-        </span>
-      </div>
-
-      {/* Tab menu */}
-      <div className="bg-white rounded-lg shadow px-2 pt-2 flex gap-1 overflow-x-auto">
-        {TABS.map((t) => (
+        {(filterStore || filterFrom || filterTo) && (
           <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            className={`px-3 py-2 text-xs font-semibold rounded-t-lg whitespace-nowrap border-b-2 transition-colors ${
-              activeTab === t.key
-                ? "border-primary text-primary"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
+            onClick={() => { setFilterStore(""); setFilterFrom(""); setFilterTo(""); }}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50"
           >
-            {t.label}
+            Reset Filter
           </button>
-        ))}
+        )}
       </div>
 
-      {loading ? (
-        <div className="bg-white rounded-lg shadow p-6 text-center text-gray-400 text-sm">Memuat data...</div>
-      ) : (
-        <>
-          {activeTab === "checklist" && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="bg-white rounded-lg shadow p-4">
-                  <h3 className="text-sm font-bold text-gray-800 mb-3">Trend Total Error per Hari</h3>
-                  <ResponsiveContainer width="100%" height={260}>
-                    <LineChart data={data?.dailyTrend || []}>
-                      <CartesianGrid stroke={chartGridStroke} vertical={false} />
-                      <XAxis dataKey="date" tick={chartAxisTick} />
-                      <YAxis tick={chartAxisTick} allowDecimals={false} />
-                      <Tooltip contentStyle={chartTooltipStyle} />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Line type="monotone" dataKey="total_error_delivery_note" name="Delivery Note" stroke={CHART_PALETTE[0]} strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="total_error_sales_order" name="Sales Order" stroke={CHART_PALETTE[1]} strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="total_error_stock_entry" name="Stock Entry" stroke={CHART_PALETTE[4]} strokeWidth={2} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12px] border-collapse">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
+                <th className="px-4 py-2.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[160px]">Tanggal</th>
+                <th className="px-4 py-2.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[140px]">Toko</th>
+                <th className="px-4 py-2.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[160px]">Taft By</th>
+                <th className="px-4 py-2.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[110px]">Role</th>
+                {CATEGORIES.map((c) => (
+                  <th key={c.key} className="px-4 py-2.5 text-center border-r border-gray-200 whitespace-nowrap min-w-[150px]">
+                    {c.label}
+                  </th>
+                ))}
+                <th className="px-4 py-2.5 text-center whitespace-nowrap min-w-[80px]">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={colCount} className="text-center py-6 text-gray-400">Memuat data...</td></tr>
+              ) : paged.length === 0 ? (
+                <tr><td colSpan={colCount} className="text-center py-6 text-gray-400">Belum ada data</td></tr>
+              ) : (
+                paged.map((r) => (
+                  <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-4 py-2.5 border-r border-gray-200 whitespace-nowrap">{r.created_at}</td>
+                    <td className="px-4 py-2.5 border-r border-gray-200 whitespace-nowrap">{r.name}</td>
+                    <td className="px-4 py-2.5 border-r border-gray-200 whitespace-nowrap">{r.taft_by || "-"}</td>
+                    <td className="px-4 py-2.5 border-r border-gray-200 whitespace-nowrap">{r.role_taft || "-"}</td>
+                    {CATEGORIES.map((c) => {
+                      const { done, total } = countDone(r[c.key], categoryItems(c.key));
+                      return (
+                        <td key={c.key} className="px-4 py-2.5 border-r border-gray-200 text-center whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded font-semibold ${
+                            total > 0 && done === total ? "bg-green-100 text-green-700" : done === 0 ? "bg-gray-100 text-gray-500" : "bg-amber-100 text-amber-700"
+                          }`}>
+                            {done}/{total}
+                          </span>
+                        </td>
+                      );
+                    })}
+                    <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                      <button onClick={() => setDetailRow(r)} title="Lihat detail" className="p-1 rounded hover:bg-gray-200 text-gray-500">
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          rangeLabel={`${filteredRows.length === 0 ? 0 : (page - 1) * ITEMS_PER_PAGE + 1}-${Math.min(page * ITEMS_PER_PAGE, filteredRows.length)} dari ${filteredRows.length}`}
+        />
+      </div>
+
+      {detailRow && (
+        <div className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4" onClick={() => setDetailRow(null)}>
+          <div
+            className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div>
+              <h2 className="text-lg font-semibold text-gray-800">Detail Checklist</h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {detailRow.name} — {detailRow.created_at}
+              </p>
+              <p className="text-xs text-gray-500">
+                {detailRow.taft_by || "-"} ({detailRow.role_taft || "-"})
+              </p>
+            </div>
+
+            {CATEGORIES.map((c) => {
+              const items = categoryItems(c.key);
+              const stored = new Set(parseItems(detailRow[c.key]));
+              return (
+                <div key={c.key} className="border-t pt-3">
+                  <p className="text-xs font-bold text-gray-700 mb-1">{c.label}</p>
+                  {items.length === 0 ? (
+                    <p className="text-xs text-gray-400 italic">Tidak ada item.</p>
+                  ) : (
+                    items.map((item) => {
+                      const done = stored.has(item);
+                      return (
+                        <div key={item} className="flex items-center justify-between text-xs py-1">
+                          <span className="text-gray-700">{item}</span>
+                          {done ? (
+                            <span className="flex items-center gap-1 text-green-700 font-semibold">
+                              <Check className="w-3.5 h-3.5" /> Selesai
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-red-500 font-semibold">
+                              <X className="w-3.5 h-3.5" /> Belum
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
+              );
+            })}
 
-                <div className="bg-white rounded-lg shadow p-4">
-                  <h3 className="text-sm font-bold text-gray-800 mb-1">Trend Completion Rate Checklist</h3>
-                  <p className="text-[10px] text-gray-400 mb-2">
-                    Perkiraan — denominator = jumlah taft unik yang pernah mengisi checklist (bukan roster HR aktual).
-                  </p>
-                  <ResponsiveContainer width="100%" height={240}>
-                    <LineChart data={completionTrendPct}>
-                      <CartesianGrid stroke={chartGridStroke} vertical={false} />
-                      <XAxis dataKey="date" tick={chartAxisTick} />
-                      <YAxis tick={chartAxisTick} unit="%" domain={[0, 100]} />
-                      <Tooltip contentStyle={chartTooltipStyle} formatter={(v?: number) => `${v ?? 0}%`} />
-                      <Line type="monotone" dataKey="completion_rate_pct" name="Completion Rate" stroke={CHART_PALETTE[2]} strokeWidth={2} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              <RawTable
-                title="Daily Checklist"
-                rows={data?.checklistRows || []}
-                columns={["created_at", "taft_by", "role_taft", "name", "total_error_delivery_note", "total_error_sales_order", "total_error_stock_entry"]}
-              />
+            <div className="flex justify-end pt-2">
+              <Button variant="outline" onClick={() => setDetailRow(null)}>Tutup</Button>
             </div>
-          )}
-
-          {activeTab === "delivery" && (
-            <div className="space-y-4">
-              <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="text-sm font-bold text-gray-800 mb-3">Jumlah Laporan Delivery Note per Hari</h3>
-                <ResponsiveContainer width="100%" height={260}>
-                  <LineChart data={data?.deliveryNoteTrend || []}>
-                    <CartesianGrid stroke={chartGridStroke} vertical={false} />
-                    <XAxis dataKey="date" tick={chartAxisTick} />
-                    <YAxis tick={chartAxisTick} allowDecimals={false} />
-                    <Tooltip contentStyle={chartTooltipStyle} />
-                    <Line type="monotone" dataKey="count" name="Delivery Note" stroke={CHART_PALETTE[0]} strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-              <RawTable
-                title="Delivery Note Report"
-                rows={data?.deliveryNoteRows || []}
-                columns={["created_at", "taft_by", "error_sales_order_delivery_note", "error_category_delivery_note", "error_solved_delivery_note", "solved_at"]}
-              />
-            </div>
-          )}
-
-          {activeTab === "sales" && (
-            <div className="space-y-4">
-              <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="text-sm font-bold text-gray-800 mb-3">Jumlah Laporan Sales Order per Hari</h3>
-                <ResponsiveContainer width="100%" height={260}>
-                  <LineChart data={data?.salesOrderTrend || []}>
-                    <CartesianGrid stroke={chartGridStroke} vertical={false} />
-                    <XAxis dataKey="date" tick={chartAxisTick} />
-                    <YAxis tick={chartAxisTick} allowDecimals={false} />
-                    <Tooltip contentStyle={chartTooltipStyle} />
-                    <Line type="monotone" dataKey="count" name="Sales Order" stroke={CHART_PALETTE[1]} strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-              <RawTable
-                title="Sales Order Report"
-                rows={data?.salesOrderRows || []}
-                columns={["created_at", "taft_by", "error_sales_order", "error_category_sales_order", "error_solved_sales_order", "solved_at"]}
-              />
-            </div>
-          )}
-
-          {activeTab === "stock" && (
-            <div className="space-y-4">
-              <div className="bg-white rounded-lg shadow p-4">
-                <h3 className="text-sm font-bold text-gray-800 mb-3">Jumlah Laporan Stock Entry per Hari</h3>
-                <ResponsiveContainer width="100%" height={260}>
-                  <LineChart data={data?.stockEntryTrend || []}>
-                    <CartesianGrid stroke={chartGridStroke} vertical={false} />
-                    <XAxis dataKey="date" tick={chartAxisTick} />
-                    <YAxis tick={chartAxisTick} allowDecimals={false} />
-                    <Tooltip contentStyle={chartTooltipStyle} />
-                    <Line type="monotone" dataKey="count" name="Stock Entry" stroke={CHART_PALETTE[4]} strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-              <RawTable
-                title="Stock Entry Report"
-                rows={data?.stockEntryRows || []}
-                columns={["created_at", "taft_by", "error_stock_entry", "error_category_stock_entry", "error_solved_stock_entry", "solved_at"]}
-              />
-            </div>
-          )}
-        </>
+          </div>
+        </div>
       )}
     </div>
   );

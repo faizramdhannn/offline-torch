@@ -7,7 +7,6 @@ import { useSidebar } from "@/context/SidebarContext";
 import { useTheme } from "@/context/ThemeContext";
 import NotificationListener from "@/components/NotificationListener";
 import NotificationBell from "@/components/NotificationBell";
-import { useDailyJobRemaining } from "@/hooks/useDailyJobRemaining";
 
 interface SidebarProps {
   userName: string;
@@ -75,18 +74,10 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       pathname === "/sales"
     )
       return "order";
-    if (
-      pathname === "/daily-job/checklist" ||
-      pathname === "/daily-job/delivery-note" ||
-      pathname === "/daily-job/sales-order" ||
-      pathname === "/daily-job/stock-entry" ||
-      pathname === "/daily-job/report"
-    )
-      return "dailyJob";
     return null;
   })();
 
-  const [openGroup, setOpenGroup] = useState<"request" | "order" | "dailyJob" | null>(
+  const [openGroup, setOpenGroup] = useState<"request" | "order" | null>(
     initialGroup
   );
 
@@ -104,12 +95,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       pathname === "/analytics-order" ||
       pathname === "/order-report" ||
       pathname === "/sales";
-    const isDailyJobPath =
-      pathname === "/daily-job/checklist" ||
-      pathname === "/daily-job/delivery-note" ||
-      pathname === "/daily-job/sales-order" ||
-      pathname === "/daily-job/stock-entry" ||
-      pathname === "/daily-job/report";
 
     const wasRequestPath =
       prev === "/request-store" ||
@@ -120,24 +105,15 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       prev === "/analytics-order" ||
       prev === "/order-report" ||
       prev === "/sales";
-    const wasDailyJobPath =
-      prev === "/daily-job/checklist" ||
-      prev === "/daily-job/delivery-note" ||
-      prev === "/daily-job/sales-order" ||
-      prev === "/daily-job/stock-entry" ||
-      prev === "/daily-job/report";
 
     if (isRequestPath && !wasRequestPath) {
       setOpenGroup("request");
     } else if (isOrderPath && !wasOrderPath) {
       setOpenGroup("order");
-    } else if (isDailyJobPath && !wasDailyJobPath) {
-      setOpenGroup("dailyJob");
     } else if (
       !isRequestPath &&
       !isOrderPath &&
-      !isDailyJobPath &&
-      (wasRequestPath || wasOrderPath || wasDailyJobPath)
+      (wasRequestPath || wasOrderPath)
     ) {
       setOpenGroup(null);
     }
@@ -256,19 +232,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     pathname === "/order-report" ||
     pathname === "/sales";
 
-  // ── Daily Job group ──────────────────────────────────────────────────────
-  const hasDailyChecklistAccess = !!permissions.daily_checklist;
-  const hasDailyChecklistAllAccess = !!permissions.daily_checklist_all;
-  const showDailyJobGroup = hasDailyChecklistAccess || hasDailyChecklistAllAccess;
-  const isDailyJobActive =
-    pathname === "/daily-job/checklist" ||
-    pathname === "/daily-job/delivery-note" ||
-    pathname === "/daily-job/sales-order" ||
-    pathname === "/daily-job/stock-entry" ||
-    pathname === "/daily-job/report";
-
-  const dailyJobRemaining = useDailyJobRemaining(showDailyJobGroup ? loginName : undefined, showDailyJobGroup ? userName : undefined);
-
   const menuItems: MenuItem[] = [
     {
       name: "Dashboard",
@@ -340,6 +303,26 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      ),
+    },
+    {
+      name: "Daily Job",
+      path: "/daily-job/checklist",
+      permission: "daily_checklist",
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+      ),
+    },
+    {
+      name: "Daily Job Report",
+      path: "/daily-job/report",
+      permission: "daily_checklist_all",
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
       ),
     },
@@ -438,17 +421,14 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     </svg>
   );
 
-  const dailyJobGroupIcon = (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-    </svg>
-  );
 
   const checkPermission = (item: MenuItem): boolean => {
     if (item.permission === "traffic_store")
       return !!(permissions.traffic_store || permissions.report_store);
     if (item.permission === "attendance_store")
       return !!(permissions.attendance_store || permissions.attendance_store_all);
+    if (item.permission === "daily_checklist")
+      return !!(permissions.daily_checklist || permissions.daily_checklist_all);
     return !!permissions[item.permission as keyof typeof permissions];
   };
 
@@ -665,52 +645,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     { path: "/sales", label: "Sales", icon: salesIcon, show: hasSalesAccess },
   ];
 
-  const checklistIcon = (
-    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-    </svg>
-  );
-  const deliveryNoteIcon = (
-    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
-    </svg>
-  );
-  const salesOrderIcon = (
-    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-    </svg>
-  );
-  const stockEntryIcon = (
-    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-    </svg>
-  );
 
-  const dailyJobItems = [
-    { path: "/daily-job/checklist", label: "Daily Checklist", icon: checklistIcon, show: showDailyJobGroup },
-    {
-      path: "/daily-job/delivery-note",
-      label: "Delivery Note Report",
-      icon: deliveryNoteIcon,
-      show: showDailyJobGroup,
-      badge: dailyJobRemaining.delivery_note,
-    },
-    {
-      path: "/daily-job/sales-order",
-      label: "Sales Order Report",
-      icon: salesOrderIcon,
-      show: showDailyJobGroup,
-      badge: dailyJobRemaining.sales_order,
-    },
-    {
-      path: "/daily-job/stock-entry",
-      label: "Stock Entry Report",
-      icon: stockEntryIcon,
-      show: showDailyJobGroup,
-      badge: dailyJobRemaining.stock_entry,
-    },
-    { path: "/daily-job/report", label: "Report", icon: reportIcon, show: hasDailyChecklistAllAccess },
-  ];
 
   return (
     <>
@@ -871,23 +806,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           {/* Attendance, Capture Attendance, Bundling, Canvasing, Customer */}
           {menuItems.slice(1, 6).map((item) =>
             checkPermission(item) ? <MenuButton key={item.path} item={item} /> : null
-          )}
-
-          {showDailyJobGroup && (
-            isCollapsed ? (
-              <CollapsedFlyout groupIcon={dailyJobGroupIcon} label="Daily Job" items={dailyJobItems} />
-            ) : (
-              <ExpandedGroup
-                groupIcon={dailyJobGroupIcon}
-                label="Daily Job"
-                isActive={isDailyJobActive}
-                isOpen={openGroup === "dailyJob"}
-                onToggle={() =>
-                  setOpenGroup((prev) => (prev === "dailyJob" ? null : "dailyJob"))
-                }
-                items={dailyJobItems}
-              />
-            )
           )}
 
           {showOrderGroup && (

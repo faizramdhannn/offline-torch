@@ -5,7 +5,9 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import { Button } from "@/components/shared/Button";
-import { Pencil, Trash2, Save, X } from "lucide-react";
+import { Pagination } from "@/components/shared/Pagination";
+import { Pencil, Trash2, Save, X, Plus, Eye, Check } from "lucide-react";
+import { jakartaDateKeyFromCreatedAt, todayJakartaKey } from "@/lib/dailyJobDate";
 
 interface ChecklistRow {
   id: string;
@@ -14,125 +16,95 @@ interface ChecklistRow {
   taft_by: string;
   role_taft: string;
   name: string;
-  cleaning_store_checklist: string;
-  vm_report_checklist: string;
-  whatsapp_group_checklis: string;
-  delivery_note_checklist: string;
-  status_delivery_note: string;
-  total_delivery_note: string;
-  total_error_delivery_note: string;
-  notes_delivery_note: string;
-  sales_order_checklist: string;
-  status_sales_order: string;
-  total_sales_order: string;
-  total_error_sales_order: string;
-  notes_sales_order: string;
-  stock_entry_checklist: string;
-  status_stock_entry: string;
-  total_stock_entry: string;
-  total_error_stock_entry: string;
-  stock_entry_notes: string;
+  opening_checklist: string;
+  operational_checklist: string;
+  closing_checklist: string;
 }
 
-const STATUS_OPTIONS = ["Clear", "Issue"];
+// Item checklist per kategori sekarang dinamis (dari master_dropdown, lihat
+// /api/daily-job/dropdown), BUKAN daftar hardcoded — supaya nambah/hapus
+// item cukup edit master_dropdown, tanpa ubah kode.
+const CATEGORIES = [
+  { key: "opening_checklist", label: "Opening Store" },
+  { key: "operational_checklist", label: "Operational Store" },
+  { key: "closing_checklist", label: "Closing Store" },
+] as const;
+
+type CategoryKey = (typeof CATEGORIES)[number]["key"];
+
+interface DropdownData {
+  role_taft: string[];
+  checklist_opening: string[];
+  checklist_operational: string[];
+  checklist_closing: string[];
+}
+
+const CATEGORY_TO_DROPDOWN_KEY: Record<CategoryKey, keyof DropdownData> = {
+  opening_checklist: "checklist_opening",
+  operational_checklist: "checklist_operational",
+  closing_checklist: "checklist_closing",
+};
+
+// "Item A,Item B" -> ["Item A", "Item B"]
+function parseItems(str: string | undefined | null): string[] {
+  if (!str) return [];
+  return str.split(",").map((s) => s.trim()).filter(Boolean);
+}
+function joinItems(items: string[]): string {
+  return items.join(",");
+}
 
 interface FormState {
   taft_by: string;
   role_taft: string;
-  cleaning_store_checklist: boolean;
-  vm_report_checklist: boolean;
-  whatsapp_group_checklis: boolean;
-  delivery_note_checklist: boolean;
-  status_delivery_note: string;
-  total_delivery_note: string;
-  total_error_delivery_note: string;
-  notes_delivery_note: string;
-  sales_order_checklist: boolean;
-  status_sales_order: string;
-  total_sales_order: string;
-  total_error_sales_order: string;
-  notes_sales_order: string;
-  stock_entry_checklist: boolean;
-  status_stock_entry: string;
-  total_stock_entry: string;
-  total_error_stock_entry: string;
-  stock_entry_notes: string;
+  opening_checklist: string[];
+  operational_checklist: string[];
+  closing_checklist: string[];
 }
 
-const emptyForm: FormState = {
+const emptyForm = (): FormState => ({
   taft_by: "",
   role_taft: "",
-  cleaning_store_checklist: false,
-  vm_report_checklist: false,
-  whatsapp_group_checklis: false,
-  delivery_note_checklist: false,
-  status_delivery_note: "",
-  total_delivery_note: "",
-  total_error_delivery_note: "0",
-  notes_delivery_note: "",
-  sales_order_checklist: false,
-  status_sales_order: "",
-  total_sales_order: "",
-  total_error_sales_order: "0",
-  notes_sales_order: "",
-  stock_entry_checklist: false,
-  status_stock_entry: "",
-  total_stock_entry: "",
-  total_error_stock_entry: "0",
-  stock_entry_notes: "",
-};
-
-function boolStr(v: boolean): string {
-  return v ? "TRUE" : "FALSE";
-}
-function strBool(v: string | undefined): boolean {
-  return (v || "").toUpperCase() === "TRUE";
-}
+  opening_checklist: [],
+  operational_checklist: [],
+  closing_checklist: [],
+});
 
 function rowToForm(row: ChecklistRow): FormState {
   return {
     taft_by: row.taft_by || "",
     role_taft: row.role_taft || "",
-    cleaning_store_checklist: strBool(row.cleaning_store_checklist),
-    vm_report_checklist: strBool(row.vm_report_checklist),
-    whatsapp_group_checklis: strBool(row.whatsapp_group_checklis),
-    delivery_note_checklist: strBool(row.delivery_note_checklist),
-    status_delivery_note: row.status_delivery_note || "",
-    total_delivery_note: row.total_delivery_note || "",
-    total_error_delivery_note: row.total_error_delivery_note || "0",
-    notes_delivery_note: row.notes_delivery_note || "",
-    sales_order_checklist: strBool(row.sales_order_checklist),
-    status_sales_order: row.status_sales_order || "",
-    total_sales_order: row.total_sales_order || "",
-    total_error_sales_order: row.total_error_sales_order || "0",
-    notes_sales_order: row.notes_sales_order || "",
-    stock_entry_checklist: strBool(row.stock_entry_checklist),
-    status_stock_entry: row.status_stock_entry || "",
-    total_stock_entry: row.total_stock_entry || "",
-    total_error_stock_entry: row.total_error_stock_entry || "0",
-    stock_entry_notes: row.stock_entry_notes || "",
+    opening_checklist: parseItems(row.opening_checklist),
+    operational_checklist: parseItems(row.operational_checklist),
+    closing_checklist: parseItems(row.closing_checklist),
   };
+}
+
+// "n selesai dari m" — m = jumlah item yang SAAT INI ada di master_dropdown,
+// n = irisan dengan item yang tersimpan di baris ini (item yang sudah
+// dihapus dari master_dropdown tidak ikut dihitung lagi).
+function countDone(storedCsv: string, currentItems: string[]): { done: number; total: number } {
+  const stored = new Set(parseItems(storedCsv));
+  const done = currentItems.filter((i) => stored.has(i)).length;
+  return { done, total: currentItems.length };
 }
 
 function ToggleSwitch({
   checked,
   onChange,
   label,
-  disabled,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label: string;
-  disabled?: boolean;
 }) {
   return (
-    <label className={`flex items-center justify-between gap-3 py-2 ${disabled ? "opacity-60" : "cursor-pointer"}`}>
+    <label className="flex items-center justify-between gap-3 py-2 cursor-pointer">
       <span className="text-xs text-gray-700 font-medium">{label}</span>
       <button
         type="button"
-        disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={`relative w-10 h-5.5 h-[22px] rounded-full transition-colors shrink-0 ${
+        className={`relative w-10 h-[22px] rounded-full transition-colors shrink-0 ${
           checked ? "bg-primary" : "bg-gray-300"
         }`}
       >
@@ -146,23 +118,34 @@ function ToggleSwitch({
   );
 }
 
+const ITEMS_PER_PAGE = 10;
+
 export default function DailyChecklistPage() {
   const router = useRouter();
   useSessionGuard();
 
   const [user, setUser] = useState<any>(null);
-  const [row, setRow] = useState<ChecklistRow | null>(null);
+  const [rows, setRows] = useState<ChecklistRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingRow, setEditingRow] = useState<ChecklistRow | null>(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<FormState>(emptyForm);
-  const [roleTaftOptions, setRoleTaftOptions] = useState<string[]>([]);
+  const [form, setForm] = useState<FormState>(emptyForm());
+  const [dropdowns, setDropdowns] = useState<DropdownData>({
+    role_taft: [], checklist_opening: [], checklist_operational: [], checklist_closing: [],
+  });
   const [taftOptions, setTaftOptions] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+  const [deleteTarget, setDeleteTarget] = useState<ChecklistRow | null>(null);
+  const [detailRow, setDetailRow] = useState<ChecklistRow | null>(null);
+
+  // Filter tanggal riwayat sendiri.
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
 
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const showMessage = (msg: string, type: "success" | "error") => {
     setPopupMessage(msg);
@@ -181,10 +164,7 @@ export default function DailyChecklistPage() {
   const fetchDropdowns = useCallback(async () => {
     try {
       const res = await fetch("/api/daily-job/dropdown");
-      if (res.ok) {
-        const j = await res.json();
-        setRoleTaftOptions(j.role_taft || []);
-      }
+      if (res.ok) setDropdowns(await res.json());
     } catch {}
   }, []);
 
@@ -201,23 +181,16 @@ export default function DailyChecklistPage() {
     } catch {}
   }, [user]);
 
-  const fetchToday = useCallback(async () => {
+  // Halaman ini SELALU cuma riwayat toko sendiri — untuk lihat SEMUA toko,
+  // user dengan akses daily_checklist_all pakai menu terpisah "Daily Job
+  // Report" (app/(main)/daily-job/report/page.tsx).
+  const fetchRows = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/daily-job/checklist?userName=${encodeURIComponent(user.user_name)}&name=${encodeURIComponent(user.name || "")}`, {
-        cache: "no-store",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setRow(data || null);
-        if (!data) {
-          setForm(emptyForm);
-          setEditing(true);
-        } else {
-          setEditing(false);
-        }
-      }
+      const url = `/api/daily-job/checklist?all=true&userName=${encodeURIComponent(user.user_name || "")}&name=${encodeURIComponent(user.name || "")}`;
+      const res = await fetch(url, { cache: "no-store" });
+      if (res.ok) setRows(await res.json());
     } catch {
       showMessage("Gagal memuat data checklist", "error");
     } finally {
@@ -229,10 +202,41 @@ export default function DailyChecklistPage() {
     if (!user) return;
     fetchDropdowns();
     fetchTaftOptions();
-    fetchToday();
-  }, [user, fetchDropdowns, fetchTaftOptions, fetchToday]);
+    fetchRows();
+  }, [user, fetchDropdowns, fetchTaftOptions, fetchRows]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filterFrom, filterTo]);
 
   const canEdit = !!user?.daily_checklist;
+
+  const categoryItems = (key: CategoryKey): string[] => dropdowns[CATEGORY_TO_DROPDOWN_KEY[key]] || [];
+
+  // Baris milik toko sendiri untuk hari ini — dipakai untuk tombol "Isi Hari
+  // Ini" (edit kalau sudah ada, buat baru kalau belum).
+  const todayKey = todayJakartaKey();
+  const todayRow = rows.find((r) => jakartaDateKeyFromCreatedAt(r.created_at) === todayKey) || null;
+
+  const openAddToday = () => {
+    setEditingRow(todayRow);
+    setForm(todayRow ? rowToForm(todayRow) : emptyForm());
+    setShowForm(true);
+  };
+
+  const openEdit = (row: ChecklistRow) => {
+    setEditingRow(row);
+    setForm(rowToForm(row));
+    setShowForm(true);
+  };
+
+  const toggleItem = (key: CategoryKey, item: string, checked: boolean) => {
+    setForm((p) => {
+      const current = p[key];
+      const next = checked ? [...current, item] : current.filter((i) => i !== item);
+      return { ...p, [key]: next };
+    });
+  };
 
   const handleSubmit = async () => {
     if (!user) return;
@@ -242,39 +246,25 @@ export default function DailyChecklistPage() {
     }
     setSaving(true);
     try {
-      const payload = {
-        id: row?.id,
+      const payload: any = {
+        id: editingRow?.id,
         taft_by: form.taft_by,
         name: user.name,
         role_taft: form.role_taft,
-        cleaning_store_checklist: boolStr(form.cleaning_store_checklist),
-        vm_report_checklist: boolStr(form.vm_report_checklist),
-        whatsapp_group_checklis: boolStr(form.whatsapp_group_checklis),
-        delivery_note_checklist: boolStr(form.delivery_note_checklist),
-        status_delivery_note: form.status_delivery_note,
-        total_delivery_note: form.total_delivery_note,
-        total_error_delivery_note: form.total_error_delivery_note,
-        notes_delivery_note: form.notes_delivery_note,
-        sales_order_checklist: boolStr(form.sales_order_checklist),
-        status_sales_order: form.status_sales_order,
-        total_sales_order: form.total_sales_order,
-        total_error_sales_order: form.total_error_sales_order,
-        notes_sales_order: form.notes_sales_order,
-        stock_entry_checklist: boolStr(form.stock_entry_checklist),
-        status_stock_entry: form.status_stock_entry,
-        total_stock_entry: form.total_stock_entry,
-        total_error_stock_entry: form.total_error_stock_entry,
-        stock_entry_notes: form.stock_entry_notes,
+        opening_checklist: joinItems(form.opening_checklist),
+        operational_checklist: joinItems(form.operational_checklist),
+        closing_checklist: joinItems(form.closing_checklist),
       };
 
       const res = await fetch("/api/daily-job/checklist", {
-        method: row ? "PUT" : "POST",
+        method: editingRow ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error();
-      showMessage(row ? "Checklist berhasil diperbarui" : "Checklist berhasil dibuat", "success");
-      await fetchToday();
+      showMessage(editingRow ? "Checklist berhasil diperbarui" : "Checklist berhasil dibuat", "success");
+      setShowForm(false);
+      await fetchRows();
     } catch {
       showMessage("Gagal menyimpan checklist", "error");
     } finally {
@@ -283,16 +273,14 @@ export default function DailyChecklistPage() {
   };
 
   const handleDelete = async () => {
-    if (!row) return;
+    if (!deleteTarget) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/daily-job/checklist?id=${encodeURIComponent(row.id)}`, { method: "DELETE" });
+      const res = await fetch(`/api/daily-job/checklist?id=${encodeURIComponent(deleteTarget.id)}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
       showMessage("Checklist berhasil dihapus", "success");
-      setShowDeleteConfirm(false);
-      setRow(null);
-      setForm(emptyForm);
-      setEditing(true);
+      setDeleteTarget(null);
+      await fetchRows();
     } catch {
       showMessage("Gagal menghapus checklist", "error");
     } finally {
@@ -300,235 +288,269 @@ export default function DailyChecklistPage() {
     }
   };
 
-  const startEdit = () => {
-    if (row) setForm(rowToForm(row));
-    setEditing(true);
-  };
-
   if (!user) return null;
 
+  const filteredRows = rows.filter((r) => {
+    const dateKey = jakartaDateKeyFromCreatedAt(r.created_at);
+    if (filterFrom && (!dateKey || dateKey < filterFrom)) return false;
+    if (filterTo && (!dateKey || dateKey > filterTo)) return false;
+    return true;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / ITEMS_PER_PAGE));
+  const paged = filteredRows.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+  const colCount = 4 + CATEGORIES.length;
+
   return (
-    <div className="p-3 md:p-4 max-w-2xl mx-auto">
+    <div className="p-3 md:p-4 max-w-full mx-auto">
       <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
 
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div>
-          <h1 className="text-lg font-bold text-gray-800">Daily Checklist</h1>
+          <h1 className="text-lg font-bold text-gray-800">Daily Job</h1>
           <p className="text-xs text-gray-500">Checklist harian toko — {user.name}</p>
         </div>
-        {row && !editing && canEdit && (
-          <div className="flex gap-2">
-            <Button icon={Pencil} size="sm" onClick={startEdit}>Edit</Button>
-            <Button icon={Trash2} size="sm" variant="danger" onClick={() => setShowDeleteConfirm(true)}>
-              Hapus
-            </Button>
-          </div>
+        {canEdit && (
+          <Button icon={Plus} size="sm" onClick={openAddToday}>
+            {todayRow ? "Edit Checklist Hari Ini" : "Isi Checklist Hari Ini"}
+          </Button>
         )}
       </div>
 
-      {loading ? (
-        <div className="bg-white rounded-lg shadow p-6 text-center text-gray-400 text-sm">Memuat data...</div>
-      ) : !editing && row ? (
-        <div className="bg-white rounded-lg shadow p-4 space-y-4">
-          <div className="text-xs text-gray-500">
-            Diisi: {row.created_at} {row.update_at && row.update_at !== row.created_at ? `(update: ${row.update_at})` : ""}
-          </div>
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div><span className="text-gray-500">Taft By</span><p className="font-semibold">{row.taft_by || "-"}</p></div>
-            <div><span className="text-gray-500">Role Taft</span><p className="font-semibold">{row.role_taft || "-"}</p></div>
-          </div>
-
-          <div className="border-t pt-3 space-y-1">
-            <ReadRow label="Cleaning Store" value={strBool(row.cleaning_store_checklist)} />
-            <ReadRow label="VM Report" value={strBool(row.vm_report_checklist)} />
-            <ReadRow label="WhatsApp Group" value={strBool(row.whatsapp_group_checklis)} />
-          </div>
-
-          <div className="border-t pt-3">
-            <p className="text-xs font-bold text-gray-700 mb-1">Delivery Note</p>
-            <ReadRow label="Checklist" value={strBool(row.delivery_note_checklist)} />
-            <ReadField label="Status" value={row.status_delivery_note} />
-            <ReadField label="Total" value={row.total_delivery_note} />
-            <ReadField label="Total Error" value={row.total_error_delivery_note} />
-            <ReadField label="Notes" value={row.notes_delivery_note} />
-          </div>
-
-          <div className="border-t pt-3">
-            <p className="text-xs font-bold text-gray-700 mb-1">Sales Order</p>
-            <ReadRow label="Checklist" value={strBool(row.sales_order_checklist)} />
-            <ReadField label="Status" value={row.status_sales_order} />
-            <ReadField label="Total" value={row.total_sales_order} />
-            <ReadField label="Total Error" value={row.total_error_sales_order} />
-            <ReadField label="Notes" value={row.notes_sales_order} />
-          </div>
-
-          <div className="border-t pt-3">
-            <p className="text-xs font-bold text-gray-700 mb-1">Stock Entry</p>
-            <ReadRow label="Checklist" value={strBool(row.stock_entry_checklist)} />
-            <ReadField label="Status" value={row.status_stock_entry} />
-            <ReadField label="Total" value={row.total_stock_entry} />
-            <ReadField label="Total Error" value={row.total_error_stock_entry} />
-            <ReadField label="Notes" value={row.stock_entry_notes} />
-          </div>
+      <div className="bg-white rounded-lg shadow p-3 mb-3 flex flex-wrap items-end gap-3">
+        <div>
+          <label className="block text-[11px] text-gray-500 mb-1">Dari Tanggal</label>
+          <input
+            type="date"
+            value={filterFrom}
+            onChange={(e) => setFilterFrom(e.target.value)}
+            className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs"
+          />
         </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow p-4 space-y-4">
-          <div>
-            <label className="text-xs text-gray-500">Taft By</label>
-            <select
-              value={form.taft_by}
-              onChange={(e) => setForm((p) => ({ ...p, taft_by: e.target.value }))}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mt-1"
-            >
-              <option value="">-- Pilih Taft --</option>
-              {taftOptions.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
+        <div>
+          <label className="block text-[11px] text-gray-500 mb-1">Sampai Tanggal</label>
+          <input
+            type="date"
+            value={filterTo}
+            onChange={(e) => setFilterTo(e.target.value)}
+            className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs"
+          />
+        </div>
+        {(filterFrom || filterTo) && (
+          <button
+            onClick={() => { setFilterFrom(""); setFilterTo(""); }}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50"
+          >
+            Reset Filter
+          </button>
+        )}
+      </div>
 
-          <div>
-            <label className="text-xs text-gray-500">Role Taft</label>
-            <select
-              value={form.role_taft}
-              onChange={(e) => setForm((p) => ({ ...p, role_taft: e.target.value }))}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mt-1"
-            >
-              <option value="">-- Pilih Role --</option>
-              {roleTaftOptions.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
-          </div>
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12px] border-collapse">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
+                <th className="px-4 py-2.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[160px]">Tanggal</th>
+                <th className="px-4 py-2.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[160px]">Taft By</th>
+                <th className="px-4 py-2.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[110px]">Role</th>
+                {CATEGORIES.map((c) => (
+                  <th key={c.key} className="px-4 py-2.5 text-center border-r border-gray-200 whitespace-nowrap min-w-[150px]">
+                    {c.label}
+                  </th>
+                ))}
+                <th className="px-4 py-2.5 text-center whitespace-nowrap min-w-[120px]">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={colCount} className="text-center py-6 text-gray-400">Memuat data...</td></tr>
+              ) : paged.length === 0 ? (
+                <tr><td colSpan={colCount} className="text-center py-6 text-gray-400">Belum ada data</td></tr>
+              ) : (
+                paged.map((r) => (
+                  <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-4 py-2.5 border-r border-gray-200 whitespace-nowrap">{r.created_at}</td>
+                    <td className="px-4 py-2.5 border-r border-gray-200 whitespace-nowrap">{r.taft_by || "-"}</td>
+                    <td className="px-4 py-2.5 border-r border-gray-200 whitespace-nowrap">{r.role_taft || "-"}</td>
+                    {CATEGORIES.map((c) => {
+                      const { done, total } = countDone(r[c.key], categoryItems(c.key));
+                      return (
+                        <td key={c.key} className="px-4 py-2.5 border-r border-gray-200 text-center whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded font-semibold ${
+                            total > 0 && done === total ? "bg-green-100 text-green-700" : done === 0 ? "bg-gray-100 text-gray-500" : "bg-amber-100 text-amber-700"
+                          }`}>
+                            {done}/{total}
+                          </span>
+                        </td>
+                      );
+                    })}
+                    <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                      <div className="flex justify-center gap-1.5">
+                        <button onClick={() => setDetailRow(r)} title="Lihat detail" className="p-1 rounded hover:bg-gray-200 text-gray-500">
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        {canEdit && (
+                          <>
+                            <button onClick={() => openEdit(r)} title="Edit" className="p-1 rounded hover:bg-gray-200 text-gray-500">
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => setDeleteTarget(r)} title="Hapus" className="p-1 rounded hover:bg-red-100 text-red-500">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          rangeLabel={`${filteredRows.length === 0 ? 0 : (page - 1) * ITEMS_PER_PAGE + 1}-${Math.min(page * ITEMS_PER_PAGE, filteredRows.length)} dari ${filteredRows.length}`}
+        />
+      </div>
 
-          <div className="border-t pt-3">
-            <ToggleSwitch label="Cleaning Store" checked={form.cleaning_store_checklist} onChange={(v) => setForm((p) => ({ ...p, cleaning_store_checklist: v }))} />
-            <ToggleSwitch label="VM Report" checked={form.vm_report_checklist} onChange={(v) => setForm((p) => ({ ...p, vm_report_checklist: v }))} />
-            <ToggleSwitch label="WhatsApp Group" checked={form.whatsapp_group_checklis} onChange={(v) => setForm((p) => ({ ...p, whatsapp_group_checklis: v }))} />
-          </div>
+      {showForm && (
+        <div className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4" onClick={() => setShowForm(false)}>
+          <div
+            className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold text-gray-800">
+              {editingRow ? "Edit Checklist" : "Isi Checklist Hari Ini"}
+            </h2>
 
-          <div className="border-t pt-3 space-y-2">
-            <p className="text-xs font-bold text-gray-700">Delivery Note</p>
-            <ToggleSwitch label="Checklist selesai" checked={form.delivery_note_checklist} onChange={(v) => setForm((p) => ({ ...p, delivery_note_checklist: v }))} />
-            <StatusSelect value={form.status_delivery_note} onChange={(v) => setForm((p) => ({ ...p, status_delivery_note: v }))} />
-            <div className="grid grid-cols-2 gap-2">
-              <FormField label="Total" value={form.total_delivery_note} onChange={(v) => setForm((p) => ({ ...p, total_delivery_note: v }))} type="number" />
-              <FormField label="Total Error" value={form.total_error_delivery_note} onChange={(v) => setForm((p) => ({ ...p, total_error_delivery_note: v }))} type="number" />
+            <div>
+              <label className="text-xs text-gray-500">Taft By</label>
+              <select
+                value={form.taft_by}
+                onChange={(e) => setForm((p) => ({ ...p, taft_by: e.target.value }))}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mt-1"
+              >
+                <option value="">-- Pilih Taft --</option>
+                {taftOptions.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
             </div>
-            <FormField label="Notes" value={form.notes_delivery_note} onChange={(v) => setForm((p) => ({ ...p, notes_delivery_note: v }))} />
-          </div>
 
-          <div className="border-t pt-3 space-y-2">
-            <p className="text-xs font-bold text-gray-700">Sales Order</p>
-            <ToggleSwitch label="Checklist selesai" checked={form.sales_order_checklist} onChange={(v) => setForm((p) => ({ ...p, sales_order_checklist: v }))} />
-            <StatusSelect value={form.status_sales_order} onChange={(v) => setForm((p) => ({ ...p, status_sales_order: v }))} />
-            <div className="grid grid-cols-2 gap-2">
-              <FormField label="Total" value={form.total_sales_order} onChange={(v) => setForm((p) => ({ ...p, total_sales_order: v }))} type="number" />
-              <FormField label="Total Error" value={form.total_error_sales_order} onChange={(v) => setForm((p) => ({ ...p, total_error_sales_order: v }))} type="number" />
+            <div>
+              <label className="text-xs text-gray-500">Role Taft</label>
+              <select
+                value={form.role_taft}
+                onChange={(e) => setForm((p) => ({ ...p, role_taft: e.target.value }))}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mt-1"
+              >
+                <option value="">-- Pilih Role --</option>
+                {dropdowns.role_taft.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
             </div>
-            <FormField label="Notes" value={form.notes_sales_order} onChange={(v) => setForm((p) => ({ ...p, notes_sales_order: v }))} />
-          </div>
 
-          <div className="border-t pt-3 space-y-2">
-            <p className="text-xs font-bold text-gray-700">Stock Entry</p>
-            <ToggleSwitch label="Checklist selesai" checked={form.stock_entry_checklist} onChange={(v) => setForm((p) => ({ ...p, stock_entry_checklist: v }))} />
-            <StatusSelect value={form.status_stock_entry} onChange={(v) => setForm((p) => ({ ...p, status_stock_entry: v }))} />
-            <div className="grid grid-cols-2 gap-2">
-              <FormField label="Total" value={form.total_stock_entry} onChange={(v) => setForm((p) => ({ ...p, total_stock_entry: v }))} type="number" />
-              <FormField label="Total Error" value={form.total_error_stock_entry} onChange={(v) => setForm((p) => ({ ...p, total_error_stock_entry: v }))} type="number" />
+            {CATEGORIES.map((c) => {
+              const items = categoryItems(c.key);
+              return (
+                <div key={c.key} className="border-t pt-3">
+                  <p className="text-xs font-bold text-gray-700 mb-1">{c.label}</p>
+                  {items.length === 0 ? (
+                    <p className="text-xs text-gray-400 italic">
+                      Belum ada item untuk kategori ini di master_dropdown.
+                    </p>
+                  ) : (
+                    items.map((item) => (
+                      <ToggleSwitch
+                        key={item}
+                        label={item}
+                        checked={form[c.key].includes(item)}
+                        onChange={(v) => toggleItem(c.key, item, v)}
+                      />
+                    ))
+                  )}
+                </div>
+              );
+            })}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" icon={X} onClick={() => setShowForm(false)}>Batal</Button>
+              <Button icon={Save} onClick={handleSubmit} loading={saving}>Simpan</Button>
             </div>
-            <FormField label="Notes" value={form.stock_entry_notes} onChange={(v) => setForm((p) => ({ ...p, stock_entry_notes: v }))} />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            {row && (
-              <Button variant="outline" icon={X} onClick={() => setEditing(false)}>Batal</Button>
-            )}
-            <Button icon={Save} onClick={handleSubmit} loading={saving}>Simpan</Button>
           </div>
         </div>
       )}
 
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4" onClick={() => setShowDeleteConfirm(false)}>
+      {detailRow && (
+        <div className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4" onClick={() => setDetailRow(null)}>
+          <div
+            className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div>
+              <h2 className="text-lg font-semibold text-gray-800">Detail Checklist</h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {detailRow.name} — {detailRow.created_at}
+              </p>
+              <p className="text-xs text-gray-500">
+                {detailRow.taft_by || "-"} ({detailRow.role_taft || "-"})
+              </p>
+            </div>
+
+            {CATEGORIES.map((c) => {
+              const items = categoryItems(c.key);
+              const stored = new Set(parseItems(detailRow[c.key]));
+              return (
+                <div key={c.key} className="border-t pt-3">
+                  <p className="text-xs font-bold text-gray-700 mb-1">{c.label}</p>
+                  {items.length === 0 ? (
+                    <p className="text-xs text-gray-400 italic">Tidak ada item.</p>
+                  ) : (
+                    items.map((item) => {
+                      const done = stored.has(item);
+                      return (
+                        <div key={item} className="flex items-center justify-between text-xs py-1">
+                          <span className="text-gray-700">{item}</span>
+                          {done ? (
+                            <span className="flex items-center gap-1 text-green-700 font-semibold">
+                              <Check className="w-3.5 h-3.5" /> Selesai
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-red-500 font-semibold">
+                              <X className="w-3.5 h-3.5" /> Belum
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              );
+            })}
+
+            <div className="flex justify-end pt-2">
+              <Button variant="outline" onClick={() => setDetailRow(null)}>Tutup</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4" onClick={() => setDeleteTarget(null)}>
           <div className="bg-white rounded-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-semibold mb-2">Hapus Checklist?</h2>
             <p className="text-sm text-gray-500 mb-5">Tindakan ini tidak dapat dibatalkan.</p>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>Batal</Button>
+              <Button variant="outline" onClick={() => setDeleteTarget(null)}>Batal</Button>
               <Button variant="danger" onClick={handleDelete} loading={saving}>Hapus</Button>
             </div>
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function ReadRow({ label, value }: { label: string; value: boolean }) {
-  return (
-    <div className="flex items-center justify-between text-xs py-1">
-      <span className="text-gray-600">{label}</span>
-      <span className={`px-2 py-0.5 rounded font-semibold ${value ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-        {value ? "Selesai" : "Belum"}
-      </span>
-    </div>
-  );
-}
-
-function ReadField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between text-xs py-1">
-      <span className="text-gray-500">{label}</span>
-      <span className="font-medium text-gray-800">{value || "-"}</span>
-    </div>
-  );
-}
-
-function StatusSelect({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div>
-      <label className="text-[11px] text-gray-500">Status</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm mt-0.5"
-      >
-        <option value="">-- Pilih Status --</option>
-        {STATUS_OPTIONS.map((s) => (
-          <option key={s} value={s}>{s}</option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-function FormField({
-  label,
-  value,
-  onChange,
-  type = "text",
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-}) {
-  return (
-    <div>
-      <label className="text-[11px] text-gray-500">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm mt-0.5"
-      />
     </div>
   );
 }

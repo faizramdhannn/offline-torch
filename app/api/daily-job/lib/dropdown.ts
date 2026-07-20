@@ -7,12 +7,9 @@ import { withCache } from '@/lib/sheets';
 // karena mapping lib/sheets.ts untuk key itu menunjuk ke SPREADSHEET_MASTER
 // yang dipakai request-store — spreadsheet BEDA).
 //
-// Kolom-kolom berikut sudah diisi user langsung di file mereka (dikonfirmasi
-// dari export asli), tidak perlu setup tambahan:
-//  - role_taft
-//  - error_category_delivery_note / error_solved_delivery_note
-//  - error_category_sales_order   / error_solved_sales_order
-//  - error_category_stock_entry   / error_solved_stock_entry
+// Kolom yang dipakai di sini: role_taft. (Kolom error_category_*/error_solved_*
+// dari fitur report delivery-note/sales-order/stock-entry sudah tidak
+// dipakai lagi sejak fitur report tersebut dihapus.)
 async function getMasterDropdownRows() {
   return withCache('daily_job_master_dropdown', 120_000, async () => {
     const auth = new google.auth.GoogleAuth({
@@ -46,24 +43,23 @@ function dedupColumn(rows: any[], column: string): string[] {
 
 export interface DailyJobDropdowns {
   role_taft: string[];
-  error_category_delivery_note: string[];
-  error_solved_delivery_note: string[];
-  error_category_sales_order: string[];
-  error_solved_sales_order: string[];
-  error_category_stock_entry: string[];
-  error_solved_stock_entry: string[];
+  checklist_opening: string[];
+  checklist_operational: string[];
+  checklist_closing: string[];
 }
 
+// Daftar item checklist per kategori (Opening/Operational/Closing) sekarang
+// SEPENUHNYA dinamis dari master_dropdown — bukan lagi kolom boolean
+// hardcoded di sheet daily_checklist. Tambah/hapus baris di kolom
+// checklist_opening/checklist_operational/checklist_closing di
+// master_dropdown langsung berefek ke form & tabel tanpa perlu ubah kode.
 export async function getDailyJobDropdowns(): Promise<DailyJobDropdowns> {
   const rows = await getMasterDropdownRows();
 
   return {
     role_taft: dedupColumn(rows, 'role_taft'),
-    error_category_delivery_note: dedupColumn(rows, 'error_category_delivery_note'),
-    error_solved_delivery_note: dedupColumn(rows, 'error_solved_delivery_note'),
-    error_category_sales_order: dedupColumn(rows, 'error_category_sales_order'),
-    error_solved_sales_order: dedupColumn(rows, 'error_solved_sales_order'),
-    error_category_stock_entry: dedupColumn(rows, 'error_category_stock_entry'),
-    error_solved_stock_entry: dedupColumn(rows, 'error_solved_stock_entry'),
+    checklist_opening: dedupColumn(rows, 'checklist_opening'),
+    checklist_operational: dedupColumn(rows, 'checklist_operational'),
+    checklist_closing: dedupColumn(rows, 'checklist_closing'),
   };
 }

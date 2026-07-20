@@ -8,19 +8,27 @@ import { jakartaDateKeyFromCreatedAt, todayJakartaKey, parseCreatedAtForSort } f
 // attendance. Sheet tidak punya kolom `date` eksplisit — "hari ini" diturunkan
 // dari `created_at` (format id-ID locale, contoh: "24 Jul 2026, 14.54.19").
 //
-// Kolom (A-X, 24 kolom, urutan HARUS persis seperti ini):
+// Kolom (A-I, 9 kolom, urutan HARUS persis seperti ini):
 //   id, created_at, update_at, taft_by, role_taft, name,
-//   cleaning_store_checklist, vm_report_checklist, whatsapp_group_checklis, delivery_note_checklist,
-//   status_delivery_note, total_delivery_note, total_error_delivery_note, notes_delivery_note,
-//   sales_order_checklist, status_sales_order, total_sales_order, total_error_sales_order, notes_sales_order,
-//   stock_entry_checklist, status_stock_entry, total_stock_entry, total_error_stock_entry, stock_entry_notes
+//   opening_checklist, operational_checklist, closing_checklist
 //
-// NB: "whatsapp_group_checklis" dan "stock_entry_notes" (bukan
-// "notes_stock_entry") adalah nama kolom ASLI di sheet — sengaja tidak
-// diperbaiki typonya supaya tetap sinkron dengan header sheet.
+// opening_checklist/operational_checklist/closing_checklist masing-masing
+// berisi STRING dipisah koma dari nama-nama item yang SUDAH dicentang, mis.
+// "Cleaning Store,VM Report,WhatsApp Group" — BUKAN kolom boolean per item.
+// Daftar item per kategori itu sendiri dinamis, datang dari master_dropdown
+// (kolom checklist_opening/checklist_operational/checklist_closing, lihat
+// app/api/daily-job/lib/dropdown.ts) — supaya user bisa tambah/hapus item
+// checklist kapan saja tanpa perlu ubah skema sheet/kode. "n selesai dari m"
+// dihitung di frontend: m = jumlah item di master_dropdown SAAT INI, n =
+// irisan antara item tersimpan di baris ini dengan daftar item saat ini
+// (item yang sudah dihapus dari master_dropdown otomatis tidak ikut dihitung
+// lagi, walau masih tersimpan sebagai teks lama di baris historis).
 //
-// Kontrak untuk frontend (dipakai juga oleh hooks/useAttendanceGate.ts di
-// pass berikutnya):
+// Fitur delivery-note/sales-order/stock-entry report (sheet & menu terpisah)
+// sudah DIHAPUS — checklist ini sekarang satu-satunya isi menu Daily Job.
+//
+// Kontrak untuk frontend (dipakai juga oleh hooks/useAttendanceGate.ts /
+// hooks/useDailyChecklistGate.ts):
 //   GET /api/daily-job/checklist?userName=xxx
 //     → 200 dengan body `null` kalau taft ini BELUM isi checklist hari ini,
 //       atau object row kalau SUDAH ada.
@@ -43,6 +51,12 @@ function generateId(): string {
   return `DC-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 }
 
+const CHECKLIST_FIELDS = [
+  'opening_checklist',
+  'operational_checklist',
+  'closing_checklist',
+] as const;
+
 function buildRow(existing: any, fields: any, now: string): any[] {
   return [
     existing.id,
@@ -51,24 +65,7 @@ function buildRow(existing: any, fields: any, now: string): any[] {
     fields.taft_by ?? existing.taft_by,
     fields.role_taft ?? existing.role_taft ?? '',
     fields.name ?? existing.name,
-    fields.cleaning_store_checklist ?? existing.cleaning_store_checklist ?? 'FALSE',
-    fields.vm_report_checklist ?? existing.vm_report_checklist ?? 'FALSE',
-    fields.whatsapp_group_checklis ?? existing.whatsapp_group_checklis ?? 'FALSE',
-    fields.delivery_note_checklist ?? existing.delivery_note_checklist ?? 'FALSE',
-    fields.status_delivery_note ?? existing.status_delivery_note ?? '',
-    fields.total_delivery_note ?? existing.total_delivery_note ?? '',
-    fields.total_error_delivery_note ?? existing.total_error_delivery_note ?? '',
-    fields.notes_delivery_note ?? existing.notes_delivery_note ?? '',
-    fields.sales_order_checklist ?? existing.sales_order_checklist ?? 'FALSE',
-    fields.status_sales_order ?? existing.status_sales_order ?? '',
-    fields.total_sales_order ?? existing.total_sales_order ?? '',
-    fields.total_error_sales_order ?? existing.total_error_sales_order ?? '',
-    fields.notes_sales_order ?? existing.notes_sales_order ?? '',
-    fields.stock_entry_checklist ?? existing.stock_entry_checklist ?? 'FALSE',
-    fields.status_stock_entry ?? existing.status_stock_entry ?? '',
-    fields.total_stock_entry ?? existing.total_stock_entry ?? '',
-    fields.total_error_stock_entry ?? existing.total_error_stock_entry ?? '',
-    fields.stock_entry_notes ?? existing.stock_entry_notes ?? '',
+    ...CHECKLIST_FIELDS.map((f) => fields[f] ?? existing[f] ?? ''),
   ];
 }
 
@@ -154,24 +151,7 @@ export async function POST(request: NextRequest) {
       body.taft_by || '',
       body.role_taft || '',
       body.name || '',
-      body.cleaning_store_checklist || 'FALSE',
-      body.vm_report_checklist || 'FALSE',
-      body.whatsapp_group_checklis || 'FALSE',
-      body.delivery_note_checklist || 'FALSE',
-      body.status_delivery_note || '',
-      body.total_delivery_note ?? '',
-      body.total_error_delivery_note ?? '0',
-      body.notes_delivery_note || '',
-      body.sales_order_checklist || 'FALSE',
-      body.status_sales_order || '',
-      body.total_sales_order ?? '',
-      body.total_error_sales_order ?? '0',
-      body.notes_sales_order || '',
-      body.stock_entry_checklist || 'FALSE',
-      body.status_stock_entry || '',
-      body.total_stock_entry ?? '',
-      body.total_error_stock_entry ?? '0',
-      body.stock_entry_notes || '',
+      ...CHECKLIST_FIELDS.map((f) => body[f] || ''),
     ];
 
     await appendSheetData('daily_checklist', [row]);
