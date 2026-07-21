@@ -93,6 +93,7 @@ export async function POST(request: NextRequest) {
       employee_discount_approval: user.employee_discount_approval === 'TRUE',
       daily_checklist: user.daily_checklist === 'TRUE',
       daily_checklist_all: user.daily_checklist_all === 'TRUE',
+      stock_pca_view: user.stock_pca_view === 'TRUE',
     });
   } catch (error) {
     return NextResponse.json({ error: 'Authentication failed' }, { status: 500 });
