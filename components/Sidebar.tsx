@@ -60,6 +60,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [generatingCatalog, setGeneratingCatalog] = useState(false);
+  const [generatingIhlsCatalog, setGeneratingIhlsCatalog] = useState(false);
 
   const initialGroup = (() => {
     if (
@@ -202,6 +203,32 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       alert("Failed to generate e-catalog");
     } finally {
       setGeneratingCatalog(false);
+    }
+  };
+
+  const handleGenerateIhlsCatalog = async () => {
+    setGeneratingIhlsCatalog(true);
+    try {
+      const response = await fetch("/api/canvasing/ecatalog-ihls/generate", {
+        method: "POST",
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `IHLS_E-Catalog_${Date.now()}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert("Failed to generate IHLS e-catalog");
+      }
+    } catch {
+      alert("Failed to generate IHLS e-catalog");
+    } finally {
+      setGeneratingIhlsCatalog(false);
     }
   };
 
@@ -852,6 +879,26 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
               {!isCollapsed && (
                 <span className="text-xs truncate">
                   {generatingCatalog ? "Generating..." : "E-Catalog"}
+                </span>
+              )}
+            </button>
+          )}
+
+          {permissions?.canvasing && pathname === "/canvasing" && (
+            <button
+              onClick={handleGenerateIhlsCatalog}
+              disabled={generatingIhlsCatalog}
+              title={isCollapsed ? "E-Catalog IHLS" : undefined}
+              className={`w-full flex items-center gap-3 transition-colors mt-1 text-white/60 hover:text-white hover:bg-white/8 disabled:opacity-40 disabled:cursor-not-allowed ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}`}
+            >
+              <span className="shrink-0 opacity-70">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+              </span>
+              {!isCollapsed && (
+                <span className="text-xs truncate">
+                  {generatingIhlsCatalog ? "Generating..." : "E-Catalog IHLS"}
                 </span>
               )}
             </button>
