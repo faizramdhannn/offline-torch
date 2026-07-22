@@ -19,7 +19,7 @@ export const CustomXTick = ({ x, y, payload }: any) => {
   );
 };
 
-export const CustomTooltip = ({ active, payload, label }: any) => {
+export const CustomTooltip = ({ active, payload, label, metricLabel = "Stock" }: any) => {
   if (active && payload && payload.length) {
     return (
       <div
@@ -35,7 +35,7 @@ export const CustomTooltip = ({ active, payload, label }: any) => {
         <p style={{ fontSize: 12, fontWeight: 600, color: "#f1f5f9", marginBottom: 8 }}>{label}</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
-            <span style={{ fontSize: 11, color: "#94a3b8" }}>Stock</span>
+            <span style={{ fontSize: 11, color: "#94a3b8" }}>{metricLabel}</span>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#60a5fa" }}>
               {payload[0].value.toLocaleString()}
             </span>

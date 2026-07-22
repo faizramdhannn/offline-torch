@@ -63,6 +63,8 @@ interface StockItem {
   Grade?: string;
   tier_product: string;
   Tier_product?: string;
+  tier_phase: string;
+  Tier_phase?: string;
   hpp: string;
   HPP?: string;
   hpt: string;
@@ -125,6 +127,26 @@ function formatRupiah(val: number): string {
   return "Rp " + val.toLocaleString("id-ID");
 }
 
+// Dipakai buat chart axis/label — angka qty maupun value (Rupiah) sama-sama
+// bisa besar, jadi disingkat "jt"/"k" biar tetap kebaca di sumbu/label bar.
+function formatCompactMetric(v: number): string {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}jt`;
+  if (v >= 1000) return `${(v / 1000).toFixed(0)}k`;
+  return String(v);
+}
+
+// Qty ditampilkan apa adanya (tanpa singkatan jt/k) — cuma Value (Rupiah)
+// yang perlu disingkat karena angkanya jauh lebih besar.
+function formatMetricTick(v: number, mode: "qty" | "value"): string {
+  return mode === "value" ? formatCompactMetric(v) : v.toLocaleString("id-ID");
+}
+
+// Nilai sentinel untuk opsi "kosong" di filter Tier Product/Tier Phase —
+// banyak baris punya kolom ini kosong, dan user perlu bisa memfilter khusus
+// yang kosong tersebut (bukan cuma dropdown yang selalu ngumpulin nilai
+// non-blank saja seperti sebelumnya).
+const EMPTY_FILTER_VALUE = "(Kosong)";
+
 export default function StockPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -134,6 +156,7 @@ export default function StockPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [grades, setGrades] = useState<string[]>([]);
   const [tiers, setTiers] = useState<string[]>([]);
+  const [tierPhases, setTierPhases] = useState<string[]>([]);
   const [warehouses, setWarehouses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedView, setSelectedView] = useState<"store" | "pca" | "master">("store");
@@ -142,6 +165,7 @@ export default function StockPage() {
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [gradeFilter, setGradeFilter] = useState<string[]>([]);
   const [tierFilter, setTierFilter] = useState<string[]>([]);
+  const [tierPhaseFilter, setTierPhaseFilter] = useState<string[]>([]);
   const [warehouseFilter, setWarehouseFilter] = useState<string[]>([]);
   // Price range filter (HPJ) — [min, max] in Rupiah. null = not yet initialized from data.
   const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
@@ -155,6 +179,7 @@ export default function StockPage() {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showGradeDropdown, setShowGradeDropdown] = useState(false);
   const [showTierDropdown, setShowTierDropdown] = useState(false);
+  const [showTierPhaseDropdown, setShowTierPhaseDropdown] = useState(false);
   const [showWarehouseDropdown, setShowWarehouseDropdown] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -170,6 +195,8 @@ export default function StockPage() {
 
   const [chartMode, setChartMode] = useState<"store" | "category">("store");
   const [pcaChartMode, setPcaChartMode] = useState<"category" | "grade">("category");
+  const [storeMetricMode, setStoreMetricMode] = useState<"qty" | "value">("qty");
+  const [pcaMetricMode, setPcaMetricMode] = useState<"qty" | "value">("qty");
 
   const [storeChartOpen, setStoreChartOpen] = useState(true);
   const [pcaChartOpen, setPcaChartOpen] = useState(true);
@@ -187,6 +214,7 @@ export default function StockPage() {
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const gradeDropdownRef = useRef<HTMLDivElement>(null);
   const tierDropdownRef = useRef<HTMLDivElement>(null);
+  const tierPhaseDropdownRef = useRef<HTMLDivElement>(null);
   const warehouseDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -197,6 +225,8 @@ export default function StockPage() {
         setShowGradeDropdown(false);
       if (tierDropdownRef.current && !tierDropdownRef.current.contains(event.target as Node))
         setShowTierDropdown(false);
+      if (tierPhaseDropdownRef.current && !tierPhaseDropdownRef.current.contains(event.target as Node))
+        setShowTierPhaseDropdown(false);
       if (warehouseDropdownRef.current && !warehouseDropdownRef.current.contains(event.target as Node))
         setShowWarehouseDropdown(false);
     };
@@ -218,7 +248,7 @@ export default function StockPage() {
   }, []);
 
   useEffect(() => { fetchData(); }, [selectedView]);
-  useEffect(() => { applyFilters(); }, [categoryFilter, gradeFilter, tierFilter, warehouseFilter, priceRange, searchQuery, data, sortColumn, sortDirection]);
+  useEffect(() => { applyFilters(); }, [categoryFilter, gradeFilter, tierFilter, tierPhaseFilter, warehouseFilter, priceRange, searchQuery, data, sortColumn, sortDirection]);
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);
@@ -252,6 +282,7 @@ export default function StockPage() {
         category: item.category || item.Category || "",
         grade: item.grade || item.Grade || "",
         tier_product: item.tier_product || item.Tier_product || item["Tier Product"] || item.tier || "",
+        tier_phase: item.tier_phase || item.Tier_phase || item["Tier Phase"] || "",
         hpp: item.hpp || item.HPP || "",
         hpt: item.hpt || item.HPT || "",
         hpj: item.hpj || item.HPJ || "",
@@ -262,7 +293,17 @@ export default function StockPage() {
       setFilteredData(normalizedData);
       setCategories([...new Set(normalizedData.map((i: StockItem) => i.category))].filter(Boolean) as string[]);
       setGrades([...new Set(normalizedData.map((i: StockItem) => i.grade))].filter(Boolean) as string[]);
-      setTiers([...new Set(normalizedData.map((i: StockItem) => i.tier_product))].filter(Boolean) as string[]);
+      // Tier Product/Tier Phase: sertakan opsi "(Kosong)" kalau ada baris
+      // yang nilainya blank, supaya user bisa filter khusus yang kosong.
+      const tierValues = normalizedData.map((i: StockItem) => i.tier_product);
+      const tierOptions = [...new Set(tierValues.filter(Boolean))] as string[];
+      if (tierValues.some((v: string) => !v)) tierOptions.push(EMPTY_FILTER_VALUE);
+      setTiers(tierOptions);
+
+      const tierPhaseValues = normalizedData.map((i: StockItem) => i.tier_phase);
+      const tierPhaseOptions = [...new Set(tierPhaseValues.filter(Boolean))] as string[];
+      if (tierPhaseValues.some((v: string) => !v)) tierPhaseOptions.push(EMPTY_FILTER_VALUE);
+      setTierPhases(tierPhaseOptions);
       if (selectedView === "store")
         setWarehouses([...new Set(normalizedData.map((i: StockItem) => i.warehouse))].filter(Boolean) as string[]);
 
@@ -369,6 +410,7 @@ export default function StockPage() {
     category: { get: (i) => toProperCase(i.category || ""), type: "text" },
     grade: { get: (i) => toProperCase(i.grade || ""), type: "text" },
     tier_product: { get: (i) => toProperCase(i.tier_product || ""), type: "text" },
+    tier_phase: { get: (i) => toProperCase(i.tier_phase || ""), type: "text" },
     stock: { get: (i) => parseInt((i.stock || "0").toString().replace(/[^0-9-]/g, "")) || 0, type: "number" },
     threshold: { get: (i) => parseInt((i.threshold || "0").toString().replace(/[^0-9-]/g, "")) || 0, type: "number" },
     warehouse: { get: (i) => i.warehouse || "", type: "text" },
@@ -381,7 +423,10 @@ export default function StockPage() {
     let filtered = [...data];
     if (categoryFilter.length > 0) filtered = filtered.filter((i) => categoryFilter.includes(i.category));
     if (gradeFilter.length > 0) filtered = filtered.filter((i) => gradeFilter.includes(i.grade));
-    if (tierFilter.length > 0) filtered = filtered.filter((i) => tierFilter.includes(i.tier_product));
+    if (tierFilter.length > 0)
+      filtered = filtered.filter((i) => tierFilter.includes(i.tier_product) || (tierFilter.includes(EMPTY_FILTER_VALUE) && !i.tier_product));
+    if (tierPhaseFilter.length > 0)
+      filtered = filtered.filter((i) => tierPhaseFilter.includes(i.tier_phase) || (tierPhaseFilter.includes(EMPTY_FILTER_VALUE) && !i.tier_phase));
     if (selectedView === "store" && warehouseFilter.length > 0)
       filtered = filtered.filter((i) => i.warehouse && warehouseFilter.includes(i.warehouse));
     if (priceRange && (priceRange[0] > priceBounds[0] || priceRange[1] < priceBounds[1])) {
@@ -433,7 +478,7 @@ export default function StockPage() {
   };
 
   const resetFilters = () => {
-    setCategoryFilter([]); setGradeFilter([]); setTierFilter([]); setWarehouseFilter([]);
+    setCategoryFilter([]); setGradeFilter([]); setTierFilter([]); setTierPhaseFilter([]); setWarehouseFilter([]);
     setPriceRange(priceBounds[1] > 0 ? [priceBounds[0], priceBounds[1]] : null);
     setSearchQuery(""); setSortColumn(null); setSortDirection("asc");
     setFilteredData(data); setCurrentPage(1);
@@ -442,6 +487,7 @@ export default function StockPage() {
   const toggleCategory = (v: string) => setCategoryFilter((p) => p.includes(v) ? p.filter((c) => c !== v) : [...p, v]);
   const toggleGrade = (v: string) => setGradeFilter((p) => p.includes(v) ? p.filter((g) => g !== v) : [...p, v]);
   const toggleTier = (v: string) => setTierFilter((p) => p.includes(v) ? p.filter((t) => t !== v) : [...p, v]);
+  const toggleTierPhase = (v: string) => setTierPhaseFilter((p) => p.includes(v) ? p.filter((t) => t !== v) : [...p, v]);
   const toggleWarehouse = (v: string) => setWarehouseFilter((p) => p.includes(v) ? p.filter((w) => w !== v) : [...p, v]);
 
   // ── Chart → filter shortcuts ────────────────────────────────────────────
@@ -568,12 +614,20 @@ export default function StockPage() {
     logActivity("GET", `Exported stock data (${selectedView} view): ${filteredData.length} items`);
   };
 
+  // ── Qty/Value metric helper ─────────────────────────────────────────────
+  // "Value" = HPJ x stock, SENGAJA mengabaikan discount (user diminta
+  // menghitung dari HPJ mentah, bukan harga setelah diskon).
+  const parseStock = (val: string | number) =>
+    parseInt((val || "0").toString().replace(/[^0-9-]/g, "")) || 0;
+  const metricValue = (item: StockItem, mode: "qty" | "value") =>
+    mode === "value" ? parseHarga(item.hpj) * parseStock(item.stock) : parseStock(item.stock);
+
   // ── Store chart data ──────────────────────────────────────────────────────
   const chartData = WAREHOUSES.map((wh) => {
     const whData = filteredData.filter((i) => (i.warehouse || "").toString().trim() === wh.key);
     return {
       name: wh.name,
-      stock: whData.reduce((s, i) => s + (parseInt((i.stock || "0").toString().replace(/[^0-9-]/g, "")) || 0), 0),
+      stock: whData.reduce((s, i) => s + metricValue(i, storeMetricMode), 0),
       sku: whData.length,
     };
   });
@@ -585,7 +639,7 @@ export default function StockPage() {
     WAREHOUSES.forEach((wh) => {
       row[wh.name] = filteredData
         .filter((i) => (i.warehouse || "").toString().trim() === wh.key && i.category === cat)
-        .reduce((s, i) => s + (parseInt((i.stock || "0").toString().replace(/[^0-9-]/g, "")) || 0), 0);
+        .reduce((s, i) => s + metricValue(i, storeMetricMode), 0);
     });
     return row;
   });
@@ -597,23 +651,26 @@ export default function StockPage() {
   // user TANPA stock_pca_view, chart PCA pakai kolom Threshold sebagai
   // gantinya.
   const pcaChartField: "stock" | "threshold" = user?.stock_pca_view ? "stock" : "threshold";
-  const pcaChartLabel = pcaChartField === "stock" ? "Stock" : "Threshold";
-
-  const parseStock = (val: string | number) =>
-    parseInt((val || "0").toString().replace(/[^0-9-]/g, "")) || 0;
+  // "Value" butuh angka stock ASLI (bukan threshold), jadi hanya ditawarkan
+  // kalau user punya stock_pca_view — kalau tidak, opsi Value disembunyikan
+  // sama sekali (lihat pcaMetricModes di JSX) supaya tidak diam-diam bocorin
+  // stock lewat nilai Rupiah untuk user tanpa akses itu.
+  const pcaMetricValue = (item: StockItem) =>
+    pcaMetricMode === "value" ? parseHarga(item.hpj) * parseStock(item.stock) : parseStock(item[pcaChartField] || "");
+  const pcaChartLabel = pcaMetricMode === "value" ? "Value" : pcaChartField === "stock" ? "Stock" : "Threshold";
 
   const pcaCategoryChartData = [...new Set(filteredData.map((i) => i.category).filter(Boolean))]
     .sort()
     .map((cat) => ({
       name: cat,
-      stock: filteredData.filter((i) => i.category === cat).reduce((s, i) => s + parseStock(i[pcaChartField] || ""), 0),
+      stock: filteredData.filter((i) => i.category === cat).reduce((s, i) => s + pcaMetricValue(i), 0),
     }));
 
   const pcaGradeChartData = [...new Set(filteredData.map((i) => i.grade).filter(Boolean))]
     .sort()
     .map((grade) => ({
       name: grade,
-      stock: filteredData.filter((i) => i.grade === grade).reduce((s, i) => s + parseStock(i[pcaChartField] || ""), 0),
+      stock: filteredData.filter((i) => i.grade === grade).reduce((s, i) => s + pcaMetricValue(i), 0),
     }));
 
   const pcaActiveData = pcaChartMode === "category" ? pcaCategoryChartData : pcaGradeChartData;
@@ -707,9 +764,16 @@ export default function StockPage() {
         <div className="mb-4">
           {selectedView === "store" && (
             <ChartPanel
-              title="Stock Summary"
-              totalLabel="Total Stock"
-              totalValue={chartData.reduce((s, d) => s + d.stock, 0).toLocaleString()}
+              title={`Stock Summary${storeMetricMode === "value" ? " (Value)" : ""}`}
+              totalLabel={storeMetricMode === "value" ? "Total Value" : "Total Stock"}
+              totalValue={
+                storeMetricMode === "value"
+                  ? formatRupiah(chartData.reduce((s, d) => s + d.stock, 0))
+                  : chartData.reduce((s, d) => s + d.stock, 0).toLocaleString()
+              }
+              metricModes={[{ key: "qty", label: "Qty" }, { key: "value", label: "Value" }]}
+              activeMetricMode={storeMetricMode}
+              onMetricModeChange={(v) => setStoreMetricMode(v as any)}
               modes={[{ key: "store", label: "Store" }, { key: "category", label: "Category" }]}
               activeMode={chartMode}
               onModeChange={(v) => setChartMode(v as any)}
@@ -730,15 +794,15 @@ export default function StockPage() {
                       <BarChart data={chartData} margin={{ top: 16, right: 4, left: 0, bottom: 0 }} barCategoryGap="30%">
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                         <XAxis dataKey="name" tick={<CustomXTick />} axisLine={false} tickLine={false} interval={0} height={24} />
-                        <YAxis tick={{ ...chartAxisTick, fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={28} />
-                        <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                        <YAxis tick={{ ...chartAxisTick, fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={(v) => formatMetricTick(v, storeMetricMode)} width={32} />
+                        <Tooltip content={<CustomTooltip metricLabel={storeMetricMode === "value" ? "Value" : "Stock"} />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                         <Bar
                           dataKey="stock"
                           radius={[3, 3, 0, 0]}
                           maxBarSize={32}
                           cursor="pointer"
                           onClick={(entry: any) => handleWarehouseBarClick(entry.name)}
-                          label={{ position: "top", fontSize: 8, fill: "#6b7280", formatter: (v: any) => Number(v) > 0 ? Number(v).toLocaleString() : "" }}
+                          label={{ position: "top", fontSize: 8, fill: "#6b7280", formatter: (v: any) => Number(v) > 0 ? formatMetricTick(Number(v), storeMetricMode) : "" }}
                         >
                           {chartData.map((entry, index) => {
                             const minStock = Math.min(...chartData.filter((d) => d.stock > 0).map((d) => d.stock));
@@ -771,7 +835,7 @@ export default function StockPage() {
                     >
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                       <XAxis dataKey="name" tick={<CustomXTick />} axisLine={false} tickLine={false} interval={0} height={24} />
-                      <YAxis tick={{ ...chartAxisTick, fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={28} />
+                      <YAxis tick={{ ...chartAxisTick, fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={(v) => formatMetricTick(v, storeMetricMode)} width={32} />
                       <Tooltip content={<CategoryTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                       {WAREHOUSES.map((wh, i) => (
                         <Bar
@@ -798,7 +862,14 @@ export default function StockPage() {
             <ChartPanel
               title={`PCA ${pcaChartLabel} Summary`}
               totalLabel={`Total ${pcaChartLabel}`}
-              totalValue={pcaTotalStock.toLocaleString()}
+              totalValue={pcaMetricMode === "value" ? formatRupiah(pcaTotalStock) : pcaTotalStock.toLocaleString()}
+              metricModes={
+                user?.stock_pca_view
+                  ? [{ key: "qty", label: "Qty" }, { key: "value", label: "Value" }]
+                  : undefined
+              }
+              activeMetricMode={pcaMetricMode}
+              onMetricModeChange={(v) => setPcaMetricMode(v as any)}
               modes={[{ key: "category", label: "Category" }, { key: "grade", label: "Grade" }]}
               activeMode={pcaChartMode}
               onModeChange={(v) => setPcaChartMode(v as any)}
@@ -814,7 +885,7 @@ export default function StockPage() {
                     <BarChart data={pcaActiveData} margin={{ top: 16, right: 4, left: 0, bottom: 0 }} barCategoryGap="30%">
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                       <XAxis dataKey="name" tick={<CustomXTick />} axisLine={false} tickLine={false} interval={0} height={24} />
-                      <YAxis tick={{ ...chartAxisTick, fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} width={28} />
+                      <YAxis tick={{ ...chartAxisTick, fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={(v) => formatMetricTick(v, pcaMetricMode)} width={32} />
                       <Tooltip content={<PCATooltip metricLabel={pcaChartLabel} />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                       <Bar
                         dataKey="stock"
@@ -826,7 +897,7 @@ export default function StockPage() {
                             ? handleCategoryBarClick(entry.name)
                             : handleGradeBarClick(entry.name)
                         }
-                        label={{ position: "top", fontSize: 8, fill: "#6b7280", formatter: (v: any) => Number(v) > 0 ? Number(v).toLocaleString() : "" }}
+                        label={{ position: "top", fontSize: 8, fill: "#6b7280", formatter: (v: any) => Number(v) > 0 ? formatMetricTick(Number(v), pcaMetricMode) : "" }}
                       >
                         {pcaActiveData.map((entry, index) => {
                           const activeList = pcaChartMode === "category" ? categoryFilter : gradeFilter;
@@ -856,7 +927,7 @@ export default function StockPage() {
 
         {/* ── Filters ─────────────────────────────────────────────────── */}
         <div className="mb-4 rounded-2xl border border-gray-200/80 bg-white p-4">
-          <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
+          <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-7">
             <FilterDropdown
               label="Category"
               options={categories}
@@ -883,6 +954,15 @@ export default function StockPage() {
               open={showTierDropdown}
               onOpenChange={setShowTierDropdown}
               containerRef={tierDropdownRef}
+            />
+            <FilterDropdown
+              label="Tier Phase"
+              options={tierPhases}
+              selected={tierPhaseFilter}
+              onToggle={toggleTierPhase}
+              open={showTierPhaseDropdown}
+              onOpenChange={setShowTierPhaseDropdown}
+              containerRef={tierPhaseDropdownRef}
             />
             {selectedView === "store" && (
               <FilterDropdown

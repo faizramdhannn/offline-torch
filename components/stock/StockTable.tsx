@@ -14,6 +14,7 @@ interface StockItem {
   category: string;
   grade: string;
   tier_product: string;
+  tier_phase: string;
   hpp: string;
   hpt: string;
   hpj: string;
@@ -238,7 +239,7 @@ export function StockTable({
   const showStockColumn = selectedView === "store" || (selectedView === "pca" && showStockPca);
 
   const columnCount =
-    6 + // Img, SKU, Product Name, Category, Grade, Tier Product
+    7 + // Img, SKU, Product Name, Category, Grade, Tier Product, Tier Phase
     (showStockColumn ? 1 : 0) + // Stock
     (selectedView === "pca" ? 1 : 0) + // Threshold
     (selectedView === "store" ? 1 : 0) + // Warehouse
@@ -257,6 +258,7 @@ export function StockTable({
             <SortableTh label="Category" column="category" {...thProps} />
             <SortableTh label="Grade" column="grade" {...thProps} />
             <SortableTh label="Tier Product" column="tier_product" {...thProps} />
+            <SortableTh label="Tier Phase" column="tier_phase" {...thProps} />
             {showStockColumn && (
               <SortableTh label="Stock" column="stock" {...thProps} />
             )}
@@ -311,6 +313,7 @@ export function StockTable({
               <td className="whitespace-nowrap px-2 py-1 text-gray-600">{toProperCase(item.category)}</td>
               <td className="whitespace-nowrap px-2 py-1 text-gray-600">{toProperCase(item.grade)}</td>
               <td className="whitespace-nowrap px-2 py-1 text-gray-600">{toProperCase(item.tier_product)}</td>
+              <td className="whitespace-nowrap px-2 py-1 text-gray-600">{toProperCase(item.tier_phase)}</td>
               {showStockColumn && (
                 <td className="whitespace-nowrap px-2 py-1 font-medium text-gray-700">{item.stock}</td>
               )}

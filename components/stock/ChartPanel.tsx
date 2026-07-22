@@ -16,6 +16,11 @@ interface ChartPanelProps {
   modes?: ChartModeOption[];
   activeMode?: string;
   onModeChange?: (key: string) => void;
+  /** Second toggle group, rendered to the LEFT of `modes` (e.g. Qty/Value
+   *  next to the existing Category/Grade or Store/Category toggle). */
+  metricModes?: ChartModeOption[];
+  activeMetricMode?: string;
+  onMetricModeChange?: (key: string) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: ReactNode;
@@ -35,6 +40,9 @@ export function ChartPanel({
   modes,
   activeMode,
   onModeChange,
+  metricModes,
+  activeMetricMode,
+  onMetricModeChange,
   open,
   onOpenChange,
   children,
@@ -50,6 +58,24 @@ export function ChartPanel({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {open && metricModes && metricModes.length > 0 && (
+            <div className="flex items-center gap-1 rounded-md bg-gray-100 p-0.5">
+              {metricModes.map((m) => (
+                <button
+                  key={m.key}
+                  onClick={() => onMetricModeChange?.(m.key)}
+                  className={cn(
+                    "rounded px-2 py-1 text-xs font-medium transition-colors sm:px-3",
+                    activeMetricMode === m.key
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  )}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          )}
           {open && modes && modes.length > 0 && (
             <div className="flex items-center gap-1 rounded-md bg-gray-100 p-0.5">
               {modes.map((m) => (
