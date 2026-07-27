@@ -86,7 +86,6 @@ interface LastUpdate {
 const WAREHOUSES = [
   { name: "Margonda",   key: "Torch Margonda - T" },
   { name: "Jogja",      key: "Torch Jogja - T" },
-  { name: "Makassar",   key: "Torch Makassar - T" },
   { name: "Lampung",    key: "Torch Lampung - T" },
   { name: "Surabaya",   key: "Torch Surabaya - T" },
   { name: "Lembong",    key: "Torch Store Lembong - T" },
