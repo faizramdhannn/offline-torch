@@ -114,8 +114,8 @@ export async function POST(request: NextRequest) {
     const invoice = invoices.find((r: any) => r.invoice_id === invoice_id);
     if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
 
-    if (invoice.status !== 'submitted') {
-      return NextResponse.json({ error: 'PDF hanya tersedia untuk invoice dengan status submitted' }, { status: 403 });
+    if (invoice.status !== 'approved') {
+      return NextResponse.json({ error: 'PDF hanya tersedia untuk invoice dengan status approved' }, { status: 403 });
     }
 
     const items = allItems.filter((r: any) => r.invoice_id === invoice_id);
