@@ -32,6 +32,7 @@ interface TrafficEntry {
   budget_range?: string;
   alt_purchase_channel?: string;
   reason_buy?: string;
+  phone_number?: string;
 }
 
 interface EntryTableProps {
@@ -130,6 +131,9 @@ const COLUMNS: ColumnDef[] = [
   { key: "reason_buy", label: "Alasan Beli", defaultVisible: true,
     cellClass: "max-w-[110px] truncate text-green-600",
     render: (row) => row.reason_buy || "-" },
+  { key: "phone_number", label: "No. Telepon", defaultVisible: false,
+    cellClass: "whitespace-nowrap font-mono text-[10px] text-gray-500",
+    render: (row) => row.phone_number || "-" },
 ];
 
 const STORAGE_KEY = "traffic_store_visible_columns_v1";
@@ -336,6 +340,7 @@ export function EntryTable({ items, isStoreUser, canEdit, onEdit, onDelete, form
                 {row.customer_segment && <p>Segment: {row.customer_segment}</p>}
                 {row.product_category && <p>Kategori: {row.product_category}</p>}
                 {row.reason_not_buy && <p className="text-red-500">Alasan: {row.reason_not_buy}</p>}
+                {row.phone_number && <p>No. Telepon: {row.phone_number}</p>}
                 {row.budget_range && <p>Budget: {row.budget_range}</p>}
                 {row.alt_purchase_channel && <p>Ke: {row.alt_purchase_channel}</p>}
                 {row.reason_buy && <p className="text-green-600">Beli krn: {row.reason_buy}</p>}

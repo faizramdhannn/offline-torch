@@ -79,7 +79,7 @@ async function appendTrafficRow(sheetName: string, row: any[], extraRow?: any[])
   if (extraRow && rowIndex > 0) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_TRAFFIC,
-      range: `${sheetName}!S${rowIndex}:Y${rowIndex}`,
+      range: `${sheetName}!S${rowIndex}:Z${rowIndex}`,
       valueInputOption: 'RAW',
       requestBody: { values: [extraRow] },
     });
@@ -113,7 +113,7 @@ async function updateTrafficRow(sheetName: string, rowIndex: number, row: any[],
   if (extraRow) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_TRAFFIC,
-      range: `${sheetName}!S${rowIndex}:Y${rowIndex}`,
+      range: `${sheetName}!S${rowIndex}:Z${rowIndex}`,
       valueInputOption: 'RAW',
       requestBody: { values: [extraRow] },
     });
@@ -187,15 +187,25 @@ export async function GET(request: NextRequest) {
 // Reasons in reason_not_buy that relate to price — only these unlock budget_range
 const PRICE_REASONS = ['Harga Di Atas Budget', 'Harga Lebih Murah Online', 'Menunggu Promo Lebih Besar'];
 
+// phone_number (Tidak Beli, wajib): prefix 62 / 08 / +62, sisanya angka saja,
+// total 11-13 digit (tidak menghitung tanda "+"). Divalidasi juga di
+// EntryFormModal/page.tsx — validasi di sini adalah sumber kebenaran server-side.
+function isValidPhoneNumber(v: string): boolean {
+  const val = (v || '').trim();
+  if (!/^(\+62|62|08)\d+$/.test(val)) return false;
+  const digitsOnly = val.replace(/^\+/, '');
+  return digitsOnly.length >= 11 && digitsOnly.length <= 13;
+}
+
 // POST: add new traffic entry
 // Sheet columns (A–P, 16 cols):
 //   id | date | store_location | taft_name | customer_convert | traffic_source
 //   | wag_addition | eiger_addition | organic_addition | brand_competitor
 //   | intention | case | notes | sales_order | created_at | update_at
 // Column Q, R (value_order, discount_code) contain sheet formulas — never written here.
-// Sheet columns (S–Y, 7 cols — REVISI SURVEY):
+// Sheet columns (S–Z, 8 cols — REVISI SURVEY):
 //   customer_segment | product_category | product_detail | reason_not_buy
-//   | budget_range | alt_purchase_channel | reason_buy
+//   | budget_range | alt_purchase_channel | reason_buy | phone_number
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -204,7 +214,7 @@ export async function POST(request: NextRequest) {
       wag_addition, eiger_addition, organic_addition, brand_competitor,
       intention, case: caseVal, notes, sales_order, created_by,
       customer_segment, product_category, product_detail, reason_not_buy,
-      budget_range, alt_purchase_channel, reason_buy,
+      budget_range, alt_purchase_channel, reason_buy, phone_number,
     } = body;
 
     if (!date || !store_location || !taft_name || !traffic_source) {
@@ -212,6 +222,9 @@ export async function POST(request: NextRequest) {
     }
     if (customer_convert === 'Tidak Beli' && !reason_not_buy) {
       return NextResponse.json({ error: 'Alasan tidak beli wajib diisi' }, { status: 400 });
+    }
+    if (customer_convert === 'Tidak Beli' && !isValidPhoneNumber(phone_number)) {
+      return NextResponse.json({ error: 'Nomor telepon wajib diisi dengan format yang valid (prefix 62/08/+62, 11-13 digit angka)' }, { status: 400 });
     }
 
     const id = Date.now().toString();
@@ -250,8 +263,9 @@ export async function POST(request: NextRequest) {
     const budgetRangeVal = reasonNotBuyVal && PRICE_REASONS.includes(reasonNotBuyVal) ? (budget_range || '') : '';
     const altChannelVal = customer_convert === 'Tidak Beli' ? (alt_purchase_channel || '') : '';
     const reasonBuyVal = customer_convert === 'Beli' ? (reason_buy || '') : '';
+    const phoneNumberVal = customer_convert === 'Tidak Beli' ? (phone_number || '') : '';
 
-    // 7 columns — S through Y
+    // 8 columns — S through Z
     const extraRow = [
       customer_segment || '',   // S
       product_category || '',   // T
@@ -260,6 +274,7 @@ export async function POST(request: NextRequest) {
       budgetRangeVal,           // W
       altChannelVal,            // X
       reasonBuyVal,             // Y
+      phoneNumberVal,           // Z
     ];
 
     await appendTrafficRow('traffic_source', newRow, extraRow);
@@ -280,7 +295,7 @@ export async function PUT(request: NextRequest) {
       wag_addition, eiger_addition, organic_addition, brand_competitor,
       intention, case: caseVal, notes, sales_order,
       customer_segment, product_category, product_detail, reason_not_buy,
-      budget_range, alt_purchase_channel, reason_buy,
+      budget_range, alt_purchase_channel, reason_buy, phone_number,
     } = body;
 
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
@@ -295,6 +310,10 @@ export async function PUT(request: NextRequest) {
 
     const newTrafficSource = traffic_source ?? existing.traffic_source;
     const newConvert = customer_convert ?? existing.customer_convert;
+
+    if (newConvert === 'Tidak Beli' && !isValidPhoneNumber(phone_number ?? existing.phone_number ?? '')) {
+      return NextResponse.json({ error: 'Nomor telepon wajib diisi dengan format yang valid (prefix 62/08/+62, 11-13 digit angka)' }, { status: 400 });
+    }
 
     const wagVal = newTrafficSource === 'WAG' ? (wag_addition ?? existing.wag_addition ?? '') : '';
     const eigerVal = newTrafficSource === 'Eiger Referral' ? (eiger_addition ?? existing.eiger_addition ?? '') : '';
@@ -329,6 +348,7 @@ export async function PUT(request: NextRequest) {
       : '';
     const altChannelVal = newConvert === 'Tidak Beli' ? (alt_purchase_channel ?? existing.alt_purchase_channel ?? '') : '';
     const reasonBuyVal = newConvert === 'Beli' ? (reason_buy ?? existing.reason_buy ?? '') : '';
+    const phoneNumberVal = newConvert === 'Tidak Beli' ? (phone_number ?? existing.phone_number ?? '') : '';
 
     const extraRow = [
       customer_segment ?? existing.customer_segment ?? '',   // S
@@ -338,6 +358,7 @@ export async function PUT(request: NextRequest) {
       budgetRangeVal,                                         // W
       altChannelVal,                                          // X
       reasonBuyVal,                                           // Y
+      phoneNumberVal,                                         // Z
     ];
 
     await updateTrafficRow('traffic_source', rowIndex, updatedRow, extraRow);

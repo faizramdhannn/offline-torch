@@ -31,6 +31,15 @@ export interface TrafficFormData {
   budget_range: string;
   alt_purchase_channel: string;
   reason_buy: string;
+  phone_number: string;
+}
+
+// prefix 62 / 08 / +62, sisanya angka saja, total 11-13 digit (tanda "+" tidak dihitung).
+export function isValidPhoneNumber(v: string): boolean {
+  const val = (v || "").trim();
+  if (!/^(\+62|62|08)\d+$/.test(val)) return false;
+  const digitsOnly = val.replace(/^\+/, "");
+  return digitsOnly.length >= 11 && digitsOnly.length <= 13;
 }
 
 interface EntryFormModalProps {
@@ -88,6 +97,7 @@ export function EntryFormModal({
   toTitleCase,
 }: EntryFormModalProps) {
   const salesOrderInvalid = form.sales_order.trim() && !/^#\d+$/.test(form.sales_order.trim());
+  const phoneNumberInvalid = form.phone_number.trim() && !isValidPhoneNumber(form.phone_number);
 
   return (
     <Modal
@@ -281,6 +291,27 @@ export function EntryFormModal({
                 </select>
               </div>
             )}
+
+            <div>
+              <FieldLabel required>Nomor Telepon</FieldLabel>
+              <input
+                type="text"
+                value={form.phone_number}
+                onChange={(e) => onChange({ ...form, phone_number: e.target.value })}
+                placeholder="Contoh: 081234567890"
+                className={cn(
+                  "w-full rounded-lg border bg-white px-3 py-2 text-xs outline-none transition-colors focus:ring-2",
+                  phoneNumberInvalid ? "border-red-400 focus:ring-red-100" : "border-red-200 focus:ring-red-100"
+                )}
+              />
+              {phoneNumberInvalid ? (
+                <p className="mt-1 text-[11px] text-red-500">
+                  Format tidak valid. Awali dengan 62, 08, atau +62, lalu angka saja, total 11-13 digit.
+                </p>
+              ) : (
+                <p className="mt-1 text-[11px] text-gray-400">Awali dengan 62, 08, atau +62, lalu angka saja, total 11-13 digit.</p>
+              )}
+            </div>
 
             <div>
               <FieldLabel>Akan Beli Di Mana</FieldLabel>

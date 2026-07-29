@@ -32,7 +32,7 @@ import { DarkTooltip, PieSliceTooltip, PieLegend } from "@/components/traffic-st
 import { SalesByTable } from "@/components/traffic-store/SalesByTable";
 import { SummaryTable } from "@/components/traffic-store/SummaryTable";
 import { MatrixTable } from "@/components/traffic-store/MatrixTable";
-import { EntryFormModal, type TrafficFormData } from "@/components/traffic-store/EntryFormModal";
+import { EntryFormModal, type TrafficFormData, isValidPhoneNumber } from "@/components/traffic-store/EntryFormModal";
 
 interface TrafficEntry {
   id: string;
@@ -54,7 +54,7 @@ interface TrafficEntry {
   // formula columns from sheet (read-only, never written)
   value_order?: string;
   discount_code?: string;
-  // ── Revisi Survey (kolom S–Y) ──
+  // ── Revisi Survey (kolom S–Z) ──
   customer_segment?: string;
   product_category?: string;
   product_detail?: string;
@@ -62,6 +62,7 @@ interface TrafficEntry {
   budget_range?: string;
   alt_purchase_channel?: string;
   reason_buy?: string;
+  phone_number?: string;
 }
 
 interface MasterRow {
@@ -162,6 +163,7 @@ const EMPTY_FORM: TrafficFormData = {
   budget_range: "",
   alt_purchase_channel: "",
   reason_buy: "",
+  phone_number: "",
 };
 
 // ─── Export XLSX ──────────────────────────────────────────────────────────────
@@ -869,6 +871,7 @@ export default function TrafficStorePage() {
       budget_range: entry.budget_range || "",
       alt_purchase_channel: entry.alt_purchase_channel || "",
       reason_buy: entry.reason_buy || "",
+      phone_number: entry.phone_number || "",
     });
     setShowForm(true);
   };
@@ -883,6 +886,8 @@ export default function TrafficStorePage() {
       !!form.sales_order?.trim() &&
       !/^#\d+$/.test(form.sales_order.trim());
     const needsReasonNotBuy = form.customer_convert === "Tidak Beli" && !form.reason_not_buy;
+    const invalidPhoneNumber =
+      form.customer_convert === "Tidak Beli" && !isValidPhoneNumber(form.phone_number);
     const needsBudgetRange =
       form.customer_convert === "Tidak Beli" &&
       ["Harga Di Atas Budget", "Harga Lebih Murah Online", "Menunggu Promo Lebih Besar"].includes(form.reason_not_buy) &&
@@ -906,6 +911,9 @@ export default function TrafficStorePage() {
       showMessage("Format Sales Order tidak valid. Gunakan format #angka, contoh: #4098769", "error"); return;
     }
     if (needsReasonNotBuy) { showMessage("Alasan Tidak Beli wajib diisi", "error"); return; }
+    if (invalidPhoneNumber) {
+      showMessage("Nomor telepon wajib diisi dengan format valid (awali 62/08/+62, angka saja, 11-13 digit)", "error"); return;
+    }
     if (needsBudgetRange) { showMessage("Budget Range wajib diisi ketika alasan tidak beli terkait harga", "error"); return; }
     if (needsReasonBuy) { showMessage("Alasan Beli wajib diisi ketika customer membeli", "error"); return; }
 
