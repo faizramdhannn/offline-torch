@@ -8,11 +8,11 @@ import { Button } from "@/components/shared/Button";
 import { Pagination } from "@/components/shared/Pagination";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  BarChart, Bar,
+  BarChart, Bar, PieChart, Pie, Cell,
 } from "recharts";
 import { CHART_PALETTE, chartTooltipStyle, chartAxisTick, chartGridStroke } from "@/components/shared/chartStyles";
 import { Pencil, Trash2, Save, X, Plus, Eye, Check } from "lucide-react";
-import { jakartaDateKeyFromCreatedAt, todayJakartaKey } from "@/lib/dailyJobDate";
+import { jakartaDateKeyFromCreatedAt, todayJakartaKey, parseCreatedAtForSort } from "@/lib/dailyJobDate";
 
 interface ChecklistRow {
   id: string;
@@ -326,16 +326,19 @@ export default function DailyChecklistPage() {
     }
   };
 
-  // ── Report: trend, breakdown per toko, breakdown per kategori ──────────
+  // ── Report: trend, progress hari ini per item, breakdown per kategori ──
   const reportFiltered = useMemo(() => {
     const storeKey = reportStore.trim().toLowerCase();
-    return allRows.filter((r) => {
-      if (storeKey && !(r.name || "").toLowerCase().includes(storeKey)) return false;
-      const dateKey = jakartaDateKeyFromCreatedAt(r.created_at);
-      if (reportFrom && (!dateKey || dateKey < reportFrom)) return false;
-      if (reportTo && (!dateKey || dateKey > reportTo)) return false;
-      return true;
-    });
+    return allRows
+      .filter((r) => {
+        if (storeKey && !(r.name || "").toLowerCase().includes(storeKey)) return false;
+        const dateKey = jakartaDateKeyFromCreatedAt(r.created_at);
+        if (reportFrom && (!dateKey || dateKey < reportFrom)) return false;
+        if (reportTo && (!dateKey || dateKey > reportTo)) return false;
+        return true;
+      })
+      // "Semua Riwayat" tampil terbaru dulu.
+      .sort((a, b) => parseCreatedAtForSort(b.created_at) - parseCreatedAtForSort(a.created_at));
   }, [allRows, reportStore, reportFrom, reportTo]);
 
   const trendData = useMemo(() => {
@@ -366,16 +369,26 @@ export default function DailyChecklistPage() {
       });
   }, [reportFiltered, dropdowns]);
 
-  const storeBreakdown = useMemo(() => {
-    const byStore = new Map<string, ChecklistRow>();
-    for (const r of reportFiltered) {
-      const existing = byStore.get(r.name);
-      if (!existing || jakartaDateKeyFromCreatedAt(r.created_at) >= jakartaDateKeyFromCreatedAt(existing.created_at)) {
-        byStore.set(r.name, r);
-      }
-    }
-    return [...byStore.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [reportFiltered]);
+  // Progress HARI INI per item (lintas semua toko) — donut kecil per item,
+  // menjawab "hari ini item X sudah 100% dikerjakan semua toko atau belum".
+  // Selalu berbasis hari ini (bukan rentang filter tanggal), tapi tetap
+  // menghormati filter toko kalau ada.
+  const todayItemStats = useMemo(() => {
+    const todayKey = todayJakartaKey();
+    const storeKey = reportStore.trim().toLowerCase();
+    const todayRows = allRows.filter((r) => {
+      if (storeKey && !(r.name || "").toLowerCase().includes(storeKey)) return false;
+      return jakartaDateKeyFromCreatedAt(r.created_at) === todayKey;
+    });
+    return CATEGORIES.flatMap((c) => {
+      const items = categoryItems(c.key);
+      return items.map((item) => {
+        const done = todayRows.filter((r) => parseItems(r[c.key]).includes(item)).length;
+        const total = todayRows.length;
+        return { category: c.label, item, done, total };
+      });
+    });
+  }, [allRows, reportStore, dropdowns]);
 
   const categoryBreakdown = useMemo(() => {
     return CATEGORIES.map((c) => {
@@ -661,49 +674,52 @@ export default function DailyChecklistPage() {
             </ResponsiveContainer>
           </div>
 
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-4 py-2.5 border-b border-gray-100">
-              <h3 className="text-sm font-bold text-gray-800">Breakdown per Toko (entri terakhir dalam rentang)</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-[10.5px] border-collapse">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
-                    <th className="px-3 py-2 text-left border-r border-gray-200 whitespace-nowrap min-w-[140px]">Toko</th>
-                    <th className="px-3 py-2 text-left border-r border-gray-200 whitespace-nowrap min-w-[130px]">Tanggal Terakhir</th>
-                    {CATEGORIES.map((c) => (
-                      <th key={c.key} className="px-3 py-2 text-center border-r border-gray-200 whitespace-nowrap min-w-[120px] last:border-r-0">
-                        {c.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {storeBreakdown.length === 0 ? (
-                    <tr><td colSpan={2 + CATEGORIES.length} className="text-center py-6 text-gray-400">Tidak ada data</td></tr>
-                  ) : (
-                    storeBreakdown.map((r) => (
-                      <tr key={r.name} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-3 py-2 border-r border-gray-200 whitespace-nowrap">{r.name}</td>
-                        <td className="px-3 py-2 border-r border-gray-200 whitespace-nowrap">{r.created_at}</td>
-                        {CATEGORIES.map((c) => {
-                          const { done, total } = countDone(r[c.key], categoryItems(c.key));
-                          return (
-                            <td key={c.key} className="px-3 py-2 border-r border-gray-200 text-center whitespace-nowrap last:border-r-0">
-                              <span className={`px-1.5 py-0.5 rounded font-semibold ${
-                                total > 0 && done === total ? "bg-green-100 text-green-700" : done === 0 ? "bg-gray-100 text-gray-500" : "bg-amber-100 text-amber-700"
-                              }`}>
-                                {done}/{total}
-                              </span>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-sm font-bold text-gray-800 mb-1">Progress Hari Ini per Item</h3>
+            <p className="text-[10px] text-gray-400 mb-3">
+              Persentase toko yang sudah mengerjakan item tersebut hari ini (dari {todayItemStats[0]?.total ?? 0} entri masuk hari ini)
+            </p>
+            {todayItemStats.length === 0 ? (
+              <p className="text-xs text-gray-400 italic">Belum ada item di master_dropdown.</p>
+            ) : (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                {todayItemStats.map(({ category, item, done, total }) => {
+                  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                  const donutData = [
+                    { name: "done", value: pct },
+                    { name: "remaining", value: 100 - pct },
+                  ];
+                  const color = pct === 100 ? "#22c55e" : pct === 0 ? "#d1d5db" : "#f59e0b";
+                  return (
+                    <div key={`${category}-${item}`} className="flex flex-col items-center text-center">
+                      <div className="relative w-16 h-16">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={donutData}
+                              dataKey="value"
+                              innerRadius={20}
+                              outerRadius={30}
+                              startAngle={90}
+                              endAngle={-270}
+                              stroke="none"
+                            >
+                              <Cell fill={color} />
+                              <Cell fill="#f1f5f9" />
+                            </Pie>
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-gray-700">
+                          {pct}%
+                        </div>
+                      </div>
+                      <p className="mt-1 text-[10px] font-medium text-gray-700 leading-tight line-clamp-2">{item}</p>
+                      <p className="text-[9px] text-gray-400">{category}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
