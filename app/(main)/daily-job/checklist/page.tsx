@@ -383,9 +383,10 @@ export default function DailyChecklistPage() {
     return CATEGORIES.flatMap((c) => {
       const items = categoryItems(c.key);
       return items.map((item) => {
-        const done = todayRows.filter((r) => parseItems(r[c.key]).includes(item)).length;
+        const missingStores = todayRows.filter((r) => !parseItems(r[c.key]).includes(item)).map((r) => r.name);
+        const done = todayRows.length - missingStores.length;
         const total = todayRows.length;
-        return { category: c.label, item, done, total };
+        return { category: c.label, item, done, total, missingStores };
       });
     });
   }, [allRows, reportStore, dropdowns]);
@@ -683,7 +684,7 @@ export default function DailyChecklistPage() {
               <p className="text-xs text-gray-400 italic">Belum ada item di master_dropdown.</p>
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                {todayItemStats.map(({ category, item, done, total }) => {
+                {todayItemStats.map(({ category, item, done, total, missingStores }) => {
                   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
                   const donutData = [
                     { name: "done", value: pct },
@@ -691,7 +692,7 @@ export default function DailyChecklistPage() {
                   ];
                   const color = pct === 100 ? "#22c55e" : pct === 0 ? "#d1d5db" : "#f59e0b";
                   return (
-                    <div key={`${category}-${item}`} className="flex flex-col items-center text-center">
+                    <div key={`${category}-${item}`} className="group relative flex flex-col items-center text-center">
                       <div className="relative w-16 h-16">
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
@@ -715,6 +716,25 @@ export default function DailyChecklistPage() {
                       </div>
                       <p className="mt-1 text-[10px] font-medium text-gray-700 leading-tight line-clamp-2">{item}</p>
                       <p className="text-[9px] text-gray-400">{category}</p>
+
+                      {/* Hover tooltip: daftar toko yang BELUM mengerjakan item ini hari ini. */}
+                      <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-20 w-44 rounded-lg bg-gray-900 px-2.5 py-2 text-left opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                        <p className="text-[10px] font-semibold text-white mb-1">
+                          {pct === 100 ? "Semua toko sudah selesai" : `Belum (${missingStores.length}/${total})`}
+                        </p>
+                        {pct !== 100 && (
+                          missingStores.length === 0 ? (
+                            <p className="text-[10px] text-gray-300">Belum ada data hari ini.</p>
+                          ) : (
+                            <ul className="max-h-28 space-y-0.5 overflow-y-auto text-[10px] text-gray-300">
+                              {missingStores.map((s) => (
+                                <li key={s} className="truncate">{s}</li>
+                              ))}
+                            </ul>
+                          )
+                        )}
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 h-0 w-0 border-x-4 border-x-transparent border-t-4 border-t-gray-900" />
+                      </div>
                     </div>
                   );
                 })}
