@@ -237,7 +237,7 @@ export default function InvoicePage() {
   });
 
   // ── Pagination ─────────────────────────────────────────────────────────────
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
   const [currentPage, setCurrentPage] = useState(1);
   useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter]);
   const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / itemsPerPage));
@@ -636,16 +636,18 @@ export default function InvoicePage() {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full text-[11px]">
+                <table className="w-full text-[10px]">
                   <thead className="bg-gray-100 border-b">
                     <tr>
-                      <th className="px-3 py-2 text-left font-semibold text-gray-700">No. Invoice</th>
-                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Tipe</th>
-                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Tanggal</th>
-                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Customer</th>
-                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Subtotal</th>
-                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Status</th>
-                      <th className="px-3 py-2 text-left font-semibold text-gray-700">Aksi</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">No. Invoice</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Tipe</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Tanggal</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Customer</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Signature Store</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Signature PIC</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Subtotal</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Status</th>
+                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Aksi</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -655,8 +657,8 @@ export default function InvoicePage() {
                         className="border-b hover:bg-gray-50 cursor-pointer"
                         onClick={() => openDetail(inv)}
                       >
-                        <td className="px-3 py-2 font-semibold text-primary">{inv.invoice_number || "—"}</td>
-                        <td className="px-3 py-2">
+                        <td className="px-2 py-1.5 font-semibold text-primary whitespace-nowrap">{inv.invoice_number || "—"}</td>
+                        <td className="px-2 py-1.5">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
                             (inv.doc_type || "invoice") === "quotation"
                               ? "bg-purple-100 text-purple-700"
@@ -665,15 +667,17 @@ export default function InvoicePage() {
                             {(inv.doc_type || "invoice") === "quotation" ? "Quotation" : "Invoice"}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-gray-600">{inv.invoice_date}</td>
-                        <td className="px-3 py-2 font-medium">{inv.customer_name}</td>
-                        <td className="px-3 py-2 font-semibold">{formatRupiah(inv.subtotal)}</td>
-                        <td className="px-3 py-2">
+                        <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{inv.invoice_date}</td>
+                        <td className="px-2 py-1.5 font-medium whitespace-nowrap">{inv.customer_name}</td>
+                        <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{inv.signature_store || "—"}</td>
+                        <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{inv.signature_pic || "—"}</td>
+                        <td className="px-2 py-1.5 font-semibold whitespace-nowrap">{formatRupiah(inv.subtotal)}</td>
+                        <td className="px-2 py-1.5">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${statusBadge(inv.status)}`}>
                             {statusLabel(inv.status)}
                           </span>
                         </td>
-                        <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
+                        <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
                           {canDownloadPdf(inv) && user?.invoice_create ? (
                             <div className="flex gap-1">
                               <button
@@ -693,7 +697,7 @@ export default function InvoicePage() {
                             </div>
                           ) : (
                             <span className="px-2 py-1 text-gray-300 text-[10px]">
-                              {inv.status === "draft" ? "Draft" : inv.status === "submitted" ? "Need Approval" : "—"}
+                              {inv.status === "draft" || inv.status === "submitted" ? statusLabel(inv.status) : "—"}
                             </span>
                           )}
                         </td>
@@ -1226,7 +1230,12 @@ export default function InvoicePage() {
                     </Button>
                   )}
 
-                  {[
+                  {/* Tombol turun status (Draft/Need Approval) sengaja TIDAK ditampilkan
+                      lagi begitu invoice sudah approved — sebelumnya tombol ini masih
+                      muncul (cuma di-filter beda dari status saat ini) dan sekali klik
+                      diam-diam menurunkan invoice yang sudah approved balik ke Need
+                      Approval, memblokir Word/PDF yang sudah pernah tergenerate. */}
+                  {selectedInvoice.status !== "approved" && [
                     { status: "draft", label: "→ Draft", cls: "bg-gray-100 text-gray-700 hover:bg-gray-200" },
                     { status: "submitted", label: "→ Need Approval", cls: "bg-[#FFEB3B] text-amber-800 hover:bg-yellow-300" },
                   ].filter(s => s.status !== selectedInvoice.status).map(s => (
