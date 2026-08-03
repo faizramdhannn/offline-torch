@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import SearchableSelect from "@/components/SearchableSelect";
 import { Button } from "@/components/shared/Button";
+import { useSearchShortcut } from "@/hooks/useSearchShortcut";
+import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import { Plus, Pencil, Trash2, Check, X, Mail, Camera, Upload, Image as ImageIcon } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -296,6 +298,7 @@ export default function EmployeeDiscountPage() {
   const [popupType, setPopupType] = useState<"success" | "error">("success");
 
   const [search, setSearch] = useState("");
+  const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 25;
@@ -647,13 +650,17 @@ export default function EmployeeDiscountPage() {
       </div>
 
       <div className="flex items-center gap-2 mb-2 flex-wrap">
-        <input
-          type="text"
-          placeholder="Cari nama / SKU / item / assigned / taft / SO..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="border border-gray-200 rounded-lg px-2 py-1 text-[11px] w-64"
-        />
+        <div className="relative">
+          <input
+            ref={searchRef}
+            type="text"
+            placeholder="Cari nama / SKU / item / assigned / taft / SO..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="border border-gray-200 rounded-lg px-2 py-1 pr-11 text-[11px] w-64"
+          />
+          <SearchShortcutHint label={shortcutLabel} />
+        </div>
         <select
           value={sortOrder}
           onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}

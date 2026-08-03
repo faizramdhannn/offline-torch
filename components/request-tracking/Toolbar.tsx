@@ -3,6 +3,8 @@
 import { Search, X, RefreshCw, Download, SlidersHorizontal } from "lucide-react";
 import { Button } from "./Button";
 import { cn } from "@/lib/utils";
+import { useSearchShortcut } from "@/hooks/useSearchShortcut";
+import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 
 export type StatusFilter = "all" | "pending" | "completed";
 
@@ -40,18 +42,21 @@ export function Toolbar({
   refreshing,
   onExport,
 }: ToolbarProps) {
+  const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-1 flex-wrap items-center gap-2">
         <div className="relative w-full sm:w-72">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
           <input
+            ref={searchRef}
             type="text"
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Cari penerima, no. resi, atau sales order..."
             className="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-9 pr-8 text-xs text-gray-700 outline-none transition-colors placeholder:text-gray-400 focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/10"
           />
+          {!searchValue && <SearchShortcutHint label={shortcutLabel} />}
           {searchValue && (
             <button
               onClick={() => onSearchChange("")}

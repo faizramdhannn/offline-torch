@@ -2,6 +2,8 @@
 
 import { RefreshCw, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSearchShortcut } from "@/hooks/useSearchShortcut";
+import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 
 interface DashboardHeaderProps {
   dayLabel: string;
@@ -26,6 +28,7 @@ export function DashboardHeader({
   searchValue,
   onSearchChange,
 }: DashboardHeaderProps) {
+  const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   return (
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -41,12 +44,14 @@ export function DashboardHeader({
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
+            ref={searchRef}
             type="text"
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Cari activity log..."
-            className="h-9 w-44 rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-sm text-gray-700 placeholder:text-gray-400 outline-none transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/10 sm:w-56"
+            className="h-9 w-44 rounded-lg border border-gray-200 bg-white pl-9 pr-12 text-sm text-gray-700 placeholder:text-gray-400 outline-none transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/10 sm:w-56"
           />
+          <SearchShortcutHint label={shortcutLabel} />
         </div>
 
         <button

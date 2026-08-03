@@ -1,6 +1,7 @@
 "use client";
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
+import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
@@ -172,6 +173,7 @@ export default function StockPage() {
   const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
   const [priceBounds, setPriceBounds] = useState<[number, number]>([0, 0]);
   const [searchQuery, setSearchQuery] = useState("");
+  const { ref: searchInputRef, shortcutLabel } = useSearchShortcut();
 
   // Sortable table headers — column key + direction. null direction = no manual sort.
   const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -235,6 +237,7 @@ export default function StockPage() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -982,13 +985,19 @@ export default function StockPage() {
             )}
             <div className={cn("col-span-2 sm:col-span-3", selectedView === "store" ? "lg:col-span-2" : "lg:col-span-3")}>
               <label className="mb-1 block text-xs font-medium text-gray-600">Search</label>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari SKU atau nama produk..."
-                className="min-h-[36px] w-full rounded-lg border border-gray-200 px-3 py-2 text-xs outline-none transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/10 sm:py-1.5"
-              />
+              <div className="relative">
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cari SKU atau nama produk..."
+                  className="min-h-[36px] w-full rounded-lg border border-gray-200 px-3 py-2 pr-14 text-xs outline-none transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/10 sm:py-1.5"
+                />
+                <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
+                  {shortcutLabel}
+                </kbd>
+              </div>
             </div>
           </div>
 

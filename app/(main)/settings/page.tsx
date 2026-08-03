@@ -5,6 +5,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import { Button } from "@/components/shared/Button";
+import { useSearchShortcut } from "@/hooks/useSearchShortcut";
+import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface UserData {
@@ -243,6 +245,7 @@ export default function SettingsPage() {
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [searchQuery, setSearchQuery] = useState("");
+  const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   const [currentPage, setCurrentPage] = useState(1);
   useSessionGuard();
 
@@ -443,12 +446,14 @@ export default function SettingsPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
               </svg>
               <input
+                ref={searchRef}
                 type="text"
                 placeholder="Cari..."
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                className="pl-6 pr-2 py-1 border border-gray-300 rounded text-[11px] w-40 focus:outline-none focus:ring-1 focus:ring-primary"
+                className="pl-6 pr-10 py-1 border border-gray-300 rounded text-[11px] w-40 focus:outline-none focus:ring-1 focus:ring-primary"
               />
+              <SearchShortcutHint label={shortcutLabel} />
             </div>
           </div>
 

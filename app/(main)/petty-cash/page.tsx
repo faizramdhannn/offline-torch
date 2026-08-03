@@ -4,6 +4,8 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
+import { useSearchShortcut } from "@/hooks/useSearchShortcut";
+import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import * as XLSX from "xlsx";
 import { motion } from "framer-motion";
 import {
@@ -140,6 +142,7 @@ export default function PettyCashPage() {
   const [historyDateTo, setHistoryDateTo] = useState("");
   const [historyActionFilter, setHistoryActionFilter] = useState("all");
   const [historySearch, setHistorySearch] = useState("");
+  const { ref: historySearchRef, shortcutLabel: historyShortcutLabel } = useSearchShortcut();
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [showSnapshotModal, setShowSnapshotModal] = useState(false);
   const [snapshotEntry, setSnapshotEntry] = useState<HistoryEntry | null>(null);
@@ -696,9 +699,12 @@ export default function PettyCashPage() {
                   </div>
                   <div>
                     <label className="mb-1 block text-[11px] font-medium text-gray-500">Search</label>
-                    <input type="text" placeholder="ID, user, notes..." value={historySearch}
-                      onChange={(e) => { setHistorySearch(e.target.value); setHistoryPage(1); }}
-                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-700 outline-none transition-colors focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/10" />
+                    <div className="relative">
+                      <input ref={historySearchRef} type="text" placeholder="ID, user, notes..." value={historySearch}
+                        onChange={(e) => { setHistorySearch(e.target.value); setHistoryPage(1); }}
+                        className="w-full rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 pr-11 text-xs text-gray-700 outline-none transition-colors focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/10" />
+                      <SearchShortcutHint label={historyShortcutLabel} />
+                    </div>
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">

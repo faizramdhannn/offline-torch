@@ -24,6 +24,8 @@ import { AssetCard } from "@/components/asset/AssetCard";
 import { AssetListRow } from "@/components/asset/AssetListRow";
 import { AssetFormModal } from "@/components/asset/AssetFormModal";
 import { getTypeDotColor, type Asset } from "@/components/asset/types";
+import { useSearchShortcut } from "@/hooks/useSearchShortcut";
+import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 
 export default function AssetPage() {
   const router = useRouter();
@@ -33,6 +35,7 @@ export default function AssetPage() {
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
   const [filterType, setFilterType] = useState("all");
   const [search, setSearch] = useState("");
+  const { ref: searchRef, shortcutLabel } = useSearchShortcut();
 
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
@@ -221,12 +224,14 @@ export default function AssetPage() {
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
               <input
+                ref={searchRef}
                 type="text"
                 placeholder="Cari asset..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-40 rounded-lg border border-gray-200 bg-white py-1.5 pl-8 pr-3 text-xs text-gray-700 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20 sm:w-56"
+                className="w-40 rounded-lg border border-gray-200 bg-white py-1.5 pl-8 pr-12 text-xs text-gray-700 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20 sm:w-56"
               />
+              <SearchShortcutHint label={shortcutLabel} />
             </div>
             <select
               value={filterType}

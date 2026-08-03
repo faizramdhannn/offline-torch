@@ -4,6 +4,8 @@ import { useState } from "react";
 import { RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/shared/Button";
 import { cn } from "@/lib/utils";
+import { useSearchShortcut } from "@/hooks/useSearchShortcut";
+import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 
 interface FilterBarProps {
   isStoreUser: boolean;
@@ -71,6 +73,7 @@ export function FilterBar({
   toTitleCase,
 }: FilterBarProps) {
   const [showMore, setShowMore] = useState(false);
+  const { ref: searchRef, shortcutLabel } = useSearchShortcut();
 
   const activePreset: Preset = (() => {
     if (!filterDateFrom && !filterDateTo) return "all";
@@ -103,12 +106,14 @@ export function FilterBar({
         <div className="relative w-full sm:max-w-xs">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
           <input
+            ref={searchRef}
             type="text"
             value={filterSearch}
             onChange={(e) => onFilterSearchChange(e.target.value)}
             placeholder="Cari taft, produk, atau catatan..."
-            className="w-full rounded-lg border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-2.5 text-xs text-gray-700 outline-none transition-colors focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/10"
+            className="w-full rounded-lg border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-11 text-xs text-gray-700 outline-none transition-colors focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/10"
           />
+          <SearchShortcutHint label={shortcutLabel} />
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">

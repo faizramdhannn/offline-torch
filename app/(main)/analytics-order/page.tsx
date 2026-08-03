@@ -4,6 +4,8 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
+import { useSearchShortcut } from "@/hooks/useSearchShortcut";
+import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import Papa from "papaparse";
 import { Button } from "@/components/shared/Button";
 import {
@@ -476,6 +478,7 @@ function MasterTrafficModal({
   const [entries, setEntries] = useState<{ code_traffic: string; notes: string }[]>([]);
   const [loadingEntries, setLoadingEntries] = useState(false);
   const [search, setSearch] = useState("");
+  const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   const [formMode, setFormMode] = useState<"add" | "edit" | null>(null);
   const [editTarget, setEditTarget] = useState<{ code_traffic: string; notes: string } | null>(null);
   const [formCode, setFormCode] = useState("");
@@ -616,9 +619,10 @@ function MasterTrafficModal({
             <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+            <input ref={searchRef} type="text" value={search} onChange={(e) => setSearch(e.target.value)}
               placeholder="Cari kode atau keterangan..."
-              className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+              className="w-full pl-8 pr-11 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+            <SearchShortcutHint label={shortcutLabel} />
           </div>
           <Button onClick={openAdd} size="sm" className="whitespace-nowrap">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

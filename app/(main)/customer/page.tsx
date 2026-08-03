@@ -4,6 +4,8 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
+import { useSearchShortcut } from "@/hooks/useSearchShortcut";
+import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import { Customer } from "@/types";
 import * as XLSX from "xlsx";
 import { Button } from "@/components/shared/Button";
@@ -58,6 +60,7 @@ export default function CustomerPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   const [selectedStores, setSelectedStores] = useState<string[]>([]);
   const [stores, setStores] = useState<string[]>([]);
   const [showStoreDropdown, setShowStoreDropdown] = useState(false);
@@ -539,13 +542,17 @@ return (
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       Search
                     </label>
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search by phone number or customer name..."
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
+                    <div className="relative">
+                      <input
+                        ref={searchRef}
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search by phone number or customer name..."
+                        className="w-full px-2 py-1.5 pr-11 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                      <SearchShortcutHint label={shortcutLabel} />
+                    </div>
                   </div>
                 </>
               )}

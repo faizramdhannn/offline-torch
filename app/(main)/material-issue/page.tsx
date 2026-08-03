@@ -4,6 +4,8 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
+import { useSearchShortcut } from "@/hooks/useSearchShortcut";
+import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import SearchableSelect from "@/components/SearchableSelect";
 import { Button } from "@/components/shared/Button";
 import { Plus } from "lucide-react";
@@ -638,6 +640,7 @@ export default function MaterialIssuePage() {
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [search, setSearch] = useState("");
+  const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [filterStore, setFilterStore] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -1150,12 +1153,14 @@ export default function MaterialIssuePage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
             </svg>
             <input
+              ref={searchRef}
               type="text"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
               placeholder="Cari SKU / nama / store / assigned / no. request..."
-              className="pl-6 pr-2 py-1 border border-gray-300 rounded text-[11px] w-80 focus:outline-none focus:ring-1 focus:ring-primary"
+              className="pl-6 pr-11 py-1 border border-gray-300 rounded text-[11px] w-80 focus:outline-none focus:ring-1 focus:ring-primary"
             />
+            <SearchShortcutHint label={shortcutLabel} />
           </div>
 
           {/* Sort */}

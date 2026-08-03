@@ -4,6 +4,8 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
+import { useSearchShortcut } from "@/hooks/useSearchShortcut";
+import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import { Button } from "@/components/shared/Button";
 import { Plus, Pencil, Trash2, Download, FileText } from "lucide-react";
 
@@ -126,6 +128,7 @@ export default function InvoicePage() {
   const [master, setMaster] = useState<MasterInvoice>({});
   const [masterItems, setMasterItems] = useState<MasterItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   const [statusFilter, setStatusFilter] = useState("all");
 
   // Popup
@@ -594,14 +597,16 @@ export default function InvoicePage() {
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-4 mb-4">
           <div className="flex gap-3 flex-wrap">
-            <div className="flex-1 min-w-48">
+            <div className="flex-1 min-w-48 relative">
               <input
+                ref={searchRef}
                 type="text"
                 placeholder="Cari nomor invoice atau nama customer..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-1.5 pr-11 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
               />
+              <SearchShortcutHint label={shortcutLabel} />
             </div>
             <select
               value={statusFilter}

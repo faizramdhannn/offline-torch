@@ -5,6 +5,8 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
+import { useSearchShortcut } from "@/hooks/useSearchShortcut";
+import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/shared/Button";
 
@@ -58,6 +60,7 @@ export default function RequestStorePage() {
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [filterDoc, setFilterDoc] = useState("");
+  const { ref: searchRef, shortcutLabel } = useSearchShortcut();
 
   const itemsPerPage = 25;
 
@@ -459,12 +462,14 @@ return (
                   d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
               </svg>
               <input
+                ref={searchRef}
                 type="text"
                 value={filterDoc}
                 onChange={(e) => { setFilterDoc(e.target.value); setCurrentPage(1); }}
                 placeholder="Cari SO / DN / SI..."
-                className="pl-6 pr-2 py-1 border border-gray-300 rounded text-[11px] w-44 focus:outline-none focus:ring-1 focus:ring-primary"
+                className="pl-6 pr-11 py-1 border border-gray-300 rounded text-[11px] w-44 focus:outline-none focus:ring-1 focus:ring-primary"
               />
+              <SearchShortcutHint label={shortcutLabel} />
             </div>
 
             {hasActiveFilter && (

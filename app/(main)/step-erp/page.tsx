@@ -15,6 +15,8 @@ import {
   BookOpenCheck,
 } from "lucide-react";
 import Popup from "@/components/Popup";
+import { useSearchShortcut } from "@/hooks/useSearchShortcut";
+import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 
 import { SectionHeader } from "@/components/shared/SectionHeader";
 import { Button } from "@/components/shared/Button";
@@ -50,6 +52,7 @@ export default function StepErpPage() {
 
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [search, setSearch] = useState("");
+  const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   const [currentPage, setCurrentPage] = useState(1);
 
   // All entries keyed by type key
@@ -468,12 +471,14 @@ export default function StepErpPage() {
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
           <input
+            ref={searchRef}
             type="text"
             placeholder="Cari ERP number, store, atau dibuat oleh..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-8 pr-4 text-xs text-gray-700 shadow-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20"
+            className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-8 pr-12 text-xs text-gray-700 shadow-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20"
           />
+          <SearchShortcutHint label={shortcutLabel} />
         </div>
 
         {/* Main content: table + detail panel */}

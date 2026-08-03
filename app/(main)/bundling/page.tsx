@@ -4,6 +4,8 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
+import { useSearchShortcut } from "@/hooks/useSearchShortcut";
+import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import SearchableSelect from "@/components/SearchableSelect";
 import { Bundling } from "@/types";
 import { Button } from "@/components/shared/Button";
@@ -73,6 +75,7 @@ export default function BundlingPage() {
   useSessionGuard();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 25;
@@ -605,12 +608,14 @@ export default function BundlingPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
             </svg>
             <input
+              ref={searchRef}
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Cari nama bundling atau item..."
-              className="pl-6 pr-2 py-1 border border-gray-300 rounded text-[11px] w-64 focus:outline-none focus:ring-1 focus:ring-primary"
+              className="pl-6 pr-11 py-1 border border-gray-300 rounded text-[11px] w-64 focus:outline-none focus:ring-1 focus:ring-primary"
             />
+            <SearchShortcutHint label={shortcutLabel} />
           </div>
           <select
             value={statusFilter[0] || ""}

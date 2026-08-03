@@ -4,6 +4,8 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
+import { useSearchShortcut } from "@/hooks/useSearchShortcut";
+import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import { Button } from "@/components/shared/Button";
 import { Voucher } from "@/types";
 import { Plus, Pencil, Trash2 } from "lucide-react";
@@ -18,6 +20,7 @@ export default function VoucherPage() {
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
   const [searchQuery, setSearchQuery] = useState("");
+  const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -270,13 +273,17 @@ return (
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Search
                 </label>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search voucher name or description..."
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                />
+                <div className="relative">
+                  <input
+                    ref={searchRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search voucher name or description..."
+                    className="w-full px-2 py-1.5 pr-11 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <SearchShortcutHint label={shortcutLabel} />
+                </div>
               </div>
             </div>
             <div className="flex gap-2">

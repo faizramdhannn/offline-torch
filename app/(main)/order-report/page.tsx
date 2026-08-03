@@ -8,6 +8,8 @@ import { OrderReport } from "@/types";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import { Button } from "@/components/shared/Button";
+import { useSearchShortcut } from "@/hooks/useSearchShortcut";
+import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import { StatCard } from "@/components/shared/StatCard";
 import { ReportCharts } from "@/components/order-report/ReportCharts";
 import { PackageSearch, CalendarRange, FileWarning, ReceiptText } from "lucide-react";
@@ -46,6 +48,7 @@ export default function OrderReportPage() {
   const [channelNameFilter, setChannelNameFilter] = useState<string[]>([]);
   const [channelNames, setChannelNames] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   const [showImportModal, setShowImportModal] = useState(false);
   const [importing, setImporting] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
@@ -615,13 +618,17 @@ export default function OrderReportPage() {
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Search
                   </label>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search by Sales Order..."
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
+                  <div className="relative">
+                    <input
+                      ref={searchRef}
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search by Sales Order..."
+                      className="w-full px-2 py-1.5 pr-11 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <SearchShortcutHint label={shortcutLabel} />
+                  </div>
                 </div>
               </div>
 

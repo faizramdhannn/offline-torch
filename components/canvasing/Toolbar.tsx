@@ -12,6 +12,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { RESULT_STATUS_OPTIONS, StatusFilterPill } from "./DomainBadges";
+import { useSearchShortcut } from "@/hooks/useSearchShortcut";
+import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 
 interface ToolbarProps {
   // Search
@@ -79,6 +81,7 @@ export function Toolbar({
   toTitleCase,
 }: ToolbarProps) {
   const storeDropdownRef = useRef<HTMLDivElement>(null);
+  const { ref: searchRef, shortcutLabel } = useSearchShortcut();
 
   const toggleStatus = (status: string) =>
     onStatusFilterChange(
@@ -94,12 +97,14 @@ export function Toolbar({
         <div className="relative flex-1 sm:max-w-72">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
           <input
+            ref={searchRef}
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Cari nama, toko, canvasser..."
             className="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pl-9 pr-8 text-xs text-gray-700 outline-none transition-colors placeholder:text-gray-400 focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/10"
           />
+          {!searchQuery && <SearchShortcutHint label={shortcutLabel} />}
           {searchQuery && (
             <button
               onClick={() => onSearchChange("")}
