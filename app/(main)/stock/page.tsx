@@ -17,12 +17,14 @@ import {
   Cell,
 } from "recharts";
 import PrintBarcodeModal from "@/components/PrintBarcodeModal";
+import { CekHargaModal } from "@/components/stock/CekHargaModal";
 import {
   Upload,
   Download,
   RefreshCw,
   Printer,
   RotateCcw,
+  ScanLine,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/stock/PageHeader";
@@ -205,6 +207,7 @@ export default function StockPage() {
 
   const [qrItem, setQrItem] = useState<StockItem | null>(null);
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
+  const [showCekHargaModal, setShowCekHargaModal] = useState(false);
   // Map "sku::warehouse" -> stock kemarin, dari result_stock_yesterday /
   // pca_stock_yesterday (snapshot yang diisi otomatis oleh proses import,
   // lihat app/api/stock/import/route.ts). Kosong untuk view "master".
@@ -738,6 +741,9 @@ export default function StockPage() {
               <Button variant="outline" size="sm" icon={Printer} onClick={() => setShowBarcodeModal(true)}>
                 Print Barcode
               </Button>
+              <Button variant="outline" size="sm" icon={ScanLine} onClick={() => setShowCekHargaModal(true)}>
+                Cek Harga
+              </Button>
             </>
           }
         />
@@ -1070,6 +1076,17 @@ export default function StockPage() {
 
         {showBarcodeModal && (
           <PrintBarcodeModal items={data} onClose={() => setShowBarcodeModal(false)} />
+        )}
+
+        {showCekHargaModal && (
+          <CekHargaModal
+            items={data}
+            onClose={() => setShowCekHargaModal(false)}
+            toProperCase={toProperCase}
+            parseDiscount={parseDiscount}
+            parseHarga={parseHarga}
+            formatRupiah={formatRupiah}
+          />
         )}
 
         <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
