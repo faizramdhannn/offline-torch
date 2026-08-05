@@ -16,6 +16,18 @@ interface StockItem {
   image_url?: string;
 }
 
+// html5-qrcode kadang membiarkan kamera pakai fixed-focus (khususnya sebagian
+// device Android) — kadang tajam, kadang tidak, tergantung jarak awal saat
+// kamera nyala. Paksa continuous autofocus lewat raw MediaTrackConstraints
+// kalau device/browser-nya support; gagal diam-diam kalau tidak (mis. iOS
+// Safari belum support constraint ini). Dipanggil sekali saat kamera start,
+// dan bisa dipanggil ulang manual lewat tombol "Fokus Ulang".
+async function forceContinuousFocus(qr: any) {
+  try {
+    await qr.applyVideoConstraints({ advanced: [{ focusMode: "continuous" }] });
+  } catch {}
+}
+
 interface CekHargaModalProps {
   items: StockItem[];
   onClose: () => void;
@@ -47,6 +59,8 @@ export function CekHargaModal({
   const isScanningRef = useRef(false);
   const scanLockRef = useRef(false);
   const skuInputRef = useRef<HTMLInputElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   const lookupSku = useCallback(
     (sku: string) => {
@@ -78,6 +92,15 @@ export function CekHargaModal({
     }
   }, [mode]);
 
+  // Begitu item ketemu, kamera dipersempit (lihat style di bawah) dan hasilnya
+  // di-scroll ke posisi terlihat — sebelumnya di HP, area kamera yang tinggi
+  // bikin kartu hasil kedorong jauh ke bawah, susah dilihat tanpa scroll manual.
+  useEffect(() => {
+    if (found) {
+      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50);
+    }
+  }, [found]);
+
   useEffect(() => {
     if (mode !== "camera") return;
     let cancelled = false;
@@ -99,6 +122,7 @@ export function CekHargaModal({
           () => {}
         );
         isScanningRef.current = true;
+        await forceContinuousFocus(qr);
       } catch {
         if (!cancelled) setError("Kamera tidak dapat diakses");
       }
@@ -130,7 +154,7 @@ export function CekHargaModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="flex w-full max-w-sm max-h-[90vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
       >
         <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-800">
@@ -160,9 +184,24 @@ export function CekHargaModal({
           </button>
         </div>
 
-        <div className="p-4 space-y-3">
+        <div ref={bodyRef} className="max-h-[75vh] overflow-y-auto p-4 space-y-3">
           {mode === "camera" ? (
-            <div id="cek-harga-qr-reader" className="overflow-hidden rounded-xl bg-gray-900" style={{ minHeight: 180 }} />
+            <div>
+              <div
+                id="cek-harga-qr-reader"
+                className="overflow-hidden rounded-xl bg-gray-900 transition-[min-height] duration-200"
+                style={{ minHeight: found ? 110 : 180 }}
+              />
+              {!found && (
+                <button
+                  type="button"
+                  onClick={() => { if (html5QrRef.current) forceContinuousFocus(html5QrRef.current); }}
+                  className="mt-2 w-full rounded-lg border border-gray-200 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                >
+                  Fokus Ulang
+                </button>
+              )}
+            </div>
           ) : (
             <form onSubmit={handleManualSubmit} className="flex gap-2">
               <input
@@ -182,7 +221,7 @@ export function CekHargaModal({
           {error && <p className="text-xs text-red-500">{error}</p>}
 
           {found && (
-            <div className="overflow-hidden rounded-xl border border-gray-200">
+            <div ref={resultRef} className="overflow-hidden rounded-xl border border-gray-200">
               {imageUrl && !imgError ? (
                 <div className="flex h-36 items-center justify-center overflow-hidden border-b border-gray-100 bg-gray-50">
                   <img
