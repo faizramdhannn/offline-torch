@@ -82,6 +82,7 @@ const SPREADSHEET_MAP: Record<string, string> = {
   canvasing_store: process.env.SPREADSHEET_STORE || "",
   catalog_product: process.env.SPREADSHEET_CATALOG || "",
   ihls_product: process.env.SPREADSHEET_CATALOG || "",
+  clearance_product: process.env.SPREADSHEET_CATALOG || "",
   // ✅ Step ERP — satu spreadsheet, satu tab per type (lihat lib/stepErpConfig.ts)
   material_request_store: process.env.SPREADSHEET_STEP_ERP || "",
   stock_entry_store: process.env.SPREADSHEET_STEP_ERP || "",
