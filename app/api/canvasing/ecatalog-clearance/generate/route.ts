@@ -7,12 +7,14 @@ import sharp from 'sharp';
 // E-Catalog Clearance — sheet clearance_product. Layout kartu produk (2 foto
 // berdampingan, teks rata kanan) mengikuti konsep /api/canvasing/ecatalog-ihls/generate,
 // TAPI ukuran halaman & header memakai gaya /api/canvasing/ecatalog/generate
-// (A4, header biru + logo Torch — bukan background image custom), dan
-// dikelompokkan per category (halaman pembatas, urut A-Z) seperti E-Catalog biasa.
+// (A4, header biru + logo Torch — bukan background image custom).
 //
+// TIDAK dikelompokkan per category / TIDAK ada halaman pembatas — semua
+// produk digabung jadi satu list padat, diurutkan A-Z by nama produk.
+// Hanya produk dengan diskon TEPAT 50% (price vs price_promo) yang masuk.
 // 5 produk per halaman. Beda utama dari ihls_product: kolom `stock` di
 // clearance_product adalah ANGKA (bukan TRUE/FALSE) dan ditampilkan di kartu
-// produk, plus badge persentase diskon (dihitung dari price vs price_promo).
+// produk, plus badge persentase diskon.
 //
 // Sheet: clearance_product — id, sku, item_name, artikel, category, color,
 // stock, onmodel_url, image_url, price, price_promo.
@@ -123,29 +125,25 @@ export async function POST(request: NextRequest) {
   try {
     const data = await getSheetData('clearance_product');
 
+    // Hanya produk diskon 50% (dibandingkan price vs price_promo, dibulatkan).
     const products = data
       .filter((item: any) => parseNum(item.stock) > 0 && (item.artikel || item.item_name))
       .map((p: any) => ({
         item_name: p.artikel || p.item_name || '',
-        category: p.category || 'Lainnya',
         color: p.color || '',
         stock: parseNum(p.stock),
         price: p.price || '',
         price_promo: p.price_promo || '',
         onmodel_url: p.onmodel_url || '',
         image_url: p.image_url || '',
-      }));
-
-    // Kelompokkan per category, urut A-Z (nama category & produk di dalamnya).
-    const grouped: Record<string, any[]> = {};
-    products.forEach((p: any) => {
-      if (!grouped[p.category]) grouped[p.category] = [];
-      grouped[p.category].push(p);
-    });
-    Object.values(grouped).forEach((list) =>
-      list.sort((a, b) => a.item_name.localeCompare(b.item_name, 'id'))
-    );
-    const categories = Object.keys(grouped).sort((a, b) => a.localeCompare(b, 'id'));
+      }))
+      .filter((p: any) => {
+        const priceNum = parseNum(p.price);
+        const promoNum = parseNum(p.price_promo);
+        if (priceNum <= 0 || promoNum <= 0) return false;
+        return Math.round((1 - promoNum / priceNum) * 100) === 50;
+      })
+      .sort((a: any, b: any) => a.item_name.localeCompare(b.item_name, 'id'));
 
     const doc = new jsPDF({
       orientation: 'portrait',
@@ -162,18 +160,11 @@ export async function POST(request: NextRequest) {
     );
 
     let firstPage = true;
-    for (const cat of categories) {
-      const items = grouped[cat];
-
+    for (let i = 0; i < products.length; i += PRODUCTS_PER_PAGE) {
+      const batch = products.slice(i, i + PRODUCTS_PER_PAGE);
       if (!firstPage) doc.addPage();
       firstPage = false;
-      createCategoryPage(doc, W, H, cat, logo);
-
-      for (let i = 0; i < items.length; i += PRODUCTS_PER_PAGE) {
-        const batch = items.slice(i, i + PRODUCTS_PER_PAGE);
-        doc.addPage();
-        await createProductPage(doc, W, H, batch, logo);
-      }
+      await createProductPage(doc, W, H, batch, logo);
     }
 
     const buffer = Buffer.from(doc.output('arraybuffer'));
@@ -191,30 +182,6 @@ export async function POST(request: NextRequest) {
       details: error instanceof Error ? error.message : String(error),
     }, { status: 500 });
   }
-}
-
-function createCategoryPage(doc: jsPDF, w: number, h: number, category: string, logo: string | null) {
-  const blue = hexToRgb(TORCH_BLUE);
-
-  doc.setFillColor(blue.r, blue.g, blue.b);
-  doc.rect(0, 0, w, h, 'F');
-
-  doc.setFillColor(Math.max(0, blue.r - 20), Math.max(0, blue.g - 20), Math.max(0, blue.b - 20));
-  doc.rect(0, 0, w, 28, 'F');
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(15);
-  doc.setFont('helvetica', 'bold');
-  doc.text('E-Catalogue Clearance', 10, 18);
-
-  if (logo) {
-    try { doc.addImage(logo, 'PNG', w - 55, 4, 50, 20); } catch {}
-  }
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(28);
-  doc.setFont('helvetica', 'bold');
-  doc.text(category, w / 2, h / 2, { align: 'center' });
 }
 
 async function createProductPage(doc: jsPDF, w: number, h: number, products: any[], logo: string | null) {
