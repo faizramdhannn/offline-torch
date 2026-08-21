@@ -219,14 +219,11 @@ export default function QrCodePage() {
       const qrSize = 340;
       ctx.drawImage(qrCanvas, (width - qrSize) / 2, 30, qrSize, qrSize);
 
+      // URL tujuan sengaja TIDAK ditulis di kartu — hanya nama yang tampil.
       ctx.fillStyle = "#111827";
       ctx.font = "bold 20px sans-serif";
       ctx.textAlign = "center";
       ctx.fillText(item.name || "-", width / 2, qrSize + 60);
-
-      ctx.fillStyle = "#6b7280";
-      ctx.font = "13px sans-serif";
-      ctx.fillText(item.url || "-", width / 2, qrSize + 86);
 
       const dataUrl = canvas.toDataURL("image/png");
       const link = document.createElement("a");
@@ -323,7 +320,6 @@ export default function QrCodePage() {
               </button>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-gray-800">{item.name}</p>
-                <p className="truncate text-xs text-gray-500">{item.url}</p>
               </div>
               <div className="flex flex-shrink-0 items-center gap-1">
                 <button
@@ -453,7 +449,6 @@ export default function QrCodePage() {
               </div>
               <div className="text-center">
                 <p className="text-sm font-semibold text-gray-800">{qrPreviewItem.name}</p>
-                <p className="break-all text-xs text-gray-500">{qrPreviewItem.url}</p>
               </div>
               <Button
                 icon={Download}

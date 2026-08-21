@@ -1013,14 +1013,11 @@ function MasterTab({ masterData }: { masterData: MasterAffiliateData[] }) {
       const qrSize = 340;
       ctx.drawImage(qrCanvas, (width - qrSize) / 2, 30, qrSize, qrSize);
 
+      // URL tujuan sengaja TIDAK ditulis di kartu — hanya nama yang tampil.
       ctx.fillStyle = "#111827";
       ctx.font = "bold 20px sans-serif";
       ctx.textAlign = "center";
       ctx.fillText(d.data_name || "-", width / 2, qrSize + 60);
-
-      ctx.fillStyle = "#6b7280";
-      ctx.font = "13px sans-serif";
-      ctx.fillText(d.url || "-", width / 2, qrSize + 86);
 
       const dataUrl = canvas.toDataURL("image/png");
       const link = document.createElement("a");
@@ -1069,7 +1066,6 @@ function MasterTab({ masterData }: { masterData: MasterAffiliateData[] }) {
                         crossOrigin: "anonymous",
                       }}
                     />
-                    <p className="text-xs text-gray-500 break-all text-center">{d.url}</p>
                     <Button
                       size="sm"
                       variant="outline"
