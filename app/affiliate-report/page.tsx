@@ -172,7 +172,7 @@ export default function AffiliateReportPublicPage() {
                         <YAxis tick={chartAxisTick} axisLine={false} tickLine={false} tickFormatter={formatCompact} />
                         <Tooltip
                           contentStyle={chartTooltipStyle}
-                          formatter={(v: number) => formatRupiah(v)}
+                          formatter={(v?: number) => formatRupiah(v ?? 0)}
                         />
                         <Bar dataKey="commission" name="Komisi" fill={PALETTE[1]} radius={[6, 6, 0, 0]} />
                       </BarChart>
@@ -197,7 +197,7 @@ export default function AffiliateReportPublicPage() {
                           tickLine={false}
                           width={100}
                         />
-                        <Tooltip contentStyle={chartTooltipStyle} formatter={(v: number) => formatRupiah(v)} />
+                        <Tooltip contentStyle={chartTooltipStyle} formatter={(v?: number) => formatRupiah(v ?? 0)} />
                         <Bar dataKey="commission" name="Komisi" fill={PALETTE[3]} radius={[0, 6, 6, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -215,7 +215,7 @@ export default function AffiliateReportPublicPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
                       <XAxis dataKey="date" tick={chartAxisTick} axisLine={false} tickLine={false} />
                       <YAxis tick={chartAxisTick} axisLine={false} tickLine={false} tickFormatter={formatCompact} />
-                      <Tooltip contentStyle={chartTooltipStyle} formatter={(v: number) => formatRupiah(v)} />
+                      <Tooltip contentStyle={chartTooltipStyle} formatter={(v?: number) => formatRupiah(v ?? 0)} />
                       <Line type="monotone" dataKey="commission" name="Komisi" stroke={PALETTE[0]} strokeWidth={2} dot={false} />
                     </LineChart>
                   </ResponsiveContainer>
