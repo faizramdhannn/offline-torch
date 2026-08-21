@@ -46,6 +46,7 @@ interface SidebarProps {
     // these fields exist here only so the interface stays valid for that pass.
     daily_checklist?: boolean;
     daily_checklist_all?: boolean;
+    affiliate_view?: boolean;
   };
 }
 
@@ -294,6 +295,26 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+      ),
+    },
+     {
+      name: "QR Code",
+      path: "/qr-code",
+      permission: "dashboard",
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 4h6v6H4V4zm0 10h6v6H4v-6zm10-10h6v6h-6V4zm0 10h2v2h-2v-2zm4 0h2v2h-2v-2zm-4 4h2v2h-2v-2zm4 0h2v2h-2v-2z" />
+        </svg>
+      ),
+    },
+     {
+      name: "Affiliate",
+      path: "/affiliate",
+      permission: "affiliate_view",
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM1 21v-2a4 4 0 014-4h4a4 4 0 014 4v2M17 8l2 2 4-4" />
         </svg>
       ),
     },
@@ -848,7 +869,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           {checkPermission(menuItems[0]) && <MenuButton item={menuItems[0]} />}
 
           {/* Attendance, Capture Attendance, Bundling, Canvasing, Customer */}
-          {menuItems.slice(1, 6).map((item) =>
+          {menuItems.slice(1, 8).map((item) =>
             checkPermission(item) ? <MenuButton key={item.path} item={item} /> : null
           )}
 
@@ -887,7 +908,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           )}
 
           {/* Petty Cash, Step ERP, Stock, Stock Opname, Survey Store, Voucher, Registration, Settings */}
-          {menuItems.slice(6).map((item) =>
+          {menuItems.slice(8).map((item) =>
             checkPermission(item) ? <MenuButton key={item.path} item={item} /> : null
           )}
 

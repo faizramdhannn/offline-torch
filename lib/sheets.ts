@@ -2,6 +2,11 @@ import { google } from "googleapis";
 
 const SPREADSHEET_MAP: Record<string, string> = {
   users: process.env.SPREADSHEET_USERS || "",
+  // Menu QR Code (dashboard) — sheet baru di spreadsheet yang SAMA dengan users.
+  qr_code: process.env.SPREADSHEET_USERS || "",
+  // Log analitik scan QR (dicatat oleh app/r/[uuid]/route.ts saat QR dipindai) —
+  // sheet baru, spreadsheet SAMA dengan qr_code/users.
+  qr_code_analytic: process.env.SPREADSHEET_USERS || "",
   registration_request: process.env.SPREADSHEET_REGISTRATION || "",
   order_report: process.env.SPREADSHEET_ORDER_REPORT || "",
   powerbiz_salesorder: process.env.SPREADSHEET_ORDER_REPORT || "",
@@ -92,6 +97,17 @@ const SPREADSHEET_MAP: Record<string, string> = {
   stock_entry_warehouse: process.env.SPREADSHEET_STEP_ERP || "",
   material_request_issue: process.env.SPREADSHEET_STEP_ERP || "",
   stock_entry_issue: process.env.SPREADSHEET_STEP_ERP || "",
+  // ✅ Affiliate — spreadsheet terpisah. master_affiliate & master_data diisi
+  // otomatis dari Google Form eksternal (read-only dari app ini).
+  // affiliate_store_list adalah sumber dropdown store untuk fitur Affiliate —
+  // sengaja pakai key BARU (bukan reuse "store_list" yang sudah dipakai untuk
+  // SPREADSHEET_ATTENDANCE) supaya tidak bentrok dengan fitur lain.
+  // order_log_affiliate adalah satu-satunya sheet yang ditulis (full CRUD)
+  // oleh fitur ini.
+  master_affiliate: process.env.SPREADSHEET_AFFILIATE || "",
+  master_data: process.env.SPREADSHEET_AFFILIATE || "",
+  affiliate_store_list: process.env.SPREADSHEET_AFFILIATE || "",
+  order_log_affiliate: process.env.SPREADSHEET_AFFILIATE || "",
 };
 
 // ✅ Batasi range kolom per sheet — hindari fetch sampai kolom CZ (104 kolom)
@@ -99,6 +115,8 @@ const SPREADSHEET_MAP: Record<string, string> = {
 // secara signifikan, terutama untuk sheet besar seperti result_stock.
 // Sesuaikan nilai ini jika kolom aktual bertambah.
 const SHEET_RANGE: Record<string, string> = {
+  qr_code: "A1:E",             // uuid, name, url, created_at, update_at
+  qr_code_analytic: "A1:L",    // id, qr_uuid, scanned_at, ip_address, country, city, region, device_type, os, browser, user_agent, referrer
   result_stock: "A1:M",       // ~36 kolom — sheet stok besar, batasi (L = tier_product, M = tier_phase)
   pca_stock: "A1:M",           // ~26 kolom (L = tier_product, M = tier_phase)
   result_stock_yesterday: "A1:M", // header sama persis dengan result_stock
@@ -126,6 +144,10 @@ const SHEET_RANGE: Record<string, string> = {
   schedule_report: "A1:AJ",
   daily_sales: "A1:AJ",
   target_sales: "A1:AJ",
+  master_affiliate: "A1:K",       // 11 kolom
+  master_data: "A1:C",            // 3 kolom
+  affiliate_store_list: "A1:C",   // 3 kolom
+  order_log_affiliate: "A1:K",    // 11 kolom
 };
 
 // ✅ Timeout per sheet — sheet besar / lambat dapat alokasi lebih lama
@@ -149,6 +171,19 @@ function getSheetTimeout(sheetName: string): number {
 
 function getSheetRange(sheetName: string): string {
   return SHEET_RANGE[sheetName] ?? "A1:CZ";
+}
+
+// Beberapa sheet key di atas sengaja DIBEDAKAN dari nama tab asli di Google
+// Sheets supaya tidak bentrok dengan key lain yang kebetulan sama (mis.
+// "affiliate_store_list" vs "store_list" yang sudah dipakai untuk
+// SPREADSHEET_ATTENDANCE) — map balik ke nama tab SEBENARNYA di sini,
+// karena `range` yang dikirim ke Google Sheets API harus pakai nama tab asli.
+const SHEET_TAB_OVERRIDES: Record<string, string> = {
+  affiliate_store_list: "store_list",
+};
+
+function getSheetTabName(sheetName: string): string {
+  return SHEET_TAB_OVERRIDES[sheetName] ?? sheetName;
 }
 
 function getSpreadsheetId(sheetName: string): string {
@@ -307,7 +342,7 @@ export async function getSheetData(
       const response = await withTimeout(
         sheets.spreadsheets.values.get({
           spreadsheetId,
-          range: `${sheetName}!${range}`,
+          range: `${getSheetTabName(sheetName)}!${range}`,
         }),
         timeout,
         `getSheetData(${sheetName})`
@@ -393,7 +428,7 @@ export async function getRawSheetValues(sheetName: string): Promise<any[][]> {
       const response = await withTimeout(
         sheets.spreadsheets.values.get({
           spreadsheetId,
-          range: `${sheetName}!${range}`,
+          range: `${getSheetTabName(sheetName)}!${range}`,
         }),
         timeout,
         `getRawSheetValues(${sheetName})`
@@ -526,7 +561,7 @@ export async function updateSheetCellByMatch(
       const res = (await withTimeout(
         sheets.spreadsheets.values.get({
           spreadsheetId,
-          range: `${sheetName}!${range}`,
+          range: `${getSheetTabName(sheetName)}!${range}`,
         }),
         getSheetTimeout(sheetName),
         `updateSheetCellByMatch:get(${sheetName})`

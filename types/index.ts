@@ -50,6 +50,8 @@ export interface User {
   sales_view_all: boolean;
   step_erp?: boolean;
   step_erp_all?: boolean;
+  stock_pca_view?: boolean;
+  affiliate_view?: boolean;
   last_activity: string;
 }
 
@@ -110,6 +112,53 @@ export interface Voucher {
   voucher_name: string;
   category: string;
   description: string;
+  created_at: string;
+  update_at: string;
+}
+
+// ─── Affiliate ───────────────────────────────────────────────────────────────
+// Sheet master_affiliate (READ-ONLY, diisi lewat Google Form eksternal).
+// Catatan: kolom kedua memang bernama "affliate_register" (typo di sheet asli).
+export interface MasterAffiliate {
+  id: string;
+  affliate_register: string;
+  affiliate_email: string;
+  affiliate_name: string;
+  affiliate_number: string;
+  affiliate_code: string;
+  affiliate_domicile: string;
+  affiliate_address: string;
+  affiliate_born: string;
+  affiliate_job: string;
+  affiliate_store: string;
+}
+
+// Sheet master_data (READ-ONLY, diisi otomatis).
+export interface MasterAffiliateData {
+  id: string;
+  data_name: string;
+  url: string;
+}
+
+// Sheet affiliate_store_list (READ-ONLY) — sumber dropdown store_name.
+export interface AffiliateStoreListItem {
+  id: string;
+  store_name: string;
+  referal_key: string;
+}
+
+// Sheet order_log_affiliate (FULL CRUD).
+// Catatan: kolom "reedem_status" memang typo di sheet asli, dipertahankan.
+export interface AffiliateOrder {
+  uuid: string;
+  affiliate_code: string;
+  store_name: string;
+  sales_order: string;
+  order_date: string;
+  value_order: string;
+  commission_rate: string;
+  reedem_status: string;
+  note: string;
   created_at: string;
   update_at: string;
 }
@@ -204,4 +253,52 @@ request_by: string;
 update_by: string;
 created_at: string;
 update_at: string;
+}
+
+// ─── Affiliate ────────────────────────────────────────────────────────────
+// master_affiliate — read-only, diisi lewat Google Form eksternal.
+// Catatan: nama kolom "affliate_register" memang typo di sheet aslinya,
+// dipertahankan apa adanya supaya cocok dengan header sheet.
+export interface AffiliateMaster {
+  id: string;
+  affliate_register: string;
+  affiliate_email: string;
+  affiliate_name: string;
+  affiliate_number: string;
+  affiliate_code: string;
+  affiliate_domicile: string;
+  affiliate_address: string;
+  affiliate_born: string;
+  affiliate_job: string;
+  affiliate_store: string;
+}
+
+// master_data — read-only, auto-filled.
+export interface AffiliateMasterData {
+  id: string;
+  data_name: string;
+  url: string;
+}
+
+// affiliate_store_list — read-only, sumber dropdown store di form Order Affiliate.
+export interface AffiliateStoreListEntry {
+  id: string;
+  store_name: string;
+  referal_key: string;
+}
+
+// order_log_affiliate — satu-satunya sheet affiliate yang full CRUD.
+// Catatan: nama kolom "reedem_status" memang typo di sheet aslinya, dipertahankan.
+export interface AffiliateOrder {
+  uuid: string;
+  affiliate_code: string;
+  store_name: string;
+  sales_order: string;
+  order_date: string;
+  value_order: string;
+  commission_rate: string;
+  reedem_status: string;
+  note: string;
+  created_at: string;
+  update_at: string;
 }

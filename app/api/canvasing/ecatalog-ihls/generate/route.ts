@@ -30,7 +30,7 @@ import sharp from 'sharp';
 // Background header event — didownload sekali, ditempel di SETIAP halaman
 // produk sebagai gambar penuh 1 halaman (bagian putih di bawah header dipakai
 // utk konten produk, sisanya adalah desain header itu sendiri).
-const HEADER_IMAGE_URL = 'https://i.ibb.co.com/BVNJmN2M/IHLS-E-Catalog-1784628371921-pdf.png';
+const HEADER_IMAGE_URL = 'https://i.ibb.co.com/ymLMRLhK/TEMPLATE-KATALOG-LIPPO-KEBON-RAYA-BOGOR-pdf-page-0001.jpg';
 // Diukur langsung dari file aslinya (2000x2000px): baris ke-436 adalah batas
 // akhir header / awal area putih untuk konten produk.
 const HEADER_HEIGHT_RATIO = 436 / 2000;

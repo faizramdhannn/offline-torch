@@ -68,6 +68,7 @@ interface UserData {
   employee_discount_approval: string;
   daily_checklist: string;
   daily_checklist_all: string;
+  affiliate_view: string;
   last_activity: string;
 }
 
@@ -201,6 +202,13 @@ const PERM_GROUPS: {
     fields: [
       { key: "step_erp", label: "Step ERP" },
       { key: "step_erp_all", label: "ERP All" },
+    ],
+  },
+  {
+    label: "Affiliate",
+    color: "bg-pink-50",
+    fields: [
+      { key: "affiliate_view", label: "Affiliate" },
     ],
   },
 ];

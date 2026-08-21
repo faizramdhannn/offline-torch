@@ -161,6 +161,7 @@ export async function PUT(request: NextRequest) {
       r("daily_checklist"),           // BF
       r("daily_checklist_all"),       // BG
       r("stock_pca_view"),             // BH
+      r("affiliate_view"),             // BI
     ];
 
     console.log(`Updating row ${rowIndex} with ${updatedRow.length} columns`);
