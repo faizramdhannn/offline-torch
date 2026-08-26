@@ -88,6 +88,8 @@ const SPREADSHEET_MAP: Record<string, string> = {
   catalog_product: process.env.SPREADSHEET_CATALOG || "",
   ihls_product: process.env.SPREADSHEET_CATALOG || "",
   clearance_product: process.env.SPREADSHEET_CATALOG || "",
+  pasaraya_product: process.env.SPREADSHEET_CATALOG || "",
+  clearance_product_2: process.env.SPREADSHEET_CATALOG || "",
   // ✅ Step ERP — satu spreadsheet, satu tab per type (lihat lib/stepErpConfig.ts)
   material_request_store: process.env.SPREADSHEET_STEP_ERP || "",
   stock_entry_store: process.env.SPREADSHEET_STEP_ERP || "",
@@ -117,6 +119,7 @@ const SPREADSHEET_MAP: Record<string, string> = {
 const SHEET_RANGE: Record<string, string> = {
   qr_code: "A1:E",             // uuid, name, url, created_at, update_at
   qr_code_analytic: "A1:L",    // id, qr_uuid, scanned_at, ip_address, country, city, region, device_type, os, browser, user_agent, referrer
+  clearance_product_2: "A1:L", // id, sku, item_name, artikel, category, stock_lembong, stock_margonda, stock_cirebon, stock_karawang, image_url, price, price_promo
   result_stock: "A1:M",       // ~36 kolom — sheet stok besar, batasi (L = tier_product, M = tier_phase)
   pca_stock: "A1:M",           // ~26 kolom (L = tier_product, M = tier_phase)
   result_stock_yesterday: "A1:M", // header sama persis dengan result_stock
