@@ -228,25 +228,26 @@ export default function BundlingPage() {
     });
   };
 
-  // Total HPJ biasanya otomatis (jumlah HPJ semua option), tapi bisa di-custom
-  // manual (mis. total otomatis 250.000 mau diubah jadi 200.000) — diskon (Rp)
-  // TETAP dari total diskon per-item (tidak berubah), hanya % diskon dan
-  // Harga Final yang mengikuti Total HPJ custom ini.
-  const handleTotalValueOverride = (val: string) => {
+  // Harga Final biasanya otomatis (Total HPJ - Diskon), tapi bisa di-custom
+  // manual (mis. hasil otomatis 250.000 mau diubah jadi 200.000). Total HPJ
+  // TETAP dari jumlah HPJ semua option (tidak berubah); Diskon (Rp) dan %
+  // Diskon yang menyesuaikan supaya tetap konsisten dengan Harga Final custom ini.
+  const handleFinalValueOverride = (val: string) => {
     setFormData((prev) => {
-      const newTotal = parseInt(val.replace(/\D/g, "") || "0");
-      const discountValue = parseInt((prev.discount_value || "0").replace(/\D/g, "") || "0");
-      const newPct = newTotal > 0 ? (discountValue / newTotal) * 100 : 0;
+      const totalValue = parseInt((prev.total_value || "0").replace(/\D/g, "") || "0");
+      const newFinal = parseInt(val.replace(/\D/g, "") || "0");
+      const newDiscountValue = Math.max(0, totalValue - newFinal);
+      const newPct = totalValue > 0 ? (newDiscountValue / totalValue) * 100 : 0;
       return {
         ...prev,
-        total_value: String(newTotal),
+        value: String(newFinal),
+        discount_value: String(newDiscountValue),
         discount_percentage: newPct.toFixed(2),
-        value: String(newTotal - discountValue),
       };
     });
   };
 
-  const resetTotalValueToAuto = () => {
+  const resetFinalValueToAuto = () => {
     setFormData((prev) => ({ ...prev, ...calcTotals(prev) }));
   };
 
@@ -326,9 +327,9 @@ export default function BundlingPage() {
     try {
       // formData.total_value/discount_value/discount_percentage/value SUDAH
       // sinkron (auto dari option ATAU hasil override manual, lihat
-      // handleTotalValueOverride) — JANGAN recompute pakai calcTotals(formData)
+      // handleFinalValueOverride) — JANGAN recompute pakai calcTotals(formData)
       // di sini, karena itu akan menghitung ulang dari option dan membuang
-      // override manual Total HPJ yang baru saja di-set user.
+      // override manual Harga Final yang baru saja di-set user.
       const payload: any = {
         ...formData,
         total_value: formatRupiah(formData.total_value),
@@ -998,23 +999,17 @@ export default function BundlingPage() {
                   </label>
                   <button
                     type="button"
-                    onClick={resetTotalValueToAuto}
+                    onClick={resetFinalValueToAuto}
                     className="text-[10px] font-medium text-primary hover:underline"
-                    title="Kembalikan Total HPJ ke hasil jumlah otomatis dari semua option"
+                    title="Kembalikan Harga Final ke hasil hitung otomatis (Total HPJ - Diskon)"
                   >
                     Reset ke Otomatis
                   </button>
                 </div>
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 grid grid-cols-2 gap-3">
                   <div>
-                    <p className="text-[10px] text-gray-500 mb-0.5">Total HPJ (bisa diubah manual)</p>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={formData.total_value.replace(/\D/g, "")}
-                      onChange={(e) => handleTotalValueOverride(e.target.value)}
-                      className="w-full px-2 py-1 border border-blue-200 rounded-lg text-sm font-semibold text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    />
+                    <p className="text-[10px] text-gray-500 mb-0.5">Total HPJ</p>
+                    <p className="text-sm font-semibold text-gray-800">{formatRupiah(formData.total_value)}</p>
                   </div>
                   <div>
                     <p className="text-[10px] text-gray-500 mb-0.5">Total Diskon (%)</p>
@@ -1027,8 +1022,14 @@ export default function BundlingPage() {
                     <p className="text-sm font-semibold text-red-500">-{formatRupiah(formData.discount_value)}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-gray-500 mb-0.5">Harga Final</p>
-                    <p className="text-base font-bold text-green-600">{formatRupiah(formData.value)}</p>
+                    <p className="text-[10px] text-gray-500 mb-0.5">Harga Final (bisa diubah manual)</p>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={formData.value.replace(/\D/g, "")}
+                      onChange={(e) => handleFinalValueOverride(e.target.value)}
+                      className="w-full px-2 py-1 border border-blue-200 rounded-lg text-base font-bold text-green-600 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
                   </div>
                 </div>
               </div>
