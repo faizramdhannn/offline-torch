@@ -98,6 +98,9 @@ export default function BundlingPage() {
     if (!userData) { router.push("/login"); return; }
     const parsedUser = JSON.parse(userData);
     if (!parsedUser.bundling) { router.push("/dashboard"); return; }
+    // Akses CRUD (Add/Edit/Delete/Update Harga) hanya untuk user yang juga
+    // punya akses Settings (`user_setting`) — user dengan `bundling` saja
+    // (tanpa Settings) hanya bisa lihat list, tidak bisa ubah apa pun.
     setUser(parsedUser);
     userRef.current = parsedUser;
     fetchData();
@@ -225,6 +228,28 @@ export default function BundlingPage() {
     });
   };
 
+  // Total HPJ biasanya otomatis (jumlah HPJ semua option), tapi bisa di-custom
+  // manual (mis. total otomatis 250.000 mau diubah jadi 200.000) — diskon (Rp)
+  // TETAP dari total diskon per-item (tidak berubah), hanya % diskon dan
+  // Harga Final yang mengikuti Total HPJ custom ini.
+  const handleTotalValueOverride = (val: string) => {
+    setFormData((prev) => {
+      const newTotal = parseInt(val.replace(/\D/g, "") || "0");
+      const discountValue = parseInt((prev.discount_value || "0").replace(/\D/g, "") || "0");
+      const newPct = newTotal > 0 ? (discountValue / newTotal) * 100 : 0;
+      return {
+        ...prev,
+        total_value: String(newTotal),
+        discount_percentage: newPct.toFixed(2),
+        value: String(newTotal - discountValue),
+      };
+    });
+  };
+
+  const resetTotalValueToAuto = () => {
+    setFormData((prev) => ({ ...prev, ...calcTotals(prev) }));
+  };
+
   const applyFilters = () => {
     let filtered = [...data];
     if (searchQuery) {
@@ -299,13 +324,17 @@ export default function BundlingPage() {
 
     setSubmitting(true);
     try {
-      const totals = calcTotals(formData);
+      // formData.total_value/discount_value/discount_percentage/value SUDAH
+      // sinkron (auto dari option ATAU hasil override manual, lihat
+      // handleTotalValueOverride) — JANGAN recompute pakai calcTotals(formData)
+      // di sini, karena itu akan menghitung ulang dari option dan membuang
+      // override manual Total HPJ yang baru saja di-set user.
       const payload: any = {
         ...formData,
-        total_value: formatRupiah(totals.total_value),
-        discount_value: formatRupiah(totals.discount_value),
-        discount_percentage: totals.discount_percentage,
-        value: formatRupiah(totals.value),
+        total_value: formatRupiah(formData.total_value),
+        discount_value: formatRupiah(formData.discount_value),
+        discount_percentage: formData.discount_percentage,
+        value: formatRupiah(formData.value),
       };
       if (editingId) payload.id = editingId;
 
@@ -577,6 +606,8 @@ export default function BundlingPage() {
 
   if (!user) return null;
 
+  const canEdit = !!user.user_setting;
+
   return (
     <div className="flex-1 overflow-auto">
       <div className="p-4">
@@ -584,21 +615,23 @@ export default function BundlingPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-primary">Bundling Management</h1>
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={handleUpdateAllPrices}
-              disabled={bulkUpdating}
-              loading={bulkUpdating}
-              title="Update harga semua bundling berdasarkan HPJ master item terbaru"
-              icon={RefreshCw}
-              className="!bg-amber-500 !border-amber-500 hover:!bg-amber-600"
-            >
-              {bulkUpdating ? "Mengupdate..." : "Update Semua Harga"}
-            </Button>
-            <Button onClick={() => handleOpenModal()} icon={Plus}>
-              Add Bundling
-            </Button>
-          </div>
+          {canEdit && (
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleUpdateAllPrices}
+                disabled={bulkUpdating}
+                loading={bulkUpdating}
+                title="Update harga semua bundling berdasarkan HPJ master item terbaru"
+                icon={RefreshCw}
+                className="!bg-amber-500 !border-amber-500 hover:!bg-amber-600"
+              >
+                {bulkUpdating ? "Mengupdate..." : "Update Semua Harga"}
+              </Button>
+              <Button onClick={() => handleOpenModal()} icon={Plus}>
+                Add Bundling
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Filters */}
@@ -637,7 +670,7 @@ export default function BundlingPage() {
         </div>
 
         {/* Bulk Action Toolbar */}
-        {selectedIds.length > 0 && (
+        {canEdit && selectedIds.length > 0 && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-3 flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-semibold text-blue-700">{selectedIds.length} dipilih</span>
             <div className="flex items-center gap-1.5 ml-auto">
@@ -692,14 +725,16 @@ export default function BundlingPage() {
                 <table className="w-full text-[11px] border-collapse">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="px-2 py-1.5 text-center w-[32px]">
-                        <input
-                          type="checkbox"
-                          checked={isAllCurrentSelected}
-                          onChange={toggleSelectAllCurrentPage}
-                          className="w-3.5 h-3.5 cursor-pointer accent-primary"
-                        />
-                      </th>
+                      {canEdit && (
+                        <th className="px-2 py-1.5 text-center w-[32px]">
+                          <input
+                            type="checkbox"
+                            checked={isAllCurrentSelected}
+                            onChange={toggleSelectAllCurrentPage}
+                            className="w-3.5 h-3.5 cursor-pointer accent-primary"
+                          />
+                        </th>
+                      )}
                       <th className="px-2 py-1.5 text-left font-semibold text-gray-600">Bundling Name</th>
                       <th className="px-2 py-1.5 text-left font-semibold text-gray-600">Options</th>
                       <th className="px-2 py-1.5 text-right font-semibold text-gray-600">Total HPJ</th>
@@ -707,7 +742,9 @@ export default function BundlingPage() {
                       <th className="px-2 py-1.5 text-right font-semibold text-gray-600">Harga Final</th>
                       <th className="px-2 py-1.5 text-center font-semibold text-gray-600">Stock</th>
                       <th className="px-2 py-1.5 text-center font-semibold text-gray-600">Status</th>
-                      <th className="px-2 py-1.5 text-center font-semibold text-gray-600">Aksi</th>
+                      {canEdit && (
+                        <th className="px-2 py-1.5 text-center font-semibold text-gray-600">Aksi</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -721,24 +758,21 @@ export default function BundlingPage() {
                       return (
                         <tr
                           key={item.id || index}
-                          onClick={() => handleOpenModal(item)}
-                          className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
+                          onClick={canEdit ? () => handleOpenModal(item) : undefined}
+                          className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${canEdit ? "cursor-pointer" : ""}`}
                         >
-                          <td className="px-2 py-1 text-center" onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              checked={selectedIds.includes(item.id)}
-                              onChange={() => toggleSelectOne(item.id)}
-                              className="w-3.5 h-3.5 cursor-pointer accent-primary"
-                            />
-                          </td>
+                          {canEdit && (
+                            <td className="px-2 py-1 text-center" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.includes(item.id)}
+                                onChange={() => toggleSelectOne(item.id)}
+                                className="w-3.5 h-3.5 cursor-pointer accent-primary"
+                              />
+                            </td>
+                          )}
                           <td className="px-2 py-1 font-medium text-gray-800">{item.bundling_name}</td>
-                          <td className="px-2 py-1 text-gray-600">
-                            {options.slice(0, 2).join(", ")}
-                            {options.length > 2 && (
-                              <span className="ml-1 text-[10px] text-primary font-medium">+{options.length - 2} lagi</span>
-                            )}
-                          </td>
+                          <td className="px-2 py-1 text-gray-600">{options.join(", ")}</td>
                           <td className="px-2 py-1 text-right text-gray-700">{item.total_value}</td>
                           <td className="px-2 py-1 text-right">
                             <span className="text-red-500">{item.discount_percentage}%</span>
@@ -760,30 +794,32 @@ export default function BundlingPage() {
                               {item.status === "active" ? "Active" : "Inactive"}
                             </span>
                           </td>
-                          <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex justify-center gap-1">
-                              <button
-                                onClick={() => handleOpenModal(item)}
-                                className="px-1.5 py-0.5 bg-blue-500 text-white rounded text-[10px] font-medium hover:bg-blue-600 transition-colors"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => handleUpdatePrice(item)}
-                                disabled={updatingId === item.id}
-                                title="Update harga berdasarkan HPJ master item terbaru"
-                                className="px-1.5 py-0.5 bg-amber-500 text-white rounded text-[10px] font-medium hover:bg-amber-600 transition-colors disabled:opacity-50"
-                              >
-                                {updatingId === item.id ? "..." : "Update"}
-                              </button>
-                              <button
-                                onClick={() => handleDelete(item.id)}
-                                className="px-1.5 py-0.5 bg-red-500 text-white rounded text-[10px] font-medium hover:bg-red-600 transition-colors"
-                              >
-                                Hapus
-                              </button>
-                            </div>
-                          </td>
+                          {canEdit && (
+                            <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex justify-center gap-1">
+                                <button
+                                  onClick={() => handleOpenModal(item)}
+                                  className="px-1.5 py-0.5 bg-blue-500 text-white rounded text-[10px] font-medium hover:bg-blue-600 transition-colors"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleUpdatePrice(item)}
+                                  disabled={updatingId === item.id}
+                                  title="Update harga berdasarkan HPJ master item terbaru"
+                                  className="px-1.5 py-0.5 bg-amber-500 text-white rounded text-[10px] font-medium hover:bg-amber-600 transition-colors disabled:opacity-50"
+                                >
+                                  {updatingId === item.id ? "..." : "Update"}
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(item.id)}
+                                  className="px-1.5 py-0.5 bg-red-500 text-white rounded text-[10px] font-medium hover:bg-red-600 transition-colors"
+                                >
+                                  Hapus
+                                </button>
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
@@ -956,13 +992,29 @@ export default function BundlingPage() {
 
               {/* Summary */}
               <div>
-                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                  Ringkasan Harga
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                    Ringkasan Harga
+                  </label>
+                  <button
+                    type="button"
+                    onClick={resetTotalValueToAuto}
+                    className="text-[10px] font-medium text-primary hover:underline"
+                    title="Kembalikan Total HPJ ke hasil jumlah otomatis dari semua option"
+                  >
+                    Reset ke Otomatis
+                  </button>
+                </div>
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 grid grid-cols-2 gap-3">
                   <div>
-                    <p className="text-[10px] text-gray-500 mb-0.5">Total HPJ</p>
-                    <p className="text-sm font-semibold text-gray-800">{formatRupiah(formData.total_value)}</p>
+                    <p className="text-[10px] text-gray-500 mb-0.5">Total HPJ (bisa diubah manual)</p>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={formData.total_value.replace(/\D/g, "")}
+                      onChange={(e) => handleTotalValueOverride(e.target.value)}
+                      className="w-full px-2 py-1 border border-blue-200 rounded-lg text-sm font-semibold text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
                   </div>
                   <div>
                     <p className="text-[10px] text-gray-500 mb-0.5">Total Diskon (%)</p>
