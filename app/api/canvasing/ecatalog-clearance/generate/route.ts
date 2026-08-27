@@ -106,6 +106,14 @@ function hexToRgb(hex: string) {
 
 // Input  : "150000" | 150000 | "150.000" | "Rp 150000"
 // Output : "Rp. 150.000"
+// Gambar bisa PNG ATAU JPEG (sharp cuma convert ke JPEG kalau ukuran asli
+// >= 500KB — gambar kecil dipertahankan apa adanya, termasuk PNG). Sebelumnya
+// format dikirim hardcode 'JPEG' ke doc.addImage walau datanya PNG, bikin
+// jsPDF gagal decode diam-diam → gambar tampil kosong/blank.
+function imageFormatFromDataUrl(dataUrl: string): 'PNG' | 'JPEG' {
+  return dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+}
+
 function formatRupiah(value: string | number): string {
   if (!value && value !== 0) return '';
   const raw = typeof value === 'string' ? value.replace(/\D/g, '') : String(value);
@@ -237,10 +245,10 @@ async function createProductPage(doc: jsPDF, w: number, h: number, products: any
     const imgY = y + (rowHeight - imgH) / 2;
 
     if (img.onmodel) {
-      try { doc.addImage(img.onmodel, 'JPEG', onmodelX, imgY, imgH, imgH); } catch {}
+      try { doc.addImage(img.onmodel, imageFormatFromDataUrl(img.onmodel), onmodelX, imgY, imgH, imgH); } catch {}
     }
     if (img.product) {
-      try { doc.addImage(img.product, 'JPEG', productX, imgY, imgH, imgH); } catch {}
+      try { doc.addImage(img.product, imageFormatFromDataUrl(img.product), productX, imgY, imgH, imgH); } catch {}
     }
 
     // ── Teks — rata kanan (pojok kanan halaman) ─────────────────────────

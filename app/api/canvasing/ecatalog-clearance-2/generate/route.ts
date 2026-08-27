@@ -12,15 +12,17 @@ import sharp from 'sharp';
 //   - Cover = logo Torch (shopify CDN, dipakai juga di E-Catalog biasa) di
 //     atas, judul "Clearance Catalog" di bawahnya — digambar sendiri (bukan
 //     gambar cover jadi seperti Pasaraya).
-//   - Tiap kartu produk menampilkan STOCK PER STORE (Lembong, Margonda,
-//     Cirebon, Karawang), bukan cuma 1 angka stock — ini yang beda dari
-//     semua katalog lain di app ini.
+//   - Tiap kartu produk menampilkan STOCK dari kolom `stock_all` SAJA (total
+//     gabungan semua store) — sheet-nya MASIH punya kolom
+//     stock_lembong/margonda/cirebon/karawang juga (kolom F-I), tapi kolom
+//     itu TIDAK dipakai di kode ini, cuma stock_all (kolom paling akhir)
+//     yang dibaca dan ditampilkan.
 //   - Semua produk masuk (tidak difilter stock), diurutkan by category lalu
 //     by artikel, TANPA halaman pembatas kategori — sama seperti Pasaraya.
 //
 // Sheet: clearance_product_2 — id, sku, item_name, artikel, category,
 // stock_lembong, stock_margonda, stock_cirebon, stock_karawang, image_url,
-// price, price_promo.
+// price, price_promo, stock_all (13 kolom, A-M).
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TORCH_LOGO_URL = 'https://i.ibb.co.com/dJBmqq1S/TORCH-LOGOS.png';
@@ -104,6 +106,14 @@ async function downloadProductImage(
   return { dataUrl: `data:${r.mime};base64,${r.buffer.toString('base64')}`, width, height };
 }
 
+// Format gambar produk bisa PNG ATAU JPEG (sharp cuma convert ke JPEG kalau
+// ukuran asli >= 500KB — gambar kecil dipertahankan apa adanya, termasuk PNG).
+// Sebelumnya format dikirim hardcode 'JPEG' ke doc.addImage walau datanya PNG,
+// bikin jsPDF gagal decode diam-diam → gambar produk tampil kosong/blank.
+function imageFormatFromDataUrl(dataUrl: string): 'PNG' | 'JPEG' {
+  return dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+}
+
 function formatRupiah(value: string | number): string {
   if (!value && value !== 0) return '';
   const raw = typeof value === 'string' ? value.replace(/\D/g, '') : String(value);
@@ -131,10 +141,7 @@ export async function POST(request: NextRequest) {
         image_url: p.image_url || '',
         price: p.price || '',
         price_promo: p.price_promo || '',
-        stock_lembong: parseNum(p.stock_lembong),
-        stock_margonda: parseNum(p.stock_margonda),
-        stock_cirebon: parseNum(p.stock_cirebon),
-        stock_karawang: parseNum(p.stock_karawang),
+        stock_all: parseNum(p.stock_all),
       }))
       .sort((a, b) => {
         const catCmp = a.category.localeCompare(b.category, 'id');
@@ -235,7 +242,7 @@ async function createProductPage(doc: jsPDF, products: any[], torchLogo: string 
 
   const nameBlockH = NAME_LINES_RESERVED * NAME_LINE_H;
   const priceBlockH = STRIKE_SIZE + GAP_STRIKE_TO_PROMO + PROMO_SIZE * 0.4;
-  const stockBlockH = GAP_PRICE_TO_STOCK + STOCK_SIZE * 2.4; // 2 baris kecil (2 store per baris)
+  const stockBlockH = GAP_PRICE_TO_STOCK + STOCK_SIZE * 1.4; // 1 baris "Stock: N"
   const textZoneH = GAP_IMG_TO_NAME + nameBlockH + GAP_NAME_TO_PRICE + priceBlockH + stockBlockH;
 
   const imgBoxByWidth = cellW * 0.82;
@@ -264,7 +271,7 @@ async function createProductPage(doc: jsPDF, products: any[], torchLogo: string 
       const drawH = ratio >= 1 ? imgBox / ratio : imgBox;
       const drawX = cellCenterX - drawW / 2;
       const drawY = imgY + (imgBox - drawH) / 2;
-      try { doc.addImage(img.dataUrl, 'JPEG', drawX, drawY, drawW, drawH); } catch {}
+      try { doc.addImage(img.dataUrl, imageFormatFromDataUrl(img.dataUrl), drawX, drawY, drawW, drawH); } catch {}
     }
 
     // ── Nama produk ───────────────────────────────────────────────────────
@@ -316,15 +323,12 @@ async function createProductPage(doc: jsPDF, products: any[], torchLogo: string 
       doc.setTextColor(0, 0, 0);
     }
 
-    // ── Stock per store — 2x2, baseline fixed di bawah harga ─────────────
+    // ── Stock — 1 baris, dari kolom stock_all (bukan per-store lagi) ─────
     const stockTop = promoBaseline + GAP_PRICE_TO_STOCK;
     doc.setFontSize(STOCK_SIZE);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(110, 110, 110);
-    const stockLine1 = `Lembong: ${p.stock_lembong}   Margonda: ${p.stock_margonda}`;
-    const stockLine2 = `Cirebon: ${p.stock_cirebon}   Karawang: ${p.stock_karawang}`;
-    doc.text(stockLine1, cellCenterX, stockTop, textOpts);
-    doc.text(stockLine2, cellCenterX, stockTop + STOCK_SIZE * 1.5, textOpts);
+    doc.text(`Stock: ${p.stock_all}`, cellCenterX, stockTop, textOpts);
     doc.setTextColor(0, 0, 0);
   }
 }

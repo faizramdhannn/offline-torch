@@ -98,6 +98,14 @@ function hexToRgb(hex: string) {
  * Input  : "150000" | 150000 | "150.000" | "Rp 150000"
  * Output : "Rp. 150.000"
  */
+// Gambar bisa PNG ATAU JPEG (sharp cuma convert ke JPEG kalau ukuran asli
+// >= 500KB — gambar kecil dipertahankan apa adanya, termasuk PNG). Sebelumnya
+// format dikirim hardcode 'JPEG' ke doc.addImage walau datanya PNG, bikin
+// jsPDF gagal decode diam-diam → gambar tampil kosong/blank.
+function imageFormatFromDataUrl(dataUrl: string): 'PNG' | 'JPEG' {
+  return dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+}
+
 function formatRupiah(value: string | number): string {
   if (!value && value !== 0) return '';
   
@@ -296,7 +304,7 @@ async function createProductPage(
     // Gambar on-model
     if (img.onmodel) {
       try {
-        doc.addImage(img.onmodel, 'JPEG', marginLR + 2, imgY, imgH, imgH);
+        doc.addImage(img.onmodel, imageFormatFromDataUrl(img.onmodel), marginLR + 2, imgY, imgH, imgH);
       } catch {}
     }
     
@@ -304,7 +312,7 @@ async function createProductPage(
     if (img.product) {
       try {
         const centerX = marginLR + onmodelW;
-        doc.addImage(img.product, 'JPEG', centerX + 2, imgY, imgH, imgH);
+        doc.addImage(img.product, imageFormatFromDataUrl(img.product), centerX + 2, imgY, imgH, imgH);
       } catch {}
     }
     

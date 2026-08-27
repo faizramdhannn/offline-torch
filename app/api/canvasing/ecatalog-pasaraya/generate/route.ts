@@ -114,6 +114,14 @@ async function downloadProductImage(
 
 // Input  : "150000" | 150000 | "150.000" | "Rp 150000"
 // Output : "Rp. 150.000"
+// Format gambar produk bisa PNG ATAU JPEG (sharp cuma convert ke JPEG kalau
+// ukuran asli >= 500KB — gambar kecil dipertahankan apa adanya, termasuk PNG).
+// Sebelumnya format dikirim hardcode 'JPEG' ke doc.addImage walau datanya PNG,
+// bikin jsPDF gagal decode diam-diam → gambar produk tampil kosong/blank.
+function imageFormatFromDataUrl(dataUrl: string): 'PNG' | 'JPEG' {
+  return dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+}
+
 function formatRupiah(value: string | number): string {
   if (!value && value !== 0) return '';
   const raw = typeof value === 'string' ? value.replace(/\D/g, '') : String(value);
@@ -250,7 +258,7 @@ async function createProductPage(doc: jsPDF, products: any[], headerImage: strin
       const drawH = ratio >= 1 ? imgBox / ratio : imgBox;
       const drawX = cellCenterX - drawW / 2;
       const drawY = imgY + (imgBox - drawH) / 2;
-      try { doc.addImage(img.dataUrl, 'JPEG', drawX, drawY, drawW, drawH); } catch {}
+      try { doc.addImage(img.dataUrl, imageFormatFromDataUrl(img.dataUrl), drawX, drawY, drawW, drawH); } catch {}
     }
 
     // ── Nama produk (maks 2 baris, slot selalu 2 baris) ──────────────────
