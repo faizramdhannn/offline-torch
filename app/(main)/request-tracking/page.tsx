@@ -20,7 +20,6 @@ import { EmptyState } from "@/components/request-tracking/EmptyState";
 import { TableSkeletonRows } from "@/components/request-tracking/LoadingSkeleton";
 import { Pagination } from "@/components/request-tracking/Pagination";
 import { ShipmentTable } from "@/components/request-tracking/ShipmentTable";
-import { DetailPopup } from "@/components/request-tracking/DetailPopup";
 import { Modal } from "@/components/request-tracking/Modal";
 import { ConfirmationDialog } from "@/components/request-tracking/ConfirmationDialog";
 import { DropZone } from "@/components/request-tracking/DropZone";
@@ -136,7 +135,6 @@ export default function RequestTrackingPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<TrackingItem | null>(null);
-  const [detailItem, setDetailItem] = useState<TrackingItem | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
@@ -708,8 +706,7 @@ export default function RequestTrackingPage() {
                     copiedId={copiedId}
                     hasActiveSearch={hasActiveSearch}
                     searchQuery={searchReceiver}
-                    onRowClick={setDetailItem}
-                    onViewDetail={(item) => router.push(`/request-tracking/${item.id}`)}
+                    onRowClick={(item) => router.push(`/request-tracking/${item.id}`)}
                     onCopy={handleCopyReceiver}
                     onCheckResi={handleCheckResi}
                     onToggleProcessed={handleToggleProcessed}
@@ -753,11 +750,6 @@ export default function RequestTrackingPage() {
               />
             </div>
           </motion.div>
-        )}
-
-        {/* Detail Popup */}
-        {detailItem && (
-          <DetailPopup item={detailItem} onClose={() => setDetailItem(null)} copiedId={copiedId} onCopy={handleCopyReceiver} />
         )}
 
         {/* Delete confirmation (replaces window.confirm — same delete behavior) */}
