@@ -130,7 +130,7 @@ export default function AnalyticsOrderDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[orderName]} />
+      <ActivityHistory entityType="analytics_order" entityId={orderName} />
     </DetailShell>
   );
 }

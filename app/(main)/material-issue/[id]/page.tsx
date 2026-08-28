@@ -135,7 +135,7 @@ export default function MaterialIssueDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[head.request_number, head.issue_number, String(head.id)]} />
+      <ActivityHistory entityType="material_issue" entityId={String(head.id)} />
     </DetailShell>
   );
 }

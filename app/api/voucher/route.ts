@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       console.error('Failed to send voucher-added notification:', err);
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, id: row[0] });
   } catch (error) {
     console.error('Error creating voucher:', error);
     return NextResponse.json({ error: 'Failed to create voucher' }, { status: 500 });

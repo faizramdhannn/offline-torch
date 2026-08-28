@@ -71,12 +71,12 @@ export default function RegistrationPage() {
     setShowPopup(true);
   };
 
-  const logActivity = async (method: string, activity: string) => {
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
     try {
       await fetch("/api/activity-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user: user.user_name, method, activity_log: activity }),
+        body: JSON.stringify({ user: user.user_name, method, activity_log: activity, entity_type: "registration", entity_id: entityId || "" }),
       });
     } catch (error) {
       console.error("Failed to log activity:", error);
@@ -149,7 +149,7 @@ export default function RegistrationPage() {
         body: JSON.stringify({ id, status: "rejected" }),
       });
       if (response.ok) {
-        await logActivity("PUT", `Rejected registration request ID: ${id}`);
+        await logActivity("PUT", `Rejected registration request ID: ${id}`, String(id));
         showMessage("Registrasi ditolak", "success");
         fetchData();
       } else {
@@ -169,7 +169,7 @@ export default function RegistrationPage() {
         body: JSON.stringify({ id: selectedRequest.id, status: "approved", permissions }),
       });
       if (response.ok) {
-        await logActivity("PUT", `Approved registration: ${selectedRequest.user_name} (${selectedRequest.name})`);
+        await logActivity("PUT", `Approved registration: ${selectedRequest.user_name} (${selectedRequest.name})`, String(selectedRequest.id));
         showMessage("Registrasi disetujui", "success");
         setShowApprovalModal(false);
         setSelectedRequest(null);

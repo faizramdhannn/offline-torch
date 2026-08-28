@@ -226,12 +226,12 @@ export default function PettyCashPage() {
     setShowPopup(true);
   };
 
-  const logActivity = async (method: string, activity: string) => {
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
     try {
       await fetch("/api/activity-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user: user.user_name, method, activity_log: activity }),
+        body: JSON.stringify({ user: user.user_name, method, activity_log: activity, entity_type: "petty_cash", entity_id: entityId || "" }),
       });
     } catch (error) { console.error("Failed to log activity:", error); }
   };
@@ -314,7 +314,7 @@ export default function PettyCashPage() {
         body: JSON.stringify({ history_id: entry.history_id, restore_by: user.user_name }),
       });
       if (response.ok) {
-        await logActivity("PUT", `Restored petty cash entry ${entry.petty_cash_id} from history ${entry.history_id}`);
+        await logActivity("PUT", `Restored petty cash entry ${entry.petty_cash_id} from history ${entry.history_id}`, String(entry.petty_cash_id));
         showMessage("Entry restored successfully", "success");
         fetchHistory();
         fetchData(user.user_name, user.petty_cash_export);
@@ -338,6 +338,7 @@ export default function PettyCashPage() {
       });
       if (response.ok) {
         await logActivity("POST", `Added balance entry: ${balanceFormData.type_balance} - ${balanceFormData.value}`);
+        // balance entries have no natural detail-page entity; entity_id omitted
         showMessage("Balance entry added successfully", "success");
         setShowAddBalanceModal(false);
         setBalanceFormData({ type_balance: "credit", value: "", notes: "" });
@@ -364,7 +365,7 @@ export default function PettyCashPage() {
         body: JSON.stringify({ id: selectedBalanceEntry.id, type_balance: balanceFormData.type_balance, value: balanceFormData.value.replace(/[^0-9]/g, ""), notes: balanceFormData.notes, update_by: user.user_name }),
       });
       if (response.ok) {
-        await logActivity("PUT", `Updated balance entry ID: ${selectedBalanceEntry.id}`);
+        await logActivity("PUT", `Updated balance entry ID: ${selectedBalanceEntry.id}`, String(selectedBalanceEntry.id));
         showMessage("Balance entry updated successfully", "success");
         setShowEditBalanceModal(false);
         setSelectedBalanceEntry(null);
@@ -384,7 +385,7 @@ export default function PettyCashPage() {
     try {
       const response = await fetch(`/api/petty-cash/balance?id=${id}`, { method: "DELETE" });
       if (response.ok) {
-        await logActivity("DELETE", `Deleted balance entry ID: ${id}`);
+        await logActivity("DELETE", `Deleted balance entry ID: ${id}`, id);
         showMessage("Balance entry deleted successfully", "success");
         fetchBalance();
       } else { showMessage("Failed to delete balance entry", "error"); }
@@ -407,7 +408,7 @@ export default function PettyCashPage() {
       form.append("username", user.user_name);
       const response = await fetch("/api/petty-cash", { method: "PUT", body: form });
       if (response.ok) {
-        await logActivity("PUT", `Quick toggled transfer status for entry ID: ${entry.id}`);
+        await logActivity("PUT", `Quick toggled transfer status for entry ID: ${entry.id}`, String(entry.id));
         fetchData(user.user_name, user.petty_cash_export);
       } else { showMessage("Failed to update transfer status", "error"); }
     } catch (error) { showMessage("Failed to update transfer status", "error"); }
@@ -476,7 +477,8 @@ export default function PettyCashPage() {
       if (formData.file) form.append("file", formData.file);
       const response = await fetch("/api/petty-cash", { method: "POST", body: form });
       if (response.ok) {
-        await logActivity("POST", `Added petty cash: ${formData.category}`);
+        const created = await response.json().catch(() => null);
+        await logActivity("POST", `Added petty cash: ${formData.category}`, created?.id ? String(created.id) : undefined);
         showMessage("Entry added successfully", "success");
         setShowAddModal(false);
         setFormData({ description: "", category: "", value: "", ket: "", transfer: false, file: null });
@@ -509,7 +511,7 @@ export default function PettyCashPage() {
       if (formData.file) form.append("file", formData.file);
       const response = await fetch("/api/petty-cash", { method: "PUT", body: form });
       if (response.ok) {
-        await logActivity("PUT", `Updated petty cash entry ID: ${selectedEntry.id}`);
+        await logActivity("PUT", `Updated petty cash entry ID: ${selectedEntry.id}`, String(selectedEntry.id));
         showMessage("Entry updated successfully", "success");
         setShowEditModal(false);
         setSelectedEntry(null);
@@ -532,7 +534,7 @@ export default function PettyCashPage() {
     try {
       const response = await fetch(`/api/petty-cash?id=${item.id}&deletedBy=${user.user_name}`, { method: "DELETE" });
       if (response.ok) {
-        await logActivity("DELETE", `Deleted petty cash entry ID: ${item.id}`);
+        await logActivity("DELETE", `Deleted petty cash entry ID: ${item.id}`, String(item.id));
         showMessage("Entry deleted successfully", "success");
         fetchData(user.user_name, user.petty_cash_export);
       } else { showMessage("Failed to delete entry", "error"); }

@@ -438,6 +438,16 @@ export default function EmployeeDiscountPage() {
     window.open(gmailUrl, "_blank", "noopener,noreferrer");
   };
 
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
+    try {
+      await fetch("/api/activity-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: user.user_name, method, activity_log: activity, entity_type: "employee_discount", entity_id: entityId || "" }),
+      });
+    } catch {}
+  };
+
   // ── Create ───────────────────────────────────────────────────────────────────
   const handleCreate = async () => {
     if (form.items.length === 0 || !form.discount_code) {
@@ -473,6 +483,7 @@ export default function EmployeeDiscountPage() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error();
+      await logActivity("POST", `Created employee discount request: ${form.discount_code}`, sharedId);
       showMessage("Request berhasil dibuat", "success");
       setShowAddModal(false);
       setForm(emptyForm);
@@ -536,6 +547,7 @@ export default function EmployeeDiscountPage() {
         }),
       });
       if (!res.ok) throw new Error();
+      await logActivity("PUT", `Updated employee discount request: ${editForm.discount_code}`, selectedGroupId);
       showMessage("Request berhasil diperbarui", "success");
       setShowEditModal(false);
       setSelectedGroupId(null);
@@ -556,6 +568,7 @@ export default function EmployeeDiscountPage() {
         method: "DELETE",
       });
       if (!res.ok) throw new Error();
+      await logActivity("DELETE", `Deleted employee discount request ID: ${showDeleteConfirm.id}`, showDeleteConfirm.id);
       showMessage("Request berhasil dihapus", "success");
       setShowDeleteConfirm(null);
       fetchData();

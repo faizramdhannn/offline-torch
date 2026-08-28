@@ -128,7 +128,7 @@ export default function TrafficStoreDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[item.taft_name, String(item.id), item.sales_order]} />
+      <ActivityHistory entityType="traffic_store" entityId={String(item.id)} />
     </DetailShell>
   );
 }

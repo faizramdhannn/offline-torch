@@ -125,6 +125,16 @@ export default function AssetPage() {
 
   const canEdit = user?.user_setting === true || user?.user_setting === "true";
 
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
+    try {
+      await fetch("/api/activity-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: user?.user_name, method, activity_log: activity, entity_type: "asset", entity_id: entityId || "" }),
+      });
+    } catch {}
+  };
+
   // ── Save (add/edit) ─────────────────────────────────────────────────────────
   const handleSave = async (form: Partial<Asset>) => {
     if (!form.type_asset || !form.asset_name || !form.link_url) return;
@@ -141,6 +151,12 @@ export default function AssetPage() {
         ),
       });
       if (res.ok) {
+        if (modalMode === "add") {
+          const created = await res.json().catch(() => null);
+          await logActivity("POST", `Created asset: ${form.asset_name}`, created?.id ? String(created.id) : undefined);
+        } else {
+          await logActivity("PUT", `Updated asset: ${form.asset_name}`, String(form.id));
+        }
         showMessage(modalMode === "add" ? "Asset berhasil ditambahkan" : "Asset berhasil diupdate", "success");
         setShowModal(false);
         fetchAssets();
@@ -165,6 +181,7 @@ export default function AssetPage() {
         body: JSON.stringify({ id: deleteTarget.id, actorName: user?.user_name, asset_name: deleteTarget.asset_name }),
       });
       if (res.ok) {
+        await logActivity("DELETE", `Deleted asset: ${deleteTarget.asset_name}`, String(deleteTarget.id));
         showMessage("Asset berhasil dihapus", "success");
         setDeleteTarget(null);
         fetchAssets();

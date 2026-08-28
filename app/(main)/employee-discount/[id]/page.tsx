@@ -138,7 +138,7 @@ export default function EmployeeDiscountDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[head.name, head.sales_order, String(head.id)]} />
+      <ActivityHistory entityType="employee_discount" entityId={String(head.id)} />
     </DetailShell>
   );
 }

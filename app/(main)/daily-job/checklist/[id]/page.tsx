@@ -119,7 +119,7 @@ export default function ChecklistDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[item.name, String(item.id)]} />
+      <ActivityHistory entityType="daily_checklist" entityId={String(item.id)} />
     </DetailShell>
   );
 }

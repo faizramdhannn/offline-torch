@@ -92,7 +92,7 @@ export default function AffiliateOrderDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[item.sales_order, item.affiliate_code, String(item.uuid)]} />
+      <ActivityHistory entityType="affiliate_order" entityId={String(item.uuid)} />
     </DetailShell>
   );
 }

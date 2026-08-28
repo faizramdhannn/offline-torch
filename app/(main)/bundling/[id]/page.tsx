@@ -139,7 +139,7 @@ export default function BundlingDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[item.bundling_name, item.id]} />
+      <ActivityHistory entityType="bundling" entityId={String(item.id)} />
     </DetailShell>
   );
 }

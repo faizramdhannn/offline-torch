@@ -152,7 +152,7 @@ export default function CanvasingPage() {
     setShowPopup(true);
   };
 
-  const logActivity = async (method: string, activity: string) => {
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
     try {
       await fetch("/api/activity-log", {
         method: "POST",
@@ -161,6 +161,8 @@ export default function CanvasingPage() {
           user: user.user_name,
           method,
           activity_log: activity,
+          entity_type: "canvasing",
+          entity_id: entityId || "",
         }),
       });
     } catch (error) {
@@ -315,9 +317,12 @@ export default function CanvasingPage() {
       const response = await fetch("/api/canvasing", { method, body: form });
       if (response.ok) {
         const action = editingEntry ? "Updated" : "Created";
+        const result = await response.json().catch(() => null);
+        const entryId = editingEntry ? String(editingEntry.id) : (result?.id ? String(result.id) : undefined);
         await logActivity(
           method,
-          `${action} canvasing entry: ${formData.name}`
+          `${action} canvasing entry: ${formData.name}`,
+          entryId
         );
         showMessage(
           editingEntry ? "Entry updated successfully" : "Entry created successfully",
@@ -342,7 +347,7 @@ export default function CanvasingPage() {
         method: "DELETE",
       });
       if (response.ok) {
-        await logActivity("DELETE", `Deleted canvasing entry ID: ${id}`);
+        await logActivity("DELETE", `Deleted canvasing entry ID: ${id}`, id);
         showMessage("Entry deleted successfully", "success");
         fetchData(user.user_name);
       } else {

@@ -8,24 +8,24 @@ interface ActivityLogRow {
   user: string;
   method: string;
   activity_log: string;
+  entity_type?: string;
+  entity_id?: string;
 }
 
 interface ActivityHistoryProps {
-  /**
-   * Terms used to match this record inside the free-text `activity_log`
-   * column (case-insensitive substring match). Usually the record's
-   * name/title field. Best-effort only — activity_log has no foreign key
-   * to specific records.
-   */
-  matchTerms: (string | undefined | null)[];
+  /** Stable identifier for this menu, e.g. "bundling", "voucher". Must match
+   * the entity_type used by every write to /api/activity-log for this menu. */
+  entityType: string;
+  /** The record's own id. */
+  entityId: string | undefined | null;
 }
 
 /**
- * "Riwayat Aktivitas" timeline — fetches /api/activity-log and shows entries
- * whose free-text activity_log mentions this record (best-effort substring
- * match against matchTerms), newest first.
+ * "Riwayat Aktivitas" timeline — fetches /api/activity-log filtered by
+ * entity_type + entity_id (exact match, done server-side against the
+ * activity_log sheet's entity_type/entity_id columns), newest first.
  */
-export function ActivityHistory({ matchTerms }: ActivityHistoryProps) {
+export function ActivityHistory({ entityType, entityId }: ActivityHistoryProps) {
   const [logs, setLogs] = useState<ActivityLogRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,7 +33,9 @@ export function ActivityHistory({ matchTerms }: ActivityHistoryProps) {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/activity-log");
+        const res = await fetch(
+          `/api/activity-log?entity_type=${encodeURIComponent(entityType)}&entity_id=${encodeURIComponent(entityId || "")}`
+        );
         const result = await res.json();
         if (!cancelled) setLogs(Array.isArray(result) ? result : []);
       } catch (error) {
@@ -45,18 +47,7 @@ export function ActivityHistory({ matchTerms }: ActivityHistoryProps) {
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const terms = matchTerms
-    .filter((t): t is string => !!t && t.trim().length > 0)
-    .map((t) => t.trim().toLowerCase());
-
-  const matched = terms.length
-    ? logs.filter((log) => {
-        const text = (log.activity_log || "").toLowerCase();
-        return terms.some((t) => text.includes(t));
-      })
-    : [];
+  }, [entityType, entityId]);
 
   return (
     <div>
@@ -65,13 +56,13 @@ export function ActivityHistory({ matchTerms }: ActivityHistoryProps) {
       </label>
       {loading ? (
         <div className="text-xs text-gray-400 py-3">Memuat riwayat...</div>
-      ) : matched.length === 0 ? (
+      ) : logs.length === 0 ? (
         <div className="text-xs text-gray-400 py-3 bg-gray-50 rounded-lg text-center">
           Belum ada riwayat aktivitas
         </div>
       ) : (
         <ul className="space-y-2 max-h-72 overflow-y-auto pr-1">
-          {matched.map((log) => (
+          {logs.map((log) => (
             <li
               key={log.id}
               className="border border-gray-100 rounded-lg px-3 py-2 bg-gray-50/60 text-xs"

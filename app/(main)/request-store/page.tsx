@@ -142,13 +142,13 @@ export default function RequestStorePage() {
     try { new Audio(file).play(); } catch {}
   };
 
-  const logActivity = async (method: string, activity: string) => {
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
     if (!user) return;
     try {
       await fetch("/api/activity-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user: user.user_name, method, activity_log: activity }),
+        body: JSON.stringify({ user: user.user_name, method, activity_log: activity, entity_type: "request_store", entity_id: entityId || "" }),
       });
     } catch {}
   };
@@ -188,7 +188,7 @@ export default function RequestStorePage() {
             body: `Request "${item.reason_request}" sudah diselesaikan oleh ${user.user_name}`,
           });
         }
-        await logActivity("PUT", `Status request ID: ${item.id} → ${newStatus}`);
+        await logActivity("PUT", `Status request ID: ${item.id} → ${newStatus}`, String(item.id));
       } else {
         showMessage("Gagal update status", "error");
       }
@@ -222,6 +222,7 @@ export default function RequestStorePage() {
       const res = await fetch("/api/request-store", { method: "POST", body: fd });
 
       if (res.ok) {
+        const created = await res.json().catch(() => null);
         await sendPushNotification({
           assignedTo: form.assigned_to,
           title: "Request Baru Untukmu",
@@ -231,7 +232,7 @@ export default function RequestStorePage() {
         playSound("/add.mp3");
         setShowAddModal(false);
         resetAddForm();
-        await logActivity("POST", `Created request: ${form.reason_request} → ${form.assigned_to}`);
+        await logActivity("POST", `Created request: ${form.reason_request} → ${form.assigned_to}`, created?.id ? String(created.id) : undefined);
         const fresh = await fetch("/api/request-store");
         if (fresh.ok) setData(await fresh.json());
       } else {
@@ -294,7 +295,7 @@ export default function RequestStorePage() {
         setSelectedItem(null);
         setEditImageFile(null);
         if (editFileRef.current) editFileRef.current.value = "";
-        await logActivity("PUT", `Updated request ID: ${selectedItem.id}`);
+        await logActivity("PUT", `Updated request ID: ${selectedItem.id}`, String(selectedItem.id));
         const fresh = await fetch("/api/request-store");
         if (fresh.ok) setData(await fresh.json());
       } else {
@@ -316,7 +317,7 @@ export default function RequestStorePage() {
         setData((prev) => prev.filter((d) => d.id !== item.id));
         playSound("/delete.mp3");
         showMessage("Request dihapus", "success");
-        await logActivity("DELETE", `Deleted request ID: ${item.id}`);
+        await logActivity("DELETE", `Deleted request ID: ${item.id}`, String(item.id));
       } else {
         showMessage("Gagal menghapus request", "error");
       }

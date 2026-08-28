@@ -113,7 +113,7 @@ export default function StockDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[sk, name]} />
+      <ActivityHistory entityType="stock" entityId={sk} />
     </DetailShell>
   );
 }

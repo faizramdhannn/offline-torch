@@ -135,7 +135,7 @@ export default function StockOpnameDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[item.store, item.date_sto, item.id_erp]} />
+      <ActivityHistory entityType="stock_opname" entityId={String(item.id)} />
     </DetailShell>
   );
 }

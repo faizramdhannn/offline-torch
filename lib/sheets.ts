@@ -39,6 +39,7 @@ const SPREADSHEET_MAP: Record<string, string> = {
   invoices: process.env.SPREADSHEET_STOCK || "",
   invoice_items: process.env.SPREADSHEET_STOCK || "",
   master_invoice: process.env.SPREADSHEET_STOCK || "",
+  // activity_log columns: id, timestamp, user, method, activity_log, entity_type, entity_id
   activity_log: process.env.SPREADSHEET_STORE || "",
   shopify_import: process.env.SPREADSHEET_ORDER || "",
   master_traffic: process.env.SPREADSHEET_ORDER || "",
@@ -151,6 +152,7 @@ const SHEET_RANGE: Record<string, string> = {
   master_data: "A1:C",            // 3 kolom
   affiliate_store_list: "A1:C",   // 3 kolom
   order_log_affiliate: "A1:K",    // 11 kolom
+  activity_log: "A1:G",            // id, timestamp, user, method, activity_log, entity_type, entity_id
 };
 
 // ✅ Timeout per sheet — sheet besar / lambat dapat alokasi lebih lama

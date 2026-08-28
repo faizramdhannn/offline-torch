@@ -122,7 +122,7 @@ export default function QrCodeDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[item.name, item.uuid]} />
+      <ActivityHistory entityType="qr_code" entityId={item.uuid} />
     </DetailShell>
   );
 }

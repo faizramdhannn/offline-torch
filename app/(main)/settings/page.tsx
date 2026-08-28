@@ -285,13 +285,13 @@ export default function SettingsPage() {
     setPopupMessage(message); setPopupType(type); setShowPopup(true);
   };
 
-  const logActivity = async (method: string, activity: string) => {
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
     if (!user) return;
     try {
       await fetch("/api/activity-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user: user.user_name, method, activity_log: activity }),
+        body: JSON.stringify({ user: user.user_name, method, activity_log: activity, entity_type: "settings", entity_id: entityId || "" }),
       });
     } catch {}
   };
@@ -372,7 +372,7 @@ export default function SettingsPage() {
         body: JSON.stringify({ id: userId, permissions: changes }),
       });
       if (res.ok) {
-        await logActivity("PUT", `Updated permissions for: ${userName}`);
+        await logActivity("PUT", `Updated permissions for: ${userName}`, userId);
         setPendingChanges((prev) => { const n = { ...prev }; delete n[userId]; return n; });
         showMessage(`Izin ${userName} diperbarui`, "success");
       } else { showMessage("Gagal menyimpan", "error"); }

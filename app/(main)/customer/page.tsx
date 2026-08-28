@@ -115,7 +115,7 @@ export default function CustomerPage() {
     setShowPopup(true);
   };
 
-  const logActivity = async (method: string, activity: string) => {
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
     try {
       await fetch("/api/activity-log", {
         method: "POST",
@@ -124,6 +124,8 @@ export default function CustomerPage() {
           user: user.user_name,
           method,
           activity_log: activity,
+          entity_type: "customer",
+          entity_id: entityId || "",
         }),
       });
     } catch (error) {
@@ -292,7 +294,7 @@ export default function CustomerPage() {
       });
 
       if (response.ok) {
-        await logActivity("PUT", `Updated customer followup`);
+        await logActivity("PUT", `Updated customer followup`, selectedCustomer.phone_number);
         showMessage("Followup saved successfully", "success");
         closeFollowupModal();
         fetchData(user.user_name);

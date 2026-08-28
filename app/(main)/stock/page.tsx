@@ -393,12 +393,12 @@ export default function StockPage() {
     }
   };
 
-  const logActivity = async (method: string, activity: string) => {
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
     try {
       await fetch("/api/activity-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user: user.user_name, method, activity_log: activity }),
+        body: JSON.stringify({ user: user.user_name, method, activity_log: activity, entity_type: "stock", entity_id: entityId || "" }),
       });
     } catch {}
   };

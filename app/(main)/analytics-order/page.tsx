@@ -530,6 +530,18 @@ function MasterTrafficModal({
 
   const closeForm = () => { setFormMode(null); setEditTarget(null); setFormError(""); };
 
+  const logActivity = async (method: string, activity: string) => {
+    try {
+      const userData = localStorage.getItem("user");
+      const userName = userData ? JSON.parse(userData)?.user_name : undefined;
+      await fetch("/api/activity-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: userName, method, activity_log: activity, entity_type: "analytics_order", entity_id: "" }),
+      });
+    } catch {}
+  };
+
   const handleSave = async () => {
     setFormError("");
     if (!formCode.trim() || !formNotes.trim()) { setFormError("Kode dan keterangan wajib diisi."); return; }
@@ -545,6 +557,7 @@ function MasterTrafficModal({
       });
       const data = await res.json();
       if (!res.ok) { setFormError(data.error || "Gagal menyimpan"); return; }
+      await logActivity(formMode === "add" ? "POST" : "PUT", `${formMode === "add" ? "Created" : "Updated"} master traffic code: ${formCode}`);
       closeForm(); await fetchEntries(); onSaved();
     } catch { setFormError("Terjadi kesalahan."); }
     setSaving(false);
@@ -559,6 +572,7 @@ function MasterTrafficModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code_traffic: deleteTarget.code_traffic }),
       });
+      await logActivity("DELETE", `Deleted master traffic code: ${deleteTarget.code_traffic}`);
       setDeleteTarget(null); await fetchEntries(); onSaved();
     } catch {}
     setDeleting(false);

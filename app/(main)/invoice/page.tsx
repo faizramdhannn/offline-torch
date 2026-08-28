@@ -280,6 +280,16 @@ export default function InvoicePage() {
     setShowEditModal(true);
   };
 
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
+    try {
+      await fetch("/api/activity-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: user?.user_name, method, activity_log: activity, entity_type: "invoice", entity_id: entityId || "" }),
+      });
+    } catch {}
+  };
+
   // ── Create Invoice ─────────────────────────────────────────────────────────
   const handleCreate = async () => {
     const customerName = manualCustomerName.trim();
@@ -308,6 +318,7 @@ export default function InvoicePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       const label = docType === "quotation" ? "Quotation" : `Invoice ${data.invoice_number}`;
+      await logActivity("POST", `Created ${label}: ${customerName}`, data.invoice_id);
       showMessage(`${label} berhasil dibuat!`, "success");
       setShowCreateModal(false);
       resetCreateForm();
@@ -344,6 +355,7 @@ export default function InvoicePage() {
         }),
       });
       if (!res.ok) throw new Error();
+      await logActivity("PUT", `Updated invoice: ${editCustomerName.trim()}`, editInvoice.invoice_id);
       showMessage("Invoice berhasil diperbarui!", "success");
       setShowEditModal(false);
       setShowDetailModal(false);
@@ -452,6 +464,7 @@ export default function InvoicePage() {
     if (!confirm("Yakin hapus invoice ini?")) return;
     try {
       await fetch(`/api/invoice?id=${invoice_id}`, { method: "DELETE" });
+      await logActivity("DELETE", `Deleted invoice ID: ${invoice_id}`, invoice_id);
       showMessage("Invoice dihapus", "success");
       setShowDetailModal(false);
       fetchAll();

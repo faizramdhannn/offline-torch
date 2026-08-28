@@ -426,6 +426,18 @@ function OrderAffiliateTab({
     return null;
   };
 
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
+    try {
+      const userData = localStorage.getItem("user");
+      const userName = userData ? JSON.parse(userData)?.user_name : undefined;
+      await fetch("/api/activity-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: userName, method, activity_log: activity, entity_type: "affiliate_order", entity_id: entityId || "" }),
+      });
+    } catch {}
+  };
+
   const handleCreate = async () => {
     const err = validateForm();
     if (err) {
@@ -444,6 +456,7 @@ function OrderAffiliateTab({
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "Gagal menambahkan order");
+      await logActivity("POST", `Created affiliate order: ${form.sales_order}`, result.uuid);
       showMessage("Order affiliate berhasil ditambahkan", "success");
       setShowAddModal(false);
       await refresh();
@@ -474,6 +487,7 @@ function OrderAffiliateTab({
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "Gagal memperbarui order");
+      await logActivity("PUT", `Updated affiliate order: ${form.sales_order}`, selected.uuid);
       showMessage("Order affiliate berhasil diperbarui", "success");
       setShowEditModal(false);
       setSelected(null);
@@ -493,6 +507,7 @@ function OrderAffiliateTab({
         method: "DELETE",
       });
       if (!res.ok) throw new Error();
+      await logActivity("DELETE", `Deleted affiliate order: ${deleteTarget.sales_order}`, deleteTarget.uuid);
       showMessage("Order affiliate berhasil dihapus", "success");
       setDeleteTarget(null);
       await refresh();

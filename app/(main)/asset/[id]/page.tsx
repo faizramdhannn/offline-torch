@@ -92,7 +92,7 @@ export default function AssetDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[item.asset_name, String(item.id)]} />
+      <ActivityHistory entityType="asset" entityId={String(item.id)} />
     </DetailShell>
   );
 }

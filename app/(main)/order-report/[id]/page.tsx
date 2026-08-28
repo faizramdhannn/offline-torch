@@ -74,7 +74,7 @@ export default function OrderReportDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[item.sales_order, item.delivery_note, item.sales_invoice]} />
+      <ActivityHistory entityType="order_report" entityId={item.sales_order} />
     </DetailShell>
   );
 }

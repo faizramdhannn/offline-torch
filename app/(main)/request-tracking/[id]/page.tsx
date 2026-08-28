@@ -118,7 +118,7 @@ export default function RequestTrackingDetailPage() {
           await fetch("/api/activity-log", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ user: user.user_name, method: "PUT", activity_log: `Uploaded tracking file for ID: ${item.id}` }),
+            body: JSON.stringify({ user: user.user_name, method: "PUT", activity_log: `Uploaded tracking file for ID: ${item.id}`, entity_type: "request_tracking", entity_id: String(item.id) }),
           });
         } catch {}
         fetchData(user);
@@ -224,7 +224,7 @@ export default function RequestTrackingDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[item.tracking_number, String(item.id)]} />
+      <ActivityHistory entityType="request_tracking" entityId={String(item.id)} />
 
       <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
     </DetailShell>

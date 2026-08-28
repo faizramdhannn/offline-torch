@@ -87,7 +87,7 @@ export default function CanvasingDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[item.name, String(item.id), item.contact_person]} />
+      <ActivityHistory entityType="canvasing" entityId={String(item.id)} />
     </DetailShell>
   );
 }

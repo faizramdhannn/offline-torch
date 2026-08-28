@@ -132,6 +132,16 @@ export default function VoucherPage() {
     showMessage("Voucher name copied to clipboard!", "success");
   };
 
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
+    try {
+      await fetch("/api/activity-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: user?.user_name, method, activity_log: activity, entity_type: "voucher", entity_id: entityId || "" }),
+      });
+    } catch {}
+  };
+
   const handleCreate = async () => {
     if (!form.voucher_name.trim()) {
       showMessage("Voucher name wajib diisi", "error");
@@ -145,6 +155,8 @@ export default function VoucherPage() {
         body: JSON.stringify({ ...form, actorName: user?.user_name }),
       });
       if (!res.ok) throw new Error();
+      const created = await res.json().catch(() => null);
+      await logActivity("POST", `Created voucher: ${form.voucher_name}`, created?.id ? String(created.id) : undefined);
       showMessage("Voucher berhasil ditambahkan", "success");
       setShowAddModal(false);
       setForm(emptyForm);
@@ -180,6 +192,7 @@ export default function VoucherPage() {
         body: JSON.stringify({ id: selectedVoucher.id, ...form }),
       });
       if (!res.ok) throw new Error();
+      await logActivity("PUT", `Updated voucher: ${form.voucher_name}`, String(selectedVoucher.id));
       showMessage("Voucher berhasil diperbarui", "success");
       setShowEditModal(false);
       setSelectedVoucher(null);
@@ -200,6 +213,7 @@ export default function VoucherPage() {
         { method: "DELETE" }
       );
       if (!res.ok) throw new Error();
+      await logActivity("DELETE", `Deleted voucher: ${showDeleteConfirm.voucher_name}`, String(showDeleteConfirm.id));
       showMessage("Voucher berhasil dihapus", "success");
       setShowDeleteConfirm(null);
       fetchData();

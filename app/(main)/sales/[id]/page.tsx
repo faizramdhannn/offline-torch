@@ -76,7 +76,7 @@ export default function SalesSpreadsheetDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[item.store, `${item.month} ${item.year}`]} />
+      <ActivityHistory entityType="sales" entityId={String(item.id)} />
     </DetailShell>
   );
 }

@@ -148,7 +148,7 @@ export default function OrderReportPage() {
     setShowPopup(true);
   };
 
-  const logActivity = async (method: string, activity: string) => {
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
     try {
       await fetch("/api/activity-log", {
         method: "POST",
@@ -157,6 +157,8 @@ export default function OrderReportPage() {
           user: user.user_name,
           method,
           activity_log: activity,
+          entity_type: "order_report",
+          entity_id: entityId || "",
         }),
       });
     } catch (error) {

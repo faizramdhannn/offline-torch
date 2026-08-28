@@ -140,14 +140,14 @@ export default function BundlingPage() {
     setShowPopup(true);
   };
 
-  const logActivity = async (method: string, activity: string) => {
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
     try {
       const currentUser = userRef.current;
       if (!currentUser) return;
       await fetch("/api/activity-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user: currentUser.user_name, method, activity_log: activity }),
+        body: JSON.stringify({ user: currentUser.user_name, method, activity_log: activity, entity_type: "bundling", entity_id: entityId || "" }),
       });
     } catch (error) {
       console.error("Failed to log activity:", error);
@@ -349,7 +349,8 @@ export default function BundlingPage() {
 
       if (response.ok) {
         const action = editingId ? "Updated" : "Created";
-        await logActivity(method, `${action} bundling: ${formData.bundling_name}`);
+        const result = await response.json().catch(() => null);
+        await logActivity(method, `${action} bundling: ${formData.bundling_name}`, editingId || result?.id ? String(editingId || result.id) : undefined);
         showMessage(
           editingId ? "Bundling berhasil diperbarui" : "Bundling berhasil dibuat",
           "success"
@@ -372,7 +373,7 @@ export default function BundlingPage() {
     try {
       const response = await fetch(`/api/bundling?id=${id}`, { method: "DELETE" });
       if (response.ok) {
-        await logActivity("DELETE", `Deleted bundling ID: ${id}`);
+        await logActivity("DELETE", `Deleted bundling ID: ${id}`, id);
         showMessage("Bundling berhasil dihapus", "success");
         fetchData();
       } else {
@@ -439,7 +440,7 @@ export default function BundlingPage() {
       });
 
       if (response.ok) {
-        await logActivity("PUT", `Update harga bundling (sync HPJ): ${item.bundling_name}`);
+        await logActivity("PUT", `Update harga bundling (sync HPJ): ${item.bundling_name}`, String(item.id));
         showMessage(`Harga "${item.bundling_name}" berhasil diupdate`, "success");
         fetchData();
       } else {

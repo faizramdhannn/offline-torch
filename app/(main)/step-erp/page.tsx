@@ -90,12 +90,12 @@ export default function StepErpPage() {
     setShowPopup(true);
   };
 
-  const logActivity = async (method: string, activity: string) => {
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
     try {
       await fetch("/api/activity-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user: user?.user_name, method, activity_log: activity }),
+        body: JSON.stringify({ user: user?.user_name, method, activity_log: activity, entity_type: "step_erp", entity_id: entityId || "" }),
       });
     } catch {}
   };
@@ -299,7 +299,7 @@ export default function StepErpPage() {
       ),
     }));
     showMessage("Berhasil disimpan", "success");
-    await logActivity("PUT", `Edit ${field} entry ${selectedEntry.erp_number} → ${value}`);
+    await logActivity("PUT", `Edit ${field} entry ${selectedEntry.erp_number} → ${value}`, String(selectedEntry.id));
   };
 
   // ── Add entry ──────────────────────────────────────────────────────────────
@@ -346,9 +346,11 @@ export default function StepErpPage() {
         }),
       });
       if (!res.ok) throw new Error();
+      const created = await res.json().catch(() => null);
       await logActivity(
         "POST",
-        `Tambah ${typeDef.label}: ${addErpNumber.trim() || "(tanpa nomor)"} (${addStore})`
+        `Tambah ${typeDef.label}: ${addErpNumber.trim() || "(tanpa nomor)"} (${addStore})`,
+        created?.id ? String(created.id) : undefined
       );
       setShowAddModal(false);
       showMessage("Entry berhasil ditambahkan", "success");
@@ -380,7 +382,7 @@ export default function StepErpPage() {
         body: JSON.stringify({ type: deleteTarget.typeKey, id: deleteTarget.entry.id }),
       });
       if (!res.ok) throw new Error();
-      await logActivity("DELETE", `Hapus entry ${deleteTarget.entry.erp_number}`);
+      await logActivity("DELETE", `Hapus entry ${deleteTarget.entry.erp_number}`, String(deleteTarget.entry.id));
       setEntriesByType((prev) => ({
         ...prev,
         [deleteTarget.typeKey]: (prev[deleteTarget.typeKey] ?? []).filter(

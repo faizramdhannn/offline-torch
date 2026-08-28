@@ -134,6 +134,16 @@ export default function QrCodePage() {
     setShowFormModal(true);
   };
 
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
+    try {
+      await fetch("/api/activity-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: user?.user_name, method, activity_log: activity, entity_type: "qr_code", entity_id: entityId || "" }),
+      });
+    } catch {}
+  };
+
   // "Generate" sekaligus menyimpan (create/update) DAN membuka popup QR-nya.
   const handleGenerate = async () => {
     const name = formData.name.trim();
@@ -154,6 +164,7 @@ export default function QrCodePage() {
         setShowFormModal(false);
         await fetchItems();
         setQrPreviewItem({ uuid: formData.uuid, name, url, created_at: "", update_at: "" });
+        await logActivity("PUT", `Updated QR code: ${name}`, formData.uuid);
         showMessage("QR Code berhasil diperbarui", "success");
       } else {
         const res = await fetch("/api/qr-code", {
@@ -166,6 +177,7 @@ export default function QrCodePage() {
         setShowFormModal(false);
         await fetchItems();
         setQrPreviewItem({ uuid: result.uuid, name, url, created_at: "", update_at: "" });
+        await logActivity("POST", `Created QR code: ${name}`, result.uuid);
         showMessage("QR Code berhasil dibuat", "success");
       }
     } catch (err: any) {
@@ -185,6 +197,7 @@ export default function QrCodePage() {
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "Gagal menghapus");
+      await logActivity("DELETE", `Deleted QR code: ${deleteTarget.name}`, deleteTarget.uuid);
       setDeleteTarget(null);
       await fetchItems();
       showMessage("QR Code berhasil dihapus", "success");

@@ -276,6 +276,16 @@ export default function DailyChecklistPage() {
     if (canReport) await fetchAllRows();
   };
 
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
+    try {
+      await fetch("/api/activity-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: user?.user_name, method, activity_log: activity, entity_type: "daily_checklist", entity_id: entityId || "" }),
+      });
+    } catch {}
+  };
+
   const handleSubmit = async () => {
     if (!user) return;
     if (!form.taft_by) {
@@ -300,6 +310,12 @@ export default function DailyChecklistPage() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error();
+      const result = await res.json().catch(() => null);
+      await logActivity(
+        editingRow ? "PUT" : "POST",
+        editingRow ? "Updated daily checklist" : "Created daily checklist",
+        editingRow?.id ? String(editingRow.id) : (result?.id ? String(result.id) : undefined)
+      );
       showMessage(editingRow ? "Checklist berhasil diperbarui" : "Checklist berhasil dibuat", "success");
       setShowForm(false);
       await refreshAfterWrite();
@@ -316,6 +332,7 @@ export default function DailyChecklistPage() {
     try {
       const res = await fetch(`/api/daily-job/checklist?id=${encodeURIComponent(deleteTarget.id)}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
+      await logActivity("DELETE", `Deleted daily checklist ID: ${deleteTarget.id}`, String(deleteTarget.id));
       showMessage("Checklist berhasil dihapus", "success");
       setDeleteTarget(null);
       await refreshAfterWrite();

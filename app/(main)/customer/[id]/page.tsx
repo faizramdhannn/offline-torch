@@ -101,7 +101,7 @@ export default function CustomerDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[item.customer_name, item.phone_number]} />
+      <ActivityHistory entityType="customer" entityId={item.phone_number} />
     </DetailShell>
   );
 }

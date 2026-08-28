@@ -124,7 +124,7 @@ export default function RequestStoreDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[item.reason_request, String(item.id)]} />
+      <ActivityHistory entityType="request_store" entityId={String(item.id)} />
     </DetailShell>
   );
 }

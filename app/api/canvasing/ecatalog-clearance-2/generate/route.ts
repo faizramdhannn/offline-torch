@@ -231,9 +231,9 @@ async function createProductPage(doc: jsPDF, products: any[], torchLogo: string 
   const NAME_SIZE = 17;
   const NAME_LINE_H = 20;
   const NAME_LINES_RESERVED = 2; // dipakai HANYA untuk hitung budget tinggi gambar (worst-case)
-  const STRIKE_SIZE = 12;
+  const STRIKE_SIZE = 15;
   const PROMO_SIZE = 19;
-  const STOCK_SIZE = 9;
+  const STOCK_SIZE = 13;
   const GAP_IMG_TO_NAME = 14;
   const GAP_NAME_TO_PRICE = 6;
   const GAP_STRIKE_TO_PROMO = 15;
@@ -299,14 +299,14 @@ async function createProductPage(doc: jsPDF, products: any[], torchLogo: string 
     if (promoPriceText) {
       if (normalPriceText) {
         doc.setFontSize(STRIKE_SIZE);
-        doc.setFont('helvetica', 'normal');
+        doc.setFont('helvetica', 'bold');
         doc.setTextColor(150, 150, 150);
         doc.text(normalPriceText, cellCenterX, strikeBaseline, textOpts);
         const strikeW = doc.getTextWidth(normalPriceText);
         const textH = doc.getTextDimensions(normalPriceText).h;
         const strikeLineY = strikeBaseline - textH * 0.32;
         doc.setDrawColor(150, 150, 150);
-        doc.setLineWidth(0.7);
+        doc.setLineWidth(0.9);
         doc.line(cellCenterX - strikeW / 2, strikeLineY, cellCenterX + strikeW / 2, strikeLineY);
       }
 
@@ -326,8 +326,8 @@ async function createProductPage(doc: jsPDF, products: any[], torchLogo: string 
     // ── Stock — 1 baris, dari kolom stock_all (bukan per-store lagi) ─────
     const stockTop = promoBaseline + GAP_PRICE_TO_STOCK;
     doc.setFontSize(STOCK_SIZE);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(110, 110, 110);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(90, 90, 90);
     doc.text(`Stock: ${p.stock_all}`, cellCenterX, stockTop, textOpts);
     doc.setTextColor(0, 0, 0);
   }

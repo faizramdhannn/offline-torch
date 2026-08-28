@@ -279,13 +279,13 @@ export default function RequestTrackingPage() {
     try { new Audio(file).play(); } catch {}
   };
 
-  const logActivity = async (method: string, activity: string) => {
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
     if (!user) return;
     try {
       await fetch("/api/activity-log", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user: user.user_name, method, activity_log: activity }),
+        body: JSON.stringify({ user: user.user_name, method, activity_log: activity, entity_type: "request_tracking", entity_id: entityId || "" }),
       });
     } catch {}
   };
@@ -343,7 +343,7 @@ export default function RequestTrackingPage() {
         );
         showMessage('Gagal update status proses', 'error');
       } else {
-        await logActivity('PUT', `Toggled has_processed=${newValue} for ID: ${item.id}`);
+        await logActivity('PUT', `Toggled has_processed=${newValue} for ID: ${item.id}`, String(item.id));
       }
     } catch {
       setData((prev) =>
@@ -370,6 +370,7 @@ export default function RequestTrackingPage() {
         body: JSON.stringify({ ...form, request_by: user.user_name }),
       });
       if (res.ok) {
+        const created = await res.json().catch(() => null);
         showMessage("Request berhasil dibuat", "success");
         setShowAddModal(false); resetAddForm();
         try { new Audio("/add.mp3").play(); } catch {}
@@ -384,7 +385,7 @@ export default function RequestTrackingPage() {
             }),
           });
         } catch {}
-        await logActivity("POST", `Created shipment request: ${form.expedition} → ${form.assigned_to}`);
+        await logActivity("POST", `Created shipment request: ${form.expedition} → ${form.assigned_to}`, created?.id ? String(created.id) : undefined);
         fetchData();
       } else { showMessage("Gagal membuat request", "error"); }
     } catch { showMessage("Gagal membuat request", "error"); }
@@ -428,7 +429,7 @@ export default function RequestTrackingPage() {
       if (res.ok) {
         showMessage("Request berhasil diupdate", "success");
         setShowEditModal(false); setSelectedItem(null);
-        await logActivity("PUT", `Updated shipment request ID: ${selectedItem.id}`);
+        await logActivity("PUT", `Updated shipment request ID: ${selectedItem.id}`, String(selectedItem.id));
         fetchData();
       } else { showMessage("Gagal update request", "error"); }
     } catch { showMessage("Gagal update request", "error"); }
@@ -449,7 +450,7 @@ export default function RequestTrackingPage() {
         setData((prev) => prev.filter((d) => d.id !== item.id));
         playSound("/delete.mp3");
         showMessage("Request dihapus", "success");
-        await logActivity("DELETE", `Deleted shipment request ID: ${item.id}`);
+        await logActivity("DELETE", `Deleted shipment request ID: ${item.id}`, String(item.id));
       } else { showMessage("Gagal menghapus", "error"); }
     } catch { showMessage("Gagal menghapus", "error"); }
     finally { setDeleting(false); setDeleteTarget(null); }
@@ -490,7 +491,7 @@ export default function RequestTrackingPage() {
           });
         } catch {}
         setShowUploadModal(false); setSelectedItem(null); setUploadFile(null);
-        await logActivity("PUT", `Uploaded tracking file for ID: ${selectedItem.id}`);
+        await logActivity("PUT", `Uploaded tracking file for ID: ${selectedItem.id}`, String(selectedItem.id));
         fetchData();
       } else { showMessage("Gagal upload file", "error"); }
     } catch { showMessage("Gagal upload file", "error"); }

@@ -864,6 +864,16 @@ export default function MaterialIssuePage() {
     }
   };
 
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
+    try {
+      await fetch("/api/activity-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: user.user_name, method, activity_log: activity, entity_type: "material_issue", entity_id: entityId || "" }),
+      });
+    } catch {}
+  };
+
   // ── Add ─────────────────────────────────────────────────────────────────────
   const handleAdd = async () => {
     if (!form.request_by || !form.type_reason || !form.reason || form.scannedItems.length === 0) {
@@ -909,6 +919,7 @@ export default function MaterialIssuePage() {
             body: `${toCapitalEachWord(user.name)}: ${form.reason} (${form.scannedItems.length} item)`,
           });
         }
+        await logActivity("POST", `Created material issue: ${form.reason}`, sharedId);
         showMessage("Material issue berhasil dibuat", "success");
         setShowAddModal(false);
         setForm(emptyForm);
@@ -1014,6 +1025,7 @@ export default function MaterialIssuePage() {
             body: `Issue ${selectedItem.id} sudah diselesaikan`,
           });
         }
+        await logActivity("PUT", `Updated material issue: ${editForm.reason}`, groupId);
         showMessage("Berhasil diupdate", "success");
         setShowEditModal(false);
         setSelectedItem(null);
@@ -1040,6 +1052,7 @@ export default function MaterialIssuePage() {
       const res = await fetch(`/api/material-issue?id=${encodeURIComponent(groupId)}`, { method: "DELETE" });
       if (res.ok) {
         setData((prev) => prev.filter((d) => d.id !== groupId));
+        await logActivity("DELETE", `Deleted material issue ID: ${groupId}`, groupId);
         showMessage("Dihapus", "success");
         try { new Audio("/delete.mp3").play(); } catch {}
       } else {

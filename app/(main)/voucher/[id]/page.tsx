@@ -68,7 +68,7 @@ export default function VoucherDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[item.voucher_name, String(item.id)]} />
+      <ActivityHistory entityType="voucher" entityId={String(item.id)} />
     </DetailShell>
   );
 }

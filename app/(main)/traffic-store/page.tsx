@@ -876,6 +876,16 @@ export default function TrafficStorePage() {
     setShowForm(true);
   };
 
+  const logActivity = async (method: string, activity: string, entityId?: string) => {
+    try {
+      await fetch("/api/activity-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: user?.user_name, method, activity_log: activity, entity_type: "traffic_store", entity_id: entityId || "" }),
+      });
+    } catch {}
+  };
+
   const handleSave = async () => {
     const needsWag = form.traffic_source === "WAG" && !form.wag_addition;
     const needsEiger = form.traffic_source === "Eiger Referral" && !form.eiger_addition;
@@ -936,7 +946,10 @@ export default function TrafficStorePage() {
           body: JSON.stringify({ id: editEntry.id, ...payload, case: form.case }),
         });
         const result = await res.json();
-        if (result.success) { showMessage("Data berhasil diupdate", "success"); setShowForm(false); fetchAll(); }
+        if (result.success) {
+          await logActivity("PUT", `Updated traffic store entry: ${form.taft_name}`, String(editEntry.id));
+          showMessage("Data berhasil diupdate", "success"); setShowForm(false); fetchAll();
+        }
         else showMessage(result.error || "Gagal update", "error");
       } else {
         const res = await fetch("/api/traffic-store", {
@@ -950,7 +963,10 @@ export default function TrafficStorePage() {
           }),
         });
         const result = await res.json();
-        if (result.success) { showMessage("Data berhasil ditambahkan", "success"); setShowForm(false); fetchAll(); }
+        if (result.success) {
+          await logActivity("POST", `Created traffic store entry: ${form.taft_name}`, result.id ? String(result.id) : undefined);
+          showMessage("Data berhasil ditambahkan", "success"); setShowForm(false); fetchAll();
+        }
         else showMessage(result.error || "Gagal simpan", "error");
       }
     } catch { showMessage("Terjadi kesalahan", "error"); }
@@ -967,7 +983,10 @@ export default function TrafficStorePage() {
     try {
       const res = await fetch(`/api/traffic-store?id=${id}`, { method: "DELETE" });
       const result = await res.json();
-      if (result.success) { showMessage("Data dihapus", "success"); fetchAll(); }
+      if (result.success) {
+        await logActivity("DELETE", `Deleted traffic store entry ID: ${id}`, id);
+        showMessage("Data dihapus", "success"); fetchAll();
+      }
       else showMessage(result.error || "Gagal hapus", "error");
     } catch { showMessage("Terjadi kesalahan", "error"); }
     finally { setDeleteTargetId(null); }

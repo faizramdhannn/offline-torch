@@ -109,7 +109,7 @@ export default function StepErpDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[entry.erp_number, String(entry.id)]} />
+      <ActivityHistory entityType="step_erp" entityId={String(entry.id)} />
     </DetailShell>
   );
 }

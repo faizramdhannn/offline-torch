@@ -143,7 +143,7 @@ export default function InvoiceDetailPage() {
 
       <div className="border-t border-dashed border-gray-200" />
 
-      <ActivityHistory matchTerms={[item.invoice_number, item.invoice_id]} />
+      <ActivityHistory entityType="invoice" entityId={item.invoice_id} />
     </DetailShell>
   );
 }
