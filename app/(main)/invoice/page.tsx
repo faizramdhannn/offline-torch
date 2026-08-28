@@ -683,6 +683,12 @@ export default function InvoicePage() {
                           </span>
                         </td>
                         <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={() => router.push(`/invoice/${inv.invoice_id}`)}
+                            className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-[10px] hover:bg-gray-300 mr-1"
+                          >
+                            Detail
+                          </button>
                           {canDownloadPdf(inv) && user?.invoice_create ? (
                             <div className="flex gap-1">
                               <button

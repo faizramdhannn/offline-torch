@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pencil, Trash2, Columns3, RotateCcw } from "lucide-react";
+import { Pencil, Trash2, Columns3, RotateCcw, Eye } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/shared/Badge";
 import { cn } from "@/lib/utils";
 
@@ -230,6 +231,7 @@ function ColumnPicker({
 }
 
 export function EntryTable({ items, isStoreUser, canEdit, onEdit, onDelete, formatDate, toTitleCase }: EntryTableProps) {
+  const router = useRouter();
   const [visible, setVisible] = useState<Record<string, boolean>>(() => loadVisibleColumns());
 
   useEffect(() => {
@@ -263,7 +265,7 @@ export function EntryTable({ items, isStoreUser, canEdit, onEdit, onDelete, form
               {activeColumns.map((c) => (
                 <th key={c.key} className={thClass}>{c.label}</th>
               ))}
-              {canEdit && <th className={cn(thClass, "text-center")}>Aksi</th>}
+              <th className={cn(thClass, "text-center")}>Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -278,26 +280,35 @@ export function EntryTable({ items, isStoreUser, canEdit, onEdit, onDelete, form
                     </td>
                   );
                 })}
-                {canEdit && (
-                  <td className={tdClass}>
-                    <div className="flex items-center justify-center gap-1">
-                      <button
-                        onClick={() => onEdit(row)}
-                        title="Edit"
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-yellow-50 text-yellow-600 transition-colors hover:bg-yellow-100"
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => onDelete(row.id)}
-                        title="Hapus"
-                        className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-red-50 text-red-600 transition-colors hover:bg-red-100"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </div>
-                  </td>
-                )}
+                <td className={tdClass}>
+                  <div className="flex items-center justify-center gap-1">
+                    <button
+                      onClick={() => router.push(`/traffic-store/${row.id}`)}
+                      title="Detail"
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-blue-50 text-blue-600 transition-colors hover:bg-blue-100"
+                    >
+                      <Eye className="h-3 w-3" />
+                    </button>
+                    {canEdit && (
+                      <>
+                        <button
+                          onClick={() => onEdit(row)}
+                          title="Edit"
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-yellow-50 text-yellow-600 transition-colors hover:bg-yellow-100"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => onDelete(row.id)}
+                          title="Hapus"
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-red-50 text-red-600 transition-colors hover:bg-red-100"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -349,16 +360,21 @@ export function EntryTable({ items, isStoreUser, canEdit, onEdit, onDelete, form
               {row.product_detail && <p className="mt-2 text-[11px] font-medium text-gray-600">{row.product_detail}</p>}
               {row.notes && <p className="mt-1 text-[11px] text-gray-500">{row.notes}</p>}
 
-              {canEdit && (
-                <div className="mt-3 flex items-center justify-end gap-1.5">
-                  <button onClick={() => onEdit(row)} className="rounded-lg bg-yellow-50 p-1.5 text-yellow-600">
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button onClick={() => onDelete(row.id)} className="rounded-lg bg-red-50 p-1.5 text-red-600">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              )}
+              <div className="mt-3 flex items-center justify-end gap-1.5">
+                <button onClick={() => router.push(`/traffic-store/${row.id}`)} className="rounded-lg bg-blue-50 p-1.5 text-blue-600">
+                  <Eye className="h-3.5 w-3.5" />
+                </button>
+                {canEdit && (
+                  <>
+                    <button onClick={() => onEdit(row)} className="rounded-lg bg-yellow-50 p-1.5 text-yellow-600">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button onClick={() => onDelete(row.id)} className="rounded-lg bg-red-50 p-1.5 text-red-600">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           );
         })}

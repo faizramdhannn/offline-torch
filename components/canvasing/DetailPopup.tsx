@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Eye, Pencil, Image as ImageIcon } from "lucide-react";
+import { X, Eye, Pencil, ExternalLink, Image as ImageIcon } from "lucide-react";
 import { Canvasing } from "@/types";
 import { StatusBadge } from "./DomainBadges";
 
@@ -55,6 +56,7 @@ export function DetailPopup({
   getDriveImageUrls,
   toTitleCase,
 }: DetailPopupProps) {
+  const router = useRouter();
   // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -110,12 +112,21 @@ export function DetailPopup({
                 </p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                onClick={() => router.push(`/canvasing/${entry.id}`)}
+                title="Buka sebagai halaman"
+                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </button>
+              <button
+                onClick={onClose}
+                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           {/* Body */}

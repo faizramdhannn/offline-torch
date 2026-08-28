@@ -708,9 +708,14 @@ return (
                         return (
                           <tr
                             key={actualIndex}
-                            className={`border-b hover:bg-gray-50 ${hasFollowup ? "bg-green-50" : ""}`}
+                            onClick={() =>
+                              router.push(
+                                `/customer/${encodeURIComponent(customer.phone_number)}`,
+                              )
+                            }
+                            className={`border-b hover:bg-gray-50 cursor-pointer ${hasFollowup ? "bg-green-50" : ""}`}
                           >
-                            <td className="px-2 text-center py-2">
+                            <td className="px-2 text-center py-2" onClick={(e) => e.stopPropagation()}>
                               <div className="flex items-center justify-center gap-1">
                                 <span className="text-xs">
                                   {customer.phone_number}
@@ -750,7 +755,7 @@ return (
                                 {hasFollowup ? "✓" : "-"}
                               </span>
                             </td>
-                            <td className="px-2 py-2">
+                            <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
                               <div className="flex flex-col items-center gap-1">
                                 {customer.result && (
                                   <div className="text-xs text-gray-700 font-medium">

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { QRCodeCanvas } from "qrcode.react";
-import { Plus, Search, Trash2, Pencil, QrCode as QrCodeIcon, Download, X, BarChart3 } from "lucide-react";
+import { Plus, Search, Trash2, Pencil, QrCode as QrCodeIcon, Download, X, BarChart3, Eye } from "lucide-react";
 import Popup from "@/components/Popup";
 import { SectionHeader } from "@/components/shared/SectionHeader";
 import { Button } from "@/components/shared/Button";
@@ -322,6 +322,13 @@ export default function QrCodePage() {
                 <p className="truncate text-sm font-semibold text-gray-800">{item.name}</p>
               </div>
               <div className="flex flex-shrink-0 items-center gap-1">
+                <button
+                  onClick={() => router.push(`/qr-code/${item.uuid}`)}
+                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  title="Detail"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                </button>
                 <button
                   onClick={() => openAnalytics(item)}
                   className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"

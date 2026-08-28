@@ -1,6 +1,7 @@
 "use client";
 
-import { ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { ExternalLink, Eye, Pencil, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/shared/Badge";
 import { FileIcon } from "./FileIcon";
 import { getTypeBadgeVariant, type Asset } from "./types";
@@ -13,6 +14,7 @@ interface AssetListRowProps {
 }
 
 export function AssetListRow({ asset, canEdit, onEdit, onDelete }: AssetListRowProps) {
+  const router = useRouter();
   return (
     <div className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 border-b border-gray-50 px-4 py-2.5 transition-colors last:border-0 hover:bg-gray-50/80">
       <FileIcon url={asset.link_url} size={28} />
@@ -26,8 +28,16 @@ export function AssetListRow({ asset, canEdit, onEdit, onDelete }: AssetListRowP
         </Badge>
       </div>
 
-      {canEdit ? (
-        <div className="flex shrink-0 items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => router.push(`/asset/${asset.id}`)}
+          className="flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-[10px] font-medium text-gray-500 transition-colors hover:bg-gray-100"
+        >
+          <Eye className="h-2.5 w-2.5" /> Detail
+        </button>
+        {canEdit && (
+          <>
           <button
             type="button"
             onClick={() => onEdit(asset)}
@@ -42,10 +52,9 @@ export function AssetListRow({ asset, canEdit, onEdit, onDelete }: AssetListRowP
           >
             <Trash2 className="h-2.5 w-2.5" /> Hapus
           </button>
-        </div>
-      ) : (
-        <span />
-      )}
+          </>
+        )}
+      </div>
 
       <a
         href={asset.link_url}

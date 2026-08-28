@@ -705,7 +705,11 @@ export default function EmployeeDiscountPage() {
                   const isOwner = (item.created_by === user.user_name && canEditOwn) || canApprove;
                   const showApprove = canApprove && item.status_request !== "Approved" && item.status_request !== "Rejected";
                   return (
-                    <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr
+                      key={item.id}
+                      onClick={() => router.push(`/employee-discount/${item.id}`)}
+                      className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                    >
                       <td className="px-1.5 py-1.5 text-center border-r border-gray-200 whitespace-nowrap truncate">{item.created_at?.split(",")[0]}</td>
                       <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate">{item.name}</td>
                       <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate">{item.assigned_to || "-"}</td>
@@ -717,7 +721,7 @@ export default function EmployeeDiscountPage() {
                       <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate">{item.discount_code}</td>
                       <td className="px-1.5 py-1.5 border-r border-gray-200 truncate">{item.type_reason}</td>
                       <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate">{item.sales_order || "-"}</td>
-                      <td className="px-1.5 py-1.5 text-center border-r border-gray-200">
+                      <td className="px-1.5 py-1.5 text-center border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
                         {item.link_drive ? (
                           <a href={item.link_drive} target="_blank" rel="noreferrer" title="Lihat foto" className="inline-flex text-blue-600 hover:text-blue-800">
                             <ImageIcon className="w-3.5 h-3.5" />
@@ -729,7 +733,7 @@ export default function EmployeeDiscountPage() {
                       <td className="px-1.5 py-1.5 text-center border-r border-gray-200">
                         <StatusBadge value={item.status_request} />
                       </td>
-                      <td className="px-1.5 py-1.5 text-center">
+                      <td className="px-1.5 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-1 flex-wrap">
                           {canCreate && (
                             <button

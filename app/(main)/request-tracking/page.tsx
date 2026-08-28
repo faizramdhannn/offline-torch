@@ -709,6 +709,7 @@ export default function RequestTrackingPage() {
                     hasActiveSearch={hasActiveSearch}
                     searchQuery={searchReceiver}
                     onRowClick={setDetailItem}
+                    onViewDetail={(item) => router.push(`/request-tracking/${item.id}`)}
                     onCopy={handleCopyReceiver}
                     onCheckResi={handleCheckResi}
                     onToggleProcessed={handleToggleProcessed}

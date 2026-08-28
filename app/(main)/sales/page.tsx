@@ -146,74 +146,108 @@ function getMonthOrder(month: string): number {
 }
 
 function SpreadsheetCard({ entry, isDark }: { entry: SpreadsheetEntry; isDark: boolean }) {
+  const router = useRouter();
   const [hovered, setHovered] = useState(false);
   const storeName = STORE_LABELS[entry.store.toLowerCase()] || entry.store;
 
   return (
-    <a
-      href={entry.spreadsheet_link_url}
-      target="_blank"
-      rel="noopener noreferrer"
+    <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
+        position: "relative",
         display: "flex", flexDirection: "column", alignItems: "center",
         padding: "16px 12px 12px", borderRadius: 10,
         background: isDark ? hovered ? "#243447" : "#1e293b" : hovered ? "#f0f7ff" : "white",
         border: `1px solid ${isDark ? hovered ? "#3b82f6" : "rgba(255,255,255,0.08)" : hovered ? "#3b82f6" : "#e2e8f0"}`,
         boxShadow: hovered ? "0 4px 16px rgba(59,130,246,0.2)" : isDark ? "0 1px 4px rgba(0,0,0,0.3)" : "0 1px 4px rgba(0,0,0,0.06)",
-        cursor: "pointer", textDecoration: "none", transition: "all 0.15s ease",
-        gap: 10, userSelect: "none",
+        transition: "all 0.15s ease", gap: 10, userSelect: "none",
       }}
     >
-      <SpreadsheetIcon size={40} />
-      <div style={{ textAlign: "center", width: "100%", minWidth: 0 }}>
-        <p style={{ fontSize: 11, fontWeight: 700, color: isDark ? "#e2e8f0" : "#1e293b", margin: 0, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {storeName}
-        </p>
-        <p style={{ fontSize: 9.5, color: isDark ? "#64748b" : "#94a3b8", margin: "2px 0 0", fontWeight: 500 }}>
-          {entry.month} {entry.year}
-        </p>
-      </div>
-    </a>
+      <button
+        type="button"
+        onClick={() => router.push(`/sales/${entry.id}`)}
+        title="Lihat detail"
+        style={{
+          position: "absolute", top: 4, right: 4, border: "none", background: "transparent",
+          color: isDark ? "#64748b" : "#94a3b8", cursor: "pointer", fontSize: 9, padding: 3,
+        }}
+      >
+        Detail
+      </button>
+      <a
+        href={entry.spreadsheet_link_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
+          cursor: "pointer", textDecoration: "none", width: "100%",
+        }}
+      >
+        <SpreadsheetIcon size={40} />
+        <div style={{ textAlign: "center", width: "100%", minWidth: 0 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: isDark ? "#e2e8f0" : "#1e293b", margin: 0, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {storeName}
+          </p>
+          <p style={{ fontSize: 9.5, color: isDark ? "#64748b" : "#94a3b8", margin: "2px 0 0", fontWeight: 500 }}>
+            {entry.month} {entry.year}
+          </p>
+        </div>
+      </a>
+    </div>
   );
 }
 
 function SpreadsheetListItem({ entry, isDark, index }: { entry: SpreadsheetEntry; isDark: boolean; index: number }) {
+  const router = useRouter();
   const [hovered, setHovered] = useState(false);
   const storeName = STORE_LABELS[entry.store.toLowerCase()] || entry.store;
 
   return (
-    <a
-      href={entry.spreadsheet_link_url}
-      target="_blank"
-      rel="noopener noreferrer"
+    <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        display: "grid", gridTemplateColumns: "auto 1fr 1fr auto",
+        display: "grid", gridTemplateColumns: "auto 1fr 1fr auto auto",
         alignItems: "center", gap: 12, padding: "9px 14px", borderRadius: 8,
         background: isDark ? hovered ? "#243447" : index % 2 === 0 ? "#1e293b" : "transparent" : hovered ? "#f0f7ff" : index % 2 === 0 ? "#f8fafc" : "white",
         border: `1px solid ${isDark ? hovered ? "#3b82f6" : "transparent" : hovered ? "#3b82f6" : "transparent"}`,
-        cursor: "pointer", textDecoration: "none", transition: "all 0.12s ease", userSelect: "none",
+        transition: "all 0.12s ease", userSelect: "none",
       }}
     >
-      <SpreadsheetIcon size={28} />
-      <p style={{ fontSize: 12, fontWeight: 700, color: isDark ? "#e2e8f0" : "#1e293b", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {storeName}
-      </p>
-      <p style={{ fontSize: 11, color: isDark ? "#94a3b8" : "#64748b", margin: 0, fontWeight: 500 }}>
-        {entry.month} {entry.year}
-      </p>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-        stroke={hovered ? "#3b82f6" : isDark ? "#475569" : "#cbd5e1"}
-        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-        style={{ flexShrink: 0, transition: "stroke 0.12s" }}>
-        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-        <polyline points="15 3 21 3 21 9"/>
-        <line x1="10" y1="14" x2="21" y2="3"/>
-      </svg>
-    </a>
+      <a
+        href={entry.spreadsheet_link_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ display: "contents", cursor: "pointer", textDecoration: "none" }}
+      >
+        <SpreadsheetIcon size={28} />
+        <p style={{ fontSize: 12, fontWeight: 700, color: isDark ? "#e2e8f0" : "#1e293b", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {storeName}
+        </p>
+        <p style={{ fontSize: 11, color: isDark ? "#94a3b8" : "#64748b", margin: 0, fontWeight: 500 }}>
+          {entry.month} {entry.year}
+        </p>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke={hovered ? "#3b82f6" : isDark ? "#475569" : "#cbd5e1"}
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          style={{ flexShrink: 0, transition: "stroke 0.12s" }}>
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+          <polyline points="15 3 21 3 21 9"/>
+          <line x1="10" y1="14" x2="21" y2="3"/>
+        </svg>
+      </a>
+      <button
+        type="button"
+        onClick={() => router.push(`/sales/${entry.id}`)}
+        style={{
+          border: `1px solid ${isDark ? "#334155" : "#e2e8f0"}`, background: "transparent",
+          color: isDark ? "#94a3b8" : "#64748b", cursor: "pointer", fontSize: 10, padding: "3px 7px", borderRadius: 6,
+        }}
+      >
+        Detail
+      </button>
+    </div>
   );
 }
 

@@ -748,7 +748,11 @@ export default function OrderReportPage() {
                       </thead>
                       <tbody>
                         {currentItems.map((item, index) => (
-                          <tr key={index} className="border-b hover:bg-gray-50">
+                          <tr
+                            key={index}
+                            onClick={() => router.push(`/order-report/${encodeURIComponent(item.sales_order)}`)}
+                            className="border-b hover:bg-gray-50 cursor-pointer"
+                          >
                             <td className="px-2 py-1.5 whitespace-nowrap">{formatDate(item.order_date)}</td>
                             <td className="px-2 py-1.5 whitespace-nowrap">{item.sales_order}</td>
                             <td className="px-2 py-1.5 whitespace-nowrap">{item.warehouse}</td>

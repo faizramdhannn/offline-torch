@@ -315,12 +315,16 @@ return (
                     </thead>
                     <tbody>
                       {currentItems.map((voucher, index) => (
-                        <tr key={index} className="border-b hover:bg-gray-50">
+                        <tr
+                          key={index}
+                          onClick={() => router.push(`/voucher/${voucher.id}`)}
+                          className="border-b hover:bg-gray-50 cursor-pointer"
+                        >
                           <td className="px-3 py-2 font-medium">{voucher.voucher_name}</td>
                           <td className="px-3 py-2">{voucher.category}</td>
                           <td className="px-3 py-2">{voucher.description}</td>
                           <td className="px-3 py-2">{voucher.created_at}</td>
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-1.5">
                               <button
                                 onClick={() => copyToClipboard(voucher.voucher_name)}

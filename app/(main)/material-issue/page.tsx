@@ -1392,6 +1392,12 @@ export default function MaterialIssuePage() {
                           <td className="px-1 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
                             <div className="flex flex-wrap gap-0.5 justify-center">
                               <button
+                                onClick={() => router.push(`/material-issue/${item.id}`)}
+                                className="px-1 py-0.5 bg-gray-400 text-white rounded text-[9px] hover:bg-gray-500"
+                              >
+                                Detail
+                              </button>
+                              <button
                                 onClick={() => openEdit(item)}
                                 className="px-1 py-0.5 bg-yellow-500 text-white rounded text-[9px] hover:bg-yellow-600"
                               >

@@ -140,6 +140,7 @@ interface OrderDetailPopupProps {
 }
 
 function OrderDetailPopup({ groupLabel, orderNames, rows, trafficMap, onClose }: OrderDetailPopupProps) {
+  const router = useRouter();
   const [selectedOrderName, setSelectedOrderName] = useState<string | null>(null);
 
   if (!groupLabel || orderNames.length === 0) return null;
@@ -182,11 +183,22 @@ function OrderDetailPopup({ groupLabel, orderNames, rows, trafficMap, onClose }:
                 <h2 className="text-lg font-bold text-white">{selectedOrderName}</h2>
               </div>
             </div>
-            <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => router.push(`/analytics-order/${encodeURIComponent(selectedOrderName)}`)}
+                title="Buka sebagai halaman"
+                className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+              >
+                <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </button>
+              <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           <div className="px-5 py-4 grid grid-cols-2 gap-3 border-b">

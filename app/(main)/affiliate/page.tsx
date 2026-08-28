@@ -359,6 +359,7 @@ function OrderAffiliateTab({
   showMessage: (m: string, t: "success" | "error") => void;
   refresh: () => Promise<void>;
 }) {
+  const router = useRouter();
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -643,7 +644,11 @@ function OrderAffiliateTab({
             </thead>
             <tbody>
               {currentItems.map((o) => (
-                <tr key={o.uuid} className="border-b hover:bg-gray-50">
+                <tr
+                  key={o.uuid}
+                  onClick={() => router.push(`/affiliate/${o.uuid}`)}
+                  className="border-b hover:bg-gray-50 cursor-pointer"
+                >
                   <td className="px-3 py-2 font-medium">{o.affiliate_code}</td>
                   <td className="px-3 py-2">{o.store_name}</td>
                   <td className="px-3 py-2">{o.sales_order}</td>
@@ -663,7 +668,7 @@ function OrderAffiliateTab({
                       {o.reedem_status}
                     </span>
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1.5">
                       <button onClick={() => openEdit(o)} className="p-1.5 rounded hover:bg-gray-100 text-gray-500" title="Edit">
                         <Pencil className="w-3.5 h-3.5" />

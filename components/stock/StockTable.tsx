@@ -1,7 +1,8 @@
 "use client";
 
-import { Copy, Check, ImageOff, ChevronUp, ChevronDown, ChevronsUpDown, QrCode } from "lucide-react";
+import { Copy, Check, ImageOff, ChevronUp, ChevronDown, ChevronsUpDown, QrCode, Eye } from "lucide-react";
 import { useState, Fragment } from "react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 interface StockItem {
@@ -235,6 +236,7 @@ export function StockTable({
 }: StockTableProps) {
   const thProps = { sortColumn, sortDirection, onSort };
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const router = useRouter();
 
   const showStockColumn = selectedView === "store" || (selectedView === "pca" && showStockPca);
 
@@ -349,8 +351,14 @@ export function StockTable({
                       <StockChangeBadge today={item.stock} yesterday={yesterdayStock} />
                     </div>
                     <button
-                      onClick={(e) => { e.stopPropagation(); onBarcodeClick(item); }}
+                      onClick={(e) => { e.stopPropagation(); router.push(`/stock/${encodeURIComponent(item.sku)}`); }}
                       className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      <Eye className="h-3.5 w-3.5" /> Detail
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onBarcodeClick(item); }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
                     >
                       <QrCode className="h-3.5 w-3.5" /> Barcode
                     </button>

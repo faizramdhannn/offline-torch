@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
-import { MessageCircle, ExternalLink, Pencil, Trash2, Upload } from "lucide-react";
+import { MessageCircle, ExternalLink, Pencil, Trash2, Upload, Eye } from "lucide-react";
 import { ExpeditionBadge, TypeReasonBadge, ShipmentStatusBadge, CopyButton, CheckResiButton, ProcessToggle } from "./DomainBadges";
 import { cn } from "@/lib/utils";
 import { thClass, tdClass } from "@/components/shared/tableStyles";
@@ -35,6 +35,7 @@ interface ShipmentTableProps {
   hasActiveSearch: boolean;
   searchQuery: string;
   onRowClick: (item: TrackingItem) => void;
+  onViewDetail: (item: TrackingItem) => void;
   onCopy: (text: string, id: string) => void;
   onCheckResi: (resi: string) => void;
   onToggleProcessed: (item: TrackingItem) => void;
@@ -56,6 +57,7 @@ export function ShipmentTable({
   hasActiveSearch,
   searchQuery,
   onRowClick,
+  onViewDetail,
   onCopy,
   onCheckResi,
   onToggleProcessed,
@@ -176,6 +178,13 @@ export function ShipmentTable({
                   {/* Aksi */}
                   <td className={tdClass} onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-center gap-0.5">
+                      <button
+                        onClick={() => onViewDetail(item)}
+                        title="Lihat detail"
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-gray-100 text-gray-500 transition-colors hover:bg-gray-200"
+                      >
+                        <Eye className="h-3 w-3" />
+                      </button>
                       {canUpload && status === "pending" && (
                         <button
                           onClick={() => onUpload(item)}
@@ -284,6 +293,13 @@ export function ShipmentTable({
                   )}
                 </div>
                 <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => onViewDetail(item)}
+                    className="inline-flex items-center gap-1 rounded-lg bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-600"
+                  >
+                    <Eye className="h-3 w-3" />
+                    Detail
+                  </button>
                   {canUpload && status === "pending" && (
                     <button
                       onClick={() => onUpload(item)}

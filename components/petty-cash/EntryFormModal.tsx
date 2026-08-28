@@ -1,9 +1,11 @@
 "use client";
 
-import { Plus, Pencil, Paperclip, ExternalLink } from "lucide-react";
+import { useRef } from "react";
+import { Plus, Pencil, ExternalLink } from "lucide-react";
 import { Modal } from "@/components/shared/Modal";
 import { Button } from "@/components/shared/Button";
 import { FieldLabel } from "@/components/shared/FormField";
+import { DropZone } from "@/components/request-tracking/DropZone";
 
 export interface PettyCashFormData {
   description: string;
@@ -42,6 +44,8 @@ export function EntryFormModal({
   submitting,
   onSubmit,
 }: EntryFormModalProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const handleValueChange = (raw: string, formatRupiah: (v: string) => string) => {
     const digits = raw.replace(/[^0-9]/g, "");
     onChange({ ...formData, value: digits ? formatRupiah(digits) : "" });
@@ -123,16 +127,11 @@ export function EntryFormModal({
         </div>
         <div className="col-span-2">
           <FieldLabel>{mode === "add" ? "Upload Receipt" : "Upload Receipt (Optional — akan mengganti yang lama)"}</FieldLabel>
-          <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-2.5 text-xs text-gray-500 transition-colors hover:border-gray-300 hover:bg-white">
-            <Paperclip className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-            <span className="truncate">{formData.file ? formData.file.name : "Pilih file (.jpg, .png, .pdf)"}</span>
-            <input
-              type="file"
-              accept=".jpg,.jpeg,.png,.pdf"
-              onChange={(e) => onChange({ ...formData, file: e.target.files?.[0] || null })}
-              className="hidden"
-            />
-          </label>
+          <DropZone
+            file={formData.file}
+            onFile={(f) => onChange({ ...formData, file: f })}
+            inputRef={fileInputRef}
+          />
           {mode === "edit" && existingLinkUrl && !formData.file && (
             <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-blue-600">
               <ExternalLink className="h-3 w-3" />

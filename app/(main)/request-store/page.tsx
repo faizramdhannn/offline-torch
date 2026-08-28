@@ -531,7 +531,8 @@ return (
                         return (
                           <tr
                             key={item.id}
-                            className={`border-b ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}
+                            onClick={() => router.push(`/request-store/${item.id}`)}
+                            className={`border-b cursor-pointer ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}
                           >
                             <td className="px-2 py-1 text-gray-600 whitespace-nowrap">{item.date}</td>
                             <td className="px-2 py-1 text-gray-700">{item.requester}</td>
@@ -543,7 +544,7 @@ return (
                             <td className="px-2 py-1 text-gray-600 truncate overflow-hidden max-w-[140px]" title={item.notes}>
                               {item.notes || "-"}
                             </td>
-                            <td className="px-2 py-1 text-center">
+                            <td className="px-2 py-1 text-center" onClick={(e) => e.stopPropagation()}>
                               {item.image_url ? (
                                 <a
                                   href={item.image_url}
@@ -561,7 +562,7 @@ return (
                                 <span className="text-gray-300">—</span>
                               )}
                             </td>
-                            <td className="px-2 py-1">
+                            <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
                               {canEdit ? (
                                 <div className="flex gap-1">
                                   <button
@@ -599,7 +600,7 @@ return (
                                 </span>
                               )}
                             </td>
-                            <td className="px-2 py-1">
+                            <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
                               <div className="flex gap-1">
                                 {canEdit && (
                                   <button

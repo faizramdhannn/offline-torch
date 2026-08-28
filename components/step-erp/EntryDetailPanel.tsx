@@ -10,7 +10,9 @@ import {
   ListChecks,
   Edit2,
   Check,
+  ExternalLink,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Badge } from "@/components/shared/Badge";
 import { Button } from "@/components/shared/Button";
@@ -45,6 +47,7 @@ export function EntryDetailPanel({
   onEditField,
   storeOptions,
 }: EntryDetailPanelProps) {
+  const router = useRouter();
   const [editingField, setEditingField] = useState<"store" | "erp_number" | null>(null);
   const [editValue, setEditValue] = useState("");
   const [savingField, setSavingField] = useState(false);
@@ -167,12 +170,21 @@ export function EntryDetailPanel({
                 </button>
               )}
             </div>
-            <button
-              onClick={onClose}
-              className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                onClick={() => router.push(`/step-erp/${entry!.id}`)}
+                title="Buka sebagai halaman"
+                className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </button>
+              <button
+                onClick={onClose}
+                className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           {/* Progress */}

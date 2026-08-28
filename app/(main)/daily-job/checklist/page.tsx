@@ -468,7 +468,10 @@ export default function DailyChecklistPage() {
             );
           })}
 
-          <div className="flex justify-end pt-2">
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => router.push(`/daily-job/checklist/${detailRow.id}`)}>
+              Buka Halaman Detail
+            </Button>
             <Button variant="outline" onClick={() => setDetailRow(null)}>Tutup</Button>
           </div>
         </div>

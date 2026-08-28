@@ -1,6 +1,7 @@
 "use client";
 
-import { ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { ExternalLink, Eye, Pencil, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/shared/Badge";
 import { FileIcon } from "./FileIcon";
 import { getTypeBadgeVariant, type Asset } from "./types";
@@ -13,6 +14,7 @@ interface AssetCardProps {
 }
 
 export function AssetCard({ asset, canEdit, onEdit, onDelete }: AssetCardProps) {
+  const router = useRouter();
   return (
     <div className="group overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition-all duration-150 hover:border-primary/30 hover:shadow-md">
       <a
@@ -38,24 +40,33 @@ export function AssetCard({ asset, canEdit, onEdit, onDelete }: AssetCardProps) 
         <ExternalLink className="h-3 w-3 text-gray-300 transition-colors group-hover:text-primary" />
       </a>
 
-      {canEdit && (
-        <div className="flex border-t border-gray-100 bg-gray-50/60">
-          <button
-            type="button"
-            onClick={() => onEdit(asset)}
-            className="flex flex-1 items-center justify-center gap-1 border-r border-gray-100 py-1.5 text-[10px] font-medium text-blue-600 transition-colors hover:bg-blue-50"
-          >
-            <Pencil className="h-2.5 w-2.5" /> Edit
-          </button>
-          <button
-            type="button"
-            onClick={() => onDelete(asset)}
-            className="flex flex-1 items-center justify-center gap-1 py-1.5 text-[10px] font-medium text-red-500 transition-colors hover:bg-red-50"
-          >
-            <Trash2 className="h-2.5 w-2.5" /> Hapus
-          </button>
-        </div>
-      )}
+      <div className="flex border-t border-gray-100 bg-gray-50/60">
+        <button
+          type="button"
+          onClick={() => router.push(`/asset/${asset.id}`)}
+          className={`flex flex-1 items-center justify-center gap-1 py-1.5 text-[10px] font-medium text-gray-500 transition-colors hover:bg-gray-100 ${canEdit ? "border-r border-gray-100" : ""}`}
+        >
+          <Eye className="h-2.5 w-2.5" /> Detail
+        </button>
+        {canEdit && (
+          <>
+            <button
+              type="button"
+              onClick={() => onEdit(asset)}
+              className="flex flex-1 items-center justify-center gap-1 border-r border-gray-100 py-1.5 text-[10px] font-medium text-blue-600 transition-colors hover:bg-blue-50"
+            >
+              <Pencil className="h-2.5 w-2.5" /> Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(asset)}
+              className="flex flex-1 items-center justify-center gap-1 py-1.5 text-[10px] font-medium text-red-500 transition-colors hover:bg-red-50"
+            >
+              <Trash2 className="h-2.5 w-2.5" /> Hapus
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

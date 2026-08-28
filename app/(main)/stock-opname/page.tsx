@@ -472,6 +472,7 @@ function ReportCard({
   css: ReturnType<typeof buildCss>;
   isDark: boolean;
 }) {
+  const router = useRouter();
   const [expanded, setExpanded] = useState(false);
 
   const accQtyPct = parsePercent(report.inventory_accuracy_qty_percent);
@@ -587,6 +588,23 @@ function ReportCard({
             {report.date_sto}
           </div>
         </div>
+        <button
+          onClick={() => router.push(`/stock-opname/${report.id}`)}
+          title="Buka detail lengkap"
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            color: "#3b82f6",
+            background: "none",
+            border: `1px solid ${accentBorder}`,
+            borderRadius: 6,
+            padding: "3px 7px",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Detail
+        </button>
         <div
           style={{
             fontSize: 11,

@@ -759,8 +759,8 @@ export default function BundlingPage() {
                       return (
                         <tr
                           key={item.id || index}
-                          onClick={canEdit ? () => handleOpenModal(item) : undefined}
-                          className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${canEdit ? "cursor-pointer" : ""}`}
+                          onClick={canEdit ? () => handleOpenModal(item) : () => router.push(`/bundling/${item.id}`)}
+                          className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
                         >
                           {canEdit && (
                             <td className="px-2 py-1 text-center" onClick={(e) => e.stopPropagation()}>
@@ -798,6 +798,12 @@ export default function BundlingPage() {
                           {canEdit && (
                             <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
                               <div className="flex justify-center gap-1">
+                                <button
+                                  onClick={() => router.push(`/bundling/${item.id}`)}
+                                  className="px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded text-[10px] font-medium hover:bg-gray-300 transition-colors"
+                                >
+                                  Detail
+                                </button>
                                 <button
                                   onClick={() => handleOpenModal(item)}
                                   className="px-1.5 py-0.5 bg-blue-500 text-white rounded text-[10px] font-medium hover:bg-blue-600 transition-colors"
