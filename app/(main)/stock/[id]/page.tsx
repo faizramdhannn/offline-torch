@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { ScanLine } from "lucide-react";
 import { ActivityHistory } from "@/components/shared/ActivityHistory";
+import { Button } from "@/components/shared/Button";
+import { QRLabelPopup } from "@/components/stock/QRLabelPopup";
 import {
   DetailShell,
   DetailField,
@@ -10,6 +13,25 @@ import {
   DetailLoading,
   DetailNotFound,
 } from "@/components/shared/DetailShell";
+
+function toProperCase(str: string): string {
+  if (!str) return "";
+  return str.toLowerCase().split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
+function parseHarga(val: string | undefined | null): number {
+  if (!val) return 0;
+  return parseInt(String(val).replace(/[^0-9]/g, "")) || 0;
+}
+
+function parseDiscount(val: string | undefined | null): number {
+  if (!val) return 0;
+  return parseFloat(String(val).replace(/[^0-9.]/g, "")) || 0;
+}
+
+function formatRupiah(val: number): string {
+  return "Rp " + val.toLocaleString("id-ID");
+}
 
 interface StockItem {
   sku: string;
@@ -48,6 +70,7 @@ export default function StockDetailPage() {
   const [user, setUser] = useState<any>(null);
   const [item, setItem] = useState<StockItem | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showBarcode, setShowBarcode] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -83,14 +106,24 @@ export default function StockDetailPage() {
   const name = item.item_name || item.Product_name || sk;
 
   return (
+    <>
     <DetailShell title={name} subtitle="Detail Stock" backHref="/stock">
-      {(item.link_url || item.image_url) && (
-        <img
-          src={item.link_url || item.image_url}
-          alt={sk}
-          className="h-16 w-16 rounded object-cover border border-gray-100"
-        />
-      )}
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {(item.link_url || item.image_url) ? (
+          <img
+            src={item.link_url || item.image_url}
+            alt={sk}
+            className="h-48 w-48 rounded-xl border border-gray-100 object-cover"
+          />
+        ) : (
+          <div className="flex h-48 w-48 items-center justify-center rounded-xl border border-gray-100 bg-gray-50 text-xs text-gray-400">
+            Tidak ada gambar
+          </div>
+        )}
+        <Button icon={ScanLine} variant="outline" onClick={() => setShowBarcode(true)}>
+          Lihat Barcode
+        </Button>
+      </div>
 
       <DetailSection title="Informasi Item">
         <DetailField label="SKU" value={sk} />
@@ -115,5 +148,23 @@ export default function StockDetailPage() {
 
       <ActivityHistory entityType="stock" entityId={sk} />
     </DetailShell>
+
+    {showBarcode && (
+      <QRLabelPopup
+        item={{
+          sku: sk,
+          item_name: name,
+          hpj: item.hpj || item.HPJ || "",
+          link_url: item.link_url,
+          image_url: item.image_url,
+        }}
+        onClose={() => setShowBarcode(false)}
+        toProperCase={toProperCase}
+        parseDiscount={parseDiscount}
+        parseHarga={parseHarga}
+        formatRupiah={formatRupiah}
+      />
+    )}
+    </>
   );
 }

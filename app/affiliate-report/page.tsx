@@ -36,6 +36,7 @@ interface ReportData {
   chart_by_store: { store_name: string; orders: number; value: number; commission: number }[];
   chart_by_affiliate: { affiliate_name: string; orders: number; value: number; commission: number }[];
   chart_trend: { date: string; orders: number; commission: number }[];
+  affiliate_list: { affiliate_code: string; affiliate_name: string; orders: number; value: number; commission: number }[];
   list: ReportRow[];
 }
 
@@ -220,6 +221,35 @@ export default function AffiliateReportPublicPage() {
                     </LineChart>
                   </ResponsiveContainer>
                 )}
+              </div>
+
+              <div className="ar-card" style={{ marginBottom: "1.5rem" }}>
+                <div className="ar-card-title">List Affiliate</div>
+                <div className="ar-table-wrap">
+                  <table className="ar-table">
+                    <thead>
+                      <tr>
+                        <th>Affiliate</th>
+                        <th>Kode</th>
+                        <th>Total Order</th>
+                        <th>Total Value</th>
+                        <th>Total Komisi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.affiliate_list.map((a) => (
+                        <tr key={a.affiliate_code}>
+                          <td>{a.affiliate_name}</td>
+                          <td style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.72rem" }}>{a.affiliate_code}</td>
+                          <td>{a.orders}</td>
+                          <td>{formatRupiah(a.value)}</td>
+                          <td>{formatRupiah(a.commission)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {data.affiliate_list.length === 0 && <div className="ar-empty">Belum ada affiliate.</div>}
+                </div>
               </div>
 
               <div className="ar-card">

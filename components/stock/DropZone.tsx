@@ -8,11 +8,14 @@ interface DropZoneProps {
   file: File | null;
   onFile: (f: File | null) => void;
   label: string;
+  /** Kalau diisi, label dirender sebagai link (buka tab baru) ke URL ini —
+   *  dipakai untuk label "ERP Stock Balance" yang mengarah ke laporan ERP. */
+  labelHref?: string;
   disabled?: boolean;
 }
 
 /** Drag & drop upload zone — same behavior as original, icons via lucide-react. */
-export function DropZone({ file, onFile, label, disabled = false }: DropZoneProps) {
+export function DropZone({ file, onFile, label, labelHref, disabled = false }: DropZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -47,7 +50,19 @@ export function DropZone({ file, onFile, label, disabled = false }: DropZoneProp
 
   return (
     <div className={disabled ? "pointer-events-none opacity-50" : ""}>
-      <p className="mb-2 text-sm font-semibold text-gray-700">{label}</p>
+      {labelHref ? (
+        <a
+          href={labelHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="mb-2 inline-block text-sm font-semibold text-primary hover:underline"
+        >
+          {label}
+        </a>
+      ) : (
+        <p className="mb-2 text-sm font-semibold text-gray-700">{label}</p>
+      )}
       <input
         ref={inputRef}
         type="file"

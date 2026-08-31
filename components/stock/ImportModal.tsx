@@ -3,6 +3,25 @@
 import { X } from "lucide-react";
 import { DropZone } from "./DropZone";
 
+// Tanggal (yesterday→today, Asia/Jakarta) selalu dihitung ulang tiap render —
+// TIDAK di-hardcode — supaya link laporan ERP selalu menunjuk ke rentang
+// "kemarin ke hari ini" yang benar kapan pun modal ini dibuka.
+function jakartaDateStr(offsetDays: number): string {
+  const target = new Date(Date.now() + offsetDays * 86400000);
+  return target.toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" }); // YYYY-MM-DD
+}
+
+function buildStockBalanceUrl(): string {
+  const fromDate = jakartaDateStr(-1); // kemarin
+  const toDate = jakartaDateStr(0); // hari ini
+  return (
+    `https://erp.luminae.id/app/query-report/Stock%20Balance` +
+    `?company=MAHA+NAGARI+NUSANTARA&from_date=${fromDate}&to_date=${toDate}` +
+    `&warehouse=%5B%22Torch+Jogja+-+T%22%2C%22Torch+Margonda+-+T%22%2C%22Torch+Purwokerto+-+T%22%2C%22Torch+Store+Lembong+-+T%22%2C%22Torch+Karawang+-+T%22%2C%22Torch+Lampung+-+T%22%2C%22Torch+Surabaya+-+T%22%2C%22Torch+Pekalongan+-+T%22%2C%22Torch+Store+Cirebon+-+T%22%2C%22Torch+Neka+Bogor+-+T%22%2C%22Torch+Neka+Ciputat+-+T%22%2C%22Torch+Neka+Condet+-+T%22%2C%22Torch+Neka+Meruyung+-+T%22%2C%22Torch+Gramedia+Botani+Square+-+T%22%2C%22Torch+Gramedia+Gajah+Mada+-+T%22%2C%22Torch+Gramedia+Pandanaran+-+T%22%2C%22Torch+Gramedia+Sam+Ratulangi+-+T%22%2C%22Vega+Toys+%26+Hobbies+-+T%22%2C%22Torch+Metro+Trans+Studio+Mall+Bandung+-+T%22%5D` +
+    `&valuation_field_type=Currency`
+  );
+}
+
 interface ImportModalProps {
   open: boolean;
   importing: boolean;
@@ -47,7 +66,13 @@ export function ImportModal({
         </p>
 
         <div className="space-y-4">
-          <DropZone label="ERP Stock Balance" file={erpFile} onFile={onErpFile} disabled={importing} />
+          <DropZone
+            label="ERP Stock Balance"
+            labelHref={buildStockBalanceUrl()}
+            file={erpFile}
+            onFile={onErpFile}
+            disabled={importing}
+          />
           <DropZone label="Javelin" file={javelinFile} onFile={onJavelinFile} disabled={importing} />
           <DropZone label="Threshold (PowerBI)" file={thresholdFile} onFile={onThresholdFile} disabled={importing} />
           {importing && (

@@ -38,6 +38,7 @@ import { StockTable } from "@/components/stock/StockTable";
 import { Pagination } from "@/components/stock/Pagination";
 import { ImportModal } from "@/components/stock/ImportModal";
 import { QRLabelPopup } from "@/components/stock/QRLabelPopup";
+import { StoreBreakdownModal } from "@/components/stock/StoreBreakdownModal";
 import { PriceRangeSlider } from "@/components/stock/PriceRangeSlider";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { TableSkeletonRows } from "@/components/dashboard/LoadingSkeleton";
@@ -210,6 +211,7 @@ export default function StockPage() {
   const [qrItem, setQrItem] = useState<StockItem | null>(null);
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
   const [showCekHargaModal, setShowCekHargaModal] = useState(false);
+  const [storeBreakdownItem, setStoreBreakdownItem] = useState<StockItem | null>(null);
   // Map "sku::warehouse" -> stock kemarin, dari result_stock_yesterday /
   // pca_stock_yesterday (snapshot yang diisi otomatis oleh proses import,
   // lihat app/api/stock/import/route.ts). Kosong untuk view "master".
@@ -595,7 +597,17 @@ export default function StockPage() {
 
   const exportToExcel = () => {
     const exportData = filteredData.map((item) => {
-      const base: any = { SKU: item.sku, "Product Name": toProperCase(item.item_name), Category: toProperCase(item.category), Grade: toProperCase(item.grade) };
+      // Urutan & kelengkapan kolom di sini SENGAJA disamakan persis dengan
+      // kolom yang tampil di StockTable (termasuk Tier Product/Tier Phase
+      // yang sebelumnya tidak ikut ter-export walau selalu tampil di tabel).
+      const base: any = {
+        SKU: item.sku,
+        "Product Name": toProperCase(item.item_name),
+        Category: toProperCase(item.category),
+        Grade: toProperCase(item.grade),
+        "Tier Product": toProperCase(item.tier_product),
+        "Tier Phase": toProperCase(item.tier_phase),
+      };
       if (selectedView === "store" || (selectedView === "pca" && user?.stock_pca_view)) base["Stock"] = item.stock;
       if (selectedView === "store") base["Warehouse"] = item.warehouse;
       if (selectedView === "pca") base["Threshold"] = item.threshold || "";
@@ -1039,6 +1051,8 @@ export default function StockPage() {
                 formatRupiah={formatRupiah}
                 yesterdayStockMap={yesterdayStockMap}
                 onBarcodeClick={setQrItem}
+                canViewStoreBreakdown={!!user.stock_export && selectedView === "store"}
+                onShowStoreBreakdown={setStoreBreakdownItem}
                 sortColumn={sortColumn}
                 sortDirection={sortDirection}
                 onSort={handleSort}
@@ -1085,6 +1099,27 @@ export default function StockPage() {
 
         {showBarcodeModal && (
           <PrintBarcodeModal items={data} onClose={() => setShowBarcodeModal(false)} />
+        )}
+
+        {storeBreakdownItem && (
+          <StoreBreakdownModal
+            sku={storeBreakdownItem.sku}
+            itemName={storeBreakdownItem.item_name}
+            toProperCase={toProperCase}
+            warehouses={WAREHOUSES}
+            stockByWarehouse={
+              // "data" = dataset unfiltered untuk view aktif (result_stock —
+              // 1 baris per SKU per warehouse), jadi breakdown per toko untuk
+              // SKU ini dihitung langsung dari situ, bukan panggilan API baru.
+              data
+                .filter((i) => i.sku === storeBreakdownItem.sku)
+                .reduce((acc, i) => {
+                  if (i.warehouse) acc[i.warehouse] = i.stock;
+                  return acc;
+                }, {} as Record<string, string>)
+            }
+            onClose={() => setStoreBreakdownItem(null)}
+          />
         )}
 
         {showCekHargaModal && (

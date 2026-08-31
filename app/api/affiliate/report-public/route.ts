@@ -47,7 +47,10 @@ export async function GET(request: NextRequest) {
     let totalValue = 0;
     let totalCommission = 0;
     const byStore: Record<string, { orders: number; value: number; commission: number }> = {};
-    const byAffiliate: Record<string, { orders: number; value: number; commission: number }> = {};
+    // Keyed by affiliate_code (bukan nama) supaya code tetap ikut terbawa
+    // untuk ditampilkan di tabel "List Affiliate" (nama saja bisa ambigu
+    // kalau ada 2 affiliate dengan nama sama).
+    const byAffiliateCode: Record<string, { name: string; orders: number; value: number; commission: number }> = {};
     const byDay: Record<string, { orders: number; commission: number }> = {};
 
     for (const o of filtered) {
@@ -64,11 +67,12 @@ export async function GET(request: NextRequest) {
       byStore[storeKey].commission += commission;
 
       const code = o.affiliate_code || 'Unknown';
-      const affKey = nameByCode[code] || code;
-      if (!byAffiliate[affKey]) byAffiliate[affKey] = { orders: 0, value: 0, commission: 0 };
-      byAffiliate[affKey].orders += 1;
-      byAffiliate[affKey].value += value;
-      byAffiliate[affKey].commission += commission;
+      if (!byAffiliateCode[code]) {
+        byAffiliateCode[code] = { name: nameByCode[code] || code, orders: 0, value: 0, commission: 0 };
+      }
+      byAffiliateCode[code].orders += 1;
+      byAffiliateCode[code].value += value;
+      byAffiliateCode[code].commission += commission;
 
       const dayKey = jakartaDateKeyFromCreatedAt(o.created_at) || o.order_date || 'Unknown';
       if (!byDay[dayKey]) byDay[dayKey] = { orders: 0, commission: 0 };
@@ -80,10 +84,30 @@ export async function GET(request: NextRequest) {
       .map(([store_name, v]) => ({ store_name, ...v }))
       .sort((a, b) => b.commission - a.commission);
 
-    const chartByAffiliate = Object.entries(byAffiliate)
-      .map(([affiliate_name, v]) => ({ affiliate_name, ...v }))
-      .sort((a, b) => b.commission - a.commission)
-      .slice(0, 10);
+    const affiliateEntries = Object.entries(byAffiliateCode)
+      .map(([affiliate_code, v]) => ({ affiliate_code, affiliate_name: v.name, orders: v.orders, value: v.value, commission: v.commission }))
+      .sort((a, b) => b.commission - a.commission);
+
+    const chartByAffiliate = affiliateEntries.slice(0, 10);
+
+    // List SEMUA affiliate (bukan cuma top 10 kayak chart) — untuk tabel
+    // "List Affiliate" di halaman publik. Termasuk affiliate yang terdaftar
+    // di master_affiliate tapi belum punya order sama sekali (orders: 0),
+    // supaya list-nya benar-benar representasi semua affiliate.
+    const affiliateList = [...affiliateEntries];
+    for (const a of masterAffiliate as any[]) {
+      const code = a.affiliate_code;
+      if (code && !byAffiliateCode[code]) {
+        affiliateList.push({
+          affiliate_code: code,
+          affiliate_name: a.affiliate_name || code,
+          orders: 0,
+          value: 0,
+          commission: 0,
+        });
+      }
+    }
+    affiliateList.sort((a, b) => b.commission - a.commission || a.affiliate_name.localeCompare(b.affiliate_name, 'id'));
 
     const chartTrend = Object.entries(byDay)
       .sort((a, b) => (a[0] > b[0] ? 1 : -1))
@@ -114,6 +138,7 @@ export async function GET(request: NextRequest) {
       },
       chart_by_store: chartByStore,
       chart_by_affiliate: chartByAffiliate,
+      affiliate_list: affiliateList,
       chart_trend: chartTrend,
       list,
     });

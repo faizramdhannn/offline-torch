@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, Check, ImageOff, ChevronUp, ChevronDown, ChevronsUpDown, QrCode, Eye } from "lucide-react";
+import { Copy, Check, ImageOff, ChevronUp, ChevronDown, ChevronsUpDown, QrCode, Eye, Store } from "lucide-react";
 import { useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -41,6 +41,10 @@ interface StockTableProps {
   yesterdayStockMap?: Record<string, string>;
   /** Dipanggil saat tombol "Barcode" di detail panel diklik. */
   onBarcodeClick: (item: StockItem) => void;
+  /** Tombol "Store" (breakdown stock per toko) hanya tampil kalau true — digate oleh stock_export di pemanggil. */
+  canViewStoreBreakdown?: boolean;
+  /** Dipanggil saat tombol "Store" di detail panel diklik. */
+  onShowStoreBreakdown?: (item: StockItem) => void;
   /** Active sort column key (matches the keys used in SortableTh below), or null for unsorted. */
   sortColumn?: string | null;
   sortDirection?: "asc" | "desc";
@@ -230,6 +234,8 @@ export function StockTable({
   formatRupiah,
   yesterdayStockMap = {},
   onBarcodeClick,
+  canViewStoreBreakdown = false,
+  onShowStoreBreakdown,
   sortColumn,
   sortDirection,
   onSort,
@@ -283,7 +289,11 @@ export function StockTable({
             return (
           <Fragment key={rowKey}>
             <tr
-              onClick={() => setExpandedKey(isExpanded ? null : rowKey)}
+              onClick={() =>
+                isExpanded
+                  ? router.push(`/stock/${encodeURIComponent(item.sku)}`)
+                  : setExpandedKey(rowKey)
+              }
               className={cn(
                 "cursor-pointer border-b border-gray-50 transition-colors hover:bg-gray-50 active:bg-gray-100",
                 isExpanded && "bg-primary/5",
@@ -309,19 +319,31 @@ export function StockTable({
               <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
                 <SkuCell sku={item.sku} />
               </td>
-              <td className="max-w-[140px] px-2 py-1 sm:max-w-none">
-                <span className="block truncate text-gray-700">{toProperCase(item.item_name)}</span>
+              <td className="max-w-[130px] px-2 py-1">
+                <span className="block truncate text-gray-700" title={toProperCase(item.item_name)}>
+                  {toProperCase(item.item_name)}
+                </span>
               </td>
-              <td className="whitespace-nowrap px-2 py-1 text-gray-600">{toProperCase(item.category)}</td>
-              <td className="whitespace-nowrap px-2 py-1 text-gray-600">{toProperCase(item.grade)}</td>
-              <td className="whitespace-nowrap px-2 py-1 text-gray-600">{toProperCase(item.tier_product)}</td>
-              <td className="whitespace-nowrap px-2 py-1 text-gray-600">{toProperCase(item.tier_phase)}</td>
+              <td className="max-w-[90px] px-2 py-1 text-gray-600">
+                <span className="block truncate" title={toProperCase(item.category)}>{toProperCase(item.category)}</span>
+              </td>
+              <td className="max-w-[70px] px-2 py-1 text-gray-600">
+                <span className="block truncate" title={toProperCase(item.grade)}>{toProperCase(item.grade)}</span>
+              </td>
+              <td className="max-w-[90px] px-2 py-1 text-gray-600">
+                <span className="block truncate" title={toProperCase(item.tier_product)}>{toProperCase(item.tier_product)}</span>
+              </td>
+              <td className="max-w-[90px] px-2 py-1 text-gray-600">
+                <span className="block truncate" title={toProperCase(item.tier_phase)}>{toProperCase(item.tier_phase)}</span>
+              </td>
               {showStockColumn && (
                 <td className="whitespace-nowrap px-2 py-1 font-medium text-gray-700">{item.stock}</td>
               )}
               {selectedView === "pca" && <ThresholdCell item={item} />}
               {selectedView === "store" && (
-                <td className="whitespace-nowrap px-2 py-1 text-gray-600">{item.warehouse}</td>
+                <td className="max-w-[100px] px-2 py-1 text-gray-600">
+                  <span className="block truncate" title={item.warehouse}>{item.warehouse}</span>
+                </td>
               )}
               {showHpp && <td className="whitespace-nowrap px-2 py-1 text-gray-600">{item.hpp}</td>}
               {showHpt && <td className="whitespace-nowrap px-2 py-1 text-gray-600">{item.hpt}</td>}
@@ -362,6 +384,14 @@ export function StockTable({
                     >
                       <QrCode className="h-3.5 w-3.5" /> Barcode
                     </button>
+                    {canViewStoreBreakdown && onShowStoreBreakdown && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onShowStoreBreakdown(item); }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        <Store className="h-3.5 w-3.5" /> Store
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
