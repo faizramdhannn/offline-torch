@@ -26,6 +26,8 @@ import {
   Printer,
   RotateCcw,
   ScanLine,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/stock/PageHeader";
@@ -39,6 +41,7 @@ import { Pagination } from "@/components/stock/Pagination";
 import { ImportModal } from "@/components/stock/ImportModal";
 import { QRLabelPopup } from "@/components/stock/QRLabelPopup";
 import { StoreBreakdownModal } from "@/components/stock/StoreBreakdownModal";
+import { StockSummaryStoreModal } from "@/components/stock/StockSummaryStoreModal";
 import { PriceRangeSlider } from "@/components/stock/PriceRangeSlider";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { TableSkeletonRows } from "@/components/dashboard/LoadingSkeleton";
@@ -87,22 +90,37 @@ interface LastUpdate {
   last_update: string;
 }
 
+// Daftar ini HARUS mencakup semua nilai `warehouse` yang benar-benar ada di
+// sheet result_stock — sebelumnya cuma 9 dari 19 store (partner store seperti
+// Gramedia/Neka/Vega ketinggalan), bikin breakdown per-toko kelihatan kosong
+// untuk item yang stock-nya cuma ada di store yang tidak ke-list.
 const WAREHOUSES = [
-  { name: "Margonda",   key: "Torch Margonda - T" },
-  { name: "Jogja",      key: "Torch Jogja - T" },
-  { name: "Lampung",    key: "Torch Lampung - T" },
-  { name: "Surabaya",   key: "Torch Surabaya - T" },
-  { name: "Lembong",    key: "Torch Store Lembong - T" },
-  { name: "Karawang",   key: "Torch Karawang - T" },
-  { name: "Cirebon",    key: "Torch Store Cirebon - T" },
-  { name: "Pekalongan", key: "Torch Pekalongan - T" },
-  { name: "Purwokerto", key: "Torch Purwokerto - T" },
+  { name: "Margonda",              key: "Torch Margonda - T" },
+  { name: "Jogja",                 key: "Torch Jogja - T" },
+  { name: "Lampung",                key: "Torch Lampung - T" },
+  { name: "Surabaya",               key: "Torch Surabaya - T" },
+  { name: "Lembong",                key: "Torch Store Lembong - T" },
+  { name: "Karawang",               key: "Torch Karawang - T" },
+  { name: "Cirebon",                key: "Torch Store Cirebon - T" },
+  { name: "Pekalongan",             key: "Torch Pekalongan - T" },
+  { name: "Purwokerto",             key: "Torch Purwokerto - T" },
+  { name: "Neka Condet",            key: "Torch Neka Condet - T" },
+  { name: "Neka Bogor",             key: "Torch Neka Bogor - T" },
+  { name: "Neka Meruyung",          key: "Torch Neka Meruyung - T" },
+  { name: "Neka Ciputat",           key: "Torch Neka Ciputat - T" },
+  { name: "Gramedia Pandanaran",    key: "Torch Gramedia Pandanaran - T" },
+  { name: "Gramedia Gajah Mada",    key: "Torch Gramedia Gajah Mada - T" },
+  { name: "Gramedia Botani Square", key: "Torch Gramedia Botani Square - T" },
+  { name: "Gramedia Sam Ratulangi", key: "Torch Gramedia Sam Ratulangi - T" },
+  { name: "Vega Toys & Hobbies",    key: "Vega Toys & Hobbies - T" },
+  { name: "Metro TSM Bandung",      key: "Torch Metro Trans Studio Mall Bandung - T" },
 ];
 
 const WAREHOUSE_COLORS = [
   "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#16a34a",
   "#0891b2", "#ca8a04", "#9333ea", "#e11d48", "#65a30d",
   "#0284c7", "#b45309", "#4f46e5", "#059669",
+  "#dc2626", "#0d9488", "#c026d3", "#84cc16", "#f59e0b",
 ];
 
 const PCA_CATEGORY_COLORS = [
@@ -212,6 +230,7 @@ export default function StockPage() {
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
   const [showCekHargaModal, setShowCekHargaModal] = useState(false);
   const [storeBreakdownItem, setStoreBreakdownItem] = useState<StockItem | null>(null);
+  const [showStockSummaryPopup, setShowStockSummaryPopup] = useState(false);
   // Map "sku::warehouse" -> stock kemarin, dari result_stock_yesterday /
   // pca_stock_yesterday (snapshot yang diisi otomatis oleh proses import,
   // lihat app/api/stock/import/route.ts). Kosong untuk view "master".
@@ -799,6 +818,17 @@ export default function StockPage() {
               onModeChange={(v) => setChartMode(v as any)}
               open={storeChartOpen}
               onOpenChange={setStoreChartOpen}
+              actions={
+                user.stock_export && (
+                  <button
+                    onClick={() => setShowStockSummaryPopup(true)}
+                    title="Lihat breakdown stock/value semua toko"
+                    className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                  >
+                    <Eye className="h-3.5 w-3.5" /> Show
+                  </button>
+                )
+              }
               legend={
                 chartMode === "category"
                   ? WAREHOUSES.map((wh, i) => (
@@ -1119,6 +1149,19 @@ export default function StockPage() {
                 }, {} as Record<string, string>)
             }
             onClose={() => setStoreBreakdownItem(null)}
+          />
+        )}
+
+        {showStockSummaryPopup && (
+          <StockSummaryStoreModal
+            metricMode={storeMetricMode}
+            totalsByStoreName={chartData.reduce((acc, d) => {
+              acc[d.name] = d.stock;
+              return acc;
+            }, {} as Record<string, number>)}
+            warehouses={WAREHOUSES}
+            formatValue={formatRupiah}
+            onClose={() => setShowStockSummaryPopup(false)}
           />
         )}
 

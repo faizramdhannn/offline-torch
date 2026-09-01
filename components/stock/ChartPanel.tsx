@@ -25,6 +25,8 @@ interface ChartPanelProps {
   onOpenChange: (open: boolean) => void;
   children: ReactNode;
   legend?: ReactNode;
+  /** Extra header action(s), rendered left of the collapse chevron (e.g. a "Show/Hide Store" button). */
+  actions?: ReactNode;
 }
 
 /**
@@ -47,6 +49,7 @@ export function ChartPanel({
   onOpenChange,
   children,
   legend,
+  actions,
 }: ChartPanelProps) {
   return (
     <div className="rounded-2xl border border-gray-200/80 bg-white p-4">
@@ -94,6 +97,7 @@ export function ChartPanel({
               ))}
             </div>
           )}
+          {open && actions}
           <button
             onClick={() => onOpenChange(!open)}
             title={open ? "Hide chart" : "Show chart"}

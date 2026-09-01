@@ -1,7 +1,7 @@
 "use client";
 
-import { RefObject } from "react";
-import { ChevronDown } from "lucide-react";
+import { RefObject, useEffect, useState } from "react";
+import { ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface FilterDropdownProps {
@@ -29,6 +29,18 @@ export function FilterDropdown({
   onOpenChange,
   containerRef,
 }: FilterDropdownProps) {
+  const [query, setQuery] = useState("");
+
+  // Bersihkan pencarian tiap kali dropdown ditutup, supaya pas dibuka lagi
+  // mulai dari list lengkap, bukan sisa filter sebelumnya.
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+
+  const filteredOptions = query.trim()
+    ? options.filter((opt) => opt.toLowerCase().includes(query.trim().toLowerCase()))
+    : options;
+
   return (
     <div className="relative" ref={containerRef}>
       <label className="mb-1 block text-xs font-medium text-gray-600">{label}</label>
@@ -47,11 +59,27 @@ export function FilterDropdown({
         />
       </button>
       {open && (
-        <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-          {options.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-gray-400">Tidak ada opsi</p>
+        <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+          {options.length > 6 && (
+            <div className="relative border-b border-gray-100 p-1.5">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-3 w-3 -translate-y-1/2 text-gray-400" />
+              <input
+                autoFocus
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Cari..."
+                className="w-full rounded-md border border-gray-200 bg-gray-50 py-1 pl-6 pr-2 text-xs text-gray-700 outline-none focus:border-primary/40 focus:bg-white focus:ring-1 focus:ring-primary/10"
+              />
+            </div>
+          )}
+          <div className="max-h-48 overflow-y-auto py-1">
+          {filteredOptions.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-gray-400">
+              {options.length === 0 ? "Tidak ada opsi" : "Tidak ada hasil"}
+            </p>
           ) : (
-            options.map((opt) => (
+            filteredOptions.map((opt) => (
               <label
                 key={opt}
                 className="flex cursor-pointer items-center px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
@@ -66,6 +94,7 @@ export function FilterDropdown({
               </label>
             ))
           )}
+          </div>
         </div>
       )}
     </div>
