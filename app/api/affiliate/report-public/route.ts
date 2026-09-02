@@ -20,6 +20,13 @@ function parseValueOrder(v: string | undefined | null): number {
   return isNaN(n) ? 0 : n;
 }
 
+function toProperCase(v: string | undefined | null): string {
+  if (!v) return '';
+  return String(v)
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -33,10 +40,12 @@ export async function GET(request: NextRequest) {
 
     const nameByCode: Record<string, string> = {};
     const storeByCode: Record<string, string> = {};
+    const jobByCode: Record<string, string> = {};
     for (const a of masterAffiliate as any[]) {
       if (a.affiliate_code) {
         nameByCode[a.affiliate_code] = a.affiliate_name || a.affiliate_code;
         storeByCode[a.affiliate_code] = a.affiliate_store || '';
+        jobByCode[a.affiliate_code] = a.affiliate_job || '';
       }
     }
 
@@ -93,6 +102,7 @@ export async function GET(request: NextRequest) {
         affiliate_code,
         affiliate_name: v.name,
         affiliate_store: storeByCode[affiliate_code] || '',
+        affiliate_job: toProperCase(jobByCode[affiliate_code]),
         orders: v.orders,
         value: v.value,
         commission: v.commission,
@@ -113,6 +123,7 @@ export async function GET(request: NextRequest) {
           affiliate_code: code,
           affiliate_name: a.affiliate_name || code,
           affiliate_store: a.affiliate_store || '',
+          affiliate_job: toProperCase(a.affiliate_job),
           orders: 0,
           value: 0,
           commission: 0,
