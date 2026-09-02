@@ -32,8 +32,12 @@ export async function GET(request: NextRequest) {
     ]);
 
     const nameByCode: Record<string, string> = {};
+    const storeByCode: Record<string, string> = {};
     for (const a of masterAffiliate as any[]) {
-      if (a.affiliate_code) nameByCode[a.affiliate_code] = a.affiliate_name || a.affiliate_code;
+      if (a.affiliate_code) {
+        nameByCode[a.affiliate_code] = a.affiliate_name || a.affiliate_code;
+        storeByCode[a.affiliate_code] = a.affiliate_store || '';
+      }
     }
 
     const stores = (storeListRaw as any[])
@@ -85,7 +89,14 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.commission - a.commission);
 
     const affiliateEntries = Object.entries(byAffiliateCode)
-      .map(([affiliate_code, v]) => ({ affiliate_code, affiliate_name: v.name, orders: v.orders, value: v.value, commission: v.commission }))
+      .map(([affiliate_code, v]) => ({
+        affiliate_code,
+        affiliate_name: v.name,
+        affiliate_store: storeByCode[affiliate_code] || '',
+        orders: v.orders,
+        value: v.value,
+        commission: v.commission,
+      }))
       .sort((a, b) => b.commission - a.commission);
 
     const chartByAffiliate = affiliateEntries.slice(0, 10);
@@ -101,6 +112,7 @@ export async function GET(request: NextRequest) {
         affiliateList.push({
           affiliate_code: code,
           affiliate_name: a.affiliate_name || code,
+          affiliate_store: a.affiliate_store || '',
           orders: 0,
           value: 0,
           commission: 0,

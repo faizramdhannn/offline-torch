@@ -603,30 +603,32 @@ return (
                                 <span className="text-gray-300">—</span>
                               )}
                             </td>
-                            <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                            <td className="whitespace-nowrap px-2 py-1" onClick={(e) => e.stopPropagation()}>
                               {canEdit ? (
-                                <div className="flex gap-1">
+                                <div className="inline-flex flex-nowrap gap-0.5">
                                   <button
                                     onClick={() => item.status !== "Pending" && handleStatusChange(item, "Pending")}
                                     disabled={updatingStatus === item.id || item.status === "Pending"}
-                                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
+                                    title="Pending"
+                                    className={`rounded px-1 py-0.5 text-[9px] font-medium leading-tight transition-all ${
                                       item.status === "Pending"
                                         ? "bg-yellow-100 text-yellow-800 ring-1 ring-yellow-400 cursor-default"
                                         : "bg-gray-100 text-gray-400 hover:bg-yellow-50 hover:text-yellow-700 cursor-pointer"
                                     }`}
                                   >
-                                    Pending
+                                    Pend.
                                   </button>
                                   <button
                                     onClick={() => item.status !== "Completed" && handleStatusChange(item, "Completed")}
                                     disabled={updatingStatus === item.id || item.status === "Completed"}
-                                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
+                                    title="Completed"
+                                    className={`rounded px-1 py-0.5 text-[9px] font-medium leading-tight transition-all ${
                                       item.status === "Completed"
                                         ? "bg-green-100 text-green-800 ring-1 ring-green-400 cursor-default"
                                         : "bg-gray-100 text-gray-400 hover:bg-green-50 hover:text-green-700 cursor-pointer"
                                     }`}
                                   >
-                                    {updatingStatus === item.id ? "..." : "Completed"}
+                                    {updatingStatus === item.id ? "..." : "Comp."}
                                   </button>
                                 </div>
                               ) : (
@@ -643,7 +645,7 @@ return (
                             </td>
                             <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
                               <div className="flex gap-1">
-                                {canEdit && (
+                                {(canEdit || user.request) && (
                                   <button
                                     onClick={() => openEdit(item)}
                                     className="px-1.5 py-0.5 bg-blue-500 text-white rounded text-[10px] hover:bg-blue-600"

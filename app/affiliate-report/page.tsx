@@ -36,7 +36,7 @@ interface ReportData {
   chart_by_store: { store_name: string; orders: number; value: number; commission: number }[];
   chart_by_affiliate: { affiliate_name: string; orders: number; value: number; commission: number }[];
   chart_trend: { date: string; orders: number; commission: number }[];
-  affiliate_list: { affiliate_code: string; affiliate_name: string; orders: number; value: number; commission: number }[];
+  affiliate_list: { affiliate_code: string; affiliate_name: string; affiliate_store: string; orders: number; value: number; commission: number }[];
   list: ReportRow[];
 }
 
@@ -230,6 +230,7 @@ export default function AffiliateReportPublicPage() {
                     <thead>
                       <tr>
                         <th>Affiliate</th>
+                        <th>Store</th>
                         <th>Kode</th>
                         <th>Total Order</th>
                         <th>Total Value</th>
@@ -240,6 +241,7 @@ export default function AffiliateReportPublicPage() {
                       {data.affiliate_list.map((a) => (
                         <tr key={a.affiliate_code}>
                           <td>{a.affiliate_name}</td>
+                          <td>{a.affiliate_store || "-"}</td>
                           <td style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.72rem" }}>{a.affiliate_code}</td>
                           <td>{a.orders}</td>
                           <td>{formatRupiah(a.value)}</td>
