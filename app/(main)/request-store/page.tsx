@@ -520,9 +520,9 @@ return (
                     <thead className="bg-gray-100 border-b">
                       <tr>
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[88px]">Date</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[108px]">Requester</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[96px]">Assigned To</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[110px]">Reason</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[76px]">Requester</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[70px]">Assigned To</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[80px]">Reason</th>
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[120px]">SO</th>
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[110px]">DN</th>
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[110px]">SI</th>
@@ -555,29 +555,41 @@ return (
                             className={`border-b cursor-pointer ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}
                           >
                             <td className="px-2 py-1 text-gray-600 whitespace-nowrap">{item.date}</td>
-                            <td className="px-2 py-1 text-gray-700">{item.requester}</td>
-                            <td className="px-2 py-1 text-gray-700">{item.assigned_to}</td>
-                            <td className="px-2 py-1 text-gray-700">{item.reason_request}</td>
-                            <td className="px-2 py-1 text-gray-600 font-mono text-[10px]" onClick={(e) => e.stopPropagation()}>
+                            <td className="truncate overflow-hidden whitespace-nowrap px-2 py-1 text-gray-700" title={item.requester}>
+                              {item.requester}
+                            </td>
+                            <td className="truncate overflow-hidden whitespace-nowrap px-2 py-1 text-gray-700" title={item.assigned_to}>
+                              {item.assigned_to}
+                            </td>
+                            <td className="truncate overflow-hidden whitespace-nowrap px-2 py-1 text-gray-700" title={item.reason_request}>
+                              {item.reason_request}
+                            </td>
+                            <td className="overflow-hidden px-2 py-1 font-mono text-[10px] text-gray-600" onClick={(e) => e.stopPropagation()}>
                               {item.sales_order ? (
-                                <span className="inline-flex items-center gap-1">
-                                  {highlight(item.sales_order)}
+                                <span className="flex items-center gap-1">
+                                  <span className="min-w-0 flex-1 truncate whitespace-nowrap" title={item.sales_order}>
+                                    {highlight(item.sales_order)}
+                                  </span>
                                   <CopyButton text={item.sales_order} id={`so-${item.id}`} copiedId={copiedId} onCopy={handleCopy} />
                                 </span>
                               ) : "-"}
                             </td>
-                            <td className="px-2 py-1 text-gray-600 font-mono text-[10px]" onClick={(e) => e.stopPropagation()}>
+                            <td className="overflow-hidden px-2 py-1 font-mono text-[10px] text-gray-600" onClick={(e) => e.stopPropagation()}>
                               {item.delivery_note ? (
-                                <span className="inline-flex items-center gap-1">
-                                  {highlight(item.delivery_note)}
+                                <span className="flex items-center gap-1">
+                                  <span className="min-w-0 flex-1 truncate whitespace-nowrap" title={item.delivery_note}>
+                                    {highlight(item.delivery_note)}
+                                  </span>
                                   <CopyButton text={item.delivery_note} id={`dn-${item.id}`} copiedId={copiedId} onCopy={handleCopy} />
                                 </span>
                               ) : "-"}
                             </td>
-                            <td className="px-2 py-1 text-gray-600 font-mono text-[10px]" onClick={(e) => e.stopPropagation()}>
+                            <td className="overflow-hidden px-2 py-1 font-mono text-[10px] text-gray-600" onClick={(e) => e.stopPropagation()}>
                               {item.sales_invoice ? (
-                                <span className="inline-flex items-center gap-1">
-                                  {highlight(item.sales_invoice)}
+                                <span className="flex items-center gap-1">
+                                  <span className="min-w-0 flex-1 truncate whitespace-nowrap" title={item.sales_invoice}>
+                                    {highlight(item.sales_invoice)}
+                                  </span>
                                   <CopyButton text={item.sales_invoice} id={`inv-${item.id}`} copiedId={copiedId} onCopy={handleCopy} />
                                 </span>
                               ) : "-"}
