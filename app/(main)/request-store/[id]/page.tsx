@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ActivityHistory } from "@/components/shared/ActivityHistory";
+import { CopyButton } from "@/components/request-tracking/DomainBadges";
 import {
   DetailShell,
   DetailField,
@@ -37,6 +38,24 @@ export default function RequestStoreDetailPage() {
   const [user, setUser] = useState<any>(null);
   const [item, setItem] = useState<RequestItem | null>(null);
   const [loading, setLoading] = useState(true);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = async (text: string, copyId: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(copyId);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      const el = document.createElement("textarea");
+      el.value = text;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      setCopiedId(copyId);
+      setTimeout(() => setCopiedId(null), 2000);
+    }
+  };
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -98,9 +117,39 @@ export default function RequestStoreDetailPage() {
       <div className="border-t border-dashed border-gray-200" />
 
       <DetailSection title="Dokumen">
-        <DetailField label="Sales Order" value={item.sales_order} />
-        <DetailField label="Delivery Note" value={item.delivery_note} />
-        <DetailField label="Sales Invoice" value={item.sales_invoice} />
+        <DetailField
+          label="Sales Order"
+          value={
+            item.sales_order ? (
+              <span className="inline-flex items-center gap-1">
+                {item.sales_order}
+                <CopyButton text={item.sales_order} id="detail-so" copiedId={copiedId} onCopy={handleCopy} />
+              </span>
+            ) : undefined
+          }
+        />
+        <DetailField
+          label="Delivery Note"
+          value={
+            item.delivery_note ? (
+              <span className="inline-flex items-center gap-1">
+                {item.delivery_note}
+                <CopyButton text={item.delivery_note} id="detail-dn" copiedId={copiedId} onCopy={handleCopy} />
+              </span>
+            ) : undefined
+          }
+        />
+        <DetailField
+          label="Sales Invoice"
+          value={
+            item.sales_invoice ? (
+              <span className="inline-flex items-center gap-1">
+                {item.sales_invoice}
+                <CopyButton text={item.sales_invoice} id="detail-inv" copiedId={copiedId} onCopy={handleCopy} />
+              </span>
+            ) : undefined
+          }
+        />
         <DetailField
           label="Foto"
           value={

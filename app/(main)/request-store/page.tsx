@@ -9,6 +9,7 @@ import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/shared/Button";
+import { CopyButton } from "@/components/request-tracking/DomainBadges";
 
 interface RequestItem {
   id: string;
@@ -53,6 +54,7 @@ export default function RequestStorePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   useSessionGuard();
   usePushNotification(user?.user_name ?? null); 
 
@@ -388,6 +390,23 @@ export default function RequestStorePage() {
 
   if (!user) return null;
 
+  const handleCopy = async (text: string, id: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      const el = document.createElement("textarea");
+      el.value = text;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }
+  };
+
   // ─── Shared form fields ───────────────────────────────────────────────────
   const renderDocFields = (
     vals: { sales_order: string; delivery_note: string; sales_invoice: string },
@@ -539,9 +558,30 @@ return (
                             <td className="px-2 py-1 text-gray-700">{item.requester}</td>
                             <td className="px-2 py-1 text-gray-700">{item.assigned_to}</td>
                             <td className="px-2 py-1 text-gray-700">{item.reason_request}</td>
-                            <td className="px-2 py-1 text-gray-600 font-mono text-[10px]">{highlight(item.sales_order || "")}</td>
-                            <td className="px-2 py-1 text-gray-600 font-mono text-[10px]">{highlight(item.delivery_note || "")}</td>
-                            <td className="px-2 py-1 text-gray-600 font-mono text-[10px]">{highlight(item.sales_invoice || "")}</td>
+                            <td className="px-2 py-1 text-gray-600 font-mono text-[10px]" onClick={(e) => e.stopPropagation()}>
+                              {item.sales_order ? (
+                                <span className="inline-flex items-center gap-1">
+                                  {highlight(item.sales_order)}
+                                  <CopyButton text={item.sales_order} id={`so-${item.id}`} copiedId={copiedId} onCopy={handleCopy} />
+                                </span>
+                              ) : "-"}
+                            </td>
+                            <td className="px-2 py-1 text-gray-600 font-mono text-[10px]" onClick={(e) => e.stopPropagation()}>
+                              {item.delivery_note ? (
+                                <span className="inline-flex items-center gap-1">
+                                  {highlight(item.delivery_note)}
+                                  <CopyButton text={item.delivery_note} id={`dn-${item.id}`} copiedId={copiedId} onCopy={handleCopy} />
+                                </span>
+                              ) : "-"}
+                            </td>
+                            <td className="px-2 py-1 text-gray-600 font-mono text-[10px]" onClick={(e) => e.stopPropagation()}>
+                              {item.sales_invoice ? (
+                                <span className="inline-flex items-center gap-1">
+                                  {highlight(item.sales_invoice)}
+                                  <CopyButton text={item.sales_invoice} id={`inv-${item.id}`} copiedId={copiedId} onCopy={handleCopy} />
+                                </span>
+                              ) : "-"}
+                            </td>
                             <td className="px-2 py-1 text-gray-600 truncate overflow-hidden max-w-[140px]" title={item.notes}>
                               {item.notes || "-"}
                             </td>
