@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, PieChart, Pie,
-  LineChart, Line, Legend,
+  LineChart, Line, Legend, LabelList,
 } from "recharts";
 import { MapPin, Plus, FileDown, Target, Users } from "lucide-react";
 import { chartGridStroke, CHART_PALETTE } from "@/components/shared/chartStyles";
@@ -1192,6 +1192,7 @@ export default function TrafficStorePage() {
                                     {trafficChartData.map((_, i) => (
                                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                     ))}
+                                    <LabelList dataKey="value" position="top" style={{ fontSize: 10, fill: "#374151" }} />
                                   </Bar>
                                 </BarChart>
                               </ResponsiveContainer>
@@ -1224,8 +1225,12 @@ export default function TrafficStorePage() {
                                   <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                   <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                                  <Bar dataKey="beli" name="Beli" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={28} />
-                                  <Bar dataKey="tidakBeli" name="Tidak Beli" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                                  <Bar dataKey="beli" name="Beli" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={28}>
+                                    <LabelList dataKey="beli" position="top" style={{ fontSize: 10, fill: "#374151" }} />
+                                  </Bar>
+                                  <Bar dataKey="tidakBeli" name="Tidak Beli" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={28}>
+                                    <LabelList dataKey="tidakBeli" position="top" style={{ fontSize: 10, fill: "#374151" }} />
+                                  </Bar>
                                 </BarChart>
                               </ResponsiveContainer>
                             </ChartCard>
@@ -1246,6 +1251,7 @@ export default function TrafficStorePage() {
                                         {categoryChartData.map((_, i) => (
                                           <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                         ))}
+                                        <LabelList dataKey="value" position="right" style={{ fontSize: 10, fill: "#374151" }} />
                                       </Bar>
                                     </BarChart>
                                   </ResponsiveContainer>
@@ -1259,7 +1265,9 @@ export default function TrafficStorePage() {
                                       <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                       <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={150} axisLine={false} tickLine={false} />
                                       <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-                                      <Bar dataKey="value" fill="#ef4444" radius={[0, 4, 4, 0]} maxBarSize={22} />
+                                      <Bar dataKey="value" fill="#ef4444" radius={[0, 4, 4, 0]} maxBarSize={22}>
+                                        <LabelList dataKey="value" position="right" style={{ fontSize: 10, fill: "#374151" }} />
+                                      </Bar>
                                     </BarChart>
                                   </ResponsiveContainer>
                                 </ChartCard>
@@ -1279,6 +1287,7 @@ export default function TrafficStorePage() {
                                   {storeTrafficMatrix.barData.map((_, i) => (
                                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                   ))}
+                                  <LabelList dataKey="total" position="right" style={{ fontSize: 10, fill: "#374151" }} />
                                 </Bar>
                               </BarChart>
                             </ResponsiveContainer>
@@ -1297,6 +1306,7 @@ export default function TrafficStorePage() {
                                     {discountChartData.map((_, i) => (
                                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                     ))}
+                                    <LabelList dataKey="count" position="right" style={{ fontSize: 10, fill: "#374151" }} />
                                   </Bar>
                                 </BarChart>
                               </ResponsiveContainer>
@@ -1316,6 +1326,7 @@ export default function TrafficStorePage() {
                                     {brandChartData.map((_, i) => (
                                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                     ))}
+                                    <LabelList dataKey="value" position="right" style={{ fontSize: 10, fill: "#374151" }} />
                                   </Bar>
                                 </BarChart>
                               </ResponsiveContainer>
@@ -1333,7 +1344,9 @@ export default function TrafficStorePage() {
                                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
                                     <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                     <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-                                    <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                    <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40}>
+                                      <LabelList dataKey="value" position="top" style={{ fontSize: 10, fill: "#374151" }} />
+                                    </Bar>
                                   </BarChart>
                                 </ResponsiveContainer>
                                 <SalesByTable title="Sales per WAG Addition" data={salesByWagData} formatRupiah={formatRupiah} />
@@ -1348,7 +1361,9 @@ export default function TrafficStorePage() {
                                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
                                     <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                     <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-                                    <Bar dataKey="value" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                    <Bar dataKey="value" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={40}>
+                                      <LabelList dataKey="value" position="top" style={{ fontSize: 10, fill: "#374151" }} />
+                                    </Bar>
                                   </BarChart>
                                 </ResponsiveContainer>
                                 <SalesByTable title="Sales per Eiger Addition" data={salesByEigerData} colorOffset={2} formatRupiah={formatRupiah} />
@@ -1363,7 +1378,9 @@ export default function TrafficStorePage() {
                                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
                                     <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                     <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-                                    <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                    <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40}>
+                                      <LabelList dataKey="value" position="top" style={{ fontSize: 10, fill: "#374151" }} />
+                                    </Bar>
                                   </BarChart>
                                 </ResponsiveContainer>
                                 <SalesByTable title="Sales per Organic Addition" data={salesByOrganicData} colorOffset={4} formatRupiah={formatRupiah} />
@@ -1385,6 +1402,7 @@ export default function TrafficStorePage() {
                                   {intentionData.map((_, i) => (
                                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                   ))}
+                                  <LabelList dataKey="value" position="right" style={{ fontSize: 10, fill: "#374151" }} />
                                 </Bar>
                               </BarChart>
                             </ResponsiveContainer>
