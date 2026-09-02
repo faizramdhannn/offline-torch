@@ -1080,6 +1080,7 @@ export default function TrafficStorePage() {
             onReset={resetFilters}
             resultCount={fd.length}
             toTitleCase={toTitleCase}
+            defaultExpanded={activeTab === "report"}
           />
 
           {/* ── LIST TAB ── */}

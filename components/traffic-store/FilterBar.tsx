@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/shared/Button";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,10 @@ interface FilterBarProps {
   onReset: () => void;
   resultCount: number;
   toTitleCase: (s: string) => string;
+  /** Kalau true, grid filter lengkap (Store/Traffic Source/dst) langsung
+   *  terbuka tanpa perlu klik "Filter" — dipakai supaya filter Store & yang
+   *  lain langsung terlihat/bisa dipilih saat lagi di tab Report. */
+  defaultExpanded?: boolean;
 }
 
 const selectClass =
@@ -71,9 +75,18 @@ export function FilterBar({
   onReset,
   resultCount,
   toTitleCase,
+  defaultExpanded = false,
 }: FilterBarProps) {
-  const [showMore, setShowMore] = useState(false);
+  const [showMore, setShowMore] = useState(defaultExpanded);
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
+
+  // Buka otomatis begitu defaultExpanded jadi true (mis. pindah ke tab
+  // Report) — tapi jangan paksa TUTUP kalau user sudah buka manual lalu
+  // defaultExpanded balik ke false (mis. pindah ke tab List), biar tidak
+  // mengagetkan user yang sedang lihat filter itu.
+  useEffect(() => {
+    if (defaultExpanded) setShowMore(true);
+  }, [defaultExpanded]);
 
   const activePreset: Preset = (() => {
     if (!filterDateFrom && !filterDateTo) return "all";
