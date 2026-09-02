@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { RotateCcw, Search, SlidersHorizontal, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/shared/Button";
 import { cn } from "@/lib/utils";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
@@ -13,16 +13,17 @@ interface FilterBarProps {
   trafficSources: string[];
   productCategories: string[];
   reasonsNotBuy: string[];
-  filterStore: string;
-  onFilterStoreChange: (v: string) => void;
-  filterTraffic: string;
-  onFilterTrafficChange: (v: string) => void;
-  filterConvert: string;
-  onFilterConvertChange: (v: string) => void;
-  filterCategory: string;
-  onFilterCategoryChange: (v: string) => void;
-  filterReasonNotBuy: string;
-  onFilterReasonNotBuyChange: (v: string) => void;
+  /** Semua filter di bawah ini multi-select — array kosong = "Semua" (tidak difilter). */
+  filterStore: string[];
+  onFilterStoreChange: (v: string[]) => void;
+  filterTraffic: string[];
+  onFilterTrafficChange: (v: string[]) => void;
+  filterConvert: string[];
+  onFilterConvertChange: (v: string[]) => void;
+  filterCategory: string[];
+  onFilterCategoryChange: (v: string[]) => void;
+  filterReasonNotBuy: string[];
+  onFilterReasonNotBuyChange: (v: string[]) => void;
   filterSearch: string;
   onFilterSearchChange: (v: string) => void;
   filterDateFrom: string;
@@ -49,6 +50,100 @@ function todayStr(offsetDays = 0): string {
 }
 
 type Preset = "today" | "7d" | "30d" | "all" | "custom";
+
+// Dropdown checkbox multi-select — dipakai untuk Store/Traffic Source/Status
+// Beli/Kategori/Alasan Tidak Beli, semuanya sekarang bisa pilih beberapa
+// sekaligus (bukan cuma 1) sesuai permintaan user. Search box otomatis
+// muncul kalau opsinya > 6, sama pola dengan FilterDropdown di menu Stock.
+function MultiSelectField({
+  label,
+  options,
+  selected,
+  onToggle,
+  formatLabel,
+}: {
+  label: string;
+  options: string[];
+  selected: string[];
+  onToggle: (value: string) => void;
+  formatLabel?: (v: string) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+
+  const display = (v: string) => (formatLabel ? formatLabel(v) : v);
+  const filteredOptions = query.trim()
+    ? options.filter((o) => display(o).toLowerCase().includes(query.trim().toLowerCase()))
+    : options;
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <label className="mb-1 block text-[11px] font-medium text-gray-500">{label}</label>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(selectClass, "flex items-center justify-between text-left")}
+      >
+        <span className="truncate text-gray-700">
+          {selected.length === 0 ? "Semua" : `${selected.length} dipilih`}
+        </span>
+        <ChevronDown className={cn("ml-1 h-3.5 w-3.5 shrink-0 text-gray-400 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute z-20 mt-1 w-full min-w-[180px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+          {options.length > 6 && (
+            <div className="border-b border-gray-100 p-1.5">
+              <input
+                autoFocus
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Cari..."
+                className="w-full rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-700 outline-none focus:border-primary/40 focus:bg-white focus:ring-1 focus:ring-primary/10"
+              />
+            </div>
+          )}
+          <div className="max-h-48 overflow-y-auto py-1">
+            {filteredOptions.length === 0 ? (
+              <p className="px-3 py-2 text-xs text-gray-400">Tidak ada hasil</p>
+            ) : (
+              filteredOptions.map((opt) => (
+                <label
+                  key={opt}
+                  className="flex cursor-pointer items-center px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(opt)}
+                    onChange={() => onToggle(opt)}
+                    className="mr-2 accent-primary"
+                  />
+                  {display(opt)}
+                </label>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function FilterBar({
   isStoreUser,
@@ -103,12 +198,26 @@ export function FilterBar({
     else if (p === "all") { onFilterDateFromChange(""); onFilterDateToChange(""); }
   };
 
+  const toggleValue = (arr: string[], value: string, onChange: (v: string[]) => void) => {
+    onChange(arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value]);
+  };
+
   const activeFilters: { key: string; label: string; onClear: () => void }[] = [];
-  if (filterStore !== "all") activeFilters.push({ key: "store", label: `Store: ${toTitleCase(filterStore)}`, onClear: () => onFilterStoreChange("all") });
-  if (filterTraffic !== "all") activeFilters.push({ key: "traffic", label: `Source: ${filterTraffic}`, onClear: () => onFilterTrafficChange("all") });
-  if (filterConvert !== "all") activeFilters.push({ key: "convert", label: `Status: ${filterConvert}`, onClear: () => onFilterConvertChange("all") });
-  if (filterCategory !== "all") activeFilters.push({ key: "category", label: `Kategori: ${filterCategory}`, onClear: () => onFilterCategoryChange("all") });
-  if (filterReasonNotBuy !== "all") activeFilters.push({ key: "reason", label: `Alasan: ${filterReasonNotBuy}`, onClear: () => onFilterReasonNotBuyChange("all") });
+  filterStore.forEach((v) =>
+    activeFilters.push({ key: `store-${v}`, label: `Store: ${toTitleCase(v)}`, onClear: () => onFilterStoreChange(filterStore.filter((x) => x !== v)) })
+  );
+  filterTraffic.forEach((v) =>
+    activeFilters.push({ key: `traffic-${v}`, label: `Source: ${v}`, onClear: () => onFilterTrafficChange(filterTraffic.filter((x) => x !== v)) })
+  );
+  filterConvert.forEach((v) =>
+    activeFilters.push({ key: `convert-${v}`, label: `Status: ${v}`, onClear: () => onFilterConvertChange(filterConvert.filter((x) => x !== v)) })
+  );
+  filterCategory.forEach((v) =>
+    activeFilters.push({ key: `category-${v}`, label: `Kategori: ${v}`, onClear: () => onFilterCategoryChange(filterCategory.filter((x) => x !== v)) })
+  );
+  filterReasonNotBuy.forEach((v) =>
+    activeFilters.push({ key: `reason-${v}`, label: `Alasan: ${v}`, onClear: () => onFilterReasonNotBuyChange(filterReasonNotBuy.filter((x) => x !== v)) })
+  );
   if (filterSearch.trim()) activeFilters.push({ key: "search", label: `"${filterSearch.trim()}"`, onClear: () => onFilterSearchChange("") });
   if (activePreset === "custom") activeFilters.push({ key: "date", label: `${filterDateFrom || "…"} – ${filterDateTo || "…"}`, onClear: () => { onFilterDateFromChange(""); onFilterDateToChange(""); } });
 
@@ -168,51 +277,38 @@ export function FilterBar({
       {showMore && (
         <div className="grid grid-cols-2 gap-3 border-b border-gray-100 p-4 sm:grid-cols-3 lg:grid-cols-6">
           {!isStoreUser && (
-            <div>
-              <label className="mb-1 block text-[11px] font-medium text-gray-500">Store</label>
-              <select value={filterStore} onChange={(e) => onFilterStoreChange(e.target.value)} className={selectClass}>
-                <option value="all">Semua Store</option>
-                {allStores.map((s) => (
-                  <option key={s} value={s}>{toTitleCase(s)}</option>
-                ))}
-              </select>
-            </div>
+            <MultiSelectField
+              label="Store"
+              options={allStores}
+              selected={filterStore}
+              onToggle={(v) => toggleValue(filterStore, v, onFilterStoreChange)}
+              formatLabel={toTitleCase}
+            />
           )}
-          <div>
-            <label className="mb-1 block text-[11px] font-medium text-gray-500">Traffic Source</label>
-            <select value={filterTraffic} onChange={(e) => onFilterTrafficChange(e.target.value)} className={selectClass}>
-              <option value="all">Semua</option>
-              {trafficSources.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-[11px] font-medium text-gray-500">Status Beli</label>
-            <select value={filterConvert} onChange={(e) => onFilterConvertChange(e.target.value)} className={selectClass}>
-              <option value="all">Semua</option>
-              <option value="Beli">Beli</option>
-              <option value="Tidak Beli">Tidak Beli</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-[11px] font-medium text-gray-500">Kategori Produk</label>
-            <select value={filterCategory} onChange={(e) => onFilterCategoryChange(e.target.value)} className={selectClass}>
-              <option value="all">Semua</option>
-              {productCategories.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-[11px] font-medium text-gray-500">Alasan Tidak Beli</label>
-            <select value={filterReasonNotBuy} onChange={(e) => onFilterReasonNotBuyChange(e.target.value)} className={selectClass}>
-              <option value="all">Semua</option>
-              {reasonsNotBuy.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
+          <MultiSelectField
+            label="Traffic Source"
+            options={trafficSources}
+            selected={filterTraffic}
+            onToggle={(v) => toggleValue(filterTraffic, v, onFilterTrafficChange)}
+          />
+          <MultiSelectField
+            label="Status Beli"
+            options={["Beli", "Tidak Beli"]}
+            selected={filterConvert}
+            onToggle={(v) => toggleValue(filterConvert, v, onFilterConvertChange)}
+          />
+          <MultiSelectField
+            label="Kategori Produk"
+            options={productCategories}
+            selected={filterCategory}
+            onToggle={(v) => toggleValue(filterCategory, v, onFilterCategoryChange)}
+          />
+          <MultiSelectField
+            label="Alasan Tidak Beli"
+            options={reasonsNotBuy}
+            selected={filterReasonNotBuy}
+            onToggle={(v) => toggleValue(filterReasonNotBuy, v, onFilterReasonNotBuyChange)}
+          />
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="mb-1 block text-[11px] font-medium text-gray-500">Dari</label>

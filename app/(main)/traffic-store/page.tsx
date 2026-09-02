@@ -353,12 +353,12 @@ export default function TrafficStorePage() {
 
   useSessionGuard();
 
-  // Filters
-  const [filterStore, setFilterStore] = useState("all");
-  const [filterTraffic, setFilterTraffic] = useState("all");
-  const [filterConvert, setFilterConvert] = useState("all");
-  const [filterCategory, setFilterCategory] = useState("all");
-  const [filterReasonNotBuy, setFilterReasonNotBuy] = useState("all");
+  // Filters — semua multi-select sekarang (array kosong = "Semua"/tidak difilter).
+  const [filterStore, setFilterStore] = useState<string[]>([]);
+  const [filterTraffic, setFilterTraffic] = useState<string[]>([]);
+  const [filterConvert, setFilterConvert] = useState<string[]>([]);
+  const [filterCategory, setFilterCategory] = useState<string[]>([]);
+  const [filterReasonNotBuy, setFilterReasonNotBuy] = useState<string[]>([]);
   const [filterSearch, setFilterSearch] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
@@ -520,13 +520,13 @@ export default function TrafficStorePage() {
     if (isStoreUser && userStore) {
       rows = rows.filter(r => r.store_location?.toLowerCase().trim() === userStore.toLowerCase().trim());
     }
-    if (filterStore !== "all" && !isStoreUser) {
-      rows = rows.filter(r => r.store_location?.toLowerCase() === filterStore.toLowerCase());
+    if (filterStore.length > 0 && !isStoreUser) {
+      rows = rows.filter(r => filterStore.some(s => r.store_location?.toLowerCase() === s.toLowerCase()));
     }
-    if (filterTraffic !== "all") rows = rows.filter(r => r.traffic_source === filterTraffic);
-    if (filterConvert !== "all") rows = rows.filter(r => r.customer_convert === filterConvert);
-    if (filterCategory !== "all") rows = rows.filter(r => r.product_category === filterCategory);
-    if (filterReasonNotBuy !== "all") rows = rows.filter(r => r.reason_not_buy === filterReasonNotBuy);
+    if (filterTraffic.length > 0) rows = rows.filter(r => filterTraffic.includes(r.traffic_source || ""));
+    if (filterConvert.length > 0) rows = rows.filter(r => filterConvert.includes(r.customer_convert || ""));
+    if (filterCategory.length > 0) rows = rows.filter(r => filterCategory.includes(r.product_category || ""));
+    if (filterReasonNotBuy.length > 0) rows = rows.filter(r => filterReasonNotBuy.includes(r.reason_not_buy || ""));
     if (filterSearch.trim()) {
       const q = filterSearch.trim().toLowerCase();
       rows = rows.filter(r =>
@@ -796,11 +796,11 @@ export default function TrafficStorePage() {
 
     let rows = data.filter(r => r.id);
     if (isStoreUser && userStore) rows = rows.filter(r => r.store_location?.toLowerCase().trim() === userStore.toLowerCase().trim());
-    if (filterStore !== "all" && !isStoreUser) rows = rows.filter(r => r.store_location?.toLowerCase() === filterStore.toLowerCase());
-    if (filterTraffic !== "all") rows = rows.filter(r => r.traffic_source === filterTraffic);
-    if (filterConvert !== "all") rows = rows.filter(r => r.customer_convert === filterConvert);
-    if (filterCategory !== "all") rows = rows.filter(r => r.product_category === filterCategory);
-    if (filterReasonNotBuy !== "all") rows = rows.filter(r => r.reason_not_buy === filterReasonNotBuy);
+    if (filterStore.length > 0 && !isStoreUser) rows = rows.filter(r => filterStore.some(s => r.store_location?.toLowerCase() === s.toLowerCase()));
+    if (filterTraffic.length > 0) rows = rows.filter(r => filterTraffic.includes(r.traffic_source || ""));
+    if (filterConvert.length > 0) rows = rows.filter(r => filterConvert.includes(r.customer_convert || ""));
+    if (filterCategory.length > 0) rows = rows.filter(r => filterCategory.includes(r.product_category || ""));
+    if (filterReasonNotBuy.length > 0) rows = rows.filter(r => filterReasonNotBuy.includes(r.reason_not_buy || ""));
     rows = rows.filter(r => (r.date || "") >= pf && (r.date || "") <= pt);
     return rows;
   }, [data, filterStore, filterTraffic, filterConvert, filterCategory, filterReasonNotBuy, filterDateFrom, filterDateTo, isStoreUser, userStore]);
@@ -929,7 +929,7 @@ export default function TrafficStorePage() {
 
     setSaving(true);
     try {
-      const storeLocation = userStore || (filterStore !== "all" ? filterStore : "");
+      const storeLocation = userStore || (filterStore.length === 1 ? filterStore[0] : "");
       if (!storeLocation && !editEntry) {
         showMessage("Store tidak dikenali", "error"); setSaving(false); return;
       }
@@ -1011,8 +1011,8 @@ export default function TrafficStorePage() {
   };
 
   const resetFilters = () => {
-    setFilterStore("all"); setFilterTraffic("all"); setFilterConvert("all");
-    setFilterCategory("all"); setFilterReasonNotBuy("all"); setFilterSearch("");
+    setFilterStore([]); setFilterTraffic([]); setFilterConvert([]);
+    setFilterCategory([]); setFilterReasonNotBuy([]); setFilterSearch("");
     setFilterDateFrom(""); setFilterDateTo(""); setPage(1);
   };
 
