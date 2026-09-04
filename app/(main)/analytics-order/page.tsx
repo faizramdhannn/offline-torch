@@ -311,17 +311,17 @@ function OrderDetailPopup({ groupLabel, orderNames, rows, trafficMap, onClose }:
         </div>
 
         <div className="overflow-auto flex-1">
-          <table className="w-full text-xs">
+          <table className="w-full text-[11px]">
             <thead className="sticky top-0 bg-gray-50 z-10 border-b">
               <tr>
-                <th className="px-4 py-2.5 text-left font-semibold text-gray-600 whitespace-nowrap">Order</th>
-                <th className="px-4 py-2.5 text-left font-semibold text-gray-600 whitespace-nowrap">Tanggal</th>
-                <th className="px-4 py-2.5 text-left font-semibold text-gray-600 whitespace-nowrap">Store</th>
-                <th className="px-4 py-2.5 text-left font-semibold text-gray-600 whitespace-nowrap">Traffic</th>
-                <th className="px-4 py-2.5 text-left font-semibold text-gray-600 whitespace-nowrap">Discount</th>
-                <th className="px-4 py-2.5 text-right font-semibold text-gray-600 whitespace-nowrap">Items</th>
-                <th className="px-4 py-2.5 text-right font-semibold text-gray-600 whitespace-nowrap">Subtotal</th>
-                <th className="px-4 py-2.5 w-8" />
+                <th className="px-2 py-1.5 text-left font-semibold text-gray-600 whitespace-nowrap">Order</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-gray-600 whitespace-nowrap">Tanggal</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-gray-600 whitespace-nowrap">Store</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-gray-600 whitespace-nowrap">Traffic</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-gray-600 whitespace-nowrap">Discount</th>
+                <th className="px-2 py-1.5 text-right font-semibold text-gray-600 whitespace-nowrap">Items</th>
+                <th className="px-2 py-1.5 text-right font-semibold text-gray-600 whitespace-nowrap">Subtotal</th>
+                <th className="px-2 py-1.5 w-8" />
               </tr>
             </thead>
             <tbody>
@@ -331,12 +331,12 @@ function OrderDetailPopup({ groupLabel, orderNames, rows, trafficMap, onClose }:
                   className="border-b hover:bg-blue-50 cursor-pointer transition-colors group"
                   onClick={() => setSelectedOrderName(o.name)}
                 >
-                  <td className="px-4 py-2.5 font-mono font-semibold text-primary whitespace-nowrap">{o.name}</td>
-                  <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">
+                  <td className="px-2 py-1 font-mono font-semibold text-primary whitespace-nowrap">{o.name}</td>
+                  <td className="px-2 py-1 text-gray-600 whitespace-nowrap">
                     {o.paidDate ? formatDisplayDate(o.paidDate) : "-"}
                   </td>
-                  <td className="px-4 py-2.5 text-gray-600 max-w-[110px] truncate">{o.location}</td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-2 py-1 text-gray-600 max-w-[110px] truncate">{o.location}</td>
+                  <td className="px-2 py-1">
                     {o.online ? (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-bold border border-blue-100">🛒 Online</span>
                     ) : o.trafficCode ? (
@@ -347,7 +347,7 @@ function OrderDetailPopup({ groupLabel, orderNames, rows, trafficMap, onClose }:
                       <span className="text-gray-300 text-[10px]">–</span>
                     )}
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className="px-2 py-1">
                     {o.discountCode ? (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-mono text-[10px] font-semibold border border-purple-100">
                         {o.discountCode}
@@ -356,11 +356,11 @@ function OrderDetailPopup({ groupLabel, orderNames, rows, trafficMap, onClose }:
                       <span className="text-gray-300 text-[10px]">–</span>
                     )}
                   </td>
-                  <td className="px-4 py-2.5 text-right text-gray-500">{o.itemCount}</td>
-                  <td className="px-4 py-2.5 text-right font-semibold text-green-700 whitespace-nowrap">
+                  <td className="px-2 py-1 text-right text-gray-500">{o.itemCount}</td>
+                  <td className="px-2 py-1 text-right font-semibold text-green-700 whitespace-nowrap">
                     {formatRupiah(o.subtotal)}
                   </td>
-                  <td className="px-4 py-2.5 text-center">
+                  <td className="px-2 py-1 text-center">
                     <svg className="w-3.5 h-3.5 text-gray-300 group-hover:text-primary transition-colors mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
@@ -659,12 +659,12 @@ function MasterTrafficModal({
         </div>
 
         <div className="overflow-y-auto flex-1">
-          <table className="w-full text-xs">
+          <table className="w-full text-[11px]">
             <thead className="sticky top-0 bg-gray-50 z-10">
               <tr className="border-b">
-                <th className="px-4 py-2 text-left font-semibold text-gray-600 w-24">Kode</th>
-                <th className="px-4 py-2 text-left font-semibold text-gray-600">Keterangan</th>
-                <th className="px-4 py-2 text-right font-semibold text-gray-600 w-20">Aksi</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-gray-600 w-24">Kode</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-gray-600">Keterangan</th>
+                <th className="px-2 py-1.5 text-right font-semibold text-gray-600 w-20">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -677,13 +677,13 @@ function MasterTrafficModal({
               ) : (
                 filtered.map((entry) => (
                   <tr key={entry.code_traffic} className="border-b hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-2">
+                    <td className="px-2 py-1">
                       <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono font-semibold border border-blue-100">
                         {entry.code_traffic}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-gray-700">{entry.notes}</td>
-                    <td className="px-4 py-2">
+                    <td className="px-2 py-1 text-gray-700">{entry.notes}</td>
+                    <td className="px-2 py-1">
                       <div className="flex items-center justify-end gap-1">
                         <button onClick={() => openEdit(entry)}
                           className="p-1 text-gray-400 hover:text-primary hover:bg-primary/10 rounded transition-colors" title="Edit">
@@ -1705,13 +1705,13 @@ useEffect(() => {
                           <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail per Store</h3>
                           <p className="text-[10px] text-gray-400 mb-2">Klik baris untuk melihat salah satu order dari store tersebut</p>
                           <div className="overflow-x-auto">
-                            <table className="w-full text-xs">
+                            <table className="w-full text-[11px]">
                               <thead>
                                 <tr className="bg-gray-50 border-b">
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Store</th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-700">Orders</th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-700">Revenue</th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-700">Avg/Order</th>
+                                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Store</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Orders</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Revenue</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Avg/Order</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -1721,16 +1721,16 @@ useEffect(() => {
                                   return (
                                     <tr key={i} className={clickableRowClass}
                                       onClick={() => storeOrders.length > 0 && setPopupGroup({ label: s.name, orderNames: storeOrders })}>
-                                      <td className="px-3 py-2 flex items-center gap-1.5">
+                                      <td className="px-2 py-1 flex items-center gap-1.5">
                                         {s.name}
                                         <svg className="w-3 h-3 text-gray-300 group-hover:text-primary transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                         </svg>
                                       </td>
-                                      <td className="px-3 py-2 text-right">{orders}</td>
-                                      <td className="px-3 py-2 text-right">{formatRupiah(s.value)}</td>
-                                      <td className="px-3 py-2 text-right">{orders ? formatRupiah(Math.round(s.value / orders)) : "-"}</td>
+                                      <td className="px-2 py-1 text-right">{orders}</td>
+                                      <td className="px-2 py-1 text-right">{formatRupiah(s.value)}</td>
+                                      <td className="px-2 py-1 text-right">{orders ? formatRupiah(Math.round(s.value / orders)) : "-"}</td>
                                     </tr>
                                   );
                                 })}
@@ -1837,14 +1837,14 @@ useEffect(() => {
                           <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Traffic Source</h3>
                           <p className="text-[10px] text-gray-400 mb-2">Klik baris untuk melihat contoh order dari traffic ini</p>
                           <div className="overflow-x-auto">
-                            <table className="w-full text-xs">
+                            <table className="w-full text-[11px]">
                               <thead>
                                 <tr className="bg-gray-50 border-b">
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Traffic Source</th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-700">Jumlah Order</th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-700">Total Revenue</th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-700">Avg/Order</th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-700">Persentase</th>
+                                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Traffic Source</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Jumlah Order</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Total Revenue</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Avg/Order</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Persentase</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -1861,7 +1861,7 @@ useEffect(() => {
                                     return (
                                       <tr key={i} className={clickableRowClass}
                                         onClick={() => trafficOrders.length > 0 && setPopupGroup({ label: t.name, orderNames: trafficOrders })}>
-                                        <td className="px-3 py-2 flex items-center gap-2">
+                                        <td className="px-2 py-1 flex items-center gap-2">
                                           <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[globalIdx % COLORS.length] }} />
                                           {t.name}
                                           <svg className="w-3 h-3 text-gray-300 group-hover:text-primary transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1869,10 +1869,10 @@ useEffect(() => {
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                           </svg>
                                         </td>
-                                        <td className="px-3 py-2 text-right font-medium">{t.value}</td>
-                                        <td className="px-3 py-2 text-right text-green-700 font-medium">{formatRupiah(t.subtotal)}</td>
-                                        <td className="px-3 py-2 text-right text-gray-500">{t.value ? formatRupiah(Math.round(t.subtotal / t.value)) : "-"}</td>
-                                        <td className="px-3 py-2 text-right text-gray-500">{total ? `${((t.value / total) * 100).toFixed(1)}%` : "-"}</td>
+                                        <td className="px-2 py-1 text-right font-medium">{t.value}</td>
+                                        <td className="px-2 py-1 text-right text-green-700 font-medium">{formatRupiah(t.subtotal)}</td>
+                                        <td className="px-2 py-1 text-right text-gray-500">{t.value ? formatRupiah(Math.round(t.subtotal / t.value)) : "-"}</td>
+                                        <td className="px-2 py-1 text-right text-gray-500">{total ? `${((t.value / total) * 100).toFixed(1)}%` : "-"}</td>
                                       </tr>
                                     );
                                   });
@@ -1942,14 +1942,14 @@ useEffect(() => {
                           <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Discount Code</h3>
                           <p className="text-[10px] text-gray-400 mb-2">Klik baris untuk melihat contoh order dengan discount ini</p>
                           <div className="overflow-x-auto">
-                            <table className="w-full text-xs">
+                            <table className="w-full text-[11px]">
                               <thead>
                                 <tr className="bg-gray-50 border-b">
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Discount Code</th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-700">Dipakai (Order)</th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-700">Total Revenue</th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-700">Total Potongan</th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-700">Avg Revenue/Order</th>
+                                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Discount Code</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Dipakai (Order)</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Total Revenue</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Total Potongan</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Avg Revenue/Order</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -1958,7 +1958,7 @@ useEffect(() => {
                                   return (
                                     <tr key={i} className={clickableRowClass}
                                       onClick={() => discountOrders.length > 0 && setPopupGroup({ label: `Discount: ${d.name}`, orderNames: discountOrders })}>
-                                      <td className="px-3 py-2 flex items-center gap-1.5">
+                                      <td className="px-2 py-1 flex items-center gap-1.5">
                                         {d.name === "Tanpa Discount" ? (
                                           <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px] font-medium border border-gray-200 italic">Tanpa Discount</span>
                                         ) : (
@@ -1971,10 +1971,10 @@ useEffect(() => {
                                           </>
                                         )}
                                       </td>
-                                      <td className="px-3 py-2 text-right">{d.count}</td>
-                                      <td className="px-3 py-2 text-right text-green-700 font-medium">{formatRupiah(d.subtotal)}</td>
-                                      <td className="px-3 py-2 text-right text-red-600">{formatRupiah(d.total)}</td>
-                                      <td className="px-3 py-2 text-right text-gray-500">{d.count ? formatRupiah(Math.round(d.subtotal / d.count)) : "-"}</td>
+                                      <td className="px-2 py-1 text-right">{d.count}</td>
+                                      <td className="px-2 py-1 text-right text-green-700 font-medium">{formatRupiah(d.subtotal)}</td>
+                                      <td className="px-2 py-1 text-right text-red-600">{formatRupiah(d.total)}</td>
+                                      <td className="px-2 py-1 text-right text-gray-500">{d.count ? formatRupiah(Math.round(d.subtotal / d.count)) : "-"}</td>
                                     </tr>
                                   );
                                 })}
@@ -2047,12 +2047,12 @@ useEffect(() => {
                           <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Produk Terjual</h3>
                           <p className="text-[10px] text-gray-400 mb-2">Klik baris untuk melihat contoh order yang mengandung produk ini</p>
                           <div className="overflow-x-auto">
-                            <table className="w-full text-xs">
+                            <table className="w-full text-[11px]">
                               <thead>
                                 <tr className="bg-gray-50 border-b">
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Produk</th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-700">Qty Terjual</th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-700">Total Revenue</th>
+                                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Produk</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Qty Terjual</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Total Revenue</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -2061,15 +2061,15 @@ useEffect(() => {
                                   return (
                                     <tr key={i} className={clickableRowClass}
                                       onClick={() => productOrders.length > 0 && setPopupGroup({ label: p.name, orderNames: productOrders })}>
-                                      <td className="px-3 py-2 flex items-center gap-1.5">
+                                      <td className="px-2 py-1 flex items-center gap-1.5">
                                         {p.name}
                                         <svg className="w-3 h-3 text-gray-300 group-hover:text-primary transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                         </svg>
                                       </td>
-                                      <td className="px-3 py-2 text-right">{p.qty}</td>
-                                      <td className="px-3 py-2 text-right">{formatRupiah(p.revenue)}</td>
+                                      <td className="px-2 py-1 text-right">{p.qty}</td>
+                                      <td className="px-2 py-1 text-right">{formatRupiah(p.revenue)}</td>
                                     </tr>
                                   );
                                 })}
@@ -2139,13 +2139,13 @@ useEffect(() => {
                           <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Karyawan</h3>
                           <p className="text-[10px] text-gray-400 mb-2">Klik baris untuk melihat contoh order dari karyawan ini</p>
                           <div className="overflow-x-auto">
-                            <table className="w-full text-xs">
+                            <table className="w-full text-[11px]">
                               <thead>
                                 <tr className="bg-gray-50 border-b">
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Karyawan</th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-700">Jumlah Order</th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-700">Total Revenue</th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-700">Avg/Order</th>
+                                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Karyawan</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Jumlah Order</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Total Revenue</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Avg/Order</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -2154,16 +2154,16 @@ useEffect(() => {
                                   return (
                                     <tr key={i} className={clickableRowClass}
                                       onClick={() => empOrders.length > 0 && setPopupGroup({ label: e.name, orderNames: empOrders })}>
-                                      <td className="px-3 py-2 flex items-center gap-1.5">
+                                      <td className="px-2 py-1 flex items-center gap-1.5">
                                         {e.name}
                                         <svg className="w-3 h-3 text-gray-300 group-hover:text-primary transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                         </svg>
                                       </td>
-                                      <td className="px-3 py-2 text-right">{e.orders}</td>
-                                      <td className="px-3 py-2 text-right">{formatRupiah(e.subtotal)}</td>
-                                      <td className="px-3 py-2 text-right">{e.orders ? formatRupiah(Math.round(e.subtotal / e.orders)) : "-"}</td>
+                                      <td className="px-2 py-1 text-right">{e.orders}</td>
+                                      <td className="px-2 py-1 text-right">{formatRupiah(e.subtotal)}</td>
+                                      <td className="px-2 py-1 text-right">{e.orders ? formatRupiah(Math.round(e.subtotal / e.orders)) : "-"}</td>
                                     </tr>
                                   );
                                 })}
@@ -2230,16 +2230,16 @@ useEffect(() => {
                           <h3 className="text-sm font-semibold text-gray-700 mb-3">Daftar Order Online</h3>
                           <p className="text-[10px] text-gray-400 mb-2">Klik baris untuk melihat detail order</p>
                           <div className="overflow-x-auto">
-                            <table className="w-full text-xs">
+                            <table className="w-full text-[11px]">
                               <thead>
                                 <tr className="bg-blue-50 border-b">
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Order</th>
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Tanggal</th>
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Store</th>
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Karyawan</th>
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Notes (Order ID)</th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-700">Items</th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-700">Subtotal</th>
+                                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Order</th>
+                                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Tanggal</th>
+                                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Store</th>
+                                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Karyawan</th>
+                                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Notes (Order ID)</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Items</th>
+                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Subtotal</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -2248,19 +2248,19 @@ useEffect(() => {
                                   .map((o, i) => (
                                     <tr key={i} className={clickableRowClass}
                                       onClick={() => setPopupGroup({ label: `🛒 ${o.name}`, orderNames: [o.name] })}>
-                                      <td className="px-3 py-2 font-mono font-semibold text-primary">{o.name}</td>
-                                      <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
+                                      <td className="px-2 py-1 font-mono font-semibold text-primary">{o.name}</td>
+                                      <td className="px-2 py-1 text-gray-600 whitespace-nowrap">
                                         {o.date ? formatDisplayDate(o.date) : "-"}
                                       </td>
-                                      <td className="px-3 py-2 text-gray-600 max-w-[100px] truncate">{o.store}</td>
-                                      <td className="px-3 py-2 text-gray-600">{o.employee || "-"}</td>
-                                      <td className="px-3 py-2">
+                                      <td className="px-2 py-1 text-gray-600 max-w-[100px] truncate">{o.store}</td>
+                                      <td className="px-2 py-1 text-gray-600">{o.employee || "-"}</td>
+                                      <td className="px-2 py-1">
                                         <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-mono text-[10px] font-bold border border-blue-100 max-w-[150px] truncate block">
                                           {o.notes}
                                         </span>
                                       </td>
-                                      <td className="px-3 py-2 text-right text-gray-500">{o.itemCount}</td>
-                                      <td className="px-3 py-2 text-right font-semibold text-green-700 whitespace-nowrap">
+                                      <td className="px-2 py-1 text-right text-gray-500">{o.itemCount}</td>
+                                      <td className="px-2 py-1 text-right font-semibold text-green-700 whitespace-nowrap">
                                         {formatRupiah(o.subtotal)}
                                       </td>
                                     </tr>

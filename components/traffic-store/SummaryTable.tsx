@@ -27,7 +27,7 @@ export function SummaryTable({ trafficChartData, fd, parseValue, formatRupiah }:
     <div>
       <h3 className="mb-3 text-sm font-semibold text-gray-700">Ringkasan Survey Source</h3>
       <div className="overflow-x-auto rounded-xl border border-gray-100">
-        <table className="w-full border-collapse">
+        <table className="w-full border-collapse text-[11px]">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50">
               <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Survey Source</th>

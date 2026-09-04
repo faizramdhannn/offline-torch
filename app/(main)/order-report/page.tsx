@@ -3,6 +3,7 @@
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { hasTextSelection } from "@/lib/utils";
 import Popup from "@/components/Popup";
 import { OrderReport } from "@/types";
 import * as XLSX from "xlsx";
@@ -752,25 +753,25 @@ export default function OrderReportPage() {
                         {currentItems.map((item, index) => (
                           <tr
                             key={index}
-                            onClick={() => router.push(`/order-report/${encodeURIComponent(item.sales_order)}`)}
+                            onClick={() => { if (hasTextSelection()) return; router.push(`/order-report/${encodeURIComponent(item.sales_order)}`); }}
                             className="border-b hover:bg-gray-50 cursor-pointer"
                           >
-                            <td className="px-2 py-1.5 whitespace-nowrap">{formatDate(item.order_date)}</td>
-                            <td className="px-2 py-1.5 whitespace-nowrap">{item.sales_order}</td>
-                            <td className="px-2 py-1.5 whitespace-nowrap">{item.warehouse}</td>
-                            <td className="px-2 py-1.5 whitespace-nowrap">{item.status}</td>
-                            <td className="px-2 py-1.5 whitespace-nowrap">{item.sales_channel}</td>
-                            <td className="px-2 py-1.5 whitespace-nowrap">{item.channel_name || "-"}</td>
-                            <td className="px-2 py-1.5 whitespace-nowrap">{item.payment_method}</td>
-                            <td className="px-2 py-1.5 whitespace-nowrap">{item.value_amount}</td>
-                            <td className="px-2 py-1.5 whitespace-nowrap">
+                            <td className="px-2 py-1 whitespace-nowrap">{formatDate(item.order_date)}</td>
+                            <td className="px-2 py-1 whitespace-nowrap">{item.sales_order}</td>
+                            <td className="px-2 py-1 whitespace-nowrap">{item.warehouse}</td>
+                            <td className="px-2 py-1 whitespace-nowrap">{item.status}</td>
+                            <td className="px-2 py-1 whitespace-nowrap">{item.sales_channel}</td>
+                            <td className="px-2 py-1 whitespace-nowrap">{item.channel_name || "-"}</td>
+                            <td className="px-2 py-1 whitespace-nowrap">{item.payment_method}</td>
+                            <td className="px-2 py-1 whitespace-nowrap">{item.value_amount}</td>
+                            <td className="px-2 py-1 whitespace-nowrap">
                               {item.delivery_note && item.delivery_note !== "null" ? (
                                 item.delivery_note
                               ) : (
                                 <span className="text-red-500">-</span>
                               )}
                             </td>
-                            <td className="px-2 py-1.5 whitespace-nowrap">
+                            <td className="px-2 py-1 whitespace-nowrap">
                               {item.sales_invoice && item.sales_invoice !== "null" ? (
                                 item.sales_invoice
                               ) : (

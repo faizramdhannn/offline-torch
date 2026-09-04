@@ -506,24 +506,24 @@ export default function StepErpPage() {
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-[11px]">
                     <thead className="border-b border-gray-100 bg-gray-50">
                       <tr>
-                        <th className="px-4 py-2.5 text-left font-semibold text-gray-500">
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
                           ERP Number
                         </th>
-                        <th className="px-4 py-2.5 text-left font-semibold text-gray-500">
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
                           Store
                         </th>
                         {activeTab === "all" && (
-                          <th className="px-4 py-2.5 text-left font-semibold text-gray-500">
+                          <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
                             Tipe
                           </th>
                         )}
-                        <th className="px-4 py-2.5 text-left font-semibold text-gray-500">
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
                           Dibuat
                         </th>
-                        <th className="px-4 py-2.5 text-left font-semibold text-gray-500" style={{ minWidth: 180 }}>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500" style={{ minWidth: 180 }}>
                           Progress
                         </th>
                       </tr>
@@ -549,19 +549,19 @@ export default function StepErpPage() {
                               isSelected ? "bg-primary/5 ring-1 ring-inset ring-primary/20" : ""
                             }`}
                           >
-                            <td className="px-4 py-3 font-medium text-gray-800">
+                            <td className="px-2 py-1 font-medium text-gray-800">
                               {entry.erp_number || <span className="text-gray-300">–</span>}
                             </td>
-                            <td className="px-4 py-3 text-gray-600">{entry.store}</td>
+                            <td className="px-2 py-1 text-gray-600">{entry.store}</td>
                             {activeTab === "all" && (
-                              <td className="px-4 py-3 text-gray-400">
+                              <td className="px-2 py-1 text-gray-400">
                                 {td?.label ?? entry._typeKey}
                               </td>
                             )}
-                            <td className="whitespace-nowrap px-4 py-3 text-gray-400">
+                            <td className="whitespace-nowrap px-2 py-1 text-gray-400">
                               {entry.created_at}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-2 py-1">
                               {/* Step pills + bar */}
                               <div className="space-y-1">
                                 <div className="flex flex-wrap gap-1">

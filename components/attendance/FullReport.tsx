@@ -453,15 +453,15 @@ export function FullReport({ user }: FullReportProps) {
                     {rows.length === 0 ? (
                       <div className="px-6 py-6 text-center text-[11px] text-gray-400">Belum ada data untuk periode ini</div>
                     ) : (
-                      <table className="w-full">
+                      <table className="w-full text-[11px]">
                         <thead>
                           <tr className="border-b border-gray-100 bg-gray-50">
-                            <th className="w-36 px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Tanggal</th>
-                            <th className="w-20 px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500">Kode</th>
-                            <th className="w-20 px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500">Masuk</th>
-                            <th className="w-20 px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500">Keluar</th>
-                            <th className="w-16 px-3 py-2 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500">Lembur</th>
-                            <th className="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Keterangan</th>
+                            <th className="w-36 px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Tanggal</th>
+                            <th className="w-20 px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500">Kode</th>
+                            <th className="w-20 px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500">Masuk</th>
+                            <th className="w-20 px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500">Keluar</th>
+                            <th className="w-16 px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500">Lembur</th>
+                            <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Keterangan</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -475,12 +475,12 @@ export function FullReport({ user }: FullReportProps) {
                                 key={i}
                                 className={`border-b border-gray-50 last:border-0 transition-colors ${weekend ? 'bg-blue-50/40' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} hover:bg-primary/5`}
                               >
-                                <td className="px-4 py-2">
+                                <td className="px-2 py-1">
                                   <span className={`text-[11px] font-medium ${weekend ? 'text-blue-600' : 'text-gray-700'}`}>
                                     {fmtDate(r.date)}
                                   </span>
                                 </td>
-                                <td className="px-3 py-2 text-center">
+                                <td className="px-2 py-1 text-center">
                                   {code ? (
                                     <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>
                                       {code}
@@ -489,17 +489,17 @@ export function FullReport({ user }: FullReportProps) {
                                     <span className="text-xs text-gray-300">—</span>
                                   )}
                                 </td>
-                                <td className="px-3 py-2 text-center">
+                                <td className="px-2 py-1 text-center">
                                   <span className={`font-mono text-[11px] font-medium ${isOff ? 'text-gray-400' : 'text-gray-700'}`}>
                                     {displayTime(r.clock_in) || (isOff ? '—' : '-')}
                                   </span>
                                 </td>
-                                <td className="px-3 py-2 text-center">
+                                <td className="px-2 py-1 text-center">
                                   <span className={`font-mono text-[11px] font-medium ${isOff ? 'text-gray-400' : 'text-gray-700'}`}>
                                     {displayTime(r.clock_out) || (isOff ? '—' : '-')}
                                   </span>
                                 </td>
-                                <td className="px-3 py-2 text-center">
+                                <td className="px-2 py-1 text-center">
                                   {hasOT ? (
                                     <span className="rounded-full bg-orange-50 px-1.5 py-0.5 text-[11px] font-bold text-orange-500">
                                       {r.overtime_hours}j
@@ -508,7 +508,7 @@ export function FullReport({ user }: FullReportProps) {
                                     <span className="text-xs text-gray-300">—</span>
                                   )}
                                 </td>
-                                <td className="px-4 py-2">
+                                <td className="px-2 py-1">
                                   <span className="block max-w-[220px] truncate text-[11px] text-gray-500">{r.reason || ''}</span>
                                 </td>
                               </tr>
@@ -536,17 +536,17 @@ export function FullReport({ user }: FullReportProps) {
       {!loading && viewMode === 'weekly' && (
         selectedDateRange ? (
           <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <table className="w-full text-xs">
+            <table className="w-full text-[11px]">
               <thead className="border-b bg-gray-50">
                 <tr>
-                  <th className="min-w-[150px] px-3 py-2 text-left text-[11px] font-semibold text-gray-500">Nama TAFT</th>
+                  <th className="min-w-[150px] px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Nama TAFT</th>
                   {!selectedStore && (
-                    <th className="min-w-[110px] px-3 py-2 text-left text-[11px] font-semibold text-gray-500">Store</th>
+                    <th className="min-w-[110px] px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Store</th>
                   )}
                   {DAY_LABELS_FULL.map((label, i) => (
                     <th
                       key={label}
-                      className={`min-w-[56px] px-2 py-2 text-center text-[11px] font-semibold text-gray-500 ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}
+                      className={`min-w-[56px] px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500 ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}
                     >
                       {label}
                     </th>
@@ -562,16 +562,16 @@ export function FullReport({ user }: FullReportProps) {
                   );
                   return (
                     <tr key={taft.id} className="border-b hover:bg-gray-50">
-                      <td className="px-3 py-1.5 text-[11px] font-medium text-gray-800">{taft.taft_name}</td>
+                      <td className="px-2 py-1 text-[11px] font-medium text-gray-800">{taft.taft_name}</td>
                       {!selectedStore && (
-                        <td className="px-3 py-1.5 text-[10px] text-gray-500">{toTitleCase(taft.store_name)}</td>
+                        <td className="px-2 py-1 text-[10px] text-gray-500">{toTitleCase(taft.store_name)}</td>
                       )}
                       {DAYS.map((d, i) => {
                         const code = (sched?.[d as keyof ScheduleRow] as string) || '';
                         return (
                           <td
                             key={d}
-                            className={`px-2 py-1.5 text-center ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}
+                            className={`px-2 py-1 text-center ${DAYS[i] === todayDayKey ? 'bg-blue-50' : ''}`}
                           >
                             {code ? (
                               <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${CODE_COLORS[code] || 'bg-gray-100 text-gray-700'}`}>
@@ -588,7 +588,7 @@ export function FullReport({ user }: FullReportProps) {
                 })}
                 {weeklyTafts.length === 0 && (
                   <tr>
-                    <td colSpan={!selectedStore ? 9 : 8} className="px-3 py-8 text-center text-sm text-gray-400">
+                    <td colSpan={!selectedStore ? 9 : 8} className="px-2 py-8 text-center text-sm text-gray-400">
                       Tidak ada data taft
                     </td>
                   </tr>

@@ -3,6 +3,7 @@
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { hasTextSelection } from "@/lib/utils";
 import Popup from "@/components/Popup";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
@@ -760,7 +761,7 @@ export default function BundlingPage() {
                       return (
                         <tr
                           key={item.id || index}
-                          onClick={canEdit ? () => handleOpenModal(item) : () => router.push(`/bundling/${item.id}`)}
+                          onClick={canEdit ? () => { if (hasTextSelection()) return; handleOpenModal(item); } : () => { if (hasTextSelection()) return; router.push(`/bundling/${item.id}`); }}
                           className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
                         >
                           {canEdit && (

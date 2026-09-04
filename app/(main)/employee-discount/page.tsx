@@ -3,6 +3,7 @@
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { hasTextSelection } from "@/lib/utils";
 import Popup from "@/components/Popup";
 import SearchableSelect from "@/components/SearchableSelect";
 import { Button } from "@/components/shared/Button";
@@ -686,21 +687,21 @@ export default function EmployeeDiscountPage() {
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-[10px] border-collapse" style={{ tableLayout: "fixed" }}>
+          <table className="w-full text-[11px] border-collapse" style={{ tableLayout: "fixed" }}>
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
-                <th className="px-1.5 py-1.5 text-center font-semibold border-r border-gray-200 w-[70px]"><span className="text-[8px] uppercase tracking-wide">Tanggal</span></th>
-                <th className="px-1.5 py-1.5 text-center font-semibold border-r border-gray-200 w-[70px]"><span className="text-[8px] uppercase tracking-wide">Store/Name</span></th>
-                <th className="px-1.5 py-1.5 text-center font-semibold border-r border-gray-200 w-[70px]"><span className="text-[8px] uppercase tracking-wide">Assigned To</span></th>
-                <th className="px-1.5 py-1.5 text-center font-semibold border-r border-gray-200 w-[70px]"><span className="text-[8px] uppercase tracking-wide">Taft By</span></th>
-                <th className="px-1.5 py-1.5 text-center font-semibold border-r border-gray-200 w-[260px]"><span className="text-[8px] uppercase tracking-wide">Item</span></th>
-                <th className="px-1.5 py-1.5 text-center font-semibold border-r border-gray-200 w-[45px]"><span className="text-[8px] uppercase tracking-wide">Total Qty</span></th>
-                <th className="px-1.5 py-1.5 text-center font-semibold border-r border-gray-200 w-[90px]"><span className="text-[8px] uppercase tracking-wide">Discount Code</span></th>
-                <th className="px-1.5 py-1.5 text-center font-semibold border-r border-gray-200 w-[140px]"><span className="text-[8px] uppercase tracking-wide">Type Reason</span></th>
-                <th className="px-1.5 py-1.5 text-center font-semibold border-r border-gray-200 w-[90px]"><span className="text-[8px] uppercase tracking-wide">Sales Order</span></th>
-                <th className="px-1.5 py-1.5 text-center font-semibold border-r border-gray-200 w-[45px]"><span className="text-[8px] uppercase tracking-wide">Foto</span></th>
-                <th className="px-1.5 py-1.5 text-center font-semibold border-r border-gray-200 w-[80px]"><span className="text-[8px] uppercase tracking-wide">Status</span></th>
-                <th className="px-1.5 py-1.5 text-center font-semibold w-[60px]"><span className="text-[8px] uppercase tracking-wide">Aksi</span></th>
+                <th className="px-2 py-1.5 text-center font-semibold border-r border-gray-200 w-[70px]"><span className="text-[8px] uppercase tracking-wide">Tanggal</span></th>
+                <th className="px-2 py-1.5 text-center font-semibold border-r border-gray-200 w-[70px]"><span className="text-[8px] uppercase tracking-wide">Store/Name</span></th>
+                <th className="px-2 py-1.5 text-center font-semibold border-r border-gray-200 w-[70px]"><span className="text-[8px] uppercase tracking-wide">Assigned To</span></th>
+                <th className="px-2 py-1.5 text-center font-semibold border-r border-gray-200 w-[70px]"><span className="text-[8px] uppercase tracking-wide">Taft By</span></th>
+                <th className="px-2 py-1.5 text-center font-semibold border-r border-gray-200 w-[260px]"><span className="text-[8px] uppercase tracking-wide">Item</span></th>
+                <th className="px-2 py-1.5 text-center font-semibold border-r border-gray-200 w-[45px]"><span className="text-[8px] uppercase tracking-wide">Total Qty</span></th>
+                <th className="px-2 py-1.5 text-center font-semibold border-r border-gray-200 w-[90px]"><span className="text-[8px] uppercase tracking-wide">Discount Code</span></th>
+                <th className="px-2 py-1.5 text-center font-semibold border-r border-gray-200 w-[140px]"><span className="text-[8px] uppercase tracking-wide">Type Reason</span></th>
+                <th className="px-2 py-1.5 text-center font-semibold border-r border-gray-200 w-[90px]"><span className="text-[8px] uppercase tracking-wide">Sales Order</span></th>
+                <th className="px-2 py-1.5 text-center font-semibold border-r border-gray-200 w-[45px]"><span className="text-[8px] uppercase tracking-wide">Foto</span></th>
+                <th className="px-2 py-1.5 text-center font-semibold border-r border-gray-200 w-[80px]"><span className="text-[8px] uppercase tracking-wide">Status</span></th>
+                <th className="px-2 py-1.5 text-center font-semibold w-[60px]"><span className="text-[8px] uppercase tracking-wide">Aksi</span></th>
               </tr>
             </thead>
             <tbody>
@@ -720,21 +721,21 @@ export default function EmployeeDiscountPage() {
                   return (
                     <tr
                       key={item.id}
-                      onClick={() => router.push(`/employee-discount/${item.id}`)}
+                      onClick={() => { if (hasTextSelection()) return; router.push(`/employee-discount/${item.id}`); }}
                       className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
                     >
-                      <td className="px-1.5 py-1.5 text-center border-r border-gray-200 whitespace-nowrap truncate">{item.created_at?.split(",")[0]}</td>
-                      <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate">{item.name}</td>
-                      <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate">{item.assigned_to || "-"}</td>
-                      <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate">{item.taft_by || "-"}</td>
-                      <td className="px-1.5 py-1.5 border-r border-gray-200 truncate" title={groupItems.map((g) => `${g.item_sku} - ${g.item_name} (${g.item_qty})`).join(", ")}>
+                      <td className="px-2 py-1 text-center border-r border-gray-200 whitespace-nowrap truncate">{item.created_at?.split(",")[0]}</td>
+                      <td className="px-2 py-1 text-center border-r border-gray-200 truncate">{item.name}</td>
+                      <td className="px-2 py-1 text-center border-r border-gray-200 truncate">{item.assigned_to || "-"}</td>
+                      <td className="px-2 py-1 text-center border-r border-gray-200 truncate">{item.taft_by || "-"}</td>
+                      <td className="px-2 py-1 border-r border-gray-200 truncate" title={groupItems.map((g) => `${g.item_sku} - ${g.item_name} (${g.item_qty})`).join(", ")}>
                         {groupItems.map((g) => g.item_name).join(", ")}
                       </td>
-                      <td className="px-1.5 py-1.5 text-center border-r border-gray-200">{totalQty}</td>
-                      <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate">{item.discount_code}</td>
-                      <td className="px-1.5 py-1.5 border-r border-gray-200 truncate">{item.type_reason}</td>
-                      <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate">{item.sales_order || "-"}</td>
-                      <td className="px-1.5 py-1.5 text-center border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-2 py-1 text-center border-r border-gray-200">{totalQty}</td>
+                      <td className="px-2 py-1 text-center border-r border-gray-200 truncate">{item.discount_code}</td>
+                      <td className="px-2 py-1 border-r border-gray-200 truncate">{item.type_reason}</td>
+                      <td className="px-2 py-1 text-center border-r border-gray-200 truncate">{item.sales_order || "-"}</td>
+                      <td className="px-2 py-1 text-center border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
                         {item.link_drive ? (
                           <a href={item.link_drive} target="_blank" rel="noreferrer" title="Lihat foto" className="inline-flex text-blue-600 hover:text-blue-800">
                             <ImageIcon className="w-3.5 h-3.5" />
@@ -743,10 +744,10 @@ export default function EmployeeDiscountPage() {
                           <span className="text-gray-300">-</span>
                         )}
                       </td>
-                      <td className="px-1.5 py-1.5 text-center border-r border-gray-200">
+                      <td className="px-2 py-1 text-center border-r border-gray-200">
                         <StatusBadge value={item.status_request} />
                       </td>
-                      <td className="px-1.5 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-2 py-1 text-center" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-1 flex-wrap">
                           {canCreate && (
                             <button

@@ -259,21 +259,21 @@ export function ReportView({
       {/* Summary table */}
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full text-[11px]">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/60">
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">
                   Store
                 </th>
                 {RESULT_STATUS_OPTIONS.map((status) => (
                   <th
                     key={status}
-                    className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wide text-gray-400"
+                    className="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500"
                   >
                     {status}
                   </th>
                 ))}
-                <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wide text-primary">
+                <th className="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-primary">
                   Total
                 </th>
               </tr>
@@ -281,11 +281,11 @@ export function ReportView({
             <tbody className="divide-y divide-gray-50">
               {reportData.map((row, index) => (
                 <tr key={index} className="hover:bg-gray-50/60">
-                  <td className="px-4 py-3 font-medium text-gray-700">
+                  <td className="px-2 py-1 font-medium text-gray-700">
                     {row.store as string}
                   </td>
                   {RESULT_STATUS_OPTIONS.map((status) => (
-                    <td key={status} className="px-4 py-3 text-center">
+                    <td key={status} className="px-2 py-1 text-center">
                       {(row[status] as number) > 0 ? (
                         <span
                           className="font-semibold"
@@ -298,7 +298,7 @@ export function ReportView({
                       )}
                     </td>
                   ))}
-                  <td className="px-4 py-3 text-center font-semibold text-primary">
+                  <td className="px-2 py-1 text-center font-semibold text-primary">
                     {row.total as number}
                   </td>
                 </tr>
@@ -307,7 +307,7 @@ export function ReportView({
               {/* Grand total */}
               {reportData.length > 1 && (
                 <tr className="border-t-2 border-gray-200 bg-gray-50/80">
-                  <td className="px-4 py-3 font-bold text-gray-700">Total</td>
+                  <td className="px-2 py-1 font-bold text-gray-700">Total</td>
                   {RESULT_STATUS_OPTIONS.map((status) => {
                     const total = reportData.reduce(
                       (sum, row) => sum + ((row[status] as number) || 0),
@@ -316,7 +316,7 @@ export function ReportView({
                     return (
                       <td
                         key={status}
-                        className="px-4 py-3 text-center font-bold"
+                        className="px-2 py-1 text-center font-bold"
                         style={{
                           color: total > 0 ? STATUS_META[status]?.color : "#D1D5DB",
                         }}
@@ -325,7 +325,7 @@ export function ReportView({
                       </td>
                     );
                   })}
-                  <td className="px-4 py-3 text-center font-bold text-primary">
+                  <td className="px-2 py-1 text-center font-bold text-primary">
                     {reportData.reduce(
                       (sum, row) => sum + (row.total as number),
                       0

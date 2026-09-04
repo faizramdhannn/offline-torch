@@ -101,22 +101,22 @@ export default function MaterialIssueDetailPage() {
           Item ({totalQty} total qty)
         </label>
         <div className="overflow-x-auto border border-gray-100 rounded-lg">
-          <table className="w-full text-xs">
+          <table className="w-full text-[11px]">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-3 py-1.5 text-left">SKU</th>
-                <th className="px-3 py-1.5 text-left">Nama Item</th>
-                <th className="px-3 py-1.5 text-right">Qty</th>
-                <th className="px-3 py-1.5 text-right">HPJ</th>
+                <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">SKU</th>
+                <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Nama Item</th>
+                <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-gray-500">Qty</th>
+                <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-gray-500">HPJ</th>
               </tr>
             </thead>
             <tbody>
               {groupItems.map((g, i) => (
                 <tr key={i} className="border-t border-gray-100">
-                  <td className="px-3 py-1.5 font-mono">{g.item_sku}</td>
-                  <td className="px-3 py-1.5">{g.item_name}</td>
-                  <td className="px-3 py-1.5 text-right">{g.item_qty}</td>
-                  <td className="px-3 py-1.5 text-right">{g.item_hpj}</td>
+                  <td className="px-2 py-1 font-mono">{g.item_sku}</td>
+                  <td className="px-2 py-1">{g.item_name}</td>
+                  <td className="px-2 py-1 text-right">{g.item_qty}</td>
+                  <td className="px-2 py-1 text-right">{g.item_hpj}</td>
                 </tr>
               ))}
             </tbody>

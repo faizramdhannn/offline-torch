@@ -272,37 +272,37 @@ export function SalesWagesChart({
                 <table className="w-full text-[11px]">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50 sticky top-0">
-                      <th className="px-5 py-2.5 text-left font-semibold text-gray-500 text-[9px] uppercase tracking-wide">TAFT</th>
-                      <th className="px-4 py-2.5 text-right font-semibold text-orange-400 text-[9px] uppercase tracking-wide">Gaji</th>
-                      <th className="px-4 py-2.5 text-right font-semibold text-purple-400 text-[9px] uppercase tracking-wide">Jam Lembur</th>
-                      <th className="px-4 py-2.5 text-right font-semibold text-purple-400 text-[9px] uppercase tracking-wide">Biaya Lembur</th>
-                      <th className="px-4 py-2.5 text-right font-semibold text-gray-500 text-[9px] uppercase tracking-wide">Total</th>
+                      <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">TAFT</th>
+                      <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-orange-400">Gaji</th>
+                      <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-purple-400">Jam Lembur</th>
+                      <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-purple-400">Biaya Lembur</th>
+                      <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-gray-500">Total</th>
                     </tr>
                   </thead>
                   <tbody>
                     {taftDetails.map((t, i) => (
                       <tr key={t.taft_name} className={`border-b border-gray-50 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}>
-                        <td className="px-5 py-2.5 font-medium text-gray-800">{t.taft_name}</td>
-                        <td className="px-4 py-2.5 text-right text-orange-500 font-semibold">{fmtJt(t.gaji)}</td>
-                        <td className="px-4 py-2.5 text-right text-purple-500 font-semibold">
+                        <td className="px-2 py-1 font-medium text-gray-800">{t.taft_name}</td>
+                        <td className="px-2 py-1 text-right text-orange-500 font-semibold">{fmtJt(t.gaji)}</td>
+                        <td className="px-2 py-1 text-right text-purple-500 font-semibold">
                           {t.lemburJam > 0 ? `${t.lemburJam.toFixed(1)} jam` : '—'}
                         </td>
-                        <td className="px-4 py-2.5 text-right text-purple-500 font-semibold">
+                        <td className="px-2 py-1 text-right text-purple-500 font-semibold">
                           {t.biayaLembur > 0 ? fmtJt(t.biayaLembur) : '—'}
                         </td>
-                        <td className="px-4 py-2.5 text-right text-gray-700 font-bold">{fmtJt(t.totalPengeluaran)}</td>
+                        <td className="px-2 py-1 text-right text-gray-700 font-bold">{fmtJt(t.totalPengeluaran)}</td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold">
-                      <td className="px-5 py-2.5 text-gray-700 text-[10px]">TOTAL</td>
-                      <td className="px-4 py-2.5 text-right text-orange-600 text-[10px]">{fmtJt(activeRow.totalGaji)}</td>
-                      <td className="px-4 py-2.5 text-right text-purple-600 text-[10px]">
+                      <td className="px-2 py-1 text-gray-700 text-[10px]">TOTAL</td>
+                      <td className="px-2 py-1 text-right text-orange-600 text-[10px]">{fmtJt(activeRow.totalGaji)}</td>
+                      <td className="px-2 py-1 text-right text-purple-600 text-[10px]">
                         {activeRow.lemburJam > 0 ? `${activeRow.lemburJam.toFixed(1)} jam` : '—'}
                       </td>
-                      <td className="px-4 py-2.5 text-right text-purple-600 text-[10px]">{fmtJt(activeRow.biayaLembur)}</td>
-                      <td className="px-4 py-2.5 text-right text-gray-700 text-[10px]">{fmtJt(activeRow.totalPengeluaran)}</td>
+                      <td className="px-2 py-1 text-right text-purple-600 text-[10px]">{fmtJt(activeRow.biayaLembur)}</td>
+                      <td className="px-2 py-1 text-right text-gray-700 text-[10px]">{fmtJt(activeRow.totalPengeluaran)}</td>
                     </tr>
                   </tfoot>
                 </table>

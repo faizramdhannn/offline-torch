@@ -3,7 +3,7 @@
 import { Copy, Check, ImageOff, ChevronUp, ChevronDown, ChevronsUpDown, QrCode, Eye, Store } from "lucide-react";
 import { useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn, hasTextSelection } from "@/lib/utils";
 
 interface StockItem {
   link_url?: string;
@@ -289,11 +289,14 @@ export function StockTable({
             return (
           <Fragment key={rowKey}>
             <tr
-              onClick={() =>
-                isExpanded
-                  ? router.push(`/stock/${encodeURIComponent(item.sku)}`)
-                  : setExpandedKey(rowKey)
-              }
+              onClick={() => {
+                if (hasTextSelection()) return;
+                if (isExpanded) {
+                  router.push(`/stock/${encodeURIComponent(item.sku)}`);
+                } else {
+                  setExpandedKey(rowKey);
+                }
+              }}
               className={cn(
                 "cursor-pointer border-b border-gray-50 transition-colors hover:bg-gray-50 active:bg-gray-100",
                 isExpanded && "bg-primary/5",

@@ -189,16 +189,16 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
       ) : (
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-xs border-collapse">
+            <table className="w-full text-[11px] border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-3 py-2 text-left font-semibold text-gray-500 sticky left-0 bg-gray-50 z-10 min-w-[140px] max-w-[160px] w-40 border-r border-gray-200">
+                  <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 sticky left-0 bg-gray-50 z-10 min-w-[140px] max-w-[160px] w-40 border-r border-gray-200">
                     Nama TAFT
                   </th>
                   {DAYS.map((day, i) => (
                     <th
                       key={day}
-                      className={`px-1 py-2 text-center font-semibold text-gray-500 w-16 ${
+                      className={`px-1 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500 w-16 ${
                         day === todayDayKey ? 'bg-blue-50 text-blue-700' : ''
                       }`}
                     >
@@ -213,7 +213,7 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
                       )}
                     </th>
                   ))}
-                  <th className="px-3 py-2 text-center font-semibold text-gray-500 w-24 sticky right-0 bg-gray-50 z-10 border-l border-gray-200">
+                  <th className="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500 w-24 sticky right-0 bg-gray-50 z-10 border-l border-gray-200">
                     Aksi
                   </th>
                 </tr>
@@ -222,7 +222,7 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
                 {storeGroups.map(({ storeName, tafts }) => (
                   <React.Fragment key={storeName}>
                     <tr className="bg-primary/5 border-y border-primary/10">
-                      <td colSpan={9} className="px-3 py-1.5 sticky left-0 bg-primary/5 z-10">
+                      <td colSpan={9} className="px-2 py-1 sticky left-0 bg-primary/5 z-10">
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] font-bold text-primary">{toTitleCase(storeName)}</span>
                           <span className="text-[10px] text-gray-500">{tafts.length} taft</span>
@@ -239,7 +239,7 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
 
                       return (
                         <tr key={key} className={`border-b border-gray-100 transition-colors ${isEdit ? 'bg-amber-50/60' : 'hover:bg-gray-50/80'}`}>
-                          <td className={`px-2 py-1.5 sticky left-0 z-10 border-r border-gray-100 min-w-[140px] max-w-[160px] w-40 ${isEdit ? 'bg-amber-50/60' : 'bg-white'}`}>
+                          <td className={`px-2 py-1 sticky left-0 z-10 border-r border-gray-100 min-w-[140px] max-w-[160px] w-40 ${isEdit ? 'bg-amber-50/60' : 'bg-white'}`}>
                             <div className="flex items-center gap-1">
                               {isEdit && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />}
                               <span className="font-medium text-gray-800 text-[11px] leading-tight truncate" title={taft.taft_name}>{taft.taft_name}</span>

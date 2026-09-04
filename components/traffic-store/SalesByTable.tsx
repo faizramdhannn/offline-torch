@@ -23,7 +23,7 @@ export function SalesByTable({ title, data, colorOffset = 0, formatRupiah }: Sal
     <div>
       <h4 className="mb-2 text-xs font-semibold text-gray-600">{title}</h4>
       <div className="overflow-x-auto rounded-xl border border-gray-100">
-        <table className="w-full border-collapse">
+        <table className="w-full border-collapse text-[11px]">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50">
               <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Nama</th>

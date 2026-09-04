@@ -3,6 +3,7 @@
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { hasTextSelection } from "@/lib/utils";
 import { QRCodeCanvas } from "qrcode.react";
 import Popup from "@/components/Popup";
 import { Button } from "@/components/shared/Button";
@@ -644,33 +645,33 @@ function OrderAffiliateTab({
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full text-[11px]">
             <thead className="bg-gray-100 border-b">
               <tr>
-                <th className="px-3 py-2 text-left font-semibold text-gray-700">Kode Affiliate</th>
-                <th className="px-3 py-2 text-left font-semibold text-gray-700">Store</th>
-                <th className="px-3 py-2 text-left font-semibold text-gray-700">Sales Order</th>
-                <th className="px-3 py-2 text-left font-semibold text-gray-700">Tanggal</th>
-                <th className="px-3 py-2 text-left font-semibold text-gray-700">Value</th>
-                <th className="px-3 py-2 text-left font-semibold text-gray-700">Komisi</th>
-                <th className="px-3 py-2 text-left font-semibold text-gray-700">Status</th>
-                <th className="px-3 py-2 text-left font-semibold text-gray-700">Aksi</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Kode Affiliate</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Store</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Sales Order</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Tanggal</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Value</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Komisi</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Status</th>
+                <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {currentItems.map((o) => (
                 <tr
                   key={o.uuid}
-                  onClick={() => router.push(`/affiliate/${o.uuid}`)}
+                  onClick={() => { if (hasTextSelection()) return; router.push(`/affiliate/${o.uuid}`); }}
                   className="border-b hover:bg-gray-50 cursor-pointer"
                 >
-                  <td className="px-3 py-2 font-medium">{o.affiliate_code}</td>
-                  <td className="px-3 py-2">{o.store_name}</td>
-                  <td className="px-3 py-2">{o.sales_order}</td>
-                  <td className="px-3 py-2">{o.order_date}</td>
-                  <td className="px-3 py-2">{formatRupiah(o.value_order)}</td>
-                  <td className="px-3 py-2">{o.commission_rate}</td>
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-1 font-medium">{o.affiliate_code}</td>
+                  <td className="px-2 py-1">{o.store_name}</td>
+                  <td className="px-2 py-1">{o.sales_order}</td>
+                  <td className="px-2 py-1">{o.order_date}</td>
+                  <td className="px-2 py-1">{formatRupiah(o.value_order)}</td>
+                  <td className="px-2 py-1">{o.commission_rate}</td>
+                  <td className="px-2 py-1">
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
                         o.reedem_status === "Sudah Redeem"
@@ -683,7 +684,7 @@ function OrderAffiliateTab({
                       {o.reedem_status}
                     </span>
                   </td>
-                  <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1.5">
                       <button onClick={() => openEdit(o)} className="p-1.5 rounded hover:bg-gray-100 text-gray-500" title="Edit">
                         <Pencil className="w-3.5 h-3.5" />
@@ -906,45 +907,45 @@ function ReportTab({
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           {subTab === "affiliate" ? (
-            <table className="w-full text-xs">
+            <table className="w-full text-[11px]">
               <thead className="bg-gray-100 border-b">
                 <tr>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Kode Affiliate</th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Nama</th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Total Order</th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Total Value</th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Total Komisi</th>
+                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Kode Affiliate</th>
+                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Nama</th>
+                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Total Order</th>
+                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Total Value</th>
+                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Total Komisi</th>
                 </tr>
               </thead>
               <tbody>
                 {perAffiliate.map((row) => (
                   <tr key={row.code} className="border-b hover:bg-gray-50">
-                    <td className="px-3 py-2 font-medium">{row.code}</td>
-                    <td className="px-3 py-2">{row.name}</td>
-                    <td className="px-3 py-2">{row.count}</td>
-                    <td className="px-3 py-2">{formatRupiah(row.totalValue)}</td>
-                    <td className="px-3 py-2">{formatRupiah(row.totalCommission)}</td>
+                    <td className="px-2 py-1 font-medium">{row.code}</td>
+                    <td className="px-2 py-1">{row.name}</td>
+                    <td className="px-2 py-1">{row.count}</td>
+                    <td className="px-2 py-1">{formatRupiah(row.totalValue)}</td>
+                    <td className="px-2 py-1">{formatRupiah(row.totalCommission)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           ) : (
-            <table className="w-full text-xs">
+            <table className="w-full text-[11px]">
               <thead className="bg-gray-100 border-b">
                 <tr>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Store</th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Total Order</th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Total Value</th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-700">Total Komisi</th>
+                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Store</th>
+                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Total Order</th>
+                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Total Value</th>
+                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Total Komisi</th>
                 </tr>
               </thead>
               <tbody>
                 {perStore.map((row) => (
                   <tr key={row.store} className="border-b hover:bg-gray-50">
-                    <td className="px-3 py-2 font-medium">{row.store}</td>
-                    <td className="px-3 py-2">{row.count}</td>
-                    <td className="px-3 py-2">{formatRupiah(row.totalValue)}</td>
-                    <td className="px-3 py-2">{formatRupiah(row.totalCommission)}</td>
+                    <td className="px-2 py-1 font-medium">{row.store}</td>
+                    <td className="px-2 py-1">{row.count}</td>
+                    <td className="px-2 py-1">{formatRupiah(row.totalValue)}</td>
+                    <td className="px-2 py-1">{formatRupiah(row.totalCommission)}</td>
                   </tr>
                 ))}
               </tbody>

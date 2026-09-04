@@ -32,6 +32,7 @@ import { DarkTooltip, PieSliceTooltip, PieLegend } from "@/components/traffic-st
 import { SalesByTable } from "@/components/traffic-store/SalesByTable";
 import { SummaryTable } from "@/components/traffic-store/SummaryTable";
 import { MatrixTable } from "@/components/traffic-store/MatrixTable";
+import { ReasonWordCloud } from "@/components/traffic-store/ReasonWordCloud";
 import { EntryFormModal, type TrafficFormData, isValidPhoneNumber } from "@/components/traffic-store/EntryFormModal";
 
 interface TrafficEntry {
@@ -566,15 +567,31 @@ export default function TrafficStorePage() {
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [fd]);
 
-  // ─── Alasan Tidak Beli (revisi survey) ───────────────────────────────────────
-  const reasonNotBuyChartData = useMemo(() => {
-    const map: Record<string, number> = {};
+  // ─── Alasan Beli / Tidak Beli — grup notes untuk wordcloud drilldown ────────
+  const reasonBuyGroups = useMemo(() => {
+    const map = new Map<string, string[]>();
+    fd.filter(r => r.customer_convert === "Beli").forEach(r => {
+      const reason = r.reason_buy?.trim();
+      if (!reason) return;
+      if (!map.has(reason)) map.set(reason, []);
+      map.get(reason)!.push(r.notes);
+    });
+    return Array.from(map.entries())
+      .map(([label, notes]) => ({ label, notes }))
+      .sort((a, b) => b.notes.length - a.notes.length);
+  }, [fd]);
+
+  const reasonNotBuyGroups = useMemo(() => {
+    const map = new Map<string, string[]>();
     fd.filter(r => r.customer_convert === "Tidak Beli").forEach(r => {
       const reason = r.reason_not_buy?.trim();
       if (!reason) return;
-      map[reason] = (map[reason] || 0) + 1;
+      if (!map.has(reason)) map.set(reason, []);
+      map.get(reason)!.push(r.notes);
     });
-    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+    return Array.from(map.entries())
+      .map(([label, notes]) => ({ label, notes }))
+      .sort((a, b) => b.notes.length - a.notes.length);
   }, [fd]);
 
   const conversionData = useMemo(() => {
@@ -1236,41 +1253,34 @@ export default function TrafficStorePage() {
                             </ChartCard>
                           </div>
 
-                          {/* Kategori Produk & Alasan Tidak Beli (revisi survey) */}
-                          {(categoryChartData.length > 0 || reasonNotBuyChartData.length > 0) && (
+                          {/* Kategori Produk (revisi survey) */}
+                          {categoryChartData.length > 0 && (
+                            <ChartCard title="Kategori Produk yang Dicari">
+                              <ResponsiveContainer width="100%" height={Math.max(220, categoryChartData.length * 32)}>
+                                <BarChart data={categoryChartData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
+                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartGridStroke} />
+                                  <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={110} axisLine={false} tickLine={false} />
+                                  <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                                  <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={22}>
+                                    {categoryChartData.map((_, i) => (
+                                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                                    ))}
+                                    <LabelList dataKey="value" position="right" style={{ fontSize: 10, fill: "#374151" }} />
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </ChartCard>
+                          )}
+
+                          {/* Alasan Beli & Alasan Tidak Beli — kategori + wordcloud notes (revisi survey) */}
+                          {(reasonBuyGroups.length > 0 || reasonNotBuyGroups.length > 0) && (
                             <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-                              {categoryChartData.length > 0 && (
-                                <ChartCard title="Kategori Produk yang Dicari" span="half">
-                                  <ResponsiveContainer width="100%" height={Math.max(220, categoryChartData.length * 32)}>
-                                    <BarChart data={categoryChartData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
-                                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartGridStroke} />
-                                      <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={110} axisLine={false} tickLine={false} />
-                                      <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-                                      <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={22}>
-                                        {categoryChartData.map((_, i) => (
-                                          <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                                        ))}
-                                        <LabelList dataKey="value" position="right" style={{ fontSize: 10, fill: "#374151" }} />
-                                      </Bar>
-                                    </BarChart>
-                                  </ResponsiveContainer>
-                                </ChartCard>
+                              {reasonBuyGroups.length > 0 && (
+                                <ReasonWordCloud title="Alasan Beli" groups={reasonBuyGroups} accentColor="#2f9e6f" />
                               )}
-                              {reasonNotBuyChartData.length > 0 && (
-                                <ChartCard title="Alasan Tidak Beli" span="half">
-                                  <ResponsiveContainer width="100%" height={Math.max(220, reasonNotBuyChartData.length * 32)}>
-                                    <BarChart data={reasonNotBuyChartData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
-                                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartGridStroke} />
-                                      <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={150} axisLine={false} tickLine={false} />
-                                      <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-                                      <Bar dataKey="value" fill="#ef4444" radius={[0, 4, 4, 0]} maxBarSize={22}>
-                                        <LabelList dataKey="value" position="right" style={{ fontSize: 10, fill: "#374151" }} />
-                                      </Bar>
-                                    </BarChart>
-                                  </ResponsiveContainer>
-                                </ChartCard>
+                              {reasonNotBuyGroups.length > 0 && (
+                                <ReasonWordCloud title="Alasan Tidak Beli" groups={reasonNotBuyGroups} accentColor="#d6483a" />
                               )}
                             </div>
                           )}

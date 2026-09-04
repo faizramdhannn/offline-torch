@@ -4,6 +4,7 @@ import { usePushNotification } from "@/hooks/usePushNotification";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { hasTextSelection } from "@/lib/utils";
 import Popup from "@/components/Popup";
 import { motion } from "framer-motion";
 import {
@@ -707,7 +708,7 @@ export default function RequestTrackingPage() {
                     copiedId={copiedId}
                     hasActiveSearch={hasActiveSearch}
                     searchQuery={searchReceiver}
-                    onRowClick={(item) => router.push(`/request-tracking/${item.id}`)}
+                    onRowClick={(item) => { if (hasTextSelection()) return; router.push(`/request-tracking/${item.id}`); }}
                     onCopy={handleCopyReceiver}
                     onCheckResi={handleCheckResi}
                     onToggleProcessed={handleToggleProcessed}

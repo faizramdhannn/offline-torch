@@ -4,6 +4,7 @@ import { usePushNotification } from "@/hooks/usePushNotification";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { hasTextSelection } from "@/lib/utils";
 import Popup from "@/components/Popup";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
@@ -551,7 +552,7 @@ return (
                         return (
                           <tr
                             key={item.id}
-                            onClick={() => router.push(`/request-store/${item.id}`)}
+                            onClick={() => { if (hasTextSelection()) return; router.push(`/request-store/${item.id}`); }}
                             className={`border-b cursor-pointer ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}
                           >
                             <td className="px-2 py-1 text-gray-600 whitespace-nowrap">{item.date}</td>

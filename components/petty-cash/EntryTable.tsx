@@ -137,10 +137,10 @@ export function EntryTable({
           </tbody>
           <tfoot>
             <tr className="border-t border-gray-200 bg-gray-50 font-semibold">
-              <td colSpan={3} className="px-2 py-2 text-right text-[11px] text-gray-600">
+              <td colSpan={3} className="px-2 py-1 text-right text-[11px] text-gray-600">
                 Total:
               </td>
-              <td className="px-2 py-2 text-right text-[11px] tabular-nums text-gray-900">{formatRupiah(totalValue)}</td>
+              <td className="px-2 py-1 text-right text-[11px] tabular-nums text-gray-900">{formatRupiah(totalValue)}</td>
               <td colSpan={5} />
             </tr>
           </tfoot>

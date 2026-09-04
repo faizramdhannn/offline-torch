@@ -568,18 +568,18 @@ export default function DailyChecklistPage() {
 
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-[10.5px] border-collapse">
+              <table className="w-full text-[11px] border-collapse">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
-                    <th className="px-3 py-2 text-left border-r border-gray-200 whitespace-nowrap min-w-[140px]">Tanggal</th>
-                    <th className="px-3 py-2 text-left border-r border-gray-200 whitespace-nowrap min-w-[140px]">Taft By</th>
-                    <th className="px-3 py-2 text-left border-r border-gray-200 whitespace-nowrap min-w-[90px]">Role</th>
+                    <th className="px-2 py-1.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[140px]">Tanggal</th>
+                    <th className="px-2 py-1.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[140px]">Taft By</th>
+                    <th className="px-2 py-1.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[90px]">Role</th>
                     {CATEGORIES.map((c) => (
-                      <th key={c.key} className="px-3 py-2 text-center border-r border-gray-200 whitespace-nowrap min-w-[130px]">
+                      <th key={c.key} className="px-2 py-1.5 text-center border-r border-gray-200 whitespace-nowrap min-w-[130px]">
                         {c.label}
                       </th>
                     ))}
-                    <th className="px-3 py-2 text-center whitespace-nowrap min-w-[100px]">Aksi</th>
+                    <th className="px-2 py-1.5 text-center whitespace-nowrap min-w-[100px]">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -590,13 +590,13 @@ export default function DailyChecklistPage() {
                   ) : (
                     paged.map((r) => (
                       <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-3 py-2 border-r border-gray-200 whitespace-nowrap">{r.created_at}</td>
-                        <td className="px-3 py-2 border-r border-gray-200 whitespace-nowrap">{r.taft_by || "-"}</td>
-                        <td className="px-3 py-2 border-r border-gray-200 whitespace-nowrap">{r.role_taft || "-"}</td>
+                        <td className="px-2 py-1 border-r border-gray-200 whitespace-nowrap">{r.created_at}</td>
+                        <td className="px-2 py-1 border-r border-gray-200 whitespace-nowrap">{r.taft_by || "-"}</td>
+                        <td className="px-2 py-1 border-r border-gray-200 whitespace-nowrap">{r.role_taft || "-"}</td>
                         {CATEGORIES.map((c) => {
                           const { done, total } = countDone(r[c.key], categoryItems(c.key));
                           return (
-                            <td key={c.key} className="px-3 py-2 border-r border-gray-200 text-center whitespace-nowrap">
+                            <td key={c.key} className="px-2 py-1 border-r border-gray-200 text-center whitespace-nowrap">
                               <span className={`px-1.5 py-0.5 rounded font-semibold ${
                                 total > 0 && done === total ? "bg-green-100 text-green-700" : done === 0 ? "bg-gray-100 text-gray-500" : "bg-amber-100 text-amber-700"
                               }`}>
@@ -605,7 +605,7 @@ export default function DailyChecklistPage() {
                             </td>
                           );
                         })}
-                        <td className="px-3 py-2 text-center whitespace-nowrap">
+                        <td className="px-2 py-1 text-center whitespace-nowrap">
                           <div className="flex justify-center gap-1.5">
                             <button onClick={() => setDetailRow(r)} title="Lihat detail" className="p-1 rounded hover:bg-gray-200 text-gray-500">
                               <Eye className="w-3.5 h-3.5" />
@@ -799,19 +799,19 @@ export default function DailyChecklistPage() {
               <h3 className="text-sm font-bold text-gray-800">Semua Riwayat</h3>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-[10.5px] border-collapse">
+              <table className="w-full text-[11px] border-collapse">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
-                    <th className="px-3 py-2 text-left border-r border-gray-200 whitespace-nowrap min-w-[140px]">Tanggal</th>
-                    <th className="px-3 py-2 text-left border-r border-gray-200 whitespace-nowrap min-w-[120px]">Toko</th>
-                    <th className="px-3 py-2 text-left border-r border-gray-200 whitespace-nowrap min-w-[140px]">Taft By</th>
-                    <th className="px-3 py-2 text-left border-r border-gray-200 whitespace-nowrap min-w-[90px]">Role</th>
+                    <th className="px-2 py-1.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[140px]">Tanggal</th>
+                    <th className="px-2 py-1.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[120px]">Toko</th>
+                    <th className="px-2 py-1.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[140px]">Taft By</th>
+                    <th className="px-2 py-1.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[90px]">Role</th>
                     {CATEGORIES.map((c) => (
-                      <th key={c.key} className="px-3 py-2 text-center border-r border-gray-200 whitespace-nowrap min-w-[120px]">
+                      <th key={c.key} className="px-2 py-1.5 text-center border-r border-gray-200 whitespace-nowrap min-w-[120px]">
                         {c.label}
                       </th>
                     ))}
-                    <th className="px-3 py-2 text-center whitespace-nowrap min-w-[100px]">Aksi</th>
+                    <th className="px-2 py-1.5 text-center whitespace-nowrap min-w-[100px]">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -822,14 +822,14 @@ export default function DailyChecklistPage() {
                   ) : (
                     reportPaged.map((r) => (
                       <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-3 py-2 border-r border-gray-200 whitespace-nowrap">{r.created_at}</td>
-                        <td className="px-3 py-2 border-r border-gray-200 whitespace-nowrap">{r.name}</td>
-                        <td className="px-3 py-2 border-r border-gray-200 whitespace-nowrap">{r.taft_by || "-"}</td>
-                        <td className="px-3 py-2 border-r border-gray-200 whitespace-nowrap">{r.role_taft || "-"}</td>
+                        <td className="px-2 py-1 border-r border-gray-200 whitespace-nowrap">{r.created_at}</td>
+                        <td className="px-2 py-1 border-r border-gray-200 whitespace-nowrap">{r.name}</td>
+                        <td className="px-2 py-1 border-r border-gray-200 whitespace-nowrap">{r.taft_by || "-"}</td>
+                        <td className="px-2 py-1 border-r border-gray-200 whitespace-nowrap">{r.role_taft || "-"}</td>
                         {CATEGORIES.map((c) => {
                           const { done, total } = countDone(r[c.key], categoryItems(c.key));
                           return (
-                            <td key={c.key} className="px-3 py-2 border-r border-gray-200 text-center whitespace-nowrap">
+                            <td key={c.key} className="px-2 py-1 border-r border-gray-200 text-center whitespace-nowrap">
                               <span className={`px-1.5 py-0.5 rounded font-semibold ${
                                 total > 0 && done === total ? "bg-green-100 text-green-700" : done === 0 ? "bg-gray-100 text-gray-500" : "bg-amber-100 text-amber-700"
                               }`}>
@@ -838,7 +838,7 @@ export default function DailyChecklistPage() {
                             </td>
                           );
                         })}
-                        <td className="px-3 py-2 text-center whitespace-nowrap">
+                        <td className="px-2 py-1 text-center whitespace-nowrap">
                           <div className="flex justify-center gap-1.5">
                             <button onClick={() => setDetailRow(r)} title="Lihat detail" className="p-1 rounded hover:bg-gray-200 text-gray-500">
                               <Eye className="w-3.5 h-3.5" />

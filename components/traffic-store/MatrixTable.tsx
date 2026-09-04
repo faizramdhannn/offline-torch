@@ -21,7 +21,7 @@ interface MatrixTableProps {
   toTitleCase: (s: string) => string;
 }
 
-const th = "border border-gray-200 px-2 py-1.5 text-center font-semibold whitespace-nowrap";
+const th = "border border-gray-200 px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap";
 
 export function MatrixTable({ matrix, fd, totalBeli, totalEntries, toTitleCase }: MatrixTableProps) {
   const totalTidakBeli = fd.filter((r) => r.customer_convert === "Tidak Beli").length;
@@ -30,7 +30,7 @@ export function MatrixTable({ matrix, fd, totalBeli, totalEntries, toTitleCase }
     <div>
       <h3 className="mb-3 text-sm font-semibold text-gray-700">Detail Store × Survey Source</h3>
       <div className="overflow-x-auto rounded-xl border border-gray-100">
-        <table className="border-collapse text-xs">
+        <table className="border-collapse text-[11px]">
           <thead>
             <tr>
               <th className={cn(th, "border-r border-gray-200 bg-gray-50 text-left")}>Store</th>

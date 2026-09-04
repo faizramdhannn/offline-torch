@@ -106,29 +106,29 @@ export default function InvoiceDetailPage() {
           Item
         </label>
         <div className="overflow-x-auto border border-gray-100 rounded-lg">
-          <table className="w-full text-xs">
+          <table className="w-full text-[11px]">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-3 py-1.5 text-left">Produk</th>
-                <th className="px-3 py-1.5 text-right">Qty</th>
-                <th className="px-3 py-1.5 text-right">Harga</th>
-                <th className="px-3 py-1.5 text-right">Total</th>
+                <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Produk</th>
+                <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-gray-500">Qty</th>
+                <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-gray-500">Harga</th>
+                <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-gray-500">Total</th>
               </tr>
             </thead>
             <tbody>
               {items.map((it, i) => (
                 <tr key={i} className="border-t border-gray-100">
-                  <td className="px-3 py-1.5">{it.product_name}</td>
-                  <td className="px-3 py-1.5 text-right">{it.qty}</td>
-                  <td className="px-3 py-1.5 text-right">{formatRupiah(it.unit_price)}</td>
-                  <td className="px-3 py-1.5 text-right font-semibold">
+                  <td className="px-2 py-1">{it.product_name}</td>
+                  <td className="px-2 py-1 text-right">{it.qty}</td>
+                  <td className="px-2 py-1 text-right">{formatRupiah(it.unit_price)}</td>
+                  <td className="px-2 py-1 text-right font-semibold">
                     {formatRupiah(it.total_price || it.qty * it.unit_price)}
                   </td>
                 </tr>
               ))}
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-3 py-3 text-center text-gray-400">Tidak ada item</td>
+                  <td colSpan={4} className="px-2 py-3 text-center text-gray-400">Tidak ada item</td>
                 </tr>
               )}
             </tbody>

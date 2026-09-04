@@ -299,8 +299,8 @@ function GroupDetailPopup({
               <table className="w-full text-[11px] border-collapse select-text">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-8">No</th>
-                    <th className="px-1.5 py-1 text-left font-semibold text-gray-500 border-r border-gray-200">
+                    <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-8">No</th>
+                    <th className="px-2 py-1.5 text-left font-semibold text-gray-500 border-r border-gray-200">
                       <div className="flex items-center justify-between gap-1">
                         <span>SKU</span>
                         <CopyButton
@@ -311,7 +311,7 @@ function GroupDetailPopup({
                         />
                       </div>
                     </th>
-                    <th className="px-1.5 py-1 text-left font-semibold text-gray-500 border-r border-gray-200">
+                    <th className="px-2 py-1.5 text-left font-semibold text-gray-500 border-r border-gray-200">
                       <div className="flex items-center justify-between gap-1">
                         <span>Item Name</span>
                         <CopyButton
@@ -322,7 +322,7 @@ function GroupDetailPopup({
                         />
                       </div>
                     </th>
-                    <th className="px-1.5 py-1 text-center font-semibold text-gray-500 border-r border-gray-200 w-14">
+                    <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-14">
                       <div className="flex items-center justify-center gap-1">
                         <span>Qty</span>
                         <CopyButton
@@ -333,7 +333,7 @@ function GroupDetailPopup({
                         />
                       </div>
                     </th>
-                    <th className="px-1.5 py-1 text-left font-semibold text-gray-500">
+                    <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
                       <div className="flex items-center justify-between gap-1">
                         <span>Reason</span>
                         <CopyButton
@@ -349,11 +349,11 @@ function GroupDetailPopup({
                 <tbody>
                   {items.map((item, idx) => (
                     <tr key={`${item.item_sku}-${idx}`} className="border-b border-gray-100 last:border-b-0">
-                      <td className="px-1.5 py-1 text-center text-gray-600 border-r border-gray-200">{idx + 1}</td>
-                      <td className="px-1.5 py-1 font-mono text-gray-800 border-r border-gray-200">{item.item_sku}</td>
-                      <td className="px-1.5 py-1 text-gray-800 border-r border-gray-200">{item.item_name}</td>
-                      <td className="px-1.5 py-1 text-center font-semibold text-gray-800 border-r border-gray-200">{item.item_qty}</td>
-                      <td className="px-1.5 py-1 text-gray-700">{meta.reason || "-"}</td>
+                      <td className="px-2 py-1 text-center text-gray-600 border-r border-gray-200">{idx + 1}</td>
+                      <td className="px-2 py-1 font-mono text-gray-800 border-r border-gray-200">{item.item_sku}</td>
+                      <td className="px-2 py-1 text-gray-800 border-r border-gray-200">{item.item_name}</td>
+                      <td className="px-2 py-1 text-center font-semibold text-gray-800 border-r border-gray-200">{item.item_qty}</td>
+                      <td className="px-2 py-1 text-gray-700">{meta.reason || "-"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1235,52 +1235,52 @@ export default function MaterialIssuePage() {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full text-[10px] border-collapse" style={{ tableLayout: "fixed" }}>
+                <table className="w-full text-[11px] border-collapse" style={{ tableLayout: "fixed" }}>
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[40px]">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[40px]">
                         <span className="text-[8px] uppercase tracking-wide">Tanggal</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[60px]">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[60px]">
                         <span className="text-[8px] uppercase tracking-wide">Store</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[50px]">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[50px]">
                         <span className="text-[8px] uppercase tracking-wide">Assigned To</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[160px]">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[160px]">
                         <span className="text-[8px] uppercase tracking-wide">Item</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[36px]">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[36px]">
                         <span className="text-[8px] uppercase tracking-wide">Qty</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[80px]">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[80px]">
                         <span className="text-[8px] uppercase tracking-wide">No. Request</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[70px]">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[70px]">
                         <span className="text-[8px] uppercase tracking-wide">Status Request</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[80px]">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[80px]">
                         <span className="text-[8px] uppercase tracking-wide">No. Issue</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[70px]">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[70px]">
                         <span className="text-[8px] uppercase tracking-wide">Status Issue</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[50px]">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[50px]">
                         <span className="text-[8px] uppercase tracking-wide">Req By</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[65px]">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[65px]">
                         <span className="text-[8px] uppercase tracking-wide">Tipe</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[70px]">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[70px]">
                         <span className="text-[8px] uppercase tracking-wide">Alasan</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[55px]">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[55px]">
                         <span className="text-[8px] uppercase tracking-wide">Status</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[36px]">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-500 border-r border-gray-200 w-[36px]">
                         <span className="text-[8px] uppercase tracking-wide">Proses</span>
                       </th>
-                      <th className="px-1.5 py-1.5 text-center font-semibold text-gray-500 w-[50px]">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-500 w-[50px]">
                         <span className="text-[8px] uppercase tracking-wide">Aksi</span>
                       </th>
                     </tr>
@@ -1302,22 +1302,22 @@ export default function MaterialIssuePage() {
                           }`}
                         >
                           {/* Tanggal */}
-                          <td className="px-1.5 py-1.5 text-center border-r border-gray-200">
+                          <td className="px-2 py-1 text-center border-r border-gray-200">
                             <div className="text-[9px] font-bold text-black">{item.created_at?.split(",")[0]}</div>
                           </td>
 
                           {/* Store */}
-                          <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate text-black">
+                          <td className="px-2 py-1 text-center border-r border-gray-200 truncate text-black">
                             {hasSearch ? highlightText(storeName, search) : storeName}
                           </td>
 
                           {/* Assigned To */}
-                          <td className="px-1.5 py-1.5 text-center border-r border-gray-200 truncate text-black">
+                          <td className="px-2 py-1 text-center border-r border-gray-200 truncate text-black">
                             {hasSearch ? highlightText(item.assigned_to || "-", search) : (item.assigned_to || "-")}
                           </td>
 
                           {/* Item */}
-                          <td className="px-1.5 py-1.5 border-r border-black truncate text-black">
+                          <td className="px-2 py-1 border-r border-black truncate text-black">
                             <p className="text-[9px] text-black truncate leading-tight">
                               {hasSearch
                                 ? highlightText(groupItems.map((g) => g.item_name).join(", "), search)
@@ -1326,12 +1326,12 @@ export default function MaterialIssuePage() {
                           </td>
 
                           {/* Total qty */}
-                          <td className="px-1.5 py-1.5 border-r border-gray-200 text-center font-bold text-black">
+                          <td className="px-2 py-1 border-r border-gray-200 text-center font-bold text-black">
                             {totalQty}
                           </td>
 
                           {/* No. Request */}
-                          <td className="px-1.5 py-1.5 border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-2 py-1 border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-0.5">
                               <span className="font-mono text-[9px] truncate flex-1 text-black">
                                 {hasSearch ? highlightText(item.request_number, search) : item.request_number || "-"}
@@ -1343,7 +1343,7 @@ export default function MaterialIssuePage() {
                           </td>
 
                           {/* Status Request */}
-                          <td className="px-1 py-1.5 border-r border-gray-200 text-center" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-2 py-1 border-r border-gray-200 text-center" onClick={(e) => e.stopPropagation()}>
                             <StatusApprovalBadge
                               value={item.status_request}
                               onToggle={() => handleToggleStatusRequest(item.id, item.status_request)}
@@ -1351,7 +1351,7 @@ export default function MaterialIssuePage() {
                           </td>
 
                           {/* No. Issue */}
-                          <td className="px-1.5 py-1.5 border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-2 py-1 border-r border-gray-200" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-0.5">
                               <span className="font-mono text-[9px] truncate flex-1 text-black">
                                 {hasSearch ? highlightText(item.issue_number, search) : item.issue_number || "-"}
@@ -1363,26 +1363,26 @@ export default function MaterialIssuePage() {
                           </td>
 
                           {/* Status Issue */}
-                          <td className="px-1 py-1.5 border-r border-gray-200 text-center" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-2 py-1 border-r border-gray-200 text-center" onClick={(e) => e.stopPropagation()}>
                             <StatusApprovalBadge
                               value={item.status_issue}
                               onToggle={() => handleToggleStatusIssue(item.id, item.status_issue)}
                             />
                           </td>
 
-                          <td className="px-1.5 py-1.5 border-r border-gray-200 truncate text-black">{item.request_by || "-"}</td>
-                          <td className="px-1.5 py-1.5 border-r border-gray-200 truncate text-black">{item.type_reason || "-"}</td>
-                          <td className="px-1.5 py-1.5 border-r border-gray-200 truncate text-black" title={item.reason}>
+                          <td className="px-2 py-1 border-r border-gray-200 truncate text-black">{item.request_by || "-"}</td>
+                          <td className="px-2 py-1 border-r border-gray-200 truncate text-black">{item.type_reason || "-"}</td>
+                          <td className="px-2 py-1 border-r border-gray-200 truncate text-black" title={item.reason}>
                             {item.reason || "-"}
                           </td>
 
                           {/* Status badge */}
-                          <td className="px-1 py-1.5 border-r border-gray-200 text-center">
+                          <td className="px-2 py-1 border-r border-gray-200 text-center">
                             <ProcessedBadge value={item.has_processed} />
                           </td>
 
                           {/* Toggle proses */}
-                          <td className="px-1 py-1.5 border-r border-gray-200 text-center" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-2 py-1 border-r border-gray-200 text-center" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
                               onClick={() => handleToggleProcessed(item.id, item.has_processed)}
@@ -1402,7 +1402,7 @@ export default function MaterialIssuePage() {
                           </td>
 
                           {/* Aksi */}
-                          <td className="px-1 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-2 py-1 text-center" onClick={(e) => e.stopPropagation()}>
                             <div className="flex flex-wrap gap-0.5 justify-center">
                               <button
                                 onClick={() => router.push(`/material-issue/${item.id}`)}

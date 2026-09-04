@@ -654,7 +654,7 @@ export default function InvoicePage() {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full text-[10px]">
+                <table className="w-full text-[11px]">
                   <thead className="bg-gray-100 border-b">
                     <tr>
                       <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">No. Invoice</th>
@@ -675,8 +675,8 @@ export default function InvoicePage() {
                         className="border-b hover:bg-gray-50 cursor-pointer"
                         onClick={() => openDetail(inv)}
                       >
-                        <td className="px-2 py-1.5 font-semibold text-primary whitespace-nowrap">{inv.invoice_number || "—"}</td>
-                        <td className="px-2 py-1.5">
+                        <td className="px-2 py-1 font-semibold text-primary whitespace-nowrap">{inv.invoice_number || "—"}</td>
+                        <td className="px-2 py-1">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
                             (inv.doc_type || "invoice") === "quotation"
                               ? "bg-purple-100 text-purple-700"
@@ -685,17 +685,17 @@ export default function InvoicePage() {
                             {(inv.doc_type || "invoice") === "quotation" ? "Quotation" : "Invoice"}
                           </span>
                         </td>
-                        <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{inv.invoice_date}</td>
-                        <td className="px-2 py-1.5 font-medium whitespace-nowrap">{inv.customer_name}</td>
-                        <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{inv.signature_store || "—"}</td>
-                        <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{inv.signature_pic || "—"}</td>
-                        <td className="px-2 py-1.5 font-semibold whitespace-nowrap">{formatRupiah(inv.subtotal)}</td>
-                        <td className="px-2 py-1.5">
+                        <td className="px-2 py-1 text-gray-600 whitespace-nowrap">{inv.invoice_date}</td>
+                        <td className="px-2 py-1 font-medium whitespace-nowrap">{inv.customer_name}</td>
+                        <td className="px-2 py-1 text-gray-600 whitespace-nowrap">{inv.signature_store || "—"}</td>
+                        <td className="px-2 py-1 text-gray-600 whitespace-nowrap">{inv.signature_pic || "—"}</td>
+                        <td className="px-2 py-1 font-semibold whitespace-nowrap">{formatRupiah(inv.subtotal)}</td>
+                        <td className="px-2 py-1">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${statusBadge(inv.status)}`}>
                             {statusLabel(inv.status)}
                           </span>
                         </td>
-                        <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
+                        <td className="px-2 py-1" onClick={e => e.stopPropagation()}>
                           <button
                             onClick={() => router.push(`/invoice/${inv.invoice_id}`)}
                             className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-[10px] hover:bg-gray-300 mr-1"
@@ -888,8 +888,8 @@ export default function InvoicePage() {
                     <tbody>
                       {formItems.map((item, i) => (
                         <tr key={i} className="border-b last:border-0">
-                          <td className="px-2 py-1.5 text-gray-400">{i + 1}</td>
-                          <td className="px-2 py-1.5 relative">
+                          <td className="px-2 py-1 text-gray-400">{i + 1}</td>
+                          <td className="px-2 py-1 relative">
                             <input
                               value={productSearch[i] ?? ""}
                               onChange={e => {
@@ -929,7 +929,7 @@ export default function InvoicePage() {
                               </div>
                             )}
                           </td>
-                          <td className="px-2 py-1.5">
+                          <td className="px-2 py-1">
                             <input
                               type="number"
                               min="1"
@@ -938,7 +938,7 @@ export default function InvoicePage() {
                               className="w-full px-2 py-1 border border-gray-200 rounded text-[11px] text-center focus:outline-none focus:ring-1 focus:ring-primary"
                             />
                           </td>
-                          <td className="px-2 py-1.5">
+                          <td className="px-2 py-1">
                             <input
                               type="number"
                               min="0"
@@ -947,10 +947,10 @@ export default function InvoicePage() {
                               className="w-full px-2 py-1 border border-gray-200 rounded text-[11px] text-right focus:outline-none focus:ring-1 focus:ring-primary"
                             />
                           </td>
-                          <td className="px-2 py-1.5 text-right font-semibold text-gray-700">
+                          <td className="px-2 py-1 text-right font-semibold text-gray-700">
                             {formatRupiah(item.qty * item.unit_price)}
                           </td>
-                          <td className="px-2 py-1.5">
+                          <td className="px-2 py-1">
                             {formItems.length > 1 && (
                               <button onClick={() => removeItem(i)} className="text-red-400 hover:text-red-600">
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1193,19 +1193,19 @@ export default function InvoicePage() {
                   <table className="w-full text-[11px]">
                     <thead className="bg-gray-50 border-b">
                       <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-600">Produk</th>
-                        <th className="px-3 py-2 text-center font-semibold text-gray-600">Qty</th>
-                        <th className="px-3 py-2 text-right font-semibold text-gray-600">Harga</th>
-                        <th className="px-3 py-2 text-right font-semibold text-gray-600">Total</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-600">Produk</th>
+                        <th className="px-2 py-1.5 text-center font-semibold text-gray-600">Qty</th>
+                        <th className="px-2 py-1.5 text-right font-semibold text-gray-600">Harga</th>
+                        <th className="px-2 py-1.5 text-right font-semibold text-gray-600">Total</th>
                       </tr>
                     </thead>
                     <tbody>
                       {selectedItems.map((it, i) => (
                         <tr key={i} className={`border-b last:border-0 ${i % 2 === 0 ? "bg-gray-50/50" : ""}`}>
-                          <td className="px-3 py-2">{it.product_name}</td>
-                          <td className="px-3 py-2 text-center">{it.qty}</td>
-                          <td className="px-3 py-2 text-right">{formatRupiah(it.unit_price)}</td>
-                          <td className="px-3 py-2 text-right font-semibold">{formatRupiah(it.total_price || 0)}</td>
+                          <td className="px-2 py-1">{it.product_name}</td>
+                          <td className="px-2 py-1 text-center">{it.qty}</td>
+                          <td className="px-2 py-1 text-right">{formatRupiah(it.unit_price)}</td>
+                          <td className="px-2 py-1 text-right font-semibold">{formatRupiah(it.total_price || 0)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1396,8 +1396,8 @@ export default function InvoicePage() {
                     <tbody>
                       {editItems.map((item, i) => (
                         <tr key={i} className="border-b last:border-0">
-                          <td className="px-2 py-1.5 text-gray-400">{i + 1}</td>
-                          <td className="px-2 py-1.5 relative">
+                          <td className="px-2 py-1 text-gray-400">{i + 1}</td>
+                          <td className="px-2 py-1 relative">
                             <input
                               value={editProductSearch[i] ?? item.product_name}
                               onChange={e => {
@@ -1437,7 +1437,7 @@ export default function InvoicePage() {
                               </div>
                             )}
                           </td>
-                          <td className="px-2 py-1.5">
+                          <td className="px-2 py-1">
                             <input
                               type="number"
                               min="1"
@@ -1446,7 +1446,7 @@ export default function InvoicePage() {
                               className="w-full px-2 py-1 border border-gray-200 rounded text-[11px] text-center focus:outline-none focus:ring-1 focus:ring-primary"
                             />
                           </td>
-                          <td className="px-2 py-1.5">
+                          <td className="px-2 py-1">
                             <input
                               type="number"
                               min="0"
@@ -1455,10 +1455,10 @@ export default function InvoicePage() {
                               className="w-full px-2 py-1 border border-gray-200 rounded text-[11px] text-right focus:outline-none focus:ring-1 focus:ring-primary"
                             />
                           </td>
-                          <td className="px-2 py-1.5 text-right font-semibold text-gray-700">
+                          <td className="px-2 py-1 text-right font-semibold text-gray-700">
                             {formatRupiah(item.qty * item.unit_price)}
                           </td>
-                          <td className="px-2 py-1.5">
+                          <td className="px-2 py-1">
                             {editItems.length > 1 && (
                               <button onClick={() => removeEditItem(i)} className="text-red-400 hover:text-red-600">
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -659,41 +659,41 @@ return (
               /* List View */
               <>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-[11px]">
                     <thead className="bg-gray-100 border-b">
                       <tr>
-                        <th className="px-2 py-2 text-center font-semibold text-gray-700 w-24">
+                        <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-24">
                           Phone
                         </th>
-                        <th className="px-2 py-2 text-center font-semibold text-gray-700 w-34">
+                        <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-34">
                           Customer
                         </th>
-                        <th className="px-2 py-2 text-center font-semibold text-gray-700 w-34">
+                        <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-34">
                           Store
                         </th>
-                        <th className="px-2 py-2 text-center font-semibold text-gray-700 w-20">
+                        <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-20">
                           Total Value
                         </th>
-                        <th className="px-2 py-2 text-center font-semibold text-gray-700 w-16">
+                        <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-16">
                           Total Order
                         </th>
                         {!isOwner && (
-                          <th className="px-2 py-2 text-center font-semibold text-gray-700 w-20">
+                          <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-20">
                             Average
                           </th>
                         )}
-                        <th className="px-2 py-2 text-center font-semibold text-gray-700 w-16">
+                        <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-16">
                           Followup
                         </th>
-                        <th className="px-2 py-2 text-center font-semibold text-gray-700">
+                        <th className="px-2 py-1.5 text-center font-semibold text-gray-700">
                           Result & Note
                         </th>
                         {!isOwner && (
                           <>
-                            <th className="px-2 py-2 text-center font-semibold text-gray-700 w-20">
+                            <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-20">
                               Update By
                             </th>
-                            <th className="px-2 py-2 text-center font-semibold text-gray-700 w-24">
+                            <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-24">
                               Update At
                             </th>
                           </>
@@ -757,7 +757,7 @@ return (
                                 {hasFollowup ? "✓" : "-"}
                               </span>
                             </td>
-                            <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+                            <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
                               <div className="flex flex-col items-center gap-1">
                                 {customer.result && (
                                   <div className="text-xs text-gray-700 font-medium">
@@ -889,21 +889,21 @@ return (
             ) : view === "report1" ? (
               /* Report 1: Date x Store */
               <div className="overflow-x-auto">
-                <table className="w-full text-xs">
+                <table className="w-full text-[11px]">
                   <thead className="bg-gray-100 border-b">
                     <tr>
-                      <th className="px-2 py-2 text-left font-semibold text-gray-700 sticky left-0 bg-gray-100">
+                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 sticky left-0 bg-gray-100">
                         Date
                       </th>
                       {STORE_LIST.map((store) => (
                         <th
                           key={store}
-                          className="px-2 py-2 text-center font-semibold text-gray-700"
+                          className="px-2 py-1.5 text-center font-semibold text-gray-700"
                         >
                           {store.replace("Torch ", "")}
                         </th>
                       ))}
-                      <th className="px-2 py-2 text-center font-semibold text-gray-700 bg-blue-50">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-700 bg-blue-50">
                         Total
                       </th>
                     </tr>
@@ -911,7 +911,7 @@ return (
                   <tbody>
                     {generateReport1Data().map((row, index) => (
                       <tr key={index} className="border-b hover:bg-gray-50">
-                        <td className="px-2 py-2 font-medium sticky left-0 bg-white">
+                        <td className="px-2 py-1 font-medium sticky left-0 bg-white">
                           {row.date}
                         </td>
                         {STORE_LIST.map((store) => {
@@ -919,13 +919,13 @@ return (
                           return (
                             <td
                               key={store}
-                              className={`px-2 py-2 text-center ${getCellColor(value)}`}
+                              className={`px-2 py-1 text-center ${getCellColor(value)}`}
                             >
                               {value}
                             </td>
                           );
                         })}
-                        <td className="px-2 py-2 text-center font-semibold text-blue-600 bg-blue-50">
+                        <td className="px-2 py-1 text-center font-semibold text-blue-600 bg-blue-50">
                           {row.total}
                         </td>
                       </tr>
@@ -941,13 +941,13 @@ return (
             ) : (
               /* Report 2: Store x Result */
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-[11px]">
                   <thead className="bg-gray-100 border-b">
                     <tr>
-                      <th className="px-3 py-2 text-left font-semibold text-gray-700">
+                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700">
                         Store
                       </th>
-                      <th className="px-3 py-2 text-center font-semibold text-gray-700">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-700">
                         Total Customer
                       </th>
                       {Array.from(
@@ -960,15 +960,15 @@ return (
                       ).map((result) => (
                         <th
                           key={result}
-                          className="px-3 py-2 text-center font-semibold text-gray-700"
+                          className="px-2 py-1.5 text-center font-semibold text-gray-700"
                         >
                           {result}
                         </th>
                       ))}
-                      <th className="px-3 py-2 text-center font-semibold text-gray-700 bg-green-50">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-700 bg-green-50">
                         Total
                       </th>
-                      <th className="px-3 py-2 text-center font-semibold text-gray-700 bg-blue-50">
+                      <th className="px-2 py-1.5 text-center font-semibold text-gray-700 bg-blue-50">
                         Percentage
                       </th>
                     </tr>
@@ -985,24 +985,24 @@ return (
                       );
                       return (
                         <tr key={index} className="border-b hover:bg-gray-50">
-                          <td className="px-3 py-2 font-medium">
+                          <td className="px-2 py-1 font-medium">
                             {row.store}
                           </td>
-                          <td className="px-3 py-2 text-center font-semibold">
+                          <td className="px-2 py-1 text-center font-semibold">
                             {row.totalCustomer}
                           </td>
                           {results.map((result) => (
                             <td
                               key={result}
-                              className="px-3 py-2 text-center"
+                              className="px-2 py-1 text-center"
                             >
                               {row[result] || 0}
                             </td>
                           ))}
-                          <td className="px-3 py-2 text-center font-semibold text-green-600 bg-green-50">
+                          <td className="px-2 py-1 text-center font-semibold text-green-600 bg-green-50">
                             {row.totalResults}
                           </td>
-                          <td className="px-3 py-2 text-center font-semibold text-blue-600 bg-blue-50">
+                          <td className="px-2 py-1 text-center font-semibold text-blue-600 bg-blue-50">
                             {row.percentage}
                           </td>
                         </tr>

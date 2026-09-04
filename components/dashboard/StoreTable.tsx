@@ -76,11 +76,11 @@ export function StoreTable({
         <EmptyState icon={MapPinned} message="Tidak ada store yang cocok" />
       ) : (
         <div className="max-h-[360px] overflow-auto rounded-xl border border-gray-100">
-          <table className="w-full text-xs">
+          <table className="w-full text-[11px]">
             <thead className="sticky top-0 z-10 bg-gray-50">
               <tr>
-                <th className="px-2 py-1.5 text-left font-medium text-gray-500">Store</th>
-                <th className="px-2 py-1.5 text-left font-medium text-gray-500">Kontak</th>
+                <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Store</th>
+                <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Kontak</th>
                 <th className="w-10 px-2 py-1.5"></th>
               </tr>
             </thead>

@@ -3,6 +3,7 @@
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { hasTextSelection } from "@/lib/utils";
 import Popup from "@/components/Popup";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
@@ -317,28 +318,28 @@ return (
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-[11px]">
                     <thead className="bg-gray-100 border-b">
                       <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Voucher Name</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Category</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Description</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Created At</th>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700">Actions</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Voucher Name</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Category</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Description</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Created At</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {currentItems.map((voucher, index) => (
                         <tr
                           key={index}
-                          onClick={() => router.push(`/voucher/${voucher.id}`)}
+                          onClick={() => { if (hasTextSelection()) return; router.push(`/voucher/${voucher.id}`); }}
                           className="border-b hover:bg-gray-50 cursor-pointer"
                         >
-                          <td className="px-3 py-2 font-medium">{voucher.voucher_name}</td>
-                          <td className="px-3 py-2">{voucher.category}</td>
-                          <td className="px-3 py-2">{voucher.description}</td>
-                          <td className="px-3 py-2">{voucher.created_at}</td>
-                          <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-2 py-1 font-medium">{voucher.voucher_name}</td>
+                          <td className="px-2 py-1">{voucher.category}</td>
+                          <td className="px-2 py-1">{voucher.description}</td>
+                          <td className="px-2 py-1">{voucher.created_at}</td>
+                          <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-1.5">
                               <button
                                 onClick={() => copyToClipboard(voucher.voucher_name)}

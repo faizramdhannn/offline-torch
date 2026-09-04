@@ -34,12 +34,12 @@ export function CanvasingTable({
   toTitleCase,
 }: CanvasingTableProps) {
   const thClass =
-    "px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-400 whitespace-nowrap";
+    "px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap";
   const tdClass = "px-2 py-1 whitespace-nowrap";
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[1280px] border-collapse text-xs">
+      <table className="w-full min-w-[1280px] border-collapse text-[11px]">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50/60">
             {HEADERS.map((h) => (
