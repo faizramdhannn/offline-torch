@@ -724,9 +724,6 @@ export default function AnalyticsOrderPage() {
   const [trafficMap, setTrafficMap] = useState<Record<string, string>>({});
   const [trafficMapLoading, setTrafficMapLoading] = useState(true);
   const [masterTrafficOpen, setMasterTrafficOpen] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [importMode, setImportMode] = useState<"append" | "refresh" | null>(null);
-  const [showImportModal, setShowImportModal] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
@@ -770,8 +767,6 @@ export default function AnalyticsOrderPage() {
   const [dateFrom, setDateFrom] = useState(getFirstOfMonthStr);
   const [dateTo, setDateTo] = useState(getTodayStr);
   const [stores, setStores] = useState<string[]>([]);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Close traffic dropdown on outside click
   useEffect(() => {
@@ -837,39 +832,6 @@ useEffect(() => {
   if (user) fetchData();
 }, [user, fetchData]);
 
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file || !importMode) return;
-  setShowImportModal(false);
-  setImporting(true);
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("mode", importMode);
-
-    const res = await fetch("/api/shopify-analytics", {
-      method: "POST",
-      body: formData,
-    });
-    const result = await res.json();
-    if (res.ok && result.success) {
-      showMessage(`Import berhasil!\n${result.message}`, "success");
-      await fetchData();
-    } else {
-      showMessage(result.error || "Import failed", "error");
-    }
-  } catch {
-    showMessage("Gagal import data", "error");
-  } finally {
-    setImporting(false);
-    setImportMode(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-};
-
-  const triggerImport = (mode: "append" | "refresh") => {
-    setImportMode(mode); setShowImportModal(true);
-  };
 
   const isTrafficActive = trafficFilter.length > 0;
   const isStoreActive = storeFilter.length > 0;
@@ -1310,28 +1272,27 @@ useEffect(() => {
           <div className="p-6">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold text-primary">Analytics Order</h1>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Analytics Order</h1>
+                <p className="mt-0.5 text-[11px] text-gray-400">
+                  Data order Shopify dari database — diimport lewat menu Customer.
+                </p>
+              </div>
               <div className="flex gap-1.5 items-center">
-                <input ref={fileInputRef} type="file" accept=".csv" onChange={handleImport} className="hidden" id="shopify-import" />
-                {importing ? (
-                  <span className="px-3 py-1.5 bg-gray-400 text-white rounded text-xs opacity-70 cursor-not-allowed">Importing...</span>
-                ) : (
-                  <>
-                    <Button onClick={() => triggerImport("append")} size="sm">
-                      + Tambah Data
-                    </Button>
-                    <Button onClick={() => triggerImport("refresh")} size="sm" className="bg-gray-700 border-gray-700 hover:bg-gray-600">
-                      ↺ Refresh Semua
-                    </Button>
-                    <button onClick={() => setMasterTrafficOpen(true)}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-300 text-gray-600 rounded text-xs hover:bg-gray-50 hover:border-gray-400 transition-colors font-medium">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                      </svg>
-                      Master Traffic
-                    </button>
-                  </>
-                )}
+                <button
+                  onClick={() => fetchData()}
+                  disabled={loading}
+                  className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                >
+                  ↺ {loading ? "Memuat..." : "Refresh"}
+                </button>
+                <button onClick={() => setMasterTrafficOpen(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-white border border-gray-200 text-gray-600 rounded-lg text-xs hover:bg-gray-50 hover:border-gray-300 transition-colors font-medium">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                  </svg>
+                  Master Traffic
+                </button>
               </div>
             </div>
 
@@ -1344,7 +1305,7 @@ useEffect(() => {
                     { label: "Total Orders (Offline)", value: totalOrders.toLocaleString(), color: "text-blue-600" },
                     { label: "Pakai Discount", value: totalDiscountUsed.toLocaleString(), color: "text-purple-600" },
                   ].map((c) => (
-                    <div key={c.label} className="bg-white rounded-lg shadow p-4">
+                    <div key={c.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                       <p className="text-xs text-gray-500 mb-1">{c.label}</p>
                       <p className={`text-xl font-bold ${c.color}`}>{c.value}</p>
                     </div>
@@ -2284,41 +2245,6 @@ useEffect(() => {
           onClose={() => setMasterTrafficOpen(false)}
           onSaved={() => fetchTrafficMap()}
         />
-
-        {showImportModal && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
-              <h2 className="text-base font-bold text-gray-800 mb-1">
-                {importMode === "append" ? "Tambah Data Baru" : "Refresh Semua Data"}
-              </h2>
-              <p className="text-xs text-gray-500 mb-5">
-                {importMode === "append"
-                  ? "Data baru akan ditambahkan ke data yang sudah ada. Data lama tidak akan terhapus. Duplikat (berdasarkan Order Name) akan diabaikan."
-                  : "Semua data yang ada akan dihapus dan diganti dengan data dari file ini. Gunakan ini jika ingin reset total."}
-              </p>
-              {importMode === "refresh" && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-5 flex gap-2">
-                  <span className="text-red-500 text-sm mt-0.5">⚠️</span>
-                  <p className="text-xs text-red-600"><strong>Perhatian:</strong> Seluruh data historis akan terhapus permanen dan diganti data dari file baru.</p>
-                </div>
-              )}
-              {importMode === "append" && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-5 flex gap-2">
-                  <span className="text-blue-500 text-sm mt-0.5">ℹ️</span>
-                  <p className="text-xs text-blue-600">Data yang sudah ada akan tetap tersimpan. Hanya order baru yang akan ditambahkan.</p>
-                </div>
-              )}
-              <label htmlFor="shopify-import"
-                className="block w-full text-center cursor-pointer px-4 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors mb-3">
-                Pilih File CSV
-              </label>
-              <Button onClick={() => { setShowImportModal(false); setImportMode(null); }}
-                variant="secondary" className="w-full justify-center">
-                Batal
-              </Button>
-            </div>
-          </div>
-        )}
 
         <OrderDetailPopup
           groupLabel={popupGroup?.label ?? null}

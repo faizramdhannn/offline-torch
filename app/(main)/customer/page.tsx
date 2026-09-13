@@ -6,9 +6,19 @@ import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
-import { Customer } from "@/types";
-import * as XLSX from "xlsx";
+import { Customer, CustomerBadge } from "@/types";
 import { Button } from "@/components/shared/Button";
+import { BadgeManagerModal } from "@/components/customer/BadgeManagerModal";
+import { ImportCsvModal } from "@/components/customer/ImportCsvModal";
+import { FollowupMessageModal } from "@/components/customer/FollowupMessageModal";
+import { ExportModal } from "@/components/customer/ExportModal";
+import { CopyButton } from "@/components/request-tracking/DomainBadges";
+import { CheckCircle2, Circle, MessageCircle } from "lucide-react";
+import * as XLSX from "xlsx";
+
+function formatRupiah(v: number) {
+  return "Rp" + Math.round(v).toLocaleString("id-ID");
+}
 
 const RESULT_OPTIONS = [
   "Terkirim",
@@ -17,27 +27,9 @@ const RESULT_OPTIONS = [
   "Merespon Tidak Membeli",
 ];
 
-const STORE_LIST = [
-  "Torch Cirebon",
-  "Torch Jogja",
-  "Torch Karawaci",
-  "Torch Karawang",
-  "Torch Lampung",
-  "Torch Lembong",
-  "Torch Makassar",
-  "Torch Malang",
-  "Torch Margonda",
-  "Torch Medan",
-  "Torch Pekalongan",
-  "Torch Purwokerto",
-  "Torch Surabaya",
-  "Torch Tambun",
-];
-
 export default function CustomerPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  const [view, setView] = useState<"list" | "report1" | "report2">("list");
   const [data, setData] = useState<Customer[]>([]);
   const [filteredData, setFilteredData] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,16 +51,30 @@ export default function CustomerPage() {
   const [followupKet, setFollowupKet] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  const [importing, setImporting] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showBadgeManager, setShowBadgeManager] = useState(false);
+  const [waModalCustomer, setWaModalCustomer] = useState<Customer | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [badgeMap, setBadgeMap] = useState<Record<string, CustomerBadge>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   const [searchQuery, setSearchQuery] = useState("");
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   const [selectedStores, setSelectedStores] = useState<string[]>([]);
   const [stores, setStores] = useState<string[]>([]);
   const [showStoreDropdown, setShowStoreDropdown] = useState(false);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [selectedBadges, setSelectedBadges] = useState<string[]>([]);
+  const [showBadgeDropdown, setShowBadgeDropdown] = useState(false);
+  const [valueMin, setValueMin] = useState("");
+  const [valueMax, setValueMax] = useState("");
+  const [orderMin, setOrderMin] = useState("");
+  const [orderMax, setOrderMax] = useState("");
+  const badgeDropdownRef = useRef<HTMLDivElement>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const itemsPerPage = 25;
 
   // Ref for dropdown to detect click outside
   const storeDropdownRef = useRef<HTMLDivElement>(null);
@@ -81,6 +87,12 @@ export default function CustomerPage() {
         !storeDropdownRef.current.contains(event.target as Node)
       ) {
         setShowStoreDropdown(false);
+      }
+      if (
+        badgeDropdownRef.current &&
+        !badgeDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowBadgeDropdown(false);
       }
     };
 
@@ -102,12 +114,27 @@ export default function CustomerPage() {
       return;
     }
     setUser(parsedUser);
-    fetchData(parsedUser.user_name);
+    fetchData(parsedUser.user_name, !!parsedUser.user_setting);
+    fetchBadgeMap();
   }, []);
 
   useEffect(() => {
     applyFilters();
-  }, [searchQuery, selectedStores, dateFrom, dateTo, data]);
+  }, [searchQuery, selectedStores, selectedBadges, valueMin, valueMax, orderMin, orderMax, data]);
+
+  const fetchBadgeMap = async () => {
+    try {
+      const response = await fetch("/api/customer/badges");
+      const result = await response.json();
+      const map: Record<string, CustomerBadge> = {};
+      (result.data || []).forEach((b: any) => {
+        map[b.badge_key] = { key: b.badge_key, label: b.label, type: b.badge_type, logo_url: b.logo_url || "" };
+      });
+      setBadgeMap(map);
+    } catch (error) {
+      console.error("Failed to fetch badge map:", error);
+    }
+  };
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);
@@ -133,11 +160,11 @@ export default function CustomerPage() {
     }
   };
 
-  const fetchData = async (username: string) => {
+  const fetchData = async (username: string, fullAccess?: boolean) => {
     try {
       setLoading(true);
       const response = await fetch(
-        `/api/customer?username=${username}&view=list`,
+        `/api/customer?username=${username}&view=list${fullAccess ? "&fullAccess=true" : ""}`,
       );
       const result = await response.json();
 
@@ -159,28 +186,67 @@ export default function CustomerPage() {
     }
   };
 
-  const parseDate = (dateString: string) => {
-    if (!dateString) return null;
-    const parts = dateString.split(",")[0].split(" ");
-    const months: { [key: string]: number } = {
-      Jan: 0,
-      Feb: 1,
-      Mar: 2,
-      Apr: 3,
-      May: 4,
-      Jun: 5,
-      Jul: 6,
-      Aug: 7,
-      Sep: 8,
-      Oct: 9,
-      Nov: 10,
-      Dec: 11,
-    };
-    return new Date(
-      parseInt(parts[2]),
-      months[parts[1]],
-      parseInt(parts[0]),
-    );
+  const handleImportShopifyCsv = async (file: File) => {
+    setImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/customer/import", {
+        method: "POST",
+        body: formData,
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        showMessage(result.error || "Gagal import data", "error");
+        return;
+      }
+
+      showMessage(
+        `Import selesai — ${result.total_orders_found} order dibaca (${result.inserted} baru, ${result.updated} diperbarui)`,
+        "success",
+      );
+      setShowImportModal(false);
+      await fetchData(user.user_name, !!user.user_setting);
+    } catch (error) {
+      showMessage("Gagal import data", "error");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleExport = async (from: string, to: string) => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams();
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+      const response = await fetch(`/api/customer/export?${params}`);
+      const result = await response.json();
+
+      if (!response.ok) {
+        showMessage(result.error || "Gagal export data", "error");
+        return;
+      }
+
+      if (!result.data || result.data.length === 0) {
+        showMessage("Tidak ada data untuk rentang tanggal ini", "error");
+        return;
+      }
+
+      const ws = XLSX.utils.json_to_sheet(result.data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Order Customer");
+      const suffix = from || to ? `_${from || "awal"}_${to || "akhir"}` : "";
+      XLSX.writeFile(wb, `customer_order_export${suffix}.xlsx`);
+
+      setShowExportModal(false);
+      await logActivity("GET", "Exported customer order data");
+    } catch (error) {
+      showMessage("Gagal export data", "error");
+    } finally {
+      setExporting(false);
+    }
   };
 
   const applyFilters = () => {
@@ -201,19 +267,31 @@ export default function CustomerPage() {
       );
     }
 
-    if (dateFrom) {
-      const fromDate = new Date(dateFrom);
+    if (selectedBadges.length > 0) {
+      filtered = filtered.filter((item) =>
+        (item.badges || []).some((b) => selectedBadges.includes(b)),
+      );
+    }
+
+    const min = valueMin ? parseFloat(valueMin) : null;
+    const max = valueMax ? parseFloat(valueMax) : null;
+    if (min !== null || max !== null) {
       filtered = filtered.filter((item) => {
-        const itemDate = parseDate(item.update_at);
-        return itemDate && itemDate >= fromDate;
+        const v = item.total_value_num ?? 0;
+        if (min !== null && v < min) return false;
+        if (max !== null && v > max) return false;
+        return true;
       });
     }
 
-    if (dateTo) {
-      const toDate = new Date(dateTo);
+    const oMin = orderMin ? parseFloat(orderMin) : null;
+    const oMax = orderMax ? parseFloat(orderMax) : null;
+    if (oMin !== null || oMax !== null) {
       filtered = filtered.filter((item) => {
-        const itemDate = parseDate(item.update_at);
-        return itemDate && itemDate <= toDate;
+        const o = Number(item.total_order) || 0;
+        if (oMin !== null && o < oMin) return false;
+        if (oMax !== null && o > oMax) return false;
+        return true;
       });
     }
 
@@ -224,8 +302,11 @@ export default function CustomerPage() {
   const resetFilters = () => {
     setSearchQuery("");
     setSelectedStores([]);
-    setDateFrom("");
-    setDateTo("");
+    setSelectedBadges([]);
+    setValueMin("");
+    setValueMax("");
+    setOrderMin("");
+    setOrderMax("");
     setFilteredData(data);
     setCurrentPage(1);
   };
@@ -236,9 +317,18 @@ export default function CustomerPage() {
     );
   };
 
-  const copyToClipboard = (text: string) => {
+  const toggleBadge = (badgeKey: string) => {
+    setSelectedBadges((prev) =>
+      prev.includes(badgeKey) ? prev.filter((b) => b !== badgeKey) : [...prev, badgeKey],
+    );
+  };
+
+  const copyToClipboard = (text: string, id?: string) => {
     navigator.clipboard.writeText(text);
-    showMessage("Copied to clipboard!", "success");
+    if (id) {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }
   };
 
   const openFollowupModal = (customer: Customer, rowIndex: number) => {
@@ -297,7 +387,7 @@ export default function CustomerPage() {
         await logActivity("PUT", `Updated customer followup`, selectedCustomer.phone_number);
         showMessage("Followup saved successfully", "success");
         closeFollowupModal();
-        fetchData(user.user_name);
+        fetchData(user.user_name, !!user.user_setting);
       } else {
         showMessage("Failed to save followup", "error");
       }
@@ -308,139 +398,16 @@ export default function CustomerPage() {
     }
   };
 
-  // Report 1: Date x Store matrix
-  const generateReport1Data = () => {
-    const dateStoreMap = new Map<string, Map<string, number>>();
-
-    filteredData.forEach((item) => {
-      if (!item.update_at) return;
-      const date = item.update_at.split(",")[0]; // Get date part only
-      const store = item.location_store;
-
-      if (!dateStoreMap.has(date)) {
-        dateStoreMap.set(date, new Map());
-      }
-
-      const storeMap = dateStoreMap.get(date)!;
-      storeMap.set(store, (storeMap.get(store) || 0) + 1);
-    });
-
-    const sortedDates = Array.from(dateStoreMap.keys()).sort((a, b) => {
-      const dateA = parseDate(a + ", 00:00");
-      const dateB = parseDate(b + ", 00:00");
-      return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
-    });
-
-    return sortedDates.map((date) => {
-      const storeMap = dateStoreMap.get(date)!;
-      const row: any = { date };
-
-      STORE_LIST.forEach((store) => {
-        row[store] = storeMap.get(store) || 0;
-      });
-
-      row.total = Array.from(storeMap.values()).reduce((a, b) => a + b, 0);
-
-      return row;
-    });
-  };
-
-  // Report 2: Store x Result matrix
-  const generateReport2Data = () => {
-    const storeCustomerCount = new Map<string, number>();
-    const storeResultMap = new Map<string, Map<string, number>>();
-
-    // Count total customers per store (including No Result)
-    filteredData.forEach((item) => {
-      const store = item.location_store;
-      storeCustomerCount.set(store, (storeCustomerCount.get(store) || 0) + 1);
-    });
-
-    // Count results per store (excluding No Result)
-    filteredData.forEach((item) => {
-      const store = item.location_store;
-      const result = item.result;
-
-      // Skip items without result (No Result)
-      if (!result || result.trim() === "") return;
-
-      if (!storeResultMap.has(store)) {
-        storeResultMap.set(store, new Map());
-      }
-
-      const resultMap = storeResultMap.get(store)!;
-      resultMap.set(result, (resultMap.get(result) || 0) + 1);
-    });
-
-    const allResults = new Set<string>();
-    storeResultMap.forEach((resultMap) => {
-      resultMap.forEach((_, result) => allResults.add(result));
-    });
-
-    const sortedResults = Array.from(allResults).sort();
-
-    return STORE_LIST.map((store) => {
-      const totalCustomer = storeCustomerCount.get(store) || 0;
-      const resultMap = storeResultMap.get(store);
-
-      const row: any = { 
-        store, 
-        totalCustomer 
-      };
-
-      sortedResults.forEach((result) => {
-        const count = resultMap?.get(result) || 0;
-        row[result] = count;
-      });
-
-      // Calculate total (sum of all results with actual result)
-      const totalResults = resultMap
-        ? Array.from(resultMap.values()).reduce((a, b) => a + b, 0)
-        : 0;
-      row.totalResults = totalResults;
-
-      // Calculate percentage (total results with actual result / total customers * 100)
-      row.percentage = totalCustomer > 0 
-        ? ((totalResults / totalCustomer) * 100).toFixed(1) + "%"
-        : "0%";
-
-      return row;
-    }).filter((row) => row.totalCustomer > 0);
-  };
-
-  const exportReport1ToExcel = () => {
-    const reportData = generateReport1Data();
-    const ws = XLSX.utils.json_to_sheet(reportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Date x Store Report");
-    XLSX.writeFile(
-      wb,
-      `customer_report_date_store_${new Date().toISOString().split("T")[0]}.xlsx`,
-    );
-    logActivity("GET", "Exported customer report 1 (Date x Store)");
-  };
-
-  const exportReport2ToExcel = () => {
-    const reportData = generateReport2Data();
-    const ws = XLSX.utils.json_to_sheet(reportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Store x Result Report");
-    XLSX.writeFile(
-      wb,
-      `customer_report_store_result_${new Date().toISOString().split("T")[0]}.xlsx`,
-    );
-    logActivity("GET", "Exported customer report 2 (Store x Result)");
-  };
-
-  // Get cell color based on value for Report 1
-  const getCellColor = (value: number) => {
-    if (value < 10) {
-      return "text-red-600 font-semibold"; // Solid red text
-    } else if (value >= 10) {
-      return "text-green-600 font-semibold"; // Solid green text
-    }
-    return ""; // Default (no color)
-  };
+  const badgeStats = Object.values(badgeMap).map((b) => {
+    const matching = filteredData.filter((c) => (c.badges || []).includes(b.key));
+    return {
+      badge: b,
+      count: matching.length,
+      totalOrder: matching.reduce((a, c) => a + (Number(c.total_order) || 0), 0),
+      totalQty: matching.reduce((a, c) => a + (Number(c.total_qty) || 0), 0),
+      totalValue: matching.reduce((a, c) => a + (c.total_value_num || 0), 0),
+    };
+  }).filter((s) => s.count > 0);
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -455,389 +422,363 @@ return (
 
       <div className="flex-1 overflow-auto">
         <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-primary">
-              {isOwner ? `${storeName} - Customer Data` : "Customer Management"}
-            </h1>
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">
+                {isOwner ? `${storeName} — Customer Data` : "Customer Management"}
+              </h1>
+              <p className="mt-0.5 text-[11px] text-gray-400">
+                {filteredData.length.toLocaleString("id-ID")} customer
+              </p>
+            </div>
 
             {!isOwner && (
               <div className="flex gap-2">
                 <button
-                  onClick={() => setView("list")}
-                  className={`px-4 py-2 rounded text-sm transition-colors ${
-                    view === "list"
-                      ? "bg-primary text-white"
-                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  }`}
+                  onClick={() => setShowImportModal(true)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-primary text-white hover:opacity-90"
+                  title="Upload file CSV export order dari Shopify"
                 >
-                  Customer List
+                  Import Shopify CSV
                 </button>
                 <button
-                  onClick={() => setView("report1")}
-                  className={`px-4 py-2 rounded text-sm transition-colors ${
-                    view === "report1"
-                      ? "bg-primary text-white"
-                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  }`}
+                  onClick={() => setShowBadgeManager(true)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  title="Kelola logo & SKU badge customer"
                 >
-                  Daily Store
+                  Kelola Badge
                 </button>
                 <button
-                  onClick={() => setView("report2")}
-                  className={`px-4 py-2 rounded text-sm transition-colors ${
-                    view === "report2"
-                      ? "bg-primary text-white"
-                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  }`}
+                  onClick={() => setShowExportModal(true)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  title="Export data order lengkap ke XLSX"
                 >
-                  Store Result
+                  Export
                 </button>
               </div>
             )}
           </div>
 
-          {/* Filters */}
-          <div className="bg-white rounded-lg shadow p-4 mb-4">
-            <div className="grid grid-cols-2 gap-3 mb-3 sm:grid-cols-4">
-              {view === "list" && (
-                <>
-                  {!isOwner && (
-                    <div className="relative" ref={storeDropdownRef}>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Store
-                      </label>
-                      <button
-                        onClick={() =>
-                          setShowStoreDropdown(!showStoreDropdown)
-                        }
-                        className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
-                      >
-                        <span className="text-gray-500">
-                          {selectedStores.length === 0
-                            ? "All stores..."
-                            : `${selectedStores.length} selected`}
-                        </span>
-                        <span className="text-gray-400">▼</span>
-                      </button>
-                      {showStoreDropdown && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
-                          {stores.map((store) => (
-                            <label
-                              key={store}
-                              className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedStores.includes(store)}
-                                onChange={() => toggleStore(store)}
-                                className="mr-2"
-                              />
-                              {store}
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div className={isOwner ? "col-span-4" : "col-span-3"}>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Search
-                    </label>
-                    <div className="relative">
-                      <input
-                        ref={searchRef}
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search by phone number or customer name..."
-                        className="w-full px-2 py-1.5 pr-11 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                      />
-                      <SearchShortcutHint label={shortcutLabel} />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {(view === "report1" || view === "report2") && (
-                <>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Date From
-                    </label>
-                    <input
-                      type="date"
-                      value={dateFrom}
-                      onChange={(e) => setDateFrom(e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Date To
-                    </label>
-                    <input
-                      type="date"
-                      value={dateTo}
-                      onChange={(e) => setDateTo(e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-                  <div className="relative" ref={storeDropdownRef}>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Store
-                    </label>
-                    <button
-                      onClick={() => setShowStoreDropdown(!showStoreDropdown)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-left flex justify-between items-center"
-                    >
-                      <span className="text-gray-500">
-                        {selectedStores.length === 0
-                          ? "All stores..."
-                          : `${selectedStores.length} selected`}
-                      </span>
-                      <span className="text-gray-400">▼</span>
-                    </button>
-                    {showStoreDropdown && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-y-auto">
-                        {stores.map((store) => (
-                          <label
-                            key={store}
-                            className="flex items-center text-xs px-3 py-2 cursor-pointer hover:bg-gray-50"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedStores.includes(store)}
-                              onChange={() => toggleStore(store)}
-                              className="mr-2"
-                            />
-                            {store}
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
+          {/* Analytics — mengikuti filter yang aktif */}
+          <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+            <div className="flex-none rounded-xl border border-gray-100 bg-white p-3 shadow-sm">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Total Customer</div>
+              <div className="mt-1 text-lg font-bold text-gray-900">
+                {filteredData.length.toLocaleString("id-ID")}
+              </div>
             </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={resetFilters}
-                variant="secondary"
-                size="sm"
+            {badgeStats.map(({ badge, count, totalOrder, totalQty, totalValue }) => (
+              <div
+                key={badge.key}
+                className="flex-none min-w-[168px] rounded-xl border border-gray-100 bg-white p-3 shadow-sm"
               >
-                Reset Filters
-              </Button>
-              {view === "report1" && (
-                <Button
-                  onClick={exportReport1ToExcel}
-                  variant="secondary"
-                  size="sm"
-                  className="ml-auto"
-                >
-                  Export XLSX
-                </Button>
-              )}
-              {view === "report2" && (
-                <Button
-                  onClick={exportReport2ToExcel}
-                  variant="secondary"
-                  size="sm"
-                  className="ml-auto"
-                >
-                  Export XLSX
-                </Button>
-              )}
-            </div>
+                <div className="flex items-center gap-1.5">
+                  {badge.logo_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={badge.logo_url} alt={badge.label} className="h-4 w-4 rounded-full object-cover" />
+                  )}
+                  <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                    {badge.label}
+                  </span>
+                </div>
+                <div className="mt-1 text-lg font-bold text-gray-900">{count}</div>
+                <div className="mt-0.5 text-[10px] text-gray-400">
+                  {totalOrder} order · {totalQty} qty · {formatRupiah(totalValue)}
+                </div>
+              </div>
+            ))}
           </div>
 
-          {/* Content Area */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          {/* Filters */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 mb-3 flex flex-wrap items-end gap-3">
+            {!isOwner && (
+              <div className="relative w-48" ref={storeDropdownRef}>
+                <label className="block text-[10px] font-medium text-gray-500 mb-1">
+                  Store
+                </label>
+                <button
+                  onClick={() => setShowStoreDropdown(!showStoreDropdown)}
+                  className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-[11px] bg-white text-left flex justify-between items-center hover:border-gray-300"
+                >
+                  <span className="text-gray-600">
+                    {selectedStores.length === 0
+                      ? "Semua toko"
+                      : `${selectedStores.length} dipilih`}
+                  </span>
+                  <span className="text-gray-400">▾</span>
+                </button>
+                {showStoreDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {stores.map((store) => (
+                      <label
+                        key={store}
+                        className="flex items-center text-[11px] px-3 py-2 cursor-pointer hover:bg-gray-50"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedStores.includes(store)}
+                          onChange={() => toggleStore(store)}
+                          className="mr-2"
+                        />
+                        {store}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="relative w-48" ref={badgeDropdownRef}>
+              <label className="block text-[10px] font-medium text-gray-500 mb-1">
+                Badge
+              </label>
+              <button
+                onClick={() => setShowBadgeDropdown(!showBadgeDropdown)}
+                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-[11px] bg-white text-left flex justify-between items-center hover:border-gray-300"
+              >
+                <span className="text-gray-600">
+                  {selectedBadges.length === 0
+                    ? "Semua badge"
+                    : `${selectedBadges.length} dipilih`}
+                </span>
+                <span className="text-gray-400">▾</span>
+              </button>
+              {showBadgeDropdown && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                  {Object.values(badgeMap).map((b) => (
+                    <label
+                      key={b.key}
+                      className="flex items-center gap-1.5 text-[11px] px-3 py-2 cursor-pointer hover:bg-gray-50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedBadges.includes(b.key)}
+                        onChange={() => toggleBadge(b.key)}
+                      />
+                      {b.logo_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={b.logo_url} alt={b.label} className="h-3.5 w-3.5 rounded-full object-cover" />
+                      )}
+                      {b.label}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="w-36">
+              <label className="block text-[10px] font-medium text-gray-500 mb-1">
+                Value Min
+              </label>
+              <input
+                type="number"
+                value={valueMin}
+                onChange={(e) => setValueMin(e.target.value)}
+                placeholder="0"
+                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <div className="w-36">
+              <label className="block text-[10px] font-medium text-gray-500 mb-1">
+                Value Max
+              </label>
+              <input
+                type="number"
+                value={valueMax}
+                onChange={(e) => setValueMax(e.target.value)}
+                placeholder="∞"
+                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+
+            <div className="w-32">
+              <label className="block text-[10px] font-medium text-gray-500 mb-1">
+                Order Min
+              </label>
+              <input
+                type="number"
+                value={orderMin}
+                onChange={(e) => setOrderMin(e.target.value)}
+                placeholder="0"
+                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <div className="w-32">
+              <label className="block text-[10px] font-medium text-gray-500 mb-1">
+                Order Max
+              </label>
+              <input
+                type="number"
+                value={orderMax}
+                onChange={(e) => setOrderMax(e.target.value)}
+                placeholder="∞"
+                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+
+            <div className="flex-1 min-w-[220px] max-w-xs">
+              <label className="block text-[10px] font-medium text-gray-500 mb-1">
+                Search
+              </label>
+              <div className="relative">
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Phone / nama customer"
+                  className="w-full px-2 py-1.5 pr-10 border border-gray-200 rounded-lg text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <SearchShortcutHint label={shortcutLabel} />
+              </div>
+            </div>
+
+            <Button onClick={resetFilters} variant="secondary" size="sm" className="ml-auto">
+              Reset
+            </Button>
+          </div>
+
+          {/* Content Area — compact list, ala Shopify customer list */}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             {loading ? (
-              <div className="p-8 text-center">Loading...</div>
-            ) : view === "list" ? (
-              /* List View */
+              <div className="p-8 text-center text-xs text-gray-400">Loading...</div>
+            ) : filteredData.length === 0 ? (
+              <div className="p-8 text-center text-xs text-gray-400">Tidak ada data</div>
+            ) : (
               <>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-[11px]">
-                    <thead className="bg-gray-100 border-b">
-                      <tr>
-                        <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-24">
-                          Phone
-                        </th>
-                        <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-34">
-                          Customer
-                        </th>
-                        <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-34">
-                          Store
-                        </th>
-                        <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-20">
-                          Total Value
-                        </th>
-                        <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-16">
-                          Total Order
-                        </th>
-                        {!isOwner && (
-                          <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-20">
-                            Average
-                          </th>
-                        )}
-                        <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-16">
-                          Followup
-                        </th>
-                        <th className="px-2 py-1.5 text-center font-semibold text-gray-700">
-                          Result & Note
-                        </th>
-                        {!isOwner && (
-                          <>
-                            <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-20">
-                              Update By
-                            </th>
-                            <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-24">
-                              Update At
-                            </th>
-                          </>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentItems.map((customer, index) => {
-                        const actualIndex = indexOfFirstItem + index;
-                        const hasFollowup =
-                          customer.followup === "TRUE" ||
-                          customer.followup === "True" ||
-                          customer.followup === "true";
-                        return (
-                          <tr
-                            key={actualIndex}
-                            onClick={() =>
-                              router.push(
-                                `/customer/${encodeURIComponent(customer.phone_number)}`,
-                              )
-                            }
-                            className={`border-b hover:bg-gray-50 cursor-pointer ${hasFollowup ? "bg-green-50" : ""}`}
+                <div className="min-w-[980px]">
+                  {/* Header */}
+                  <div className="flex items-center gap-3 border-b border-gray-100 bg-gray-50/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                    <div className="w-32 flex-none">Phone</div>
+                    <div className="flex-1 min-w-[120px]">Customer</div>
+                    <div className="flex-1 min-w-[140px]">Email</div>
+                    <div className="w-28 flex-none">Store</div>
+                    <div className="w-24 flex-none">Badge</div>
+                    <div className="w-20 flex-none text-right">Total Order</div>
+                    <div className="w-20 flex-none text-right">Qty Order</div>
+                    <div className="w-24 flex-none text-right">Total Value</div>
+                    <div className="w-24 flex-none text-right">First Purchase</div>
+                    <div className="w-24 flex-none text-right">Last Purchase</div>
+                    <div className="w-16 flex-none text-right">Aksi</div>
+                  </div>
+
+                  {currentItems.map((customer, index) => {
+                    const actualIndex = indexOfFirstItem + index;
+                    const hasFollowup =
+                      customer.followup === "TRUE" ||
+                      customer.followup === "True" ||
+                      customer.followup === "true";
+                    return (
+                      <div
+                        key={actualIndex}
+                        onClick={() =>
+                          router.push(`/customer/${encodeURIComponent(customer.phone_number)}`)
+                        }
+                        className={`flex items-center gap-3 border-b border-gray-50 px-3 py-1 text-[11px] cursor-pointer transition-colors hover:bg-gray-50 ${hasFollowup ? "bg-green-50/50" : ""}`}
+                      >
+                        <div
+                          className="flex w-32 flex-none items-center gap-1 whitespace-nowrap"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <span className="truncate text-gray-600" title={customer.phone_number}>
+                            {customer.phone_number}
+                          </span>
+                          <CopyButton
+                            text={customer.phone_number}
+                            id={`phone-${actualIndex}`}
+                            copiedId={copiedId}
+                            onCopy={copyToClipboard}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-[120px] truncate font-medium text-gray-800" title={customer.customer_name}>
+                          {customer.customer_name || "-"}
+                        </div>
+                        <div className="flex-1 min-w-[140px] truncate text-gray-500" title={customer.email}>
+                          {customer.email || "-"}
+                        </div>
+                        <div className="w-28 flex-none truncate text-gray-500" title={customer.location_store}>
+                          {customer.location_store}
+                        </div>
+                        <div className="flex w-24 flex-none items-center gap-1">
+                          {(customer.badges || []).map((key) => {
+                            const b = badgeMap[key];
+                            if (!b || !b.logo_url) return null;
+                            return (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                key={key}
+                                src={b.logo_url}
+                                alt={b.label}
+                                title={b.label}
+                                className="h-5 w-5 flex-none rounded-full object-cover ring-1 ring-gray-100"
+                              />
+                            );
+                          })}
+                        </div>
+                        <div className="w-20 flex-none text-right text-gray-700">{customer.total_order}</div>
+                        <div className="w-20 flex-none text-right text-gray-700">{customer.total_qty || 0}</div>
+                        <div className="w-24 flex-none text-right font-semibold text-gray-800">{customer.total_value}</div>
+                        <div className="w-24 flex-none text-right text-gray-500">{customer.first_purchase || "-"}</div>
+                        <div className="w-24 flex-none text-right text-gray-500">{customer.last_purchase || "-"}</div>
+
+                        <div
+                          className="flex w-16 flex-none items-center justify-end gap-1.5"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <span title={hasFollowup ? "Followup selesai" : "Belum followup"}>
+                            {hasFollowup ? (
+                              <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                            ) : (
+                              <Circle className="h-3.5 w-3.5 text-gray-300" />
+                            )}
+                          </span>
+                          {customer.link_url && customer.link_url.trim() !== "" && (
+                            <a
+                              href={customer.link_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-blue-600 hover:underline"
+                            >
+                              View
+                            </a>
+                          )}
+                          <button
+                            onClick={() => setWaModalCustomer(customer)}
+                            title="Followup via WhatsApp"
+                            className="rounded p-1 text-green-600 hover:bg-green-50"
                           >
-                            <td className="px-2 text-center py-2" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center justify-center gap-1">
-                                <span className="text-xs">
-                                  {customer.phone_number}
-                                </span>
-                                <button
-                                  onClick={() =>
-                                    copyToClipboard(customer.phone_number)
-                                  }
-                                  className="text-blue-600 hover:text-blue-800 text-xs"
-                                  title="Copy phone number"
-                                >
-                                  📋
-                                </button>
-                              </div>
-                            </td>
-                            <td className="px-2 text-center py-2 text-xs">
-                              {customer.customer_name}
-                            </td>
-                            <td className="px-2 text-center py-2 text-xs">
-                              {customer.location_store}
-                            </td>
-                            <td className="px-2 text-center py-2 text-xs">
-                              {customer.total_value}
-                            </td>
-                            <td className="px-2 text-center py-2 text-xs">
-                              {customer.total_order}
-                            </td>
-                            {!isOwner && (
-                              <td className="px-2 text-center py-2 text-xs">
-                                {customer.average_value}
-                              </td>
-                            )}
-                            <td className="px-2 text-center py-2">
-                              <span
-                                className={`text-xs ${hasFollowup ? "text-green-600 font-semibold" : "text-gray-400"}`}
-                              >
-                                {hasFollowup ? "✓" : "-"}
-                              </span>
-                            </td>
-                            <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex flex-col items-center gap-1">
-                                {customer.result && (
-                                  <div className="text-xs text-gray-700 font-medium">
-                                    {customer.result}
-                                  </div>
-                                )}
-                                {customer.ket && (
-                                  <div
-                                    className="text-xs text-gray-600 italic max-w-xs truncate"
-                                    title={customer.ket}
-                                  >
-                                    {customer.ket}
-                                  </div>
-                                )}
-
-                                <div className="flex items-center gap-1 mt-1">
-                                  {customer.link_url &&
-                                    customer.link_url.trim() !== "" && (
-                                      <a
-                                        href={customer.link_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:underline text-xs"
-                                      >
-                                        View
-                                      </a>
-                                    )}
-
-                                  {isOwner && (
-                                    <Button
-                                      onClick={() =>
-                                        openFollowupModal(customer, actualIndex)
-                                      }
-                                      size="sm"
-                                      className="text-xs px-2 py-1 h-auto"
-                                    >
-                                      {hasFollowup ? "Edit" : "Add"}
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                            {!isOwner && (
-                              <>
-                                <td className="px-2 text-center py-2 text-xs">
-                                  {customer.update_by || "-"}
-                                </td>
-                                <td className="px-2 text-center py-2 text-xs">
-                                  {customer.update_at || "-"}
-                                </td>
-                              </>
-                            )}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  {filteredData.length === 0 && (
-                    <div className="p-8 text-center text-gray-500">
-                      No data available
-                    </div>
-                  )}
+                            <MessageCircle className="h-3.5 w-3.5" />
+                          </button>
+                          {isOwner && (
+                            <Button
+                              onClick={() => openFollowupModal(customer, actualIndex)}
+                              size="sm"
+                              className="h-auto px-2 py-1 text-[10px]"
+                            >
+                              {hasFollowup ? "Edit" : "Add"}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
                 </div>
 
                 {totalPages > 1 && (
-                  <div className="flex justify-between items-center px-4 py-3 border-t">
-                    <div className="text-xs text-gray-600">
-                      Showing {indexOfFirstItem + 1} to{" "}
-                      {Math.min(indexOfLastItem, filteredData.length)} of{" "}
-                      {filteredData.length} entries
+                  <div className="flex justify-between items-center px-3 py-2 border-t">
+                    <div className="text-[10px] text-gray-500">
+                      {indexOfFirstItem + 1}–{Math.min(indexOfLastItem, filteredData.length)} of{" "}
+                      {filteredData.length}
                     </div>
                     <div className="flex gap-1">
                       <button
-                        onClick={() =>
-                          setCurrentPage((prev) => Math.max(1, prev - 1))
-                        }
+                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                         disabled={currentPage === 1}
-                        className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                        className="px-2 py-1 text-[10px] border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                       >
-                        Previous
+                        Prev
                       </button>
                       {[...Array(totalPages)].map((_, i) => {
                         const page = i + 1;
@@ -850,21 +791,16 @@ return (
                             <button
                               key={page}
                               onClick={() => setCurrentPage(page)}
-                              className={`px-3 py-1 text-xs border rounded ${
-                                currentPage === page
-                                  ? "bg-primary text-white"
-                                  : "hover:bg-gray-50"
+                              className={`px-2 py-1 text-[10px] border rounded ${
+                                currentPage === page ? "bg-primary text-white" : "hover:bg-gray-50"
                               }`}
                             >
                               {page}
                             </button>
                           );
-                        } else if (
-                          page === currentPage - 2 ||
-                          page === currentPage + 2
-                        ) {
+                        } else if (page === currentPage - 2 || page === currentPage + 2) {
                           return (
-                            <span key={page} className="px-2">
+                            <span key={page} className="px-1 text-[10px]">
                               ...
                             </span>
                           );
@@ -872,13 +808,9 @@ return (
                         return null;
                       })}
                       <button
-                        onClick={() =>
-                          setCurrentPage((prev) =>
-                            Math.min(totalPages, prev + 1),
-                          )
-                        }
+                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                         disabled={currentPage === totalPages}
-                        className="px-3 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                        className="px-2 py-1 text-[10px] border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                       >
                         Next
                       </button>
@@ -886,136 +818,6 @@ return (
                   </div>
                 )}
               </>
-            ) : view === "report1" ? (
-              /* Report 1: Date x Store */
-              <div className="overflow-x-auto">
-                <table className="w-full text-[11px]">
-                  <thead className="bg-gray-100 border-b">
-                    <tr>
-                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 sticky left-0 bg-gray-100">
-                        Date
-                      </th>
-                      {STORE_LIST.map((store) => (
-                        <th
-                          key={store}
-                          className="px-2 py-1.5 text-center font-semibold text-gray-700"
-                        >
-                          {store.replace("Torch ", "")}
-                        </th>
-                      ))}
-                      <th className="px-2 py-1.5 text-center font-semibold text-gray-700 bg-blue-50">
-                        Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {generateReport1Data().map((row, index) => (
-                      <tr key={index} className="border-b hover:bg-gray-50">
-                        <td className="px-2 py-1 font-medium sticky left-0 bg-white">
-                          {row.date}
-                        </td>
-                        {STORE_LIST.map((store) => {
-                          const value = row[store] || 0;
-                          return (
-                            <td
-                              key={store}
-                              className={`px-2 py-1 text-center ${getCellColor(value)}`}
-                            >
-                              {value}
-                            </td>
-                          );
-                        })}
-                        <td className="px-2 py-1 text-center font-semibold text-blue-600 bg-blue-50">
-                          {row.total}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {generateReport1Data().length === 0 && (
-                  <div className="p-8 text-center text-gray-500">
-                    No data available
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* Report 2: Store x Result */
-              <div className="overflow-x-auto">
-                <table className="w-full text-[11px]">
-                  <thead className="bg-gray-100 border-b">
-                    <tr>
-                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700">
-                        Store
-                      </th>
-                      <th className="px-2 py-1.5 text-center font-semibold text-gray-700">
-                        Total Customer
-                      </th>
-                      {Array.from(
-                        new Set(
-                          filteredData
-                            .map((item) => item.result)
-                            .filter((result) => result && result.trim() !== "")
-                            .sort(),
-                        ),
-                      ).map((result) => (
-                        <th
-                          key={result}
-                          className="px-2 py-1.5 text-center font-semibold text-gray-700"
-                        >
-                          {result}
-                        </th>
-                      ))}
-                      <th className="px-2 py-1.5 text-center font-semibold text-gray-700 bg-green-50">
-                        Total
-                      </th>
-                      <th className="px-2 py-1.5 text-center font-semibold text-gray-700 bg-blue-50">
-                        Percentage
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {generateReport2Data().map((row, index) => {
-                      const results = Array.from(
-                        new Set(
-                          filteredData
-                            .map((item) => item.result)
-                            .filter((result) => result && result.trim() !== "")
-                            .sort(),
-                        ),
-                      );
-                      return (
-                        <tr key={index} className="border-b hover:bg-gray-50">
-                          <td className="px-2 py-1 font-medium">
-                            {row.store}
-                          </td>
-                          <td className="px-2 py-1 text-center font-semibold">
-                            {row.totalCustomer}
-                          </td>
-                          {results.map((result) => (
-                            <td
-                              key={result}
-                              className="px-2 py-1 text-center"
-                            >
-                              {row[result] || 0}
-                            </td>
-                          ))}
-                          <td className="px-2 py-1 text-center font-semibold text-green-600 bg-green-50">
-                            {row.totalResults}
-                          </td>
-                          <td className="px-2 py-1 text-center font-semibold text-blue-600 bg-blue-50">
-                            {row.percentage}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {generateReport2Data().length === 0 && (
-                  <div className="p-8 text-center text-gray-500">
-                    No data available
-                  </div>
-                )}
-              </div>
             )}
           </div>
         </div>
@@ -1139,6 +941,40 @@ return (
         type={popupType}
         onClose={() => setShowPopup(false)}
       />
+
+      {showBadgeManager && (
+        <BadgeManagerModal
+          onClose={() => setShowBadgeManager(false)}
+          onChanged={() => {
+            fetchData(user.user_name, !!user.user_setting);
+            fetchBadgeMap();
+          }}
+        />
+      )}
+
+      {showImportModal && (
+        <ImportCsvModal
+          importing={importing}
+          onClose={() => setShowImportModal(false)}
+          onImport={handleImportShopifyCsv}
+        />
+      )}
+
+      {waModalCustomer && (
+        <FollowupMessageModal
+          customer={waModalCustomer}
+          username={user.user_name}
+          onClose={() => setWaModalCustomer(null)}
+        />
+      )}
+
+      {showExportModal && (
+        <ExportModal
+          exporting={exporting}
+          onClose={() => setShowExportModal(false)}
+          onExport={handleExport}
+        />
+      )}
     </div>
   </div>
   );

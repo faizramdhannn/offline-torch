@@ -92,12 +92,25 @@ export interface PettyCash {
   update_at: string;
 }
 
+export interface CustomerBadge {
+  key: string;
+  label: string;
+  type: string; // 'tier' | 'bulk' | 'collection'
+  logo_url: string;
+}
+
 export interface Customer {
   phone_number: string;
   customer_name: string;
+  email?: string;
   location_store: string;
   total_order: string;
+  total_qty?: string;
   total_value: string;
+  total_value_num?: number;
+  first_purchase?: string;
+  last_purchase?: string;
+  last_purchase_iso?: string;
   average_value: string;
   followup: string;
   result: string;
@@ -105,6 +118,7 @@ export interface Customer {
   link_url: string;
   update_by: string;
   update_at: string;
+  badges?: string[];
 }
 
 export interface Voucher {
