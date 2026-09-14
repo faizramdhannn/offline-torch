@@ -42,10 +42,8 @@ import { ImportModal } from "@/components/stock/ImportModal";
 import { QRLabelPopup } from "@/components/stock/QRLabelPopup";
 import { StoreBreakdownModal } from "@/components/stock/StoreBreakdownModal";
 import { StockSummaryStoreModal } from "@/components/stock/StockSummaryStoreModal";
-import { PriceRangeSlider } from "@/components/stock/PriceRangeSlider";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { TableSkeletonRows } from "@/components/dashboard/LoadingSkeleton";
-import { cn } from "@/lib/utils";
 import {
   CustomXTick,
   CustomTooltip,
@@ -207,9 +205,10 @@ export default function StockPage() {
   const [warehouseFilter, setWarehouseFilter] = useState<string[]>(
     searchParams.get("wh")?.split(",").filter(Boolean) ?? [],
   );
-  // Price range filter (HPJ) — [min, max] in Rupiah. null = not yet initialized from data.
-  const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
-  const [priceBounds, setPriceBounds] = useState<[number, number]>([0, 0]);
+  // Price range filter (HPJ) — sama seperti Value Min/Max di Customer
+  // Segmentation: input angka bebas, kosong = tidak dibatasi.
+  const [priceMin, setPriceMin] = useState(searchParams.get("pmin") ?? "");
+  const [priceMax, setPriceMax] = useState(searchParams.get("pmax") ?? "");
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
   const { ref: searchInputRef, shortcutLabel } = useSearchShortcut();
 
@@ -293,7 +292,7 @@ export default function StockPage() {
   }, []);
 
   useEffect(() => { fetchData(); }, [selectedView]);
-  useEffect(() => { applyFilters(); }, [categoryFilter, gradeFilter, tierFilter, tierPhaseFilter, warehouseFilter, priceRange, searchQuery, data, sortColumn, sortDirection]);
+  useEffect(() => { applyFilters(); }, [categoryFilter, gradeFilter, tierFilter, tierPhaseFilter, warehouseFilter, priceMin, priceMax, searchQuery, data, sortColumn, sortDirection]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -302,10 +301,12 @@ export default function StockPage() {
     if (tierFilter.length > 0) params.set("tier", tierFilter.join(","));
     if (tierPhaseFilter.length > 0) params.set("tierphase", tierPhaseFilter.join(","));
     if (warehouseFilter.length > 0) params.set("wh", warehouseFilter.join(","));
+    if (priceMin) params.set("pmin", priceMin);
+    if (priceMax) params.set("pmax", priceMax);
     if (searchQuery) params.set("q", searchQuery);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [categoryFilter, gradeFilter, tierFilter, tierPhaseFilter, warehouseFilter, searchQuery, pathname, router]);
+  }, [categoryFilter, gradeFilter, tierFilter, tierPhaseFilter, warehouseFilter, priceMin, priceMax, searchQuery, pathname, router]);
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);
@@ -349,13 +350,6 @@ export default function StockPage() {
       if (selectedView === "store")
         setWarehouses([...new Set(normalizedData.map((i: StockItem) => i.warehouse))].filter(Boolean) as string[]);
 
-      const hpjValues = normalizedData
-        .map((i: StockItem) => parseHarga(i.hpj))
-        .filter((v: number) => v > 0);
-      const minPrice = hpjValues.length ? Math.min(...hpjValues) : 0;
-      const maxPrice = hpjValues.length ? Math.max(...hpjValues) : 0;
-      setPriceBounds([minPrice, maxPrice]);
-      setPriceRange([minPrice, maxPrice]);
   };
 
   const fetchStockFromServer = async (sheetName: string, silent: boolean) => {
@@ -515,12 +509,14 @@ export default function StockPage() {
       filtered = filtered.filter((i) => tierPhaseFilter.includes(i.tier_phase) || (tierPhaseFilter.includes(EMPTY_FILTER_VALUE) && !i.tier_phase));
     if (selectedView === "store" && warehouseFilter.length > 0)
       filtered = filtered.filter((i) => i.warehouse && warehouseFilter.includes(i.warehouse));
-    if (priceRange && (priceRange[0] > priceBounds[0] || priceRange[1] < priceBounds[1])) {
-      const [lo, hi] = priceRange;
+    const priceMinNum = priceMin ? parseFloat(priceMin) : null;
+    const priceMaxNum = priceMax ? parseFloat(priceMax) : null;
+    if (priceMinNum !== null || priceMaxNum !== null) {
       filtered = filtered.filter((i) => {
         const hpjValue = parseHarga(i.hpj);
-        if (hpjValue <= 0) return false;
-        return hpjValue >= lo && hpjValue <= hi;
+        if (priceMinNum !== null && hpjValue < priceMinNum) return false;
+        if (priceMaxNum !== null && hpjValue > priceMaxNum) return false;
+        return true;
       });
     }
     if (searchQuery) {
@@ -565,7 +561,7 @@ export default function StockPage() {
 
   const resetFilters = () => {
     setCategoryFilter([]); setGradeFilter([]); setTierFilter([]); setTierPhaseFilter([]); setWarehouseFilter([]);
-    setPriceRange(priceBounds[1] > 0 ? [priceBounds[0], priceBounds[1]] : null);
+    setPriceMin(""); setPriceMax("");
     setSearchQuery(""); setSortColumn(null); setSortDirection("asc");
     setFilteredData(data); setCurrentPage(1);
   };
@@ -1037,55 +1033,89 @@ export default function StockPage() {
 
         {/* ── Filters ─────────────────────────────────────────────────── */}
         <div className="mb-4 rounded-2xl border border-gray-200/80 bg-white p-4">
-          <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-7">
-            <FilterDropdown
-              label="Category"
-              options={categories}
-              selected={categoryFilter}
-              onToggle={toggleCategory}
-              open={showCategoryDropdown}
-              onOpenChange={setShowCategoryDropdown}
-              containerRef={categoryDropdownRef}
-            />
-            <FilterDropdown
-              label="Grade"
-              options={grades}
-              selected={gradeFilter}
-              onToggle={toggleGrade}
-              open={showGradeDropdown}
-              onOpenChange={setShowGradeDropdown}
-              containerRef={gradeDropdownRef}
-            />
-            <FilterDropdown
-              label="Tier Product"
-              options={tiers}
-              selected={tierFilter}
-              onToggle={toggleTier}
-              open={showTierDropdown}
-              onOpenChange={setShowTierDropdown}
-              containerRef={tierDropdownRef}
-            />
-            <FilterDropdown
-              label="Tier Phase"
-              options={tierPhases}
-              selected={tierPhaseFilter}
-              onToggle={toggleTierPhase}
-              open={showTierPhaseDropdown}
-              onOpenChange={setShowTierPhaseDropdown}
-              containerRef={tierPhaseDropdownRef}
-            />
-            {selectedView === "store" && (
+          <div className="mb-3 flex flex-wrap items-end gap-2">
+            <div className="w-36">
               <FilterDropdown
-                label="Warehouse"
-                options={warehouses}
-                selected={warehouseFilter}
-                onToggle={toggleWarehouse}
-                open={showWarehouseDropdown}
-                onOpenChange={setShowWarehouseDropdown}
-                containerRef={warehouseDropdownRef}
+                label="Category"
+                options={categories}
+                selected={categoryFilter}
+                onToggle={toggleCategory}
+                open={showCategoryDropdown}
+                onOpenChange={setShowCategoryDropdown}
+                containerRef={categoryDropdownRef}
               />
+            </div>
+            <div className="w-36">
+              <FilterDropdown
+                label="Grade"
+                options={grades}
+                selected={gradeFilter}
+                onToggle={toggleGrade}
+                open={showGradeDropdown}
+                onOpenChange={setShowGradeDropdown}
+                containerRef={gradeDropdownRef}
+              />
+            </div>
+            <div className="w-36">
+              <FilterDropdown
+                label="Tier Product"
+                options={tiers}
+                selected={tierFilter}
+                onToggle={toggleTier}
+                open={showTierDropdown}
+                onOpenChange={setShowTierDropdown}
+                containerRef={tierDropdownRef}
+              />
+            </div>
+            <div className="w-36">
+              <FilterDropdown
+                label="Tier Phase"
+                options={tierPhases}
+                selected={tierPhaseFilter}
+                onToggle={toggleTierPhase}
+                open={showTierPhaseDropdown}
+                onOpenChange={setShowTierPhaseDropdown}
+                containerRef={tierPhaseDropdownRef}
+              />
+            </div>
+            {selectedView === "store" && (
+              <div className="w-36">
+                <FilterDropdown
+                  label="Warehouse"
+                  options={warehouses}
+                  selected={warehouseFilter}
+                  onToggle={toggleWarehouse}
+                  open={showWarehouseDropdown}
+                  onOpenChange={setShowWarehouseDropdown}
+                  containerRef={warehouseDropdownRef}
+                />
+              </div>
             )}
-            <div className={cn("col-span-2 sm:col-span-3", selectedView === "store" ? "lg:col-span-2" : "lg:col-span-3")}>
+            {!!user.stock_view_hpj && (
+              <>
+                <div className="w-28">
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Harga Min</label>
+                  <input
+                    type="number"
+                    value={priceMin}
+                    onChange={(e) => setPriceMin(e.target.value)}
+                    placeholder="0"
+                    className="min-h-[36px] w-full rounded-lg border border-gray-200 px-2 py-2 text-xs outline-none transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/10 sm:py-1.5"
+                  />
+                </div>
+                <div className="w-28">
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Harga Max</label>
+                  <input
+                    type="number"
+                    value={priceMax}
+                    onChange={(e) => setPriceMax(e.target.value)}
+                    placeholder="∞"
+                    className="min-h-[36px] w-full rounded-lg border border-gray-200 px-2 py-2 text-xs outline-none transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/10 sm:py-1.5"
+                  />
+                </div>
+              </>
+            )}
+            <div className="min-w-[200px] flex-1">
               <label className="mb-1 block text-xs font-medium text-gray-600">Search</label>
               <div className="relative">
                 <input
@@ -1102,18 +1132,6 @@ export default function StockPage() {
               </div>
             </div>
           </div>
-
-          {user.stock_view_hpj && priceRange && priceBounds[1] > 0 && (
-            <div className="mb-3 rounded-xl border border-gray-100 bg-gray-50/40 p-3">
-              <PriceRangeSlider
-                label="Range Harga (HPJ)"
-                min={priceBounds[0]}
-                max={priceBounds[1]}
-                value={priceRange}
-                onChange={setPriceRange}
-              />
-            </div>
-          )}
 
           <Button variant="outline" size="sm" icon={RotateCcw} onClick={resetFilters}>
             Reset Filter
