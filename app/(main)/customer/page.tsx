@@ -703,7 +703,7 @@ return (
             ) : (
               <>
                 <div className="overflow-x-auto">
-                <div className="min-w-[980px]">
+                <div className="min-w-[1050px]">
                   {/* Header — klik untuk sort asc/desc */}
                   <div className="flex items-center gap-3 border-b border-gray-100 bg-gray-50/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
                     <button onClick={() => toggleSort("phone_number")} className="flex w-32 flex-none items-center gap-1 hover:text-gray-600">
@@ -734,7 +734,7 @@ return (
                     <button onClick={() => toggleSort("last_purchase")} className="flex w-24 flex-none items-center justify-end gap-1 hover:text-gray-600">
                       Last Purchase <SortIcon active={sortKey === "last_purchase"} />
                     </button>
-                    <div className="w-16 flex-none text-right">Aksi</div>
+                    <div className="w-32 flex-none text-right">Aksi</div>
                   </div>
 
                   {currentItems.map((customer, index) => {
@@ -797,7 +797,7 @@ return (
                         <div className="w-24 flex-none text-right text-gray-500">{customer.last_purchase || "-"}</div>
 
                         <div
-                          className="flex w-16 flex-none items-center justify-end gap-1.5"
+                          className="flex w-32 flex-none items-center justify-end gap-1.5"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <span title={hasFollowup ? "Followup selesai" : "Belum followup"}>
