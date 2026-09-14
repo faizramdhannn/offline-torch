@@ -247,7 +247,7 @@ export function StockTable({
   const showStockColumn = selectedView === "store" || (selectedView === "pca" && showStockPca);
 
   const columnCount =
-    7 + // Img, SKU, Product Name, Category, Grade, Tier Product, Tier Phase
+    8 + // Img, SKU, Product Name, Category, Grade, Tier Product, Tier Phase, Barcode
     (showStockColumn ? 1 : 0) + // Stock
     (selectedView === "pca" ? 1 : 0) + // Threshold
     (selectedView === "store" ? 1 : 0) + // Warehouse
@@ -279,6 +279,7 @@ export function StockTable({
             {showHpp && <SortableTh label="HPP" column="hpp" {...thProps} />}
             {showHpt && <SortableTh label="HPT" column="hpt" {...thProps} />}
             {showHpj && <SortableTh label="HPJ" column="hpj" {...thProps} />}
+            <th className="w-9 px-2 py-1.5 text-center font-semibold text-gray-600">Barcode</th>
           </tr>
         </thead>
         <tbody>
@@ -358,6 +359,15 @@ export function StockTable({
                   formatRupiah={formatRupiah}
                 />
               )}
+              <td className="px-2 py-1 text-center" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => onBarcodeClick(item)}
+                  title="Lihat Barcode"
+                  className="inline-flex items-center justify-center rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-primary"
+                >
+                  <QrCode className="h-4 w-4" />
+                </button>
+              </td>
             </tr>
             {isExpanded && (
               <tr className="border-b border-gray-100 bg-primary/5">
@@ -380,12 +390,6 @@ export function StockTable({
                       className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
                     >
                       <Eye className="h-3.5 w-3.5" /> Detail
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onBarcodeClick(item); }}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                    >
-                      <QrCode className="h-3.5 w-3.5" /> Barcode
                     </button>
                     {canViewStoreBreakdown && onShowStoreBreakdown && (
                       <button
