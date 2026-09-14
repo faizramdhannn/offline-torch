@@ -32,7 +32,7 @@ const STORE_LIST = [
   "Tambun",
 ];
 
-const RESPOND_OPTIONS = ["Interested", "Done approach", "Joined Group", "Canceled"];
+const RESPOND_OPTIONS = ["Interested", "Done Approach", "Joined Group", "Canceled"];
 const STATUS_OPTIONS = ["Active", "Inactive"];
 
 function storeAbbrev(store: string) {
@@ -301,73 +301,61 @@ export default function JastiperPage() {
               </div>
             </div>
 
-            <div className="mb-4 rounded-lg bg-white p-4 shadow">
-              <div className="mb-3 grid grid-cols-4 gap-3">
-                <div className="col-span-2">
-                  <label className="mb-1 block text-xs font-medium text-gray-700">Search</label>
-                  <div className="relative">
-                    <input
-                      ref={searchRef}
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Cari nama, no HP, atau kode jastiper..."
-                      className="w-full rounded border border-gray-300 px-2 py-1.5 pr-11 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                    <SearchShortcutHint label={shortcutLabel} />
-                  </div>
+            <div className="mb-4 rounded-lg bg-white p-3 shadow">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative min-w-[200px] flex-1">
+                  <input
+                    ref={searchRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Cari nama, no HP, atau kode jastiper..."
+                    className="w-full rounded border border-gray-300 px-2 py-1.5 pr-11 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <SearchShortcutHint label={shortcutLabel} />
                 </div>
                 {!isOwner && (
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-700">Toko</label>
-                    <select
-                      value={storeFilter}
-                      onChange={(e) => setStoreFilter(e.target.value)}
-                      className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs"
-                    >
-                      <option value="">Semua toko</option>
-                      {stores.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">Respond</label>
                   <select
-                    value={respondFilter}
-                    onChange={(e) => setRespondFilter(e.target.value)}
-                    className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs"
+                    value={storeFilter}
+                    onChange={(e) => setStoreFilter(e.target.value)}
+                    className="w-32 shrink-0 rounded border border-gray-300 px-2 py-1.5 text-xs"
                   >
-                    <option value="">Semua respond</option>
-                    {RESPOND_OPTIONS.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-700">Status</label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs"
-                  >
-                    <option value="">Semua status</option>
-                    {STATUS_OPTIONS.map((s) => (
+                    <option value="">Semua toko</option>
+                    {stores.map((s) => (
                       <option key={s} value={s}>
                         {s}
                       </option>
                     ))}
                   </select>
-                </div>
+                )}
+                <select
+                  value={respondFilter}
+                  onChange={(e) => setRespondFilter(e.target.value)}
+                  className="w-36 shrink-0 rounded border border-gray-300 px-2 py-1.5 text-xs"
+                >
+                  <option value="">Semua respond</option>
+                  {RESPOND_OPTIONS.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-32 shrink-0 rounded border border-gray-300 px-2 py-1.5 text-xs"
+                >
+                  <option value="">Semua status</option>
+                  {STATUS_OPTIONS.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+                <Button variant="secondary" size="sm" onClick={resetFilters}>
+                  Reset
+                </Button>
               </div>
-              <Button variant="secondary" size="sm" onClick={resetFilters}>
-                Reset Filters
-              </Button>
             </div>
 
             <div className="overflow-hidden rounded-lg bg-white shadow">
@@ -380,31 +368,31 @@ export default function JastiperPage() {
                       <thead className="border-b bg-gray-100">
                         <tr>
                           <SortableTh label="Nama" active={sortKey === "jastiper_name"} dir={sortDir} onClick={() => toggleSort("jastiper_name")} className="px-2 py-1.5 font-semibold text-gray-700" />
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700">No HP</th>
-                          <SortableTh label="Toko" active={sortKey === "jastiper_store"} dir={sortDir} onClick={() => toggleSort("jastiper_store")} className="px-2 py-1.5 font-semibold text-gray-700" />
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Kode</th>
-                          <SortableTh label="Respond" active={sortKey === "jastiper_respond"} dir={sortDir} onClick={() => toggleSort("jastiper_respond")} className="px-2 py-1.5 font-semibold text-gray-700" />
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Status</th>
-                          <SortableTh label="Total Order" active={sortKey === "total_order"} dir={sortDir} onClick={() => toggleSort("total_order")} className="px-2 py-1.5 text-right font-semibold text-gray-700" />
-                          <SortableTh label="Total Value" active={sortKey === "total_value"} dir={sortDir} onClick={() => toggleSort("total_value")} className="px-2 py-1.5 text-right font-semibold text-gray-700" />
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Aksi</th>
+                          <th className="px-2 py-1.5 text-center font-semibold text-gray-700">No HP</th>
+                          <SortableTh label="Toko" active={sortKey === "jastiper_store"} dir={sortDir} onClick={() => toggleSort("jastiper_store")} className="px-2 py-1.5 text-center font-semibold text-gray-700" />
+                          <th className="px-2 py-1.5 text-center font-semibold text-gray-700">Kode</th>
+                          <SortableTh label="Respond" active={sortKey === "jastiper_respond"} dir={sortDir} onClick={() => toggleSort("jastiper_respond")} className="px-2 py-1.5 text-center font-semibold text-gray-700" />
+                          <th className="px-2 py-1.5 text-center font-semibold text-gray-700">Status</th>
+                          <SortableTh label="Total Order" active={sortKey === "total_order"} dir={sortDir} onClick={() => toggleSort("total_order")} className="px-2 py-1.5 text-center font-semibold text-gray-700" />
+                          <SortableTh label="Total Value" active={sortKey === "total_value"} dir={sortDir} onClick={() => toggleSort("total_value")} className="px-2 py-1.5 text-center font-semibold text-gray-700" />
+                          <th className="px-2 py-1.5 text-center font-semibold text-gray-700">Aksi</th>
                         </tr>
                       </thead>
                       <tbody>
                         {currentItems.map((item) => (
                           <tr key={item.uuid} className="border-b hover:bg-gray-50">
                             <td className="px-2 py-1 font-medium">{item.jastiper_name}</td>
-                            <td className="px-2 py-1">{item.jastiper_phone_number || "-"}</td>
-                            <td className="px-2 py-1">{item.jastiper_store}</td>
-                            <td className="px-2 py-1 font-mono text-[10px] text-gray-500">{item.jastiper_code || "-"}</td>
-                            <td className="px-2 py-1">
+                            <td className="px-2 py-1 text-center">{item.jastiper_phone_number || "-"}</td>
+                            <td className="px-2 py-1 text-center">{item.jastiper_store}</td>
+                            <td className="px-2 py-1 text-center font-mono text-[10px] text-gray-500">{item.jastiper_code || "-"}</td>
+                            <td className="px-2 py-1 text-center">
                               <span
                                 className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                                   item.jastiper_respond === "Canceled"
                                     ? "bg-red-100 text-red-700"
                                     : item.jastiper_respond === "Joined Group"
                                     ? "bg-green-100 text-green-700"
-                                    : item.jastiper_respond === "Done approach"
+                                    : item.jastiper_respond === "Done Approach"
                                     ? "bg-blue-100 text-blue-700"
                                     : "bg-gray-100 text-gray-600"
                                 }`}
@@ -412,7 +400,7 @@ export default function JastiperPage() {
                                 {item.jastiper_respond || "-"}
                               </span>
                             </td>
-                            <td className="px-2 py-1">
+                            <td className="px-2 py-1 text-center">
                               <span
                                 className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                                   item.jastiper_status === "Inactive" ? "bg-gray-200 text-gray-600" : "bg-green-100 text-green-700"
@@ -421,9 +409,9 @@ export default function JastiperPage() {
                                 {item.jastiper_status || "-"}
                               </span>
                             </td>
-                            <td className="px-2 py-1 text-right">{item.total_order}</td>
-                            <td className="px-2 py-1 text-right font-medium">{item.total_value_formatted}</td>
-                            <td className="px-2 py-1">
+                            <td className="px-2 py-1 text-center">{item.total_order}</td>
+                            <td className="px-2 py-1 text-center font-medium">{item.total_value_formatted}</td>
+                            <td className="px-2 py-1 text-center">
                               <button onClick={() => openEdit(item)} className="rounded p-1.5 text-gray-500 hover:bg-gray-100" title="Edit">
                                 <Pencil className="h-3.5 w-3.5" />
                               </button>

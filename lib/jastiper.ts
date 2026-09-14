@@ -29,6 +29,17 @@ export function generateJastiperCode(storeName: string, phoneNumber: string): st
   return `JS${abbrev}${last2}`;
 }
 
+// Rapikan kapitalisasi tiap kata (mis. "AL JASTIP" / "done approach" ->
+// "Al Jastip" / "Done Approach") — dipakai untuk jastiper_name dan
+// jastiper_respond, baik saat input baru maupun migrasi data lama.
+export function toTitleCase(str: string): string {
+  return (str || "")
+    .trim()
+    .split(/\s+/)
+    .map((word) => (word ? word[0].toUpperCase() + word.slice(1).toLowerCase() : word))
+    .join(" ");
+}
+
 // Kode dasar (JS+toko+2 digit HP) bisa bentrok kalau 2 jastiper di toko yang
 // sama nomor HP-nya berakhiran sama — supaya tetap bisa dibuat tanpa gagal,
 // tambahkan akhiran huruf (B, C, D, ...) sampai ketemu yang belum dipakai di

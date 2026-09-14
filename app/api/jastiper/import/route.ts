@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Papa from "papaparse";
 import { sql, ensureJastiperSchema } from "@/lib/neon";
-import { normalizePhone, generateJastiperCode, resolveCodeCollision } from "@/lib/jastiper";
+import { normalizePhone, generateJastiperCode, resolveCodeCollision, toTitleCase } from "@/lib/jastiper";
 
 interface JastiperCsvRow {
   [key: string]: string;
@@ -29,14 +29,14 @@ export async function POST(request: NextRequest) {
 
     const parsedRows = parsed.data
       .map((row) => {
-        const jastiper_name = (row["jastiper_name"] || "").trim();
+        const jastiper_name = toTitleCase((row["jastiper_name"] || "").trim());
         const jastiper_store = (row["jastiper_store"] || "").trim();
         if (!jastiper_name || !jastiper_store) return null;
         const rawPhone = (row["jastiper_phone_number"] || "").trim();
         // Simpan dalam format "+62..." yang konsisten dengan shopify_orders.phone,
         // bukan format mentah apa adanya dari CSV.
         const jastiper_phone_number = normalizePhone(rawPhone);
-        const jastiper_respond = (row["jastiper_respond"] || "").trim();
+        const jastiper_respond = toTitleCase((row["jastiper_respond"] || "").trim());
         const baseCode = (row["jastiper_code"] || "").trim() || generateJastiperCode(jastiper_store, rawPhone);
         const jastiper_status = (row["jastiper_status"] || "Active").trim();
         return {

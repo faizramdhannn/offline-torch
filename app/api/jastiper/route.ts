@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql, ensureJastiperSchema } from "@/lib/neon";
-import { normalizePhone, generateJastiperCode, resolveCodeCollision } from "@/lib/jastiper";
+import { normalizePhone, generateJastiperCode, resolveCodeCollision, toTitleCase } from "@/lib/jastiper";
 
 // Sama persis dengan STORE_LIST/EXTRA_STORE_ACCESS/findMatchingStore di
 // app/api/customer/route.ts — dipakai untuk pembatasan akses per toko:
@@ -143,9 +143,9 @@ export async function POST(request: NextRequest) {
     await ensureJastiperSchema();
     const body = await request.json();
 
-    const jastiper_name = (body.jastiper_name || "").trim();
+    const jastiper_name = toTitleCase((body.jastiper_name || "").trim());
     const rawPhone = (body.jastiper_phone_number || "").trim();
-    const jastiper_respond = (body.jastiper_respond || "").trim();
+    const jastiper_respond = toTitleCase((body.jastiper_respond || "").trim());
     const jastiper_store = (body.jastiper_store || "").trim();
     const jastiper_status = (body.jastiper_status || "Active").trim();
     const created_by = (body.created_by || "").trim();
@@ -216,9 +216,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "uuid wajib diisi" }, { status: 400 });
     }
 
-    const jastiper_name = (body.jastiper_name || "").trim();
+    const jastiper_name = toTitleCase((body.jastiper_name || "").trim());
     const rawPhone = (body.jastiper_phone_number || "").trim();
-    const jastiper_respond = (body.jastiper_respond || "").trim();
+    const jastiper_respond = toTitleCase((body.jastiper_respond || "").trim());
     const jastiper_store = (body.jastiper_store || "").trim();
     const jastiper_status = (body.jastiper_status || "Active").trim();
     const update_by = (body.update_by || "").trim();
