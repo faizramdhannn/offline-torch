@@ -174,24 +174,29 @@ export async function GET(request: NextRequest) {
     }
 
     // ─── Bangun query dinamis (raw SQL + params) untuk filter/sort/pagination ──
+    // PENTING: tiap placeholder diberi cast eksplisit (::text[], ::numeric,
+    // ::int, dst). Tanpa ini Postgres bisa gagal dengan "could not determine
+    // data type of parameter $N" untuk parameter yang cuma dipakai di posisi
+    // yang tidak cukup memberi petunjuk tipe (mis. LIMIT/OFFSET) — kejadian
+    // nyata di production untuk endpoint ini sebelum fix ini.
     const params: any[] = [];
-    const ph = (v: any) => {
+    const ph = (v: any, cast: string) => {
       params.push(v);
-      return `$${params.length}`;
+      return `$${params.length}::${cast}`;
     };
 
     let baseWhere = `o.phone IS NOT NULL AND o.phone <> ''`;
-    if (storeScope) baseWhere += ` AND o.store_name = ANY(${ph(storeScope)})`;
+    if (storeScope) baseWhere += ` AND o.store_name = ANY(${ph(storeScope, 'text[]')})`;
 
     let outerWhere = '1=1';
     if (q) {
-      const likeParam = ph(`%${q}%`);
+      const likeParam = ph(`%${q}%`, 'text');
       outerWhere += ` AND (phone_number ILIKE ${likeParam} OR customer_name ILIKE ${likeParam})`;
     }
-    if (vmin !== null) outerWhere += ` AND total_value >= ${ph(vmin)}`;
-    if (vmax !== null) outerWhere += ` AND total_value <= ${ph(vmax)}`;
-    if (omin !== null) outerWhere += ` AND total_order >= ${ph(omin)}`;
-    if (omax !== null) outerWhere += ` AND total_order <= ${ph(omax)}`;
+    if (vmin !== null) outerWhere += ` AND total_value >= ${ph(vmin, 'numeric')}`;
+    if (vmax !== null) outerWhere += ` AND total_value <= ${ph(vmax, 'numeric')}`;
+    if (omin !== null) outerWhere += ` AND total_order >= ${ph(omin, 'numeric')}`;
+    if (omax !== null) outerWhere += ` AND total_order <= ${ph(omax, 'numeric')}`;
 
     if (badgeFilter.length > 0) {
       const wantNew = badgeFilter.includes('new_customer');
@@ -208,7 +213,7 @@ export async function GET(request: NextRequest) {
       if (wantPot) conditions.push(`total_order BETWEEN 2 AND 5`);
       if (wantChamp) conditions.push(`total_order > 5`);
       if (nonTierKeys.length > 0) {
-        conditions.push(`(location_store || '||' || phone_number) = ANY(${ph(Array.from(unionKeys))})`);
+        conditions.push(`(location_store || '||' || phone_number) = ANY(${ph(Array.from(unionKeys), 'text[]')})`);
       }
       outerWhere += conditions.length > 0 ? ` AND (${conditions.join(' OR ')})` : ' AND FALSE';
     }
@@ -236,8 +241,8 @@ export async function GET(request: NextRequest) {
     const countQuery = `${aggCte} SELECT COUNT(*)::int AS total FROM agg WHERE ${outerWhere}`;
     const countParams = [...params];
 
-    const limitPh = ph(limit);
-    const offsetPh = ph(offset);
+    const limitPh = ph(limit, 'int');
+    const offsetPh = ph(offset, 'int');
     const dataQuery = `
       ${aggCte}
       SELECT * FROM agg WHERE ${outerWhere}
@@ -271,7 +276,7 @@ export async function GET(request: NextRequest) {
       const set = b.badge_key === 'bulk_order' ? bulkSet : collectionSets.get(b.badge_key);
       const keys = set ? Array.from(set) : [];
       const keyParams = [...params, keys];
-      const keyPh = `$${keyParams.length}`;
+      const keyPh = `$${keyParams.length}::text[]`;
       const query = `
         ${aggCte}
         SELECT COUNT(*)::int AS count,
