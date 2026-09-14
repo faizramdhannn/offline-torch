@@ -80,10 +80,16 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       pathname === "/sales"
     )
       return "order";
+    if (
+      pathname.startsWith("/affiliate") ||
+      pathname.startsWith("/customer") ||
+      pathname.startsWith("/jastiper")
+    )
+      return "customer";
     return null;
   })();
 
-  const [openGroup, setOpenGroup] = useState<"request" | "order" | null>(
+  const [openGroup, setOpenGroup] = useState<"request" | "order" | "customer" | null>(
     initialGroup
   );
 
@@ -101,6 +107,10 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       pathname === "/analytics-order" ||
       pathname === "/order-report" ||
       pathname === "/sales";
+    const isCustomerPath =
+      pathname.startsWith("/affiliate") ||
+      pathname.startsWith("/customer") ||
+      pathname.startsWith("/jastiper");
 
     const wasRequestPath =
       prev === "/request-store" ||
@@ -111,15 +121,20 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       prev === "/analytics-order" ||
       prev === "/order-report" ||
       prev === "/sales";
+    const wasCustomerPath =
+      prev.startsWith("/affiliate") || prev.startsWith("/customer") || prev.startsWith("/jastiper");
 
     if (isRequestPath && !wasRequestPath) {
       setOpenGroup("request");
     } else if (isOrderPath && !wasOrderPath) {
       setOpenGroup("order");
+    } else if (isCustomerPath && !wasCustomerPath) {
+      setOpenGroup("customer");
     } else if (
       !isRequestPath &&
       !isOrderPath &&
-      (wasRequestPath || wasOrderPath)
+      !isCustomerPath &&
+      (wasRequestPath || wasOrderPath || wasCustomerPath)
     ) {
       setOpenGroup(null);
     }
@@ -332,6 +347,13 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     pathname === "/material-issue" ||
     pathname === "/employee-discount";
 
+  const hasAffiliateAccess = !!permissions.affiliate_view;
+  const hasCustomerSegAccess = !!permissions.customer;
+  const hasJastiperAccess = !!permissions.jastiper;
+  const showCustomerGroup = hasAffiliateAccess || hasCustomerSegAccess || hasJastiperAccess;
+  const isCustomerGroupActive =
+    pathname.startsWith("/affiliate") || pathname.startsWith("/customer") || pathname.startsWith("/jastiper");
+
   const hasAnalyticsAccess = !!permissions.analytics_order;
   const hasOrderReportAccess = !!permissions.order_report;
   const hasSalesAccess = !!(permissions.sales_view || permissions.sales_view_all);
@@ -360,26 +382,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 4h6v6H4V4zm0 10h6v6H4v-6zm10-10h6v6h-6V4zm0 10h2v2h-2v-2zm4 0h2v2h-2v-2zm-4 4h2v2h-2v-2zm4 0h2v2h-2v-2z" />
-        </svg>
-      ),
-    },
-     {
-      name: "Affiliate",
-      path: "/affiliate",
-      permission: "affiliate_view",
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM1 21v-2a4 4 0 014-4h4a4 4 0 014 4v2M17 8l2 2 4-4" />
-        </svg>
-      ),
-    },
-     {
-      name: "Jastiper",
-      path: "/jastiper",
-      permission: "jastiper",
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7h-3V5a3 3 0 00-3-3H10a3 3 0 00-3 3v2H4a1 1 0 00-1 1v10a2 2 0 002 2h14a2 2 0 002-2V8a1 1 0 00-1-1zM9 5a1 1 0 011-1h4a1 1 0 011 1v2H9V5z" />
         </svg>
       ),
     },
@@ -433,16 +435,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-        </svg>
-      ),
-    },
-    {
-      name: "Customer",
-      path: "/customer",
-      permission: "customer",
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
       ),
     },
@@ -548,6 +540,12 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
   const orderGroupIcon = (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  );
+
+  const customerGroupIcon = (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
   );
 
@@ -761,6 +759,28 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     </svg>
   );
 
+  const affiliateIcon = (
+    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM1 21v-2a4 4 0 014-4h4a4 4 0 014 4v2M17 8l2 2 4-4" />
+    </svg>
+  );
+  const customerSegIcon = (
+    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+  const jastiperIcon = (
+    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7h-3V5a3 3 0 00-3-3H10a3 3 0 00-3 3v2H4a1 1 0 00-1 1v10a2 2 0 002 2h14a2 2 0 002-2V8a1 1 0 00-1-1zM9 5a1 1 0 011-1h4a1 1 0 011 1v2H9V5z" />
+    </svg>
+  );
+
+  const customerItems = [
+    { path: "/affiliate", label: "Affiliate", icon: affiliateIcon, show: hasAffiliateAccess },
+    { path: "/customer", label: "Customer Segmentation", icon: customerSegIcon, show: hasCustomerSegAccess },
+    { path: "/jastiper", label: "Jastiper", icon: jastiperIcon, show: hasJastiperAccess },
+  ];
+
   const requestItems = [
     { path: "/request-store", label: "Cancel Order", icon: cancelOrderIcon, show: hasRequestAccess },
     { path: "/invoice", label: "Invoice", icon: invoiceIcon, show: hasInvoiceAccess },
@@ -933,9 +953,26 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         <nav className="flex-1 py-1.5 overflow-y-auto overflow-x-hidden">
           {checkPermission(menuItems[0]) && <MenuButton item={menuItems[0]} />}
 
-          {/* QR Code, Affiliate, Jastiper, Asset, Attendance, Capture Attendance, Bundling, Canvasing */}
-          {menuItems.slice(1, 9).map((item) =>
+          {/* QR Code, Asset, Attendance, Capture Attendance, Bundling, Canvasing */}
+          {menuItems.slice(1, 7).map((item) =>
             checkPermission(item) ? <MenuButton key={item.path} item={item} /> : null
+          )}
+
+          {showCustomerGroup && (
+            isCollapsed ? (
+              <CollapsedFlyout groupIcon={customerGroupIcon} label="Customer" items={customerItems} />
+            ) : (
+              <ExpandedGroup
+                groupIcon={customerGroupIcon}
+                label="Customer"
+                isActive={isCustomerGroupActive}
+                isOpen={openGroup === "customer"}
+                onToggle={() =>
+                  setOpenGroup((prev) => (prev === "customer" ? null : "customer"))
+                }
+                items={customerItems}
+              />
+            )
           )}
 
           {showOrderGroup && (
@@ -972,8 +1009,8 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
             )
           )}
 
-          {/* Customer, Daily Job, Petty Cash, Step ERP, Stock, Stock Opname, Survey Store, Voucher, Registration, Settings */}
-          {menuItems.slice(9).map((item) =>
+          {/* Daily Job, Petty Cash, Step ERP, Stock, Stock Opname, Survey Store, Voucher, Registration, Settings */}
+          {menuItems.slice(7).map((item) =>
             checkPermission(item) ? <MenuButton key={item.path} item={item} /> : null
           )}
 
