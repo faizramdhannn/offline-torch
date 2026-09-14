@@ -4,7 +4,7 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTh } from "@/components/shared/SortableTh";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Popup from "@/components/Popup";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
@@ -724,6 +724,8 @@ function MasterTrafficModal({
 
 export default function AnalyticsOrderPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -746,15 +748,15 @@ export default function AnalyticsOrderPage() {
   const [pageEmployee, setPageEmployee] = useState(1);
   const [pageOnline, setPageOnline] = useState(1);
   const PAGE_SIZE = 10;
-  const [hideUnknownTraffic, setHideUnknownTraffic] = useState(false);
+  const [hideUnknownTraffic, setHideUnknownTraffic] = useState(searchParams.get("hidenull") === "1");
 
   // ─── Traffic filter ───────────────────────────────────────────────────────
-  const [trafficFilter, setTrafficFilter] = useState<string[]>([]);
+  const [trafficFilter, setTrafficFilter] = useState<string[]>(searchParams.get("traffic")?.split(",").filter(Boolean) ?? []);
   const [showTrafficDropdown, setShowTrafficDropdown] = useState(false);
   const trafficDropdownRef = useRef<HTMLDivElement>(null);
 
   // ─── Store filter (multi-select) ──────────────────────────────────────────
-  const [storeFilter, setStoreFilter] = useState<string[]>([]);
+  const [storeFilter, setStoreFilter] = useState<string[]>(searchParams.get("store")?.split(",").filter(Boolean) ?? []);
   const [showStoreDropdown, setShowStoreDropdown] = useState(false);
   const storeDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -770,8 +772,8 @@ export default function AnalyticsOrderPage() {
     return toLocalDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
   };
 
-  const [dateFrom, setDateFrom] = useState(getFirstOfMonthStr);
-  const [dateTo, setDateTo] = useState(getTodayStr);
+  const [dateFrom, setDateFrom] = useState(() => searchParams.get("from") ?? getFirstOfMonthStr());
+  const [dateTo, setDateTo] = useState(() => searchParams.get("to") ?? getTodayStr());
   const [stores, setStores] = useState<string[]>([]);
 
   // Close traffic dropdown on outside click
@@ -877,6 +879,17 @@ useEffect(() => {
   const uniq = [...new Set(filtered.map((r) => cleanLocationName(r.Location)).filter(Boolean))] as string[];
   setStores(uniq.sort());
 }, [allRows, dateFrom, dateTo]);
+
+useEffect(() => {
+  const params = new URLSearchParams();
+  if (dateFrom) params.set("from", dateFrom);
+  if (dateTo) params.set("to", dateTo);
+  if (trafficFilter.length > 0) params.set("traffic", trafficFilter.join(","));
+  if (storeFilter.length > 0) params.set("store", storeFilter.join(","));
+  if (hideUnknownTraffic) params.set("hidenull", "1");
+  const qs = params.toString();
+  router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+}, [dateFrom, dateTo, trafficFilter, storeFilter, hideUnknownTraffic, pathname, router]);
 
 
   const isTrafficActive = trafficFilter.length > 0;

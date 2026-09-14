@@ -2,7 +2,7 @@
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Popup from "@/components/Popup";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
@@ -38,6 +38,8 @@ const RESULT_OPTIONS = [
 
 export default function CustomerPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [data, setData] = useState<Customer[]>([]);
   const [filteredData, setFilteredData] = useState<Customer[]>([]);
@@ -69,17 +71,25 @@ export default function CustomerPage() {
   const [badgeMap, setBadgeMap] = useState<Record<string, CustomerBadge>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const [searchQuery, setSearchQuery] = useState("");
+  // Filter state dipulihkan dari URL query params (bukan default kosong) —
+  // jadi kalau user buka detail customer lalu klik Back, filter yang tadi
+  // aktif tidak hilang (dan link-nya sendiri bisa di-share/bookmark dengan
+  // filter tertentu, ala ERP).
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
-  const [selectedStores, setSelectedStores] = useState<string[]>([]);
+  const [selectedStores, setSelectedStores] = useState<string[]>(
+    searchParams.get("stores")?.split(",").filter(Boolean) ?? [],
+  );
   const [stores, setStores] = useState<string[]>([]);
   const [showStoreDropdown, setShowStoreDropdown] = useState(false);
-  const [selectedBadges, setSelectedBadges] = useState<string[]>([]);
+  const [selectedBadges, setSelectedBadges] = useState<string[]>(
+    searchParams.get("badges")?.split(",").filter(Boolean) ?? [],
+  );
   const [showBadgeDropdown, setShowBadgeDropdown] = useState(false);
-  const [valueMin, setValueMin] = useState("");
-  const [valueMax, setValueMax] = useState("");
-  const [orderMin, setOrderMin] = useState("");
-  const [orderMax, setOrderMax] = useState("");
+  const [valueMin, setValueMin] = useState(searchParams.get("vmin") ?? "");
+  const [valueMax, setValueMax] = useState(searchParams.get("vmax") ?? "");
+  const [orderMin, setOrderMin] = useState(searchParams.get("omin") ?? "");
+  const [orderMax, setOrderMax] = useState(searchParams.get("omax") ?? "");
   const badgeDropdownRef = useRef<HTMLDivElement>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -130,6 +140,19 @@ export default function CustomerPage() {
   useEffect(() => {
     applyFilters();
   }, [searchQuery, selectedStores, selectedBadges, valueMin, valueMax, orderMin, orderMax, data]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchQuery) params.set("q", searchQuery);
+    if (selectedStores.length > 0) params.set("stores", selectedStores.join(","));
+    if (selectedBadges.length > 0) params.set("badges", selectedBadges.join(","));
+    if (valueMin) params.set("vmin", valueMin);
+    if (valueMax) params.set("vmax", valueMax);
+    if (orderMin) params.set("omin", orderMin);
+    if (orderMax) params.set("omax", orderMax);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchQuery, selectedStores, selectedBadges, valueMin, valueMax, orderMin, orderMax, pathname, router]);
 
   const fetchBadgeMap = async () => {
     try {

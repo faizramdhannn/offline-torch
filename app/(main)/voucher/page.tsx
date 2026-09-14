@@ -2,7 +2,7 @@
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { hasTextSelection } from "@/lib/utils";
 import Popup from "@/components/Popup";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
@@ -15,6 +15,8 @@ import { SortableTh } from "@/components/shared/SortableTh";
 
 export default function VoucherPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [data, setData] = useState<Voucher[]>([]);
   const [filteredData, setFilteredData] = useState<Voucher[]>([]);
@@ -22,9 +24,11 @@ export default function VoucherPage() {
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
-  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<string[]>(
+    searchParams.get("cat")?.split(",").filter(Boolean) ?? [],
+  );
   const [categories, setCategories] = useState<string[]>([]);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   useSessionGuard();
@@ -73,6 +77,14 @@ export default function VoucherPage() {
   useEffect(() => {
     applyFilters();
   }, [searchQuery, categoryFilter, data]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchQuery) params.set("q", searchQuery);
+    if (categoryFilter.length > 0) params.set("cat", categoryFilter.join(","));
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchQuery, categoryFilter, pathname, router]);
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);

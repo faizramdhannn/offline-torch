@@ -3,7 +3,7 @@
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Popup from "@/components/Popup";
 import * as XLSX from "xlsx";
 import { motion } from "framer-motion";
@@ -339,6 +339,8 @@ function exportReportXLSX(
 
 export default function TrafficStorePage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [data, setData] = useState<TrafficEntry[]>([]);
   const [master, setMaster] = useState<MasterRow[]>([]);
@@ -356,14 +358,24 @@ export default function TrafficStorePage() {
   useSessionGuard();
 
   // Filters — semua multi-select sekarang (array kosong = "Semua"/tidak difilter).
-  const [filterStore, setFilterStore] = useState<string[]>([]);
-  const [filterTraffic, setFilterTraffic] = useState<string[]>([]);
-  const [filterConvert, setFilterConvert] = useState<string[]>([]);
-  const [filterCategory, setFilterCategory] = useState<string[]>([]);
-  const [filterReasonNotBuy, setFilterReasonNotBuy] = useState<string[]>([]);
-  const [filterSearch, setFilterSearch] = useState("");
-  const [filterDateFrom, setFilterDateFrom] = useState("");
-  const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterStore, setFilterStore] = useState<string[]>(
+    searchParams.get("store")?.split(",").filter(Boolean) ?? [],
+  );
+  const [filterTraffic, setFilterTraffic] = useState<string[]>(
+    searchParams.get("traffic")?.split(",").filter(Boolean) ?? [],
+  );
+  const [filterConvert, setFilterConvert] = useState<string[]>(
+    searchParams.get("convert")?.split(",").filter(Boolean) ?? [],
+  );
+  const [filterCategory, setFilterCategory] = useState<string[]>(
+    searchParams.get("cat")?.split(",").filter(Boolean) ?? [],
+  );
+  const [filterReasonNotBuy, setFilterReasonNotBuy] = useState<string[]>(
+    searchParams.get("reason")?.split(",").filter(Boolean) ?? [],
+  );
+  const [filterSearch, setFilterSearch] = useState(searchParams.get("q") ?? "");
+  const [filterDateFrom, setFilterDateFrom] = useState(searchParams.get("from") ?? "");
+  const [filterDateTo, setFilterDateTo] = useState(searchParams.get("to") ?? "");
 
   // Report view toggle
   const [chartView, setChartView] = useState<"all" | "daily">("all");
@@ -380,6 +392,23 @@ export default function TrafficStorePage() {
     setUser(parsed);
     fetchAll();
   }, []);
+
+  // Sinkronkan filter aktif ke URL query params supaya kalau user buka detail
+  // lalu klik Back, filter yang tadi aktif tidak hilang (dan link-nya bisa
+  // di-share/bookmark dengan filter tertentu).
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (filterStore.length > 0) params.set("store", filterStore.join(","));
+    if (filterTraffic.length > 0) params.set("traffic", filterTraffic.join(","));
+    if (filterConvert.length > 0) params.set("convert", filterConvert.join(","));
+    if (filterCategory.length > 0) params.set("cat", filterCategory.join(","));
+    if (filterReasonNotBuy.length > 0) params.set("reason", filterReasonNotBuy.join(","));
+    if (filterSearch) params.set("q", filterSearch);
+    if (filterDateFrom) params.set("from", filterDateFrom);
+    if (filterDateTo) params.set("to", filterDateTo);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [filterStore, filterTraffic, filterConvert, filterCategory, filterReasonNotBuy, filterSearch, filterDateFrom, filterDateTo, pathname, router]);
 
   const showMessage = (msg: string, type: "success" | "error") => {
     setPopupMsg(msg); setPopupType(type); setShowPopup(true);

@@ -4,7 +4,7 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTh } from "@/components/shared/SortableTh";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ListChecks,
@@ -47,13 +47,17 @@ type TabKey = "all" | string;
 
 export default function StepErpPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   useSessionGuard();
 
   const [user, setUser] = useState<any>(null);
   const [isAllAccess, setIsAllAccess] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<TabKey>("all");
-  const [search, setSearch] = useState("");
+  // Filter state dipulihkan dari URL query params supaya kalau user buka
+  // detail entry lalu klik Back, filter yang tadi aktif tidak hilang.
+  const [activeTab, setActiveTab] = useState<TabKey>(searchParams.get("tab") ?? "all");
+  const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -196,6 +200,14 @@ export default function StepErpPage() {
     setSelectedEntry(null);
     setSelectedTypeKey(null);
   }, [activeTab, search]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (activeTab !== "all") params.set("tab", activeTab);
+    if (search) params.set("q", search);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [activeTab, search, pathname, router]);
 
   // ── Stats summary ──────────────────────────────────────────────────────────
   const allEntries = useMemo(() => Object.values(entriesByType).flat(), [entriesByType]);

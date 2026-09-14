@@ -2,7 +2,7 @@
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Popup from "@/components/Popup";
 import { Button } from "@/components/shared/Button";
 import { RefreshCw } from "lucide-react";
@@ -1108,9 +1108,22 @@ function StoreListSection({
   isDark: boolean;
   css: ReturnType<typeof buildCss>;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
-  const [filterMonth, setFilterMonth] = useState<string>("all");
-  const [filterStore, setFilterStore] = useState<string>("all");
+  const [filterMonth, setFilterMonth] = useState<string>(searchParams.get("somonth") ?? "all");
+  const [filterStore, setFilterStore] = useState<string>(searchParams.get("sostore") ?? "all");
+
+  // Sinkronkan filter list store ke URL query params supaya kalau user buka
+  // detail lalu klik Back, filter yang tadi aktif tidak hilang.
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (filterMonth !== "all") params.set("somonth", filterMonth);
+    if (filterStore !== "all") params.set("sostore", filterStore);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [filterMonth, filterStore, pathname, router]);
 
   const availableMonths = useMemo(() => {
     const set = new Set(stores.map((s) => (s.month || "").toLowerCase()));
@@ -1426,9 +1439,23 @@ function ReportSection({
   css: ReturnType<typeof buildCss>;
   hasReportAccess: boolean;
 }) {
-  const [filterMonth, setFilterMonth] = useState<string>("all");
-  const [filterYear, setFilterYear] = useState<string>("all");
-  const [filterStore, setFilterStore] = useState<string>("all");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [filterMonth, setFilterMonth] = useState<string>(searchParams.get("repmonth") ?? "all");
+  const [filterYear, setFilterYear] = useState<string>(searchParams.get("repyear") ?? "all");
+  const [filterStore, setFilterStore] = useState<string>(searchParams.get("repstore") ?? "all");
+
+  // Sinkronkan filter report ke URL query params supaya kalau user buka
+  // detail lalu klik Back, filter yang tadi aktif tidak hilang.
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (filterMonth !== "all") params.set("repmonth", filterMonth);
+    if (filterYear !== "all") params.set("repyear", filterYear);
+    if (filterStore !== "all") params.set("repstore", filterStore);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [filterMonth, filterYear, filterStore, pathname, router]);
 
   // Derive available filter options from data
   const availableMonths = useMemo(() => {

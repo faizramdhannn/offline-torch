@@ -2,7 +2,7 @@
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { hasTextSelection } from "@/lib/utils";
 import Popup from "@/components/Popup";
 import { OrderReport } from "@/types";
@@ -37,20 +37,30 @@ const USERNAME_TO_WAREHOUSE: Record<string, string> = {
 
 export default function OrderReportPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [data, setData] = useState<OrderReport[]>([]);
   const [filteredData, setFilteredData] = useState<OrderReport[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  // Filter state dipulihkan dari URL query params supaya kalau user buka
+  // detail order lalu klik Back, filter yang tadi aktif tidak hilang.
+  const [dateFrom, setDateFrom] = useState(searchParams.get("from") ?? "");
+  const [dateTo, setDateTo] = useState(searchParams.get("to") ?? "");
+  const [statusFilter, setStatusFilter] = useState<string[]>(
+    searchParams.get("status")?.split(",").filter(Boolean) ?? [],
+  );
   const [statuses, setStatuses] = useState<string[]>([]);
-  const [warehouseFilter, setWarehouseFilter] = useState<string[]>([]);
+  const [warehouseFilter, setWarehouseFilter] = useState<string[]>(
+    searchParams.get("wh")?.split(",").filter(Boolean) ?? [],
+  );
   const [warehouses, setWarehouses] = useState<string[]>([]);
   const [lockedWarehouse, setLockedWarehouse] = useState<string | null>(null);
-  const [channelNameFilter, setChannelNameFilter] = useState<string[]>([]);
+  const [channelNameFilter, setChannelNameFilter] = useState<string[]>(
+    searchParams.get("channel")?.split(",").filter(Boolean) ?? [],
+  );
   const [channelNames, setChannelNames] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   const [showImportModal, setShowImportModal] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -116,6 +126,18 @@ export default function OrderReportPage() {
   useEffect(() => {
     applyFilters();
   }, [dateFrom, dateTo, statusFilter, warehouseFilter, channelNameFilter, searchQuery, data]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.set("from", dateFrom);
+    if (dateTo) params.set("to", dateTo);
+    if (statusFilter.length > 0) params.set("status", statusFilter.join(","));
+    if (warehouseFilter.length > 0) params.set("wh", warehouseFilter.join(","));
+    if (channelNameFilter.length > 0) params.set("channel", channelNameFilter.join(","));
+    if (searchQuery) params.set("q", searchQuery);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [dateFrom, dateTo, statusFilter, warehouseFilter, channelNameFilter, searchQuery, pathname, router]);
 
   const fetchData = async () => {
     try {

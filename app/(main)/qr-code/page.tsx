@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { QRCodeCanvas } from "qrcode.react";
 import { Plus, Search, Trash2, Pencil, QrCode as QrCodeIcon, Download, X, BarChart3, Eye } from "lucide-react";
 import Popup from "@/components/Popup";
@@ -49,10 +49,14 @@ function trackingLink(uuid: string): string {
 
 export default function QrCodePage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [items, setItems] = useState<QrCodeItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  // Filter state dipulihkan dari URL query params supaya kalau user buka
+  // detail QR lalu klik Back, filter yang tadi aktif tidak hilang.
+  const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
 
   const [showFormModal, setShowFormModal] = useState(false);
@@ -120,6 +124,13 @@ export default function QrCodePage() {
       (i) => (i.name || "").toLowerCase().includes(q) || (i.url || "").toLowerCase().includes(q)
     );
   }, [items, search]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (search) params.set("q", search);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [search, pathname, router]);
 
   // ── Add / Edit ────────────────────────────────────────────────────────────
   const openAdd = () => {

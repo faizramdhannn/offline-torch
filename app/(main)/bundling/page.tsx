@@ -2,7 +2,7 @@
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { hasTextSelection } from "@/lib/utils";
 import Popup from "@/components/Popup";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
@@ -56,6 +56,8 @@ function formatRupiah(value: string | number): string {
 
 export default function BundlingPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const userRef = useRef<any>(null);
   const [data, setData] = useState<Bundling[]>([]);
@@ -77,9 +79,11 @@ export default function BundlingPage() {
   const [selectionBusy, setSelectionBusy] = useState(false);
   useSessionGuard();
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string[]>(
+    searchParams.get("status")?.split(",").filter(Boolean) ?? [],
+  );
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 25;
 
@@ -113,6 +117,14 @@ export default function BundlingPage() {
   useEffect(() => {
     applyFilters();
   }, [searchQuery, statusFilter, data]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchQuery) params.set("q", searchQuery);
+    if (statusFilter.length > 0) params.set("status", statusFilter.join(","));
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchQuery, statusFilter, pathname, router]);
 
   // Reset ke halaman 1 hanya kalau user mengubah pencarian/filter,
   // BUKAN saat data ter-refresh (misal setelah edit atau update harga)

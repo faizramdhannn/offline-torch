@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   FolderOpen,
   Plus,
@@ -29,12 +29,14 @@ import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 
 export default function AssetPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
-  const [filterType, setFilterType] = useState("all");
-  const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState(searchParams.get("type") ?? "all");
+  const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
 
   const [showModal, setShowModal] = useState(false);
@@ -86,6 +88,14 @@ export default function AssetPage() {
   useEffect(() => {
     if (user) fetchAssets();
   }, [user]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (filterType !== "all") params.set("type", filterType);
+    if (search) params.set("q", search);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [filterType, search, pathname, router]);
 
   // ── Derived data ────────────────────────────────────────────────────────────
   const availableTypes = useMemo(

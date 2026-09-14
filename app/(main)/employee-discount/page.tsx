@@ -2,7 +2,7 @@
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { hasTextSelection } from "@/lib/utils";
 import Popup from "@/components/Popup";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -285,6 +285,8 @@ function PhotoUploadSection({
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function EmployeeDiscountPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   useSessionGuard();
 
   const [user, setUser] = useState<any>(null);
@@ -298,9 +300,13 @@ export default function EmployeeDiscountPage() {
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
 
-  const [search, setSearch] = useState("");
+  // Filter state dipulihkan dari URL query params supaya kalau user buka
+  // detail request lalu klik Back, filter yang tadi aktif tidak hilang.
+  const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">(
+    (searchParams.get("sort") as "newest" | "oldest") ?? "newest",
+  );
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 25;
 
@@ -362,6 +368,14 @@ export default function EmployeeDiscountPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [sortOrder, search]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (search) params.set("q", search);
+    if (sortOrder !== "newest") params.set("sort", sortOrder);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [search, sortOrder, pathname, router]);
 
   const fetchData = async () => {
     try {

@@ -2,7 +2,7 @@
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Popup from "@/components/Popup";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
@@ -628,6 +628,8 @@ function SkuScannerSection({
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function MaterialIssuePage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [data, setData] = useState<MIItem[]>([]);
   const [masterItems, setMasterItems] = useState<MasterItem[]>([]);
@@ -639,12 +641,16 @@ export default function MaterialIssuePage() {
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
-  const [search, setSearch] = useState("");
+  // Filter state dipulihkan dari URL query params supaya kalau user buka
+  // detail material issue lalu klik Back, filter yang tadi aktif tidak hilang.
+  const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
-  const [filterStore, setFilterStore] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">(
+    (searchParams.get("sort") as "newest" | "oldest") ?? "newest",
+  );
+  const [filterStore, setFilterStore] = useState(searchParams.get("store") ?? "");
+  const [dateFrom, setDateFrom] = useState(searchParams.get("from") ?? "");
+  const [dateTo, setDateTo] = useState(searchParams.get("to") ?? "");
   const [currentPage, setCurrentPage] = useState(1);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -715,6 +721,17 @@ export default function MaterialIssuePage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [sortOrder, filterStore, dateFrom, dateTo]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (search) params.set("q", search);
+    if (sortOrder !== "newest") params.set("sort", sortOrder);
+    if (filterStore) params.set("store", filterStore);
+    if (dateFrom) params.set("from", dateFrom);
+    if (dateTo) params.set("to", dateTo);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [search, sortOrder, filterStore, dateFrom, dateTo, pathname, router]);
 
   const fetchData = async () => {
     try {

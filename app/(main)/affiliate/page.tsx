@@ -4,7 +4,7 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useEffect, useMemo, useState } from "react";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTh } from "@/components/shared/SortableTh";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { hasTextSelection } from "@/lib/utils";
 import { QRCodeCanvas } from "qrcode.react";
 import Popup from "@/components/Popup";
@@ -182,8 +182,18 @@ export default function AffiliatePage() {
 // ── Tab 1: List Affiliate (business card grid, read-only) ─────────────────
 // ─────────────────────────────────────────────────────────────────────────
 function ListAffiliateTab({ affiliates }: { affiliates: MasterAffiliate[] }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("q") ?? "");
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (search) params.set("q", search);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [search, pathname, router]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -363,8 +373,10 @@ function OrderAffiliateTab({
   refresh: () => Promise<void>;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("oq") ?? "");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
@@ -374,6 +386,13 @@ function OrderAffiliateTab({
   const [deleteTarget, setDeleteTarget] = useState<AffiliateOrder | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (search) params.set("oq", search);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [search, pathname, router]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -790,10 +809,22 @@ function ReportTab({
   orders: AffiliateOrder[];
   affiliates: MasterAffiliate[];
 }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [subTab, setSubTab] = useState<ReportSubTab>("affiliate");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [startDate, setStartDate] = useState(searchParams.get("from") ?? "");
+  const [endDate, setEndDate] = useState(searchParams.get("to") ?? "");
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") ?? "");
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (startDate) params.set("from", startDate);
+    if (endDate) params.set("to", endDate);
+    if (statusFilter) params.set("status", statusFilter);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [startDate, endDate, statusFilter, pathname, router]);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {

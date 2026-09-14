@@ -2,7 +2,7 @@
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Popup from "@/components/Popup";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
@@ -122,6 +122,8 @@ const emptyItem = (): InvoiceItem => ({ product_name: "", qty: 1, unit_price: 0,
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function InvoicePage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   useSessionGuard();
 
   const [user, setUser] = useState<any>(null);
@@ -129,9 +131,9 @@ export default function InvoicePage() {
   const [loading, setLoading] = useState(true);
   const [master, setMaster] = useState<MasterInvoice>({});
   const [masterItems, setMasterItems] = useState<MasterItem[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") ?? "all");
 
   // Popup
   const [showPopup, setShowPopup] = useState(false);
@@ -247,6 +249,14 @@ export default function InvoicePage() {
   const itemsPerPage = 20;
   const [currentPage, setCurrentPage] = useState(1);
   useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchQuery) params.set("q", searchQuery);
+    if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchQuery, statusFilter, pathname, router]);
   const totalPages = Math.max(1, Math.ceil(sortedInvoices.length / itemsPerPage));
   const pagedInvoices = sortedInvoices.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 

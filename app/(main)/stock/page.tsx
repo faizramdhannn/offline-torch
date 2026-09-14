@@ -3,7 +3,7 @@
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Popup from "@/components/Popup";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
@@ -171,6 +171,8 @@ const EMPTY_FILTER_VALUE = "(Kosong)";
 
 export default function StockPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [data, setData] = useState<StockItem[]>([]);
   const [filteredData, setFilteredData] = useState<StockItem[]>([]);
@@ -184,15 +186,31 @@ export default function StockPage() {
   const [selectedView, setSelectedView] = useState<"store" | "pca" | "master">("store");
   useSessionGuard();
 
-  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
-  const [gradeFilter, setGradeFilter] = useState<string[]>([]);
-  const [tierFilter, setTierFilter] = useState<string[]>([]);
-  const [tierPhaseFilter, setTierPhaseFilter] = useState<string[]>([]);
-  const [warehouseFilter, setWarehouseFilter] = useState<string[]>([]);
+  // Filter state dipulihkan dari URL query params supaya kalau user buka
+  // detail salah satu item lalu klik Back, filter yang tadi aktif tidak
+  // hilang (dan link-nya bisa di-share/bookmark dengan filter tertentu).
+  // priceRange sengaja TIDAK dipulihkan — nilainya bergantung ke price bounds
+  // data yang baru di-fetch (di-reset otomatis tiap fetchData selesai).
+
+  const [categoryFilter, setCategoryFilter] = useState<string[]>(
+    searchParams.get("cat")?.split(",").filter(Boolean) ?? [],
+  );
+  const [gradeFilter, setGradeFilter] = useState<string[]>(
+    searchParams.get("grade")?.split(",").filter(Boolean) ?? [],
+  );
+  const [tierFilter, setTierFilter] = useState<string[]>(
+    searchParams.get("tier")?.split(",").filter(Boolean) ?? [],
+  );
+  const [tierPhaseFilter, setTierPhaseFilter] = useState<string[]>(
+    searchParams.get("tierphase")?.split(",").filter(Boolean) ?? [],
+  );
+  const [warehouseFilter, setWarehouseFilter] = useState<string[]>(
+    searchParams.get("wh")?.split(",").filter(Boolean) ?? [],
+  );
   // Price range filter (HPJ) — [min, max] in Rupiah. null = not yet initialized from data.
   const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
   const [priceBounds, setPriceBounds] = useState<[number, number]>([0, 0]);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
   const { ref: searchInputRef, shortcutLabel } = useSearchShortcut();
 
   // Sortable table headers — column key + direction. null direction = no manual sort.
@@ -276,6 +294,18 @@ export default function StockPage() {
 
   useEffect(() => { fetchData(); }, [selectedView]);
   useEffect(() => { applyFilters(); }, [categoryFilter, gradeFilter, tierFilter, tierPhaseFilter, warehouseFilter, priceRange, searchQuery, data, sortColumn, sortDirection]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (categoryFilter.length > 0) params.set("cat", categoryFilter.join(","));
+    if (gradeFilter.length > 0) params.set("grade", gradeFilter.join(","));
+    if (tierFilter.length > 0) params.set("tier", tierFilter.join(","));
+    if (tierPhaseFilter.length > 0) params.set("tierphase", tierPhaseFilter.join(","));
+    if (warehouseFilter.length > 0) params.set("wh", warehouseFilter.join(","));
+    if (searchQuery) params.set("q", searchQuery);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [categoryFilter, gradeFilter, tierFilter, tierPhaseFilter, warehouseFilter, searchQuery, pathname, router]);
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);

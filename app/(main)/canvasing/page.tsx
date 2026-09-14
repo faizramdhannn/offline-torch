@@ -3,7 +3,7 @@
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Popup from "@/components/Popup";
 import { Canvasing } from "@/types";
 import * as XLSX from "xlsx";
@@ -77,6 +77,8 @@ const ITEMS_PER_PAGE = 20;
 
 export default function CanvasingPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
 
   // Data
@@ -88,17 +90,24 @@ export default function CanvasingPage() {
   const [stores, setStores] = useState<string[]>([]);
 
   // UI state
-  const [viewMode, setViewMode] = useState<"list" | "report">("list");
+  const [viewMode, setViewMode] = useState<"list" | "report">(
+    (searchParams.get("view") as "list" | "report") ?? "list"
+  );
   const [refreshing, setRefreshing] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Filter state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
-  const [storeFilter, setStoreFilter] = useState<string[]>([]);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  // Filter state — dipulihkan dari URL query params supaya filter tidak
+  // hilang saat buka detail lalu klik Back (dan link-nya bisa di-share).
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
+  const [statusFilter, setStatusFilter] = useState<string[]>(
+    searchParams.get("status")?.split(",").filter(Boolean) ?? []
+  );
+  const [storeFilter, setStoreFilter] = useState<string[]>(
+    searchParams.get("store")?.split(",").filter(Boolean) ?? []
+  );
+  const [dateFrom, setDateFrom] = useState(searchParams.get("from") ?? "");
+  const [dateTo, setDateTo] = useState(searchParams.get("to") ?? "");
   const [showStoreDropdown, setShowStoreDropdown] = useState(false);
 
   // Modal / popup state
@@ -144,6 +153,18 @@ export default function CanvasingPage() {
   useEffect(() => {
     applyFilters();
   }, [searchQuery, statusFilter, storeFilter, dateFrom, dateTo, data]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (viewMode !== "list") params.set("view", viewMode);
+    if (statusFilter.length > 0) params.set("status", statusFilter.join(","));
+    if (storeFilter.length > 0) params.set("store", storeFilter.join(","));
+    if (dateFrom) params.set("from", dateFrom);
+    if (dateTo) params.set("to", dateTo);
+    if (searchQuery) params.set("q", searchQuery);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [viewMode, searchQuery, statusFilter, storeFilter, dateFrom, dateTo, pathname, router]);
 
   // ── Business logic ────────────────────────────────────────────────────────
 

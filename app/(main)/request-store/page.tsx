@@ -3,7 +3,7 @@
 import { usePushNotification } from "@/hooks/usePushNotification";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { hasTextSelection } from "@/lib/utils";
 import Popup from "@/components/Popup";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
@@ -40,6 +40,8 @@ interface DropdownData {
 
 export default function RequestStorePage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [data, setData] = useState<RequestItem[]>([]);
   const [dropdownData, setDropdownData] = useState<DropdownData>({
@@ -62,9 +64,9 @@ export default function RequestStorePage() {
   usePushNotification(user?.user_name ?? null); 
 
   // ─── Filter state ──────────────────────────────────────────────────────────
-  const [filterDateFrom, setFilterDateFrom] = useState("");
-  const [filterDateTo, setFilterDateTo] = useState("");
-  const [filterDoc, setFilterDoc] = useState("");
+  const [filterDateFrom, setFilterDateFrom] = useState(searchParams.get("from") ?? "");
+  const [filterDateTo, setFilterDateTo] = useState(searchParams.get("to") ?? "");
+  const [filterDoc, setFilterDoc] = useState(searchParams.get("doc") ?? "");
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
 
   const itemsPerPage = 25;
@@ -376,6 +378,15 @@ export default function RequestStorePage() {
 
     return result;
   })();
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (filterDateFrom) params.set("from", filterDateFrom);
+    if (filterDateTo) params.set("to", filterDateTo);
+    if (filterDoc) params.set("doc", filterDoc);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [filterDateFrom, filterDateTo, filterDoc, pathname, router]);
 
   const handleClearFilters = () => {
     setFilterDateFrom("");

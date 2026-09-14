@@ -3,7 +3,7 @@
 import { usePushNotification } from "@/hooks/usePushNotification";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { hasTextSelection } from "@/lib/utils";
 import Popup from "@/components/Popup";
 import { motion } from "framer-motion";
@@ -128,6 +128,8 @@ function getDownloadUrl(url: string): string {
 // ═════════════════════════════════════════════════════════════════════════════
 export default function RequestTrackingPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [data, setData] = useState<TrackingItem[]>([]);
   const [storeAddresses, setStoreAddresses] = useState<StoreAddress[]>([]);
@@ -148,12 +150,16 @@ export default function RequestTrackingPage() {
 
   const [activeTab, setActiveTab] = useState<"table" | "tracking">("table");
   const [iframeUrl] = useState("https://offline-tracking.vercel.app/");
-  const [searchReceiver, setSearchReceiver] = useState("");
+  // Filter state dipulihkan dari URL query params supaya kalau user buka
+  // detail shipment lalu klik Back, filter yang tadi aktif tidak hilang.
+  const [searchReceiver, setSearchReceiver] = useState(searchParams.get("q") ?? "");
 
   // ── UI-only additions (visual layer): status filter pills, manual refresh
   // spinner, CSV export, and a modern confirm dialog in place of window.confirm().
   // None of these touch the fetch/state/validation logic below.
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
+    (searchParams.get("status") as StatusFilter) ?? "all",
+  );
   const [refreshing, setRefreshing] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<TrackingItem | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -199,6 +205,14 @@ export default function RequestTrackingPage() {
     const interval = setInterval(fetchData, 30_000);
     return () => clearInterval(interval);
   }, [user]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchReceiver) params.set("q", searchReceiver);
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchReceiver, statusFilter, pathname, router]);
 
   const handleIframeLoad = useCallback(() => {
     setIframeReady(true);

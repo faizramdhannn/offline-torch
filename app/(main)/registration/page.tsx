@@ -2,7 +2,7 @@
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Popup from "@/components/Popup";
 import { Button } from "@/components/shared/Button";
 import { RegistrationRequest } from "@/types";
@@ -11,6 +11,8 @@ import { SortableTh } from "@/components/shared/SortableTh";
 
 export default function RegistrationPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [data, setData] = useState<RegistrationRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +21,11 @@ export default function RegistrationPage() {
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
   const [popupType, setPopupType] = useState<"success" | "error">("success");
-  const [activeFilter, setActiveFilter] = useState<"pending" | "all">("pending");
+  // Filter dipulihkan dari URL query param supaya kalau user pindah halaman
+  // lalu klik Back, filter yang tadi aktif tidak hilang.
+  const [activeFilter, setActiveFilter] = useState<"pending" | "all">(
+    (searchParams.get("filter") as "pending" | "all") ?? "pending",
+  );
   const [permissions, setPermissions] = useState({
     dashboard: false,
     order_report: false,
@@ -66,6 +72,13 @@ export default function RegistrationPage() {
     setUser(parsedUser);
     fetchData();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (activeFilter !== "pending") params.set("filter", activeFilter);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [activeFilter, pathname, router]);
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);

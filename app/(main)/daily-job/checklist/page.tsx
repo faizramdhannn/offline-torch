@@ -4,7 +4,7 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTh } from "@/components/shared/SortableTh";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Popup from "@/components/Popup";
 import { Button } from "@/components/shared/Button";
 import { Pagination } from "@/components/shared/Pagination";
@@ -129,10 +129,14 @@ const ITEMS_PER_PAGE = 10;
 
 export default function DailyChecklistPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   useSessionGuard();
 
   const [user, setUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"checklist" | "report">("checklist");
+  const [activeTab, setActiveTab] = useState<"checklist" | "report">(
+    (searchParams.get("tab") as "checklist" | "report") ?? "checklist"
+  );
 
   const [rows, setRows] = useState<ChecklistRow[]>([]);
   const [allRows, setAllRows] = useState<ChecklistRow[]>([]);
@@ -152,14 +156,15 @@ export default function DailyChecklistPage() {
   const [deleteTarget, setDeleteTarget] = useState<ChecklistRow | null>(null);
   const [detailRow, setDetailRow] = useState<ChecklistRow | null>(null);
 
-  // Filter tanggal riwayat sendiri (tab Checklist).
-  const [filterFrom, setFilterFrom] = useState("");
-  const [filterTo, setFilterTo] = useState("");
+  // Filter tanggal riwayat sendiri (tab Checklist). Dipulihkan dari URL query
+  // params supaya filter tidak hilang saat buka detail lalu klik Back.
+  const [filterFrom, setFilterFrom] = useState(searchParams.get("from") ?? "");
+  const [filterTo, setFilterTo] = useState(searchParams.get("to") ?? "");
 
   // Filter tab Report (toko + tanggal).
-  const [reportStore, setReportStore] = useState("");
-  const [reportFrom, setReportFrom] = useState("");
-  const [reportTo, setReportTo] = useState("");
+  const [reportStore, setReportStore] = useState(searchParams.get("rstore") ?? "");
+  const [reportFrom, setReportFrom] = useState(searchParams.get("rfrom") ?? "");
+  const [reportTo, setReportTo] = useState(searchParams.get("rto") ?? "");
 
   const [showPopup, setShowPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState("");
@@ -242,6 +247,18 @@ export default function DailyChecklistPage() {
   useEffect(() => {
     setReportPage(1);
   }, [reportStore, reportFrom, reportTo]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (activeTab !== "checklist") params.set("tab", activeTab);
+    if (filterFrom) params.set("from", filterFrom);
+    if (filterTo) params.set("to", filterTo);
+    if (reportStore) params.set("rstore", reportStore);
+    if (reportFrom) params.set("rfrom", reportFrom);
+    if (reportTo) params.set("rto", reportTo);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [activeTab, filterFrom, filterTo, reportStore, reportFrom, reportTo, pathname, router]);
 
   const canEdit = !!user?.daily_checklist;
   const canReport = !!user?.daily_checklist_all;
