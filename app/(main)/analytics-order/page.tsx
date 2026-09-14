@@ -10,6 +10,7 @@ import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import Papa from "papaparse";
 import { Button } from "@/components/shared/Button";
+import { idbGet, idbSet, isCacheFresh } from "@/lib/idbCache";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, PieChart, Pie,
@@ -809,20 +810,45 @@ const fetchTrafficMap = async () => {
   finally { setTrafficMapLoading(false); }
 };
 
-const fetchData = useCallback(async () => {
+const ANALYTICS_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 1 hari
+const ANALYTICS_ALL_CACHE_KEY = "analytics_data:ALL";
+
+// Seluruh order (tanpa filter tanggal) di-fetch/cache SEKALI di sini —
+// ganti rentang tanggal tidak lagi memicu request baru ke server sama
+// sekali, cukup filter ulang array yang sudah ada di browser (lihat
+// useEffect di bawah yang menurunkan `rows`/`stores` dari `allRows`).
+const [allRows, setAllRows] = useState<Row[]>([]);
+
+const fetchAllFromServerAndCache = useCallback(async (silent: boolean) => {
   try {
-    setLoading(true);
-    const params = new URLSearchParams({ from: dateFrom, to: dateTo });
-    const res = await fetch(`/api/shopify-analytics?${params}`);
+    if (!silent) setLoading(true);
+    const res = await fetch(`/api/shopify-analytics`);
     const data = await res.json();
-    setRows(Array.isArray(data) ? data : []);
-    const uniq = [...new Set((Array.isArray(data) ? data : [])
-      .map((r: Row) => cleanLocationName(r.Location))
-      .filter(Boolean))] as string[];
-    setStores(uniq.sort());
-  } catch { showMessage("Failed to fetch analytics data", "error"); }
-  finally { setLoading(false); }
-}, [dateFrom, dateTo]);
+    setAllRows(Array.isArray(data) ? data : []);
+    await idbSet(ANALYTICS_ALL_CACHE_KEY, data);
+  } catch {
+    if (!silent) showMessage("Failed to fetch analytics data", "error");
+  } finally {
+    if (!silent) setLoading(false);
+  }
+}, []);
+
+// Cache di IndexedDB (seluruh data, tidak per rentang tanggal) supaya buka
+// menu ini lagi tidak query ulang ke Neon selama masih segar — sama seperti
+// menu Customer.
+const fetchData = useCallback(async (forceRefresh?: boolean) => {
+  if (!forceRefresh) {
+    const cached = await idbGet<Row[]>(ANALYTICS_ALL_CACHE_KEY);
+    if (isCacheFresh(cached, ANALYTICS_CACHE_TTL_MS)) {
+      setAllRows(cached!.value);
+      setLoading(false);
+      fetchAllFromServerAndCache(true);
+      return;
+    }
+  }
+
+  await fetchAllFromServerAndCache(false);
+}, [fetchAllFromServerAndCache]);
 
 useEffect(() => {
   const userData = localStorage.getItem("user");
@@ -836,6 +862,21 @@ useEffect(() => {
 useEffect(() => {
   if (user) fetchData();
 }, [user, fetchData]);
+
+// Turunkan `rows`/`stores` (dipakai semua chart/tabel di bawah, tidak
+// berubah) dari `allRows` + rentang tanggal — ini yang membuat ganti
+// tanggal jadi instan (filter lokal), bukan fetch ke server.
+useEffect(() => {
+  const filtered = allRows.filter((r) => {
+    const date = (r["Created at"] || "").split(" ")[0];
+    if (dateFrom && date < dateFrom) return false;
+    if (dateTo && date > dateTo) return false;
+    return true;
+  });
+  setRows(filtered);
+  const uniq = [...new Set(filtered.map((r) => cleanLocationName(r.Location)).filter(Boolean))] as string[];
+  setStores(uniq.sort());
+}, [allRows, dateFrom, dateTo]);
 
 
   const isTrafficActive = trafficFilter.length > 0;
@@ -1288,7 +1329,7 @@ useEffect(() => {
               </div>
               <div className="flex gap-1.5 items-center">
                 <button
-                  onClick={() => fetchData()}
+                  onClick={() => fetchData(true)}
                   disabled={loading}
                   className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
                 >

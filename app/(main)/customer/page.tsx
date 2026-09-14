@@ -15,11 +15,19 @@ import { ExportModal } from "@/components/customer/ExportModal";
 import { CopyButton } from "@/components/request-tracking/DomainBadges";
 import { CheckCircle2, Circle, MessageCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { useSortableTable } from "@/hooks/useSortableTable";
+import { idbGet, idbSet, isCacheFresh } from "@/lib/idbCache";
 import * as XLSX from "xlsx";
 
 function formatRupiah(v: number) {
   return "Rp" + Math.round(v).toLocaleString("id-ID");
 }
+
+// Cache di IndexedDB (bukan localStorage — respons customer bisa puluhan MB
+// untuk ribuan customer, gampang kena batas quota localStorage yang cuma
+// ~5-10MB) supaya bertahan lintas refresh/tab/browser baru, tidak cuma
+// selama tab masih terbuka. TTL 1 hari; setelah itu (atau saat Import CSV /
+// ubah Badge / edit Followup) cache di-refresh.
+const CUSTOMER_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 1 hari
 
 const RESULT_OPTIONS = [
   "Terkirim",
@@ -161,30 +169,58 @@ export default function CustomerPage() {
     }
   };
 
-  const fetchData = async (username: string, fullAccess?: boolean) => {
+  const applyFetchResult = (result: any) => {
+    setIsOwner(result.isOwner);
+    setStoreName(result.storeName || "");
+    setData(result.data);
+    setFilteredData(result.data);
+
+    if (!result.isOwner) {
+      const uniqueStores = [
+        ...new Set(result.data.map((item: Customer) => item.location_store)),
+      ].filter(Boolean);
+      setStores(uniqueStores as string[]);
+    }
+  };
+
+  const fetchFromServerAndCache = async (
+    username: string,
+    fullAccess: boolean | undefined,
+    cacheKey: string,
+    silent: boolean,
+  ) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const response = await fetch(
         `/api/customer?username=${username}&view=list${fullAccess ? "&fullAccess=true" : ""}`,
       );
       const result = await response.json();
 
-      setIsOwner(result.isOwner);
-      setStoreName(result.storeName || "");
-      setData(result.data);
-      setFilteredData(result.data);
-
-      if (!result.isOwner) {
-        const uniqueStores = [
-          ...new Set(result.data.map((item: Customer) => item.location_store)),
-        ].filter(Boolean);
-        setStores(uniqueStores as string[]);
-      }
+      applyFetchResult(result);
+      await idbSet(cacheKey, result);
     } catch (error) {
-      showMessage("Failed to fetch customer data", "error");
+      if (!silent) showMessage("Failed to fetch customer data", "error");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
+  };
+
+  const fetchData = async (username: string, fullAccess?: boolean, forceRefresh?: boolean) => {
+    const cacheKey = `customer_data:${username}:${!!fullAccess}`;
+
+    if (!forceRefresh) {
+      const cached = await idbGet<any>(cacheKey);
+      if (isCacheFresh(cached, CUSTOMER_CACHE_TTL_MS)) {
+        applyFetchResult(cached!.value);
+        setLoading(false);
+        // Stale-while-revalidate: diam-diam refresh di belakang layar tanpa
+        // memicu spinner, supaya data tetap segar tanpa bikin user nunggu.
+        fetchFromServerAndCache(username, fullAccess, cacheKey, true);
+        return;
+      }
+    }
+
+    await fetchFromServerAndCache(username, fullAccess, cacheKey, false);
   };
 
   const handleImportShopifyCsv = async (file: File) => {
@@ -208,7 +244,7 @@ export default function CustomerPage() {
         "success",
       );
       setShowImportModal(false);
-      await fetchData(user.user_name, !!user.user_setting);
+      await fetchData(user.user_name, !!user.user_setting, true);
     } catch (error) {
       showMessage("Gagal import data", "error");
     } finally {
@@ -388,7 +424,7 @@ export default function CustomerPage() {
         await logActivity("PUT", `Updated customer followup`, selectedCustomer.phone_number);
         showMessage("Followup saved successfully", "success");
         closeFollowupModal();
-        fetchData(user.user_name, !!user.user_setting);
+        fetchData(user.user_name, !!user.user_setting, true);
       } else {
         showMessage("Failed to save followup", "error");
       }
@@ -410,7 +446,7 @@ export default function CustomerPage() {
     };
   }).filter((s) => s.count > 0);
 
-  const { sorted: sortedData, sortKey, sortDir, toggleSort } = useSortableTable(filteredData, "total_value_num");
+  const { sorted: sortedData, sortKey, sortDir, toggleSort } = useSortableTable(filteredData, "total_value_num", "desc");
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -446,6 +482,14 @@ return (
 
             {!isOwner && (
               <div className="flex gap-2">
+                <button
+                  onClick={() => fetchData(user.user_name, !!user.user_setting, true)}
+                  disabled={loading}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50"
+                  title="Ambil data terbaru (lewati cache)"
+                >
+                  {loading ? "Memuat..." : "↺ Refresh"}
+                </button>
                 <button
                   onClick={() => setShowImportModal(true)}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-primary text-white hover:opacity-90"
@@ -976,7 +1020,7 @@ return (
         <BadgeManagerModal
           onClose={() => setShowBadgeManager(false)}
           onChanged={() => {
-            fetchData(user.user_name, !!user.user_setting);
+            fetchData(user.user_name, !!user.user_setting, true);
             fetchBadgeMap();
           }}
         />

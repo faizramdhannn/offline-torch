@@ -623,7 +623,7 @@ export default function RequestTrackingPage() {
 
   return (
     <div className="flex-1 overflow-auto bg-[#F8FAFC]">
-      <div className="mx-auto max-w-[1400px] p-4">
+      <div className="p-4">
         {/* ── Section header ──────────────────────────────────────────── */}
         <SectionHeader
           icon={Truck}

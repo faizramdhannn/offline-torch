@@ -743,7 +743,7 @@ export default function StockPage() {
 
   return (
     <div className="flex-1 overflow-auto bg-gray-50/50">
-      <div className="mx-auto max-w-7xl p-4">
+      <div className="p-4">
 
         {/* ── Header + Toolbar ─────────────────────────────────────── */}
         <PageHeader

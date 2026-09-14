@@ -16,9 +16,13 @@ function compareValues(a: unknown, b: unknown): number {
 
 // Sort helper dipakai bareng SortableTh — klik header tabel untuk toggle
 // asc/desc, dipakai konsisten di semua halaman list yang punya tabel.
-export function useSortableTable<T extends Record<string, any>>(data: T[], defaultKey?: keyof T) {
+export function useSortableTable<T extends Record<string, any>>(
+  data: T[],
+  defaultKey?: keyof T,
+  defaultDir: SortDirection = "asc",
+) {
   const [sortKey, setSortKey] = useState<keyof T | null>(defaultKey ?? null);
-  const [sortDir, setSortDir] = useState<SortDirection>("asc");
+  const [sortDir, setSortDir] = useState<SortDirection>(defaultDir);
 
   const sorted = useMemo(() => {
     if (!sortKey) return data;
