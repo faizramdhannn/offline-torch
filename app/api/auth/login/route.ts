@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
       daily_checklist_all: user.daily_checklist_all === 'TRUE',
       stock_pca_view: user.stock_pca_view === 'TRUE',
       affiliate_view: user.affiliate_view === 'TRUE',
+      jastiper: user.jastiper === 'TRUE',
     });
   } catch (error) {
     return NextResponse.json({ error: 'Authentication failed' }, { status: 500 });

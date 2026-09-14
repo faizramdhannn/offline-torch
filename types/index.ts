@@ -130,6 +130,27 @@ export interface Voucher {
   update_at: string;
 }
 
+// ─── Jastiper ────────────────────────────────────────────────────────────────
+// Neon table jastiper_master — master data agen jastip per toko, dengan
+// kontribusi (total order/value) dihitung on-the-fly dari shopify_orders
+// (match via jastiper_code yang dicatat staff toko di kolom Notes Shopify).
+export interface Jastiper {
+  uuid: string;
+  jastiper_name: string;
+  jastiper_phone_number: string;
+  jastiper_respond: string;
+  jastiper_store: string;
+  jastiper_code: string;
+  jastiper_status: string;
+  created_by: string;
+  created_at: string;
+  update_by: string;
+  update_at: string;
+  total_order: number;
+  total_value: number;
+  total_value_formatted: string;
+}
+
 // ─── Affiliate ───────────────────────────────────────────────────────────────
 // Sheet master_affiliate (READ-ONLY, diisi lewat Google Form eksternal).
 // Catatan: kolom kedua memang bernama "affliate_register" (typo di sheet asli).

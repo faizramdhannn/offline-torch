@@ -47,6 +47,7 @@ interface SidebarProps {
     daily_checklist?: boolean;
     daily_checklist_all?: boolean;
     affiliate_view?: boolean;
+    jastiper?: boolean;
   };
 }
 
@@ -369,6 +370,16 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM1 21v-2a4 4 0 014-4h4a4 4 0 014 4v2M17 8l2 2 4-4" />
+        </svg>
+      ),
+    },
+     {
+      name: "Jastiper",
+      path: "/jastiper",
+      permission: "jastiper",
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7h-3V5a3 3 0 00-3-3H10a3 3 0 00-3 3v2H4a1 1 0 00-1 1v10a2 2 0 002 2h14a2 2 0 002-2V8a1 1 0 00-1-1zM9 5a1 1 0 011-1h4a1 1 0 011 1v2H9V5z" />
         </svg>
       ),
     },
@@ -922,8 +933,8 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         <nav className="flex-1 py-1.5 overflow-y-auto overflow-x-hidden">
           {checkPermission(menuItems[0]) && <MenuButton item={menuItems[0]} />}
 
-          {/* Attendance, Capture Attendance, Bundling, Canvasing, Customer */}
-          {menuItems.slice(1, 8).map((item) =>
+          {/* QR Code, Affiliate, Jastiper, Asset, Attendance, Capture Attendance, Bundling, Canvasing */}
+          {menuItems.slice(1, 9).map((item) =>
             checkPermission(item) ? <MenuButton key={item.path} item={item} /> : null
           )}
 
@@ -961,8 +972,8 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
             )
           )}
 
-          {/* Petty Cash, Step ERP, Stock, Stock Opname, Survey Store, Voucher, Registration, Settings */}
-          {menuItems.slice(8).map((item) =>
+          {/* Customer, Daily Job, Petty Cash, Step ERP, Stock, Stock Opname, Survey Store, Voucher, Registration, Settings */}
+          {menuItems.slice(9).map((item) =>
             checkPermission(item) ? <MenuButton key={item.path} item={item} /> : null
           )}
 

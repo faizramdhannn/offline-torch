@@ -106,3 +106,39 @@ export function ensureCustomerSchema(): Promise<void> {
   }
   return schemaReady;
 }
+
+let jastiperSchemaReady: Promise<void> | null = null;
+
+export function ensureJastiperSchema(): Promise<void> {
+  if (!jastiperSchemaReady) {
+    jastiperSchemaReady = (async () => {
+      await sql`
+        CREATE TABLE IF NOT EXISTS jastiper_master (
+          uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          jastiper_name TEXT NOT NULL DEFAULT '',
+          jastiper_phone_number TEXT NOT NULL DEFAULT '',
+          jastiper_phone_normalized TEXT NOT NULL DEFAULT '',
+          jastiper_respond TEXT NOT NULL DEFAULT '',
+          jastiper_store TEXT NOT NULL DEFAULT '',
+          jastiper_code TEXT NOT NULL DEFAULT '',
+          jastiper_status TEXT NOT NULL DEFAULT 'Active',
+          created_by TEXT DEFAULT '',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          update_by TEXT DEFAULT '',
+          update_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+      `;
+      await sql`CREATE INDEX IF NOT EXISTS idx_jastiper_store ON jastiper_master(jastiper_store)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_jastiper_code ON jastiper_master(jastiper_code)`;
+      // Cegah duplikat import ulang CSV master data yang sama (per toko + no
+      // HP ternormalisasi) — hanya berlaku kalau HP-nya terisi, supaya baris
+      // tanpa HP (ada beberapa di data awal) tetap bisa masuk semua.
+      await sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS uidx_jastiper_store_phone
+        ON jastiper_master(jastiper_store, jastiper_phone_normalized)
+        WHERE jastiper_phone_normalized <> ''
+      `;
+    })();
+  }
+  return jastiperSchemaReady;
+}
