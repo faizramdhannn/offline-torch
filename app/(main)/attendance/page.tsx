@@ -20,7 +20,7 @@ export default function AttendancePage() {
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
-    if (!userData) { router.push("/login"); return; }
+    if (!userData) { router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`); return; }
     const parsed = JSON.parse(userData);
     if (!parsed.attendance) { router.push("/dashboard"); return; }
     setUser(parsed);

@@ -84,7 +84,7 @@ export default function AffiliatePage() {
   useEffect(() => {
     const raw = localStorage.getItem("user");
     if (!raw) {
-      router.push("/login");
+      router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return;
     }
     const parsed = JSON.parse(raw);

@@ -72,9 +72,14 @@ function LoginPageContent() {
       // (sidebar dari kiri, konten dari kanan), lalu dihapus di sana.
       sessionStorage.setItem("justLoggedIn", "1");
 
-      // Success: keep loading then navigate
+      // Success: keep loading then navigate back to whatever page the user
+      // originally tried to open (e.g. a shared filtered link), falling back
+      // to /dashboard. Only accept an internal path (starts with a single
+      // "/") to avoid an open-redirect via a crafted `next` value.
+      const next = searchParams.get("next");
+      const destination = next && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
       setPhase("success");
-      setTimeout(() => router.push("/dashboard"), 400);
+      setTimeout(() => router.push(destination), 400);
     } catch {
       setError("Username or password is incorrect");
 

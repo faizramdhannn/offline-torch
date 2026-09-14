@@ -124,7 +124,7 @@ export default function CustomerPage() {
   useEffect(() => {
     const userData = localStorage.getItem("user");
     if (!userData) {
-      router.push("/login");
+      router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return;
     }
     const parsedUser = JSON.parse(userData);

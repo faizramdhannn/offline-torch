@@ -54,7 +54,7 @@ export default function InvoiceDetailPage() {
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
-    if (!userData) { router.push("/login"); return; }
+    if (!userData) { router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`); return; }
     const u = JSON.parse(userData);
     if (!u.invoice) { router.push("/dashboard"); return; }
     setUser(u);

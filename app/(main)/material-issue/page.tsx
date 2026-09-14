@@ -703,7 +703,7 @@ export default function MaterialIssuePage() {
   // ── Init ────────────────────────────────────────────────────────────────────
   useEffect(() => {
     const userData = localStorage.getItem("user");
-    if (!userData) { router.push("/login"); return; }
+    if (!userData) { router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`); return; }
     const u = JSON.parse(userData);
     if (!u.material_issue && !u.material_issue_all) { router.push("/dashboard"); return; }
     setUser(u);

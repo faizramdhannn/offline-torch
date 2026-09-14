@@ -59,7 +59,7 @@ export default function RequestStoreDetailPage() {
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
-    if (!userData) { router.push("/login"); return; }
+    if (!userData) { router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`); return; }
     const parsedUser = JSON.parse(userData);
     if (!parsedUser.request) { router.push("/dashboard"); return; }
     setUser(parsedUser);

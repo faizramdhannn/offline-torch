@@ -102,7 +102,7 @@ export default function BundlingPage() {
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
-    if (!userData) { router.push("/login"); return; }
+    if (!userData) { router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`); return; }
     const parsedUser = JSON.parse(userData);
     if (!parsedUser.bundling) { router.push("/dashboard"); return; }
     // Akses CRUD (Add/Edit/Delete/Update Harga) hanya untuk user yang juga

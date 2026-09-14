@@ -31,7 +31,7 @@ export default function SalesSpreadsheetDetailPage() {
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
-    if (!userData) { router.push("/login"); return; }
+    if (!userData) { router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`); return; }
     const parsed = JSON.parse(userData);
     if (!parsed.sales_view && !parsed.sales_view_all) { router.push("/dashboard"); return; }
     setUser(parsed);

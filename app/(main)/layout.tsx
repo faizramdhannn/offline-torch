@@ -38,7 +38,7 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (mounted && !user) {
-      router.push("/login");
+      router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
     }
   }, [user, router, mounted]);
 

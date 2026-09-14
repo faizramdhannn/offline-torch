@@ -27,7 +27,7 @@ export default function AssetDetailPage() {
 
   useEffect(() => {
     const raw = localStorage.getItem("user");
-    if (!raw) { router.push("/login"); return; }
+    if (!raw) { router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`); return; }
     const parsed = JSON.parse(raw);
     if (!parsed.asset_store) { router.push("/dashboard"); return; }
     setUser(parsed);
