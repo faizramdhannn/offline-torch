@@ -175,12 +175,13 @@ export default function CustomerPage() {
     setData(result.data);
     setFilteredData(result.data);
 
-    if (!result.isOwner) {
-      const uniqueStores = [
-        ...new Set(result.data.map((item: Customer) => item.location_store)),
-      ].filter(Boolean);
-      setStores(uniqueStores as string[]);
-    }
+    // Selalu hitung daftar store dari data yang didapat (bukan cuma untuk
+    // admin/!isOwner) — staff toko dengan akses lintas-toko (mis. Margonda
+    // juga lihat Karawaci) tetap perlu bisa filter antar toko yang dia akses.
+    const uniqueStores = [
+      ...new Set(result.data.map((item: Customer) => item.location_store)),
+    ].filter(Boolean);
+    setStores(uniqueStores as string[]);
   };
 
   const fetchFromServerAndCache = async (
@@ -289,7 +290,7 @@ export default function CustomerPage() {
   const applyFilters = () => {
     let filtered = [...data];
 
-    if (!isOwner && selectedStores.length > 0) {
+    if (selectedStores.length > 0) {
       filtered = filtered.filter((item) =>
         selectedStores.includes(item.location_store),
       );
@@ -399,10 +400,11 @@ export default function CustomerPage() {
 
     try {
       const formData = new FormData();
-      formData.append(
-        "storeName",
-        isOwner ? storeName : selectedCustomer.location_store,
-      );
+      // Selalu pakai store toko asli baris customer ini (bukan storeName
+      // login) — penting untuk staff dengan akses lintas-toko (mis. Margonda
+      // yang juga bisa lihat Karawaci) supaya followup tersimpan di toko
+      // yang benar, bukan ketiban ke toko login-nya.
+      formData.append("storeName", selectedCustomer.location_store);
       formData.append("phoneNumber", selectedCustomer.phone_number);
       formData.append("username", user.user_name);
       formData.append("followup", followupChecked.toString());
@@ -547,7 +549,7 @@ return (
 
           {/* Filters */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 mb-3 flex flex-wrap items-end gap-3">
-            {!isOwner && (
+            {(!isOwner || stores.length > 1) && (
               <div className="relative w-48" ref={storeDropdownRef}>
                 <label className="block text-[10px] font-medium text-gray-500 mb-1">
                   Store

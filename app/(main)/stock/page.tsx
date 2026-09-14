@@ -53,6 +53,7 @@ import {
   CategoryTooltip,
 } from "@/components/stock/ChartHelpers";
 import { chartAxisTick, chartGridStroke } from "@/components/shared/chartStyles";
+import { idbGet, idbSet, isCacheFresh } from "@/lib/idbCache";
 
 interface StockItem {
   link_url?: string;
@@ -282,24 +283,9 @@ export default function StockPage() {
     setShowPopup(true);
   };
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      let sheetName = "result_stock";
-      if (selectedView === "pca") sheetName = "pca_stock";
-      if (selectedView === "master") sheetName = "master_item";
-      const response = await fetch(`/api/stock?type=${sheetName}`);
-      const result = await response.json();
-      if (!response.ok || !Array.isArray(result)) {
-        // Backend gagal (misal: Google Sheets API sedang rate-limited/quota
-        // exceeded) — result di sini berupa { error: "..." }, bukan array,
-        // jadi jangan lanjut ke .map() supaya tidak crash dengan pesan generik.
-        throw new Error(
-          (result && typeof result === "object" && "error" in result
-            ? result.error
-            : null) || "Gagal memuat data stock. Coba lagi sebentar."
-        );
-      }
+  const STOCK_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 1 hari
+
+  const applyStockResult = (result: any[]) => {
       const normalizedData = result.map((item: any) => ({
         ...item,
         sku: item.sku || item.SKU || "",
@@ -340,17 +326,61 @@ export default function StockPage() {
       const maxPrice = hpjValues.length ? Math.max(...hpjValues) : 0;
       setPriceBounds([minPrice, maxPrice]);
       setPriceRange([minPrice, maxPrice]);
+  };
+
+  const fetchStockFromServer = async (sheetName: string, silent: boolean) => {
+    try {
+      if (!silent) setLoading(true);
+      const response = await fetch(`/api/stock?type=${sheetName}`);
+      const result = await response.json();
+      if (!response.ok || !Array.isArray(result)) {
+        // Backend gagal (misal: Google Sheets API sedang rate-limited/quota
+        // exceeded) — result di sini berupa { error: "..." }, bukan array,
+        // jadi jangan lanjut ke .map() supaya tidak crash dengan pesan generik.
+        throw new Error(
+          (result && typeof result === "object" && "error" in result
+            ? result.error
+            : null) || "Gagal memuat data stock. Coba lagi sebentar."
+        );
+      }
+      applyStockResult(result);
+      await idbSet(`stock_data:${sheetName}`, result);
     } catch (error) {
-      showMessage(
-        error instanceof Error
-          ? error.message
-          : "Gagal memuat data stock. Coba lagi sebentar.",
-        "error"
-      );
+      if (!silent) {
+        showMessage(
+          error instanceof Error
+            ? error.message
+            : "Gagal memuat data stock. Coba lagi sebentar.",
+          "error"
+        );
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-    fetchYesterdayData();
+    if (!silent) fetchYesterdayData();
+  };
+
+  // Cache di IndexedDB per sheet (store/pca/master) — sama seperti menu
+  // Customer & Analytics Order — supaya buka lagi tidak query ulang ke
+  // Google Sheets selama masih dalam 24 jam.
+  const fetchData = async (forceRefresh?: boolean) => {
+    let sheetName = "result_stock";
+    if (selectedView === "pca") sheetName = "pca_stock";
+    if (selectedView === "master") sheetName = "master_item";
+    const cacheKey = `stock_data:${sheetName}`;
+
+    if (!forceRefresh) {
+      const cached = await idbGet<any[]>(cacheKey);
+      if (isCacheFresh(cached, STOCK_CACHE_TTL_MS)) {
+        applyStockResult(cached!.value);
+        setLoading(false);
+        fetchYesterdayData();
+        fetchStockFromServer(sheetName, true);
+        return;
+      }
+    }
+
+    await fetchStockFromServer(sheetName, false);
   };
 
   // Stock "kemarin" hanya relevan untuk view store/pca (view master tidak
@@ -401,7 +431,7 @@ export default function StockPage() {
       if (response.ok && result.success) {
         await logActivity("POST", `Refreshed Javelin inventory: ${result.rowsImported || 0} rows`);
         showMessage(`Javelin data refreshed successfully!\n${result.rowsImported || 0} rows imported`, "success");
-        fetchData(); fetchLastUpdate();
+        fetchData(true); fetchLastUpdate();
       } else {
         showMessage(result.needsConfiguration
           ? `${result.error}\n\nPlease configure Javelin cookie in Settings first.`
@@ -607,7 +637,7 @@ export default function StockPage() {
         setErpFile(null);
         setJavelinFile(null);
         setThresholdFile(null);
-        fetchData();
+        fetchData(true);
         fetchLastUpdate();
       }
     } catch { showMessage("Failed to import data. Please try again.", "error"); }

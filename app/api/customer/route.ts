@@ -41,6 +41,16 @@ function findMatchingStore(username: string): string | undefined {
   });
 }
 
+// Akses lintas-toko: staff toko ini juga boleh lihat data customer toko lain
+// yang disebut di sini (mis. karena toko-toko itu berdekatan/dikelola bareng).
+// Hanya menambah store_name yang IKUT ditarik datanya — tidak mengubah
+// identitas storeName yang ditampilkan di header halaman.
+const EXTRA_STORE_ACCESS: Record<string, string[]> = {
+  Margonda: ['Karawaci'],
+  Surabaya: ['Malang'],
+  Karawang: ['Tambun'],
+};
+
 export async function GET(request: NextRequest) {
   try {
     await ensureCustomerSchema();
@@ -57,12 +67,15 @@ export async function GET(request: NextRequest) {
     // Pemilik akses user_setting (admin) melihat semua store, terlepas dari
     // apakah username-nya cocok dengan nama sebuah toko.
     const matchingStore = fullAccess ? undefined : findMatchingStore(username);
+    const accessibleStores = matchingStore
+      ? [matchingStore, ...(EXTRA_STORE_ACCESS[matchingStore] || [])]
+      : undefined;
 
     if (view !== 'list') {
       return NextResponse.json({ data: [] });
     }
 
-    const rows = matchingStore
+    const rows = accessibleStores
       ? await sql`
           SELECT
             o.store_name AS location_store,
@@ -77,7 +90,7 @@ export async function GET(request: NextRequest) {
             c.followup, c.result, c.ket, c.link_url, c.update_by, c.update_at
           FROM shopify_orders o
           LEFT JOIN customer_crm c ON c.store_name = o.store_name AND c.phone_number = o.phone
-          WHERE o.phone IS NOT NULL AND o.phone <> '' AND o.store_name = ${matchingStore}
+          WHERE o.phone IS NOT NULL AND o.phone <> '' AND o.store_name = ANY(${accessibleStores})
           GROUP BY o.store_name, o.phone, c.followup, c.result, c.ket, c.link_url, c.update_by, c.update_at
           ORDER BY total_value DESC NULLS LAST
         `
