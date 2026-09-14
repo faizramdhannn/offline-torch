@@ -14,7 +14,6 @@ import { FollowupMessageModal } from "@/components/customer/FollowupMessageModal
 import { ExportModal } from "@/components/customer/ExportModal";
 import { CopyButton } from "@/components/request-tracking/DomainBadges";
 import { CheckCircle2, Circle, MessageCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
-import { useSortableTable } from "@/hooks/useSortableTable";
 import { idbGet, idbSet, isCacheFresh } from "@/lib/idbCache";
 import * as XLSX from "xlsx";
 
@@ -41,8 +40,15 @@ export default function CustomerPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
-  const [data, setData] = useState<Customer[]>([]);
-  const [filteredData, setFilteredData] = useState<Customer[]>([]);
+  // Data hasil server SUDAH terpaginasi/terfilter (bukan seluruh dataset) —
+  // dulu endpoint ini bisa balikin puluhan MB / puluhan ribu baris sekaligus
+  // (18 detik, 16MB untuk ~36rb customer), yang bikin loading macet/timeout
+  // di koneksi lambat. Sekarang server cuma kirim 1 halaman (default 25).
+  const [items, setItems] = useState<Customer[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [stats, setStats] = useState<
+    { key: string; count: number; totalOrder: number; totalQty: number; totalValue: number }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
   const [storeName, setStoreName] = useState("");
@@ -92,8 +98,37 @@ export default function CustomerPage() {
   const [orderMax, setOrderMax] = useState(searchParams.get("omax") ?? "");
   const badgeDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Search di-debounce 400ms sebelum ikut memicu fetch ke server — supaya
+  // tidak fetch di setiap ketikan huruf.
+  const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery), 400);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Sort sekarang dikerjakan di server (bukan client-side atas seluruh
+  // dataset) — klik header cuma toggle state ini, lalu memicu fetch ulang.
+  const [sortKey, setSortKey] = useState("total_value_num");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const toggleSort = (key: string) => {
+    setSortKey((prevKey) => {
+      if (prevKey === key) {
+        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        return prevKey;
+      }
+      setSortDir("asc");
+      return key;
+    });
+  };
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 25;
+
+  // Ganti filter/sort → balik ke halaman 1 (bukan currentPage sendiri, biar
+  // tidak jadi infinite loop).
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedQuery, selectedStores, selectedBadges, valueMin, valueMax, orderMin, orderMax, sortKey, sortDir]);
 
   // Ref for dropdown to detect click outside
   const storeDropdownRef = useRef<HTMLDivElement>(null);
@@ -133,13 +168,17 @@ export default function CustomerPage() {
       return;
     }
     setUser(parsedUser);
-    fetchData(parsedUser.user_name, !!parsedUser.user_setting);
     fetchBadgeMap();
   }, []);
 
+  // Fetch ulang ke server tiap kali user, filter, sort, atau halaman berubah
+  // — server yang mengerjakan filter/sort/pagination sekarang, bukan browser
+  // menyaring array besar yang sudah di-download semua.
   useEffect(() => {
-    applyFilters();
-  }, [searchQuery, selectedStores, selectedBadges, valueMin, valueMax, orderMin, orderMax, data]);
+    if (!user) return;
+    fetchData(user.user_name, !!user.user_setting);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, debouncedQuery, selectedStores, selectedBadges, valueMin, valueMax, orderMin, orderMax, sortKey, sortDir, currentPage]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -195,29 +234,35 @@ export default function CustomerPage() {
   const applyFetchResult = (result: any) => {
     setIsOwner(result.isOwner);
     setStoreName(result.storeName || "");
-    setData(result.data);
-    setFilteredData(result.data);
-
-    // Selalu hitung daftar store dari data yang didapat (bukan cuma untuk
-    // admin/!isOwner) — staff toko dengan akses lintas-toko (mis. Margonda
-    // juga lihat Karawaci) tetap perlu bisa filter antar toko yang dia akses.
-    const uniqueStores = [
-      ...new Set(result.data.map((item: Customer) => item.location_store)),
-    ].filter(Boolean);
-    setStores(uniqueStores as string[]);
+    setItems(result.data || []);
+    setTotalItems(result.total || 0);
+    setStats(result.stats || []);
+    setStores(result.stores || []);
   };
 
-  const fetchFromServerAndCache = async (
-    username: string,
-    fullAccess: boolean | undefined,
-    cacheKey: string,
-    silent: boolean,
-  ) => {
+  const buildListQuery = (username: string, fullAccess?: boolean) => {
+    const params = new URLSearchParams();
+    params.set("username", username);
+    params.set("view", "list");
+    if (fullAccess) params.set("fullAccess", "true");
+    if (debouncedQuery) params.set("q", debouncedQuery);
+    if (selectedStores.length > 0) params.set("stores", selectedStores.join(","));
+    if (selectedBadges.length > 0) params.set("badges", selectedBadges.join(","));
+    if (valueMin) params.set("vmin", valueMin);
+    if (valueMax) params.set("vmax", valueMax);
+    if (orderMin) params.set("omin", orderMin);
+    if (orderMax) params.set("omax", orderMax);
+    params.set("sortKey", sortKey);
+    params.set("sortDir", sortDir);
+    params.set("page", String(currentPage));
+    params.set("limit", String(itemsPerPage));
+    return params.toString();
+  };
+
+  const fetchFromServerAndCache = async (qs: string, cacheKey: string, silent: boolean) => {
     try {
       if (!silent) setLoading(true);
-      const response = await fetch(
-        `/api/customer?username=${username}&view=list${fullAccess ? "&fullAccess=true" : ""}`,
-      );
+      const response = await fetch(`/api/customer?${qs}`);
       const result = await response.json();
 
       applyFetchResult(result);
@@ -230,7 +275,8 @@ export default function CustomerPage() {
   };
 
   const fetchData = async (username: string, fullAccess?: boolean, forceRefresh?: boolean) => {
-    const cacheKey = `customer_data:${username}:${!!fullAccess}`;
+    const qs = buildListQuery(username, fullAccess);
+    const cacheKey = `customer_list:${qs}`;
 
     if (!forceRefresh) {
       const cached = await idbGet<any>(cacheKey);
@@ -239,12 +285,12 @@ export default function CustomerPage() {
         setLoading(false);
         // Stale-while-revalidate: diam-diam refresh di belakang layar tanpa
         // memicu spinner, supaya data tetap segar tanpa bikin user nunggu.
-        fetchFromServerAndCache(username, fullAccess, cacheKey, true);
+        fetchFromServerAndCache(qs, cacheKey, true);
         return;
       }
     }
 
-    await fetchFromServerAndCache(username, fullAccess, cacheKey, false);
+    await fetchFromServerAndCache(qs, cacheKey, false);
   };
 
   const handleImportShopifyCsv = async (file: File) => {
@@ -310,56 +356,6 @@ export default function CustomerPage() {
     }
   };
 
-  const applyFilters = () => {
-    let filtered = [...data];
-
-    if (selectedStores.length > 0) {
-      filtered = filtered.filter((item) =>
-        selectedStores.includes(item.location_store),
-      );
-    }
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (item) =>
-          item.phone_number.toLowerCase().includes(query) ||
-          item.customer_name.toLowerCase().includes(query),
-      );
-    }
-
-    if (selectedBadges.length > 0) {
-      filtered = filtered.filter((item) =>
-        (item.badges || []).some((b) => selectedBadges.includes(b)),
-      );
-    }
-
-    const min = valueMin ? parseFloat(valueMin) : null;
-    const max = valueMax ? parseFloat(valueMax) : null;
-    if (min !== null || max !== null) {
-      filtered = filtered.filter((item) => {
-        const v = item.total_value_num ?? 0;
-        if (min !== null && v < min) return false;
-        if (max !== null && v > max) return false;
-        return true;
-      });
-    }
-
-    const oMin = orderMin ? parseFloat(orderMin) : null;
-    const oMax = orderMax ? parseFloat(orderMax) : null;
-    if (oMin !== null || oMax !== null) {
-      filtered = filtered.filter((item) => {
-        const o = Number(item.total_order) || 0;
-        if (oMin !== null && o < oMin) return false;
-        if (oMax !== null && o > oMax) return false;
-        return true;
-      });
-    }
-
-    setFilteredData(filtered);
-    setCurrentPage(1);
-  };
-
   const resetFilters = () => {
     setSearchQuery("");
     setSelectedStores([]);
@@ -368,7 +364,6 @@ export default function CustomerPage() {
     setValueMax("");
     setOrderMin("");
     setOrderMax("");
-    setFilteredData(data);
     setCurrentPage(1);
   };
 
