@@ -275,7 +275,13 @@ export async function GET(request: NextRequest) {
     const nonTierStatsQueries = nonTierBadgeDefs.map((b: any) => {
       const set = b.badge_key === 'bulk_order' ? bulkSet : collectionSets.get(b.badge_key);
       const keys = set ? Array.from(set) : [];
-      const keyParams = [...params, keys];
+      // PENTING: pakai countParams (snapshot SEBELUM limitPh/offsetPh
+      // ditambahkan ke `params`), bukan `params` langsung — query stats ini
+      // tidak pernah mereferensikan placeholder limit/offset, jadi kalau ikut
+      // disisipkan tetap membuat Postgres gagal infer tipenya ("could not
+      // determine data type of parameter $N") karena placeholder itu tidak
+      // dipakai sama sekali di teks query.
+      const keyParams = [...countParams, keys];
       const keyPh = `$${keyParams.length}::text[]`;
       const query = `
         ${aggCte}
