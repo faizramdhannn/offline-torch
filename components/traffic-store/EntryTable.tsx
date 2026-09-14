@@ -5,6 +5,8 @@ import { Pencil, Trash2, Columns3, RotateCcw, Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/shared/Badge";
 import { cn } from "@/lib/utils";
+import { SortableTh } from "@/components/shared/SortableTh";
+import type { SortDirection } from "@/hooks/useSortableTable";
 
 interface TrafficEntry {
   id: string;
@@ -44,6 +46,9 @@ interface EntryTableProps {
   onDelete: (id: string) => void;
   formatDate: (v: string) => string;
   toTitleCase: (s: string) => string;
+  sortKey?: string | null;
+  sortDir?: SortDirection;
+  toggleSort?: (key: string) => void;
 }
 
 function getDetail(row: TrafficEntry): string {
@@ -67,6 +72,8 @@ interface ColumnDef {
   storeOnly?: boolean; // only relevant/shown when NOT isStoreUser
   render: (row: TrafficEntry, ctx: { formatDate: (v: string) => string; toTitleCase: (s: string) => string }) => React.ReactNode;
   cellClass?: string;
+  /** Actual TrafficEntry field this column sorts by; defaults to `key` when omitted. */
+  sortField?: string;
 }
 
 const COLUMNS: ColumnDef[] = [
@@ -74,12 +81,12 @@ const COLUMNS: ColumnDef[] = [
     cellClass: "whitespace-nowrap text-gray-500",
     render: (row, { formatDate }) => formatDate(row.date) },
   { key: "store", label: "Store", essential: true, defaultVisible: true, storeOnly: true,
-    cellClass: "whitespace-nowrap font-medium",
+    cellClass: "whitespace-nowrap font-medium", sortField: "store_location",
     render: (row, { toTitleCase }) => toTitleCase(row.store_location) },
   { key: "taft", label: "Taft", essential: true, defaultVisible: true,
-    cellClass: "whitespace-nowrap",
+    cellClass: "whitespace-nowrap", sortField: "taft_name",
     render: (row) => row.taft_name },
-  { key: "convert", label: "Beli?", essential: true, defaultVisible: true,
+  { key: "convert", label: "Beli?", essential: true, defaultVisible: true, sortField: "customer_convert",
     render: (row) => (
       <Badge variant={row.customer_convert === "Beli" ? "success" : row.customer_convert === "Tidak Beli" ? "error" : "neutral"}>
         {row.customer_convert || "-"}
@@ -230,7 +237,7 @@ function ColumnPicker({
   );
 }
 
-export function EntryTable({ items, isStoreUser, canEdit, onEdit, onDelete, formatDate, toTitleCase }: EntryTableProps) {
+export function EntryTable({ items, isStoreUser, canEdit, onEdit, onDelete, formatDate, toTitleCase, sortKey, sortDir = "asc", toggleSort }: EntryTableProps) {
   const router = useRouter();
   const [visible, setVisible] = useState<Record<string, boolean>>(() => loadVisibleColumns());
 
@@ -263,7 +270,14 @@ export function EntryTable({ items, isStoreUser, canEdit, onEdit, onDelete, form
           <thead>
             <tr className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50">
               {activeColumns.map((c) => (
-                <th key={c.key} className={thClass}>{c.label}</th>
+                <SortableTh
+                  key={c.key}
+                  label={c.label}
+                  active={sortKey === (c.sortField || c.key)}
+                  dir={sortDir}
+                  onClick={() => toggleSort?.(c.sortField || c.key)}
+                  className={thClass}
+                />
               ))}
               <th className={cn(thClass, "text-center")}>Aksi</th>
             </tr>

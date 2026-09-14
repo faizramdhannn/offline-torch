@@ -11,6 +11,8 @@ import SearchableSelect from "@/components/SearchableSelect";
 import { Bundling } from "@/types";
 import { Button } from "@/components/shared/Button";
 import { Plus, X, RefreshCw } from "lucide-react";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import { SortableTh } from "@/components/shared/SortableTh";
 
 const STORE_LIST = [
   { key: "torch_cirebon", label: "Torch Cirebon" },
@@ -582,10 +584,12 @@ export default function BundlingPage() {
     }
   };
 
+  const { sorted: sortedData, sortKey, sortDir, toggleSort } = useSortableTable(filteredData, "bundling_name");
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const currentItems = sortedData.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
 
   // Seleksi checkbox hanya berlaku untuk baris yang sedang ditampilkan (halaman aktif)
   const isAllCurrentSelected =
@@ -738,13 +742,13 @@ export default function BundlingPage() {
                           />
                         </th>
                       )}
-                      <th className="px-2 py-1.5 text-left font-semibold text-gray-600">Bundling Name</th>
+                      <SortableTh label="Bundling Name" active={sortKey === "bundling_name"} dir={sortDir} onClick={() => toggleSort("bundling_name")} className="px-2 py-1.5 font-semibold text-gray-600" />
                       <th className="px-2 py-1.5 text-left font-semibold text-gray-600">Options</th>
-                      <th className="px-2 py-1.5 text-right font-semibold text-gray-600">Total HPJ</th>
-                      <th className="px-2 py-1.5 text-right font-semibold text-gray-600">Diskon</th>
-                      <th className="px-2 py-1.5 text-right font-semibold text-gray-600">Harga Final</th>
+                      <SortableTh label="Total HPJ" active={sortKey === "total_value"} dir={sortDir} onClick={() => toggleSort("total_value")} align="right" className="px-2 py-1.5 font-semibold text-gray-600" />
+                      <SortableTh label="Diskon" active={sortKey === "discount_percentage"} dir={sortDir} onClick={() => toggleSort("discount_percentage")} align="right" className="px-2 py-1.5 font-semibold text-gray-600" />
+                      <SortableTh label="Harga Final" active={sortKey === "value"} dir={sortDir} onClick={() => toggleSort("value")} align="right" className="px-2 py-1.5 font-semibold text-gray-600" />
                       <th className="px-2 py-1.5 text-center font-semibold text-gray-600">Stock</th>
-                      <th className="px-2 py-1.5 text-center font-semibold text-gray-600">Status</th>
+                      <SortableTh label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} align="center" className="px-2 py-1.5 font-semibold text-gray-600" />
                       {canEdit && (
                         <th className="px-2 py-1.5 text-center font-semibold text-gray-600">Aksi</th>
                       )}

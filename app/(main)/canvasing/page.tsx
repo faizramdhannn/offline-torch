@@ -1,6 +1,7 @@
 "use client";
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
+import { useSortableTable } from "@/hooks/useSortableTable";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
@@ -454,12 +455,14 @@ export default function CanvasingPage() {
     },
   ];
 
+  const { sorted: sortedData, sortKey, sortDir, toggleSort } = useSortableTable(filteredData, "visit_at");
+
   const indexOfFirst = (currentPage - 1) * ITEMS_PER_PAGE;
-  const currentItems = filteredData.slice(
+  const currentItems = sortedData.slice(
     indexOfFirst,
     indexOfFirst + ITEMS_PER_PAGE
   );
-  const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(sortedData.length / ITEMS_PER_PAGE);
 
   if (!user) return null;
 
@@ -593,6 +596,9 @@ export default function CanvasingPage() {
                     canEdit={canEdit}
                     isOwner={isOwner}
                     toTitleCase={toTitleCase}
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    toggleSort={toggleSort}
                   />
                   <Pagination
                     currentPage={currentPage}

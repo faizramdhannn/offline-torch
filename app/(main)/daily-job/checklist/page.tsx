@@ -2,6 +2,8 @@
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import { SortableTh } from "@/components/shared/SortableTh";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import { Button } from "@/components/shared/Button";
@@ -419,8 +421,6 @@ export default function DailyChecklistPage() {
     });
   }, [reportFiltered, dropdowns]);
 
-  if (!user) return null;
-
   const filteredRows = rows.filter((r) => {
     const dateKey = jakartaDateKeyFromCreatedAt(r.created_at);
     if (filterFrom && (!dateKey || dateKey < filterFrom)) return false;
@@ -428,8 +428,12 @@ export default function DailyChecklistPage() {
     return true;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / ITEMS_PER_PAGE));
-  const paged = filteredRows.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+  const { sorted: sortedRows, sortKey, sortDir, toggleSort } = useSortableTable(filteredRows, "created_at");
+
+  if (!user) return null;
+
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / ITEMS_PER_PAGE));
+  const paged = sortedRows.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
   const colCount = 4 + CATEGORIES.length;
 
   const reportTotalPages = Math.max(1, Math.ceil(reportFiltered.length / ITEMS_PER_PAGE));
@@ -571,9 +575,9 @@ export default function DailyChecklistPage() {
               <table className="w-full text-[11px] border-collapse">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
-                    <th className="px-2 py-1.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[140px]">Tanggal</th>
-                    <th className="px-2 py-1.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[140px]">Taft By</th>
-                    <th className="px-2 py-1.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[90px]">Role</th>
+                    <SortableTh label="Tanggal" active={sortKey === "created_at"} dir={sortDir} onClick={() => toggleSort("created_at")} className="px-2 py-1.5 border-r border-gray-200 min-w-[140px]" />
+                    <SortableTh label="Taft By" active={sortKey === "taft_by"} dir={sortDir} onClick={() => toggleSort("taft_by")} className="px-2 py-1.5 border-r border-gray-200 min-w-[140px]" />
+                    <SortableTh label="Role" active={sortKey === "role_taft"} dir={sortDir} onClick={() => toggleSort("role_taft")} className="px-2 py-1.5 border-r border-gray-200 min-w-[90px]" />
                     {CATEGORIES.map((c) => (
                       <th key={c.key} className="px-2 py-1.5 text-center border-r border-gray-200 whitespace-nowrap min-w-[130px]">
                         {c.label}

@@ -2,6 +2,8 @@
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import { SortableTh } from "@/components/shared/SortableTh";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -180,8 +182,10 @@ export default function StepErpPage() {
     );
   }, [flatEntries, search]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredEntries.length / PAGE_SIZE));
-  const pagedEntries = filteredEntries.slice(
+  const { sorted: sortedEntries, sortKey, sortDir, toggleSort } = useSortableTable(filteredEntries, "created_at");
+
+  const totalPages = Math.max(1, Math.ceil(sortedEntries.length / PAGE_SIZE));
+  const pagedEntries = sortedEntries.slice(
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE
   );
@@ -509,20 +513,32 @@ export default function StepErpPage() {
                   <table className="w-full text-[11px]">
                     <thead className="border-b border-gray-100 bg-gray-50">
                       <tr>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
-                          ERP Number
-                        </th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
-                          Store
-                        </th>
+                        <SortableTh
+                          label="ERP Number"
+                          active={sortKey === "erp_number"}
+                          dir={sortDir}
+                          onClick={() => toggleSort("erp_number")}
+                          className="px-2 py-1.5 font-semibold text-gray-500"
+                        />
+                        <SortableTh
+                          label="Store"
+                          active={sortKey === "store"}
+                          dir={sortDir}
+                          onClick={() => toggleSort("store")}
+                          className="px-2 py-1.5 font-semibold text-gray-500"
+                        />
                         {activeTab === "all" && (
                           <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
                             Tipe
                           </th>
                         )}
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
-                          Dibuat
-                        </th>
+                        <SortableTh
+                          label="Dibuat"
+                          active={sortKey === "created_at"}
+                          dir={sortDir}
+                          onClick={() => toggleSort("created_at")}
+                          className="px-2 py-1.5 font-semibold text-gray-500"
+                        />
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-500" style={{ minWidth: 180 }}>
                           Progress
                         </th>

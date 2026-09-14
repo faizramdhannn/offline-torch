@@ -13,7 +13,8 @@ import { ImportCsvModal } from "@/components/customer/ImportCsvModal";
 import { FollowupMessageModal } from "@/components/customer/FollowupMessageModal";
 import { ExportModal } from "@/components/customer/ExportModal";
 import { CopyButton } from "@/components/request-tracking/DomainBadges";
-import { CheckCircle2, Circle, MessageCircle } from "lucide-react";
+import { CheckCircle2, Circle, MessageCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { useSortableTable } from "@/hooks/useSortableTable";
 import * as XLSX from "xlsx";
 
 function formatRupiah(v: number) {
@@ -409,10 +410,21 @@ export default function CustomerPage() {
     };
   }).filter((s) => s.count > 0);
 
+  const { sorted: sortedData, sortKey, sortDir, toggleSort } = useSortableTable(filteredData, "total_value_num");
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const currentItems = sortedData.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
+
+  const SortIcon = ({ active }: { active: boolean }) =>
+    !active ? (
+      <ChevronsUpDown className="h-3 w-3 flex-none text-gray-300" />
+    ) : sortDir === "asc" ? (
+      <ChevronUp className="h-3 w-3 flex-none text-gray-500" />
+    ) : (
+      <ChevronDown className="h-3 w-3 flex-none text-gray-500" />
+    );
 
   if (!user) return null;
 
@@ -648,18 +660,36 @@ return (
               <>
                 <div className="overflow-x-auto">
                 <div className="min-w-[980px]">
-                  {/* Header */}
+                  {/* Header — klik untuk sort asc/desc */}
                   <div className="flex items-center gap-3 border-b border-gray-100 bg-gray-50/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                    <div className="w-32 flex-none">Phone</div>
-                    <div className="flex-1 min-w-[120px]">Customer</div>
-                    <div className="flex-1 min-w-[140px]">Email</div>
-                    <div className="w-28 flex-none">Store</div>
+                    <button onClick={() => toggleSort("phone_number")} className="flex w-32 flex-none items-center gap-1 hover:text-gray-600">
+                      Phone <SortIcon active={sortKey === "phone_number"} />
+                    </button>
+                    <button onClick={() => toggleSort("customer_name")} className="flex flex-1 min-w-[120px] items-center gap-1 hover:text-gray-600">
+                      Customer <SortIcon active={sortKey === "customer_name"} />
+                    </button>
+                    <button onClick={() => toggleSort("email")} className="flex flex-1 min-w-[140px] items-center gap-1 hover:text-gray-600">
+                      Email <SortIcon active={sortKey === "email"} />
+                    </button>
+                    <button onClick={() => toggleSort("location_store")} className="flex w-28 flex-none items-center gap-1 hover:text-gray-600">
+                      Store <SortIcon active={sortKey === "location_store"} />
+                    </button>
                     <div className="w-24 flex-none">Badge</div>
-                    <div className="w-20 flex-none text-right">Total Order</div>
-                    <div className="w-20 flex-none text-right">Qty Order</div>
-                    <div className="w-24 flex-none text-right">Total Value</div>
-                    <div className="w-24 flex-none text-right">First Purchase</div>
-                    <div className="w-24 flex-none text-right">Last Purchase</div>
+                    <button onClick={() => toggleSort("total_order")} className="flex w-20 flex-none items-center justify-end gap-1 hover:text-gray-600">
+                      Total Order <SortIcon active={sortKey === "total_order"} />
+                    </button>
+                    <button onClick={() => toggleSort("total_qty")} className="flex w-20 flex-none items-center justify-end gap-1 hover:text-gray-600">
+                      Qty Order <SortIcon active={sortKey === "total_qty"} />
+                    </button>
+                    <button onClick={() => toggleSort("total_value_num")} className="flex w-24 flex-none items-center justify-end gap-1 hover:text-gray-600">
+                      Total Value <SortIcon active={sortKey === "total_value_num"} />
+                    </button>
+                    <button onClick={() => toggleSort("first_purchase")} className="flex w-24 flex-none items-center justify-end gap-1 hover:text-gray-600">
+                      First Purchase <SortIcon active={sortKey === "first_purchase"} />
+                    </button>
+                    <button onClick={() => toggleSort("last_purchase")} className="flex w-24 flex-none items-center justify-end gap-1 hover:text-gray-600">
+                      Last Purchase <SortIcon active={sortKey === "last_purchase"} />
+                    </button>
                     <div className="w-16 flex-none text-right">Aksi</div>
                   </div>
 

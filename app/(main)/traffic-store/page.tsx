@@ -1,6 +1,7 @@
 "use client";
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
+import { useSortableTable } from "@/hooks/useSortableTable";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
@@ -543,7 +544,8 @@ export default function TrafficStorePage() {
   }, [data, filterStore, filterTraffic, filterConvert, filterCategory, filterReasonNotBuy, filterSearch, filterDateFrom, filterDateTo, isStoreUser, userStore]);
 
   const fd = filteredData();
-  const paginated = fd.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const { sorted: sortedFd, sortKey, sortDir, toggleSort } = useSortableTable(fd, "date");
+  const paginated = sortedFd.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // ─── Chart data ─────────────────────────────────────────────────────────────
   const trafficChartData = useMemo(() => {
@@ -1123,6 +1125,9 @@ export default function TrafficStorePage() {
                     onDelete={requestDelete}
                     formatDate={formatDate}
                     toTitleCase={toTitleCase}
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    toggleSort={(key) => toggleSort(key as keyof TrafficEntry)}
                   />
                   <Pagination
                     currentPage={page}

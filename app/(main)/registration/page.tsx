@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import { Button } from "@/components/shared/Button";
 import { RegistrationRequest } from "@/types";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import { SortableTh } from "@/components/shared/SortableTh";
 
 export default function RegistrationPage() {
   const router = useRouter();
@@ -98,6 +100,8 @@ export default function RegistrationPage() {
   const displayedData = activeFilter === "pending"
     ? data.filter(r => r.status === "pending")
     : data;
+
+  const { sorted: sortedData, sortKey, sortDir, toggleSort } = useSortableTable(displayedData, "request_at");
 
   const handleApprove = (request: RegistrationRequest) => {
     setSelectedRequest(request);
@@ -235,16 +239,16 @@ return (
                 <table className="w-full text-[11px]">
                   <thead className="bg-gray-100 border-b">
                     <tr>
-                      <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">ID</th>
-                      <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Name</th>
-                      <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Username</th>
-                      <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Status</th>
-                      <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Request Date</th>
+                      <SortableTh label="ID" active={sortKey === "id"} dir={sortDir} onClick={() => toggleSort("id")} className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500" />
+                      <SortableTh label="Name" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500" />
+                      <SortableTh label="Username" active={sortKey === "user_name"} dir={sortDir} onClick={() => toggleSort("user_name")} className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500" />
+                      <SortableTh label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500" />
+                      <SortableTh label="Request Date" active={sortKey === "request_at"} dir={sortDir} onClick={() => toggleSort("request_at")} className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500" />
                       <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {displayedData.map((item, index) => (
+                    {sortedData.map((item, index) => (
                       <tr key={index} className="border-b hover:bg-gray-50">
                         <td className="px-2 py-1 text-gray-500">{item.id}</td>
                         <td className="px-2 py-1 font-medium">{item.name}</td>

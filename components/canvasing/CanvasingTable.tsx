@@ -3,6 +3,8 @@
 import { Image as ImageIcon, Pencil, Trash2 } from "lucide-react";
 import { Canvasing } from "@/types";
 import { StatusBadge } from "./DomainBadges";
+import { SortableTh } from "@/components/shared/SortableTh";
+import type { SortDirection } from "@/hooks/useSortableTable";
 
 interface CanvasingTableProps {
   items: Canvasing[];
@@ -12,12 +14,10 @@ interface CanvasingTableProps {
   canEdit: (entry: Canvasing) => boolean;
   isOwner: boolean;
   toTitleCase: (s: string) => string;
+  sortKey?: keyof Canvasing | null;
+  sortDir?: SortDirection;
+  toggleSort?: (key: keyof Canvasing) => void;
 }
-
-const HEADERS = [
-  "Store", "Name", "CP", "Category",
-  "Sub Category", "Canvasser", "Visit At", "Status", "Images", "",
-];
 
 /**
  * Data table for the canvasing list view.
@@ -32,6 +32,9 @@ export function CanvasingTable({
   canEdit,
   isOwner,
   toTitleCase,
+  sortKey,
+  sortDir = "asc",
+  toggleSort,
 }: CanvasingTableProps) {
   const thClass =
     "px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap";
@@ -42,11 +45,16 @@ export function CanvasingTable({
       <table className="w-full min-w-[1280px] border-collapse text-[11px]">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50/60">
-            {HEADERS.map((h) => (
-              <th key={h} className={thClass}>
-                {h}
-              </th>
-            ))}
+            <SortableTh label="Store" active={sortKey === "store"} dir={sortDir} onClick={() => toggleSort?.("store")} className={thClass} />
+            <SortableTh label="Name" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort?.("name")} className={thClass} />
+            <SortableTh label="CP" active={sortKey === "contact_person"} dir={sortDir} onClick={() => toggleSort?.("contact_person")} className={thClass} />
+            <SortableTh label="Category" active={sortKey === "category"} dir={sortDir} onClick={() => toggleSort?.("category")} className={thClass} />
+            <SortableTh label="Sub Category" active={sortKey === "sub_category"} dir={sortDir} onClick={() => toggleSort?.("sub_category")} className={thClass} />
+            <SortableTh label="Canvasser" active={sortKey === "canvasser"} dir={sortDir} onClick={() => toggleSort?.("canvasser")} className={thClass} />
+            <SortableTh label="Visit At" active={sortKey === "visit_at"} dir={sortDir} onClick={() => toggleSort?.("visit_at")} className={thClass} />
+            <SortableTh label="Status" active={sortKey === "result_status"} dir={sortDir} onClick={() => toggleSort?.("result_status")} className={thClass} />
+            <th className={thClass}>Images</th>
+            <th className={thClass}></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">

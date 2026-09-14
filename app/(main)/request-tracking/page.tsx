@@ -23,6 +23,7 @@ import { Pagination } from "@/components/request-tracking/Pagination";
 import { ShipmentTable } from "@/components/request-tracking/ShipmentTable";
 import { Modal } from "@/components/request-tracking/Modal";
 import { ConfirmationDialog } from "@/components/request-tracking/ConfirmationDialog";
+import { useSortableTable } from "@/hooks/useSortableTable";
 import { DropZone } from "@/components/request-tracking/DropZone";
 import { ExpeditionBadge, CopyButton, TypeReasonBadge } from "@/components/request-tracking/DomainBadges";
 import { FieldLabel, FieldHint, inputClass, FormDivider } from "@/components/request-tracking/FormField";
@@ -527,10 +528,11 @@ export default function RequestTrackingPage() {
   })();
 
   const hasActiveSearch = searchReceiver.trim().length > 0;
+  const { sorted: sortedData, sortKey, sortDir, toggleSort } = useSortableTable(filteredData, "date");
   const indexOfLast = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
-  const currentItems = filteredData.slice(indexOfFirst, indexOfLast);
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const currentItems = sortedData.slice(indexOfFirst, indexOfLast);
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
 
   const highlightText = (text: string, query: string) => {
     if (!query || !text) return text || "-";
@@ -718,6 +720,9 @@ export default function RequestTrackingPage() {
                     getStatus={getStatus}
                     buildWhatsappLink={buildWhatsappLink}
                     highlightText={highlightText}
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onSortToggle={toggleSort}
                   />
                   <Pagination
                     currentPage={currentPage}

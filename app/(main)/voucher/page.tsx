@@ -10,6 +10,8 @@ import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import { Button } from "@/components/shared/Button";
 import { Voucher } from "@/types";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import { SortableTh } from "@/components/shared/SortableTh";
 
 export default function VoucherPage() {
   const router = useRouter();
@@ -225,10 +227,12 @@ export default function VoucherPage() {
     }
   };
 
+  const { sorted: sortedData, sortKey, sortDir, toggleSort } = useSortableTable(filteredData, "voucher_name");
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const currentItems = sortedData.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
 
   if (!user) return null;
 
@@ -321,10 +325,10 @@ return (
                   <table className="w-full text-[11px]">
                     <thead className="bg-gray-100 border-b">
                       <tr>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Voucher Name</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Category</th>
+                        <SortableTh label="Voucher Name" active={sortKey === "voucher_name"} dir={sortDir} onClick={() => toggleSort("voucher_name")} className="px-2 py-1.5 font-semibold text-gray-700" />
+                        <SortableTh label="Category" active={sortKey === "category"} dir={sortDir} onClick={() => toggleSort("category")} className="px-2 py-1.5 font-semibold text-gray-700" />
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Description</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Created At</th>
+                        <SortableTh label="Created At" active={sortKey === "created_at"} dir={sortDir} onClick={() => toggleSort("created_at")} className="px-2 py-1.5 font-semibold text-gray-700" />
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Actions</th>
                       </tr>
                     </thead>

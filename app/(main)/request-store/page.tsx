@@ -11,6 +11,8 @@ import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/shared/Button";
 import { CopyButton } from "@/components/request-tracking/DomainBadges";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import { SortableTh } from "@/components/shared/SortableTh";
 
 interface RequestItem {
   id: string;
@@ -384,10 +386,12 @@ export default function RequestStorePage() {
 
   const hasActiveFilter = filterDateFrom || filterDateTo || filterDoc.trim();
 
+  const { sorted: sortedData, sortKey, sortDir, toggleSort } = useSortableTable(filteredData, "date");
+
   const indexOfLast = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
-  const currentItems = filteredData.slice(indexOfFirst, indexOfLast);
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const currentItems = sortedData.slice(indexOfFirst, indexOfLast);
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
 
   if (!user) return null;
 
@@ -520,16 +524,16 @@ return (
                   <table className="w-full text-[11px] table-fixed">
                     <thead className="bg-gray-100 border-b">
                       <tr>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[88px]">Date</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[76px]">Requester</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[70px]">Assigned To</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[80px]">Reason</th>
+                        <SortableTh label="Date" active={sortKey === "date"} dir={sortDir} onClick={() => toggleSort("date")} className="px-2 py-1.5 font-semibold text-gray-700 w-[88px]" />
+                        <SortableTh label="Requester" active={sortKey === "requester"} dir={sortDir} onClick={() => toggleSort("requester")} className="px-2 py-1.5 font-semibold text-gray-700 w-[76px]" />
+                        <SortableTh label="Assigned To" active={sortKey === "assigned_to"} dir={sortDir} onClick={() => toggleSort("assigned_to")} className="px-2 py-1.5 font-semibold text-gray-700 w-[70px]" />
+                        <SortableTh label="Reason" active={sortKey === "reason_request"} dir={sortDir} onClick={() => toggleSort("reason_request")} className="px-2 py-1.5 font-semibold text-gray-700 w-[80px]" />
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[120px]">SO</th>
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[110px]">DN</th>
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[110px]">SI</th>
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[140px]">Notes</th>
                         <th className="px-2 py-1.5 text-center font-semibold text-gray-700 w-[36px]">Foto</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[130px]">Status</th>
+                        <SortableTh label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} className="px-2 py-1.5 font-semibold text-gray-700 w-[130px]" />
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-700 w-[80px]">Action</th>
                       </tr>
                     </thead>

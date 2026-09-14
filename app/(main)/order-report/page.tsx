@@ -14,6 +14,8 @@ import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import { StatCard } from "@/components/shared/StatCard";
 import { ReportCharts } from "@/components/order-report/ReportCharts";
 import { PackageSearch, CalendarRange, FileWarning, ReceiptText } from "lucide-react";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import { SortableTh } from "@/components/shared/SortableTh";
 
 // Mapping username ke warehouse
 const USERNAME_TO_WAREHOUSE: Record<string, string> = {
@@ -451,10 +453,12 @@ export default function OrderReportPage() {
     XLSX.writeFile(wb, `order_report_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
+  const { sorted: sortedData, sortKey, sortDir, toggleSort } = useSortableTable(filteredData, "order_date");
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredData.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const currentItems = sortedData.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
 
   if (!user) return null;
 
@@ -737,16 +741,16 @@ export default function OrderReportPage() {
                     <table className="w-full" style={{ fontSize: "11px" }}>
                       <thead className="bg-gray-100 border-b">
                         <tr>
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Order Date</th>
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Sales Order</th>
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Warehouse</th>
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Status</th>
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Sales Channel</th>
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Channel Name</th>
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Payment Method</th>
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Value Amount</th>
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Delivery Note</th>
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Sales Invoice</th>
+                          <SortableTh label="Order Date" active={sortKey === "order_date"} dir={sortDir} onClick={() => toggleSort("order_date")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
+                          <SortableTh label="Sales Order" active={sortKey === "sales_order"} dir={sortDir} onClick={() => toggleSort("sales_order")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
+                          <SortableTh label="Warehouse" active={sortKey === "warehouse"} dir={sortDir} onClick={() => toggleSort("warehouse")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
+                          <SortableTh label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
+                          <SortableTh label="Sales Channel" active={sortKey === "sales_channel"} dir={sortDir} onClick={() => toggleSort("sales_channel")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
+                          <SortableTh label="Channel Name" active={sortKey === "channel_name"} dir={sortDir} onClick={() => toggleSort("channel_name")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
+                          <SortableTh label="Payment Method" active={sortKey === "payment_method"} dir={sortDir} onClick={() => toggleSort("payment_method")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
+                          <SortableTh label="Value Amount" active={sortKey === "value_amount"} dir={sortDir} onClick={() => toggleSort("value_amount")} align="right" className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
+                          <SortableTh label="Delivery Note" active={sortKey === "delivery_note"} dir={sortDir} onClick={() => toggleSort("delivery_note")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
+                          <SortableTh label="Sales Invoice" active={sortKey === "sales_invoice"} dir={sortDir} onClick={() => toggleSort("sales_invoice")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
                         </tr>
                       </thead>
                       <tbody>

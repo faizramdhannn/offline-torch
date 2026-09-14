@@ -1,6 +1,8 @@
 "use client";
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import { SortableTh } from "@/components/shared/SortableTh";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
@@ -143,6 +145,27 @@ function OrderDetailPopup({ groupLabel, orderNames, rows, trafficMap, onClose }:
   const router = useRouter();
   const [selectedOrderName, setSelectedOrderName] = useState<string | null>(null);
 
+  // Computed up-front (before any early return) so useSortableTable is always called in the same order.
+  const orderSummariesAll = orderNames.map((name) => {
+    const orderRows = rows.filter((r) => r.Name === name);
+    const first = orderRows[0];
+    if (!first) return null;
+    const paidAt = first["Paid at"] || first["Created at"] || "";
+    const paidDate = paidAt.split(" ")[0];
+    const subtotal = parseSubtotal(first.Subtotal);
+    const discountCode = first["Discount Code"]?.trim() || null;
+    const notes = first.Notes || "";
+    const trafficCode = extractTrafficCode(notes, trafficMap);
+    const online = isOnlineOrder(notes);
+    const location = cleanLocationName(first.Location);
+    const itemCount = orderRows.length;
+    return { name, paidDate, subtotal, discountCode, trafficCode, online, location, itemCount };
+  }).filter(Boolean) as {
+    name: string; paidDate: string; subtotal: number; discountCode: string | null;
+    trafficCode: string | null; online: boolean; location: string; itemCount: number;
+  }[];
+  const { sorted: sortedSummaries, sortKey, sortDir, toggleSort } = useSortableTable(orderSummariesAll, "paidDate");
+
   if (!groupLabel || orderNames.length === 0) return null;
 
   if (selectedOrderName) {
@@ -263,26 +286,7 @@ function OrderDetailPopup({ groupLabel, orderNames, rows, trafficMap, onClose }:
     );
   }
 
-  const orderSummaries = orderNames.map((name) => {
-    const orderRows = rows.filter((r) => r.Name === name);
-    const first = orderRows[0];
-    if (!first) return null;
-    const paidAt = first["Paid at"] || first["Created at"] || "";
-    const paidDate = paidAt.split(" ")[0];
-    const subtotal = parseSubtotal(first.Subtotal);
-    const discountCode = first["Discount Code"]?.trim() || null;
-    const notes = first.Notes || "";
-    const trafficCode = extractTrafficCode(notes, trafficMap);
-    const online = isOnlineOrder(notes);
-    const location = cleanLocationName(first.Location);
-    const itemCount = orderRows.length;
-    return { name, paidDate, subtotal, discountCode, trafficCode, online, location, itemCount };
-  }).filter(Boolean) as {
-    name: string; paidDate: string; subtotal: number; discountCode: string | null;
-    trafficCode: string | null; online: boolean; location: string; itemCount: number;
-  }[];
-
-  const totalRevenue = orderSummaries.reduce((s, o) => s + o.subtotal, 0);
+  const totalRevenue = orderSummariesAll.reduce((s, o) => s + o.subtotal, 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
@@ -314,18 +318,18 @@ function OrderDetailPopup({ groupLabel, orderNames, rows, trafficMap, onClose }:
           <table className="w-full text-[11px]">
             <thead className="sticky top-0 bg-gray-50 z-10 border-b">
               <tr>
-                <th className="px-2 py-1.5 text-left font-semibold text-gray-600 whitespace-nowrap">Order</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-gray-600 whitespace-nowrap">Tanggal</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-gray-600 whitespace-nowrap">Store</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-gray-600 whitespace-nowrap">Traffic</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-gray-600 whitespace-nowrap">Discount</th>
-                <th className="px-2 py-1.5 text-right font-semibold text-gray-600 whitespace-nowrap">Items</th>
-                <th className="px-2 py-1.5 text-right font-semibold text-gray-600 whitespace-nowrap">Subtotal</th>
+                <SortableTh label="Order" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} className="px-2 py-1.5 font-semibold text-gray-600" />
+                <SortableTh label="Tanggal" active={sortKey === "paidDate"} dir={sortDir} onClick={() => toggleSort("paidDate")} className="px-2 py-1.5 font-semibold text-gray-600" />
+                <SortableTh label="Store" active={sortKey === "location"} dir={sortDir} onClick={() => toggleSort("location")} className="px-2 py-1.5 font-semibold text-gray-600" />
+                <SortableTh label="Traffic" active={sortKey === "trafficCode"} dir={sortDir} onClick={() => toggleSort("trafficCode")} className="px-2 py-1.5 font-semibold text-gray-600" />
+                <SortableTh label="Discount" active={sortKey === "discountCode"} dir={sortDir} onClick={() => toggleSort("discountCode")} className="px-2 py-1.5 font-semibold text-gray-600" />
+                <SortableTh label="Items" active={sortKey === "itemCount"} dir={sortDir} onClick={() => toggleSort("itemCount")} align="right" className="px-2 py-1.5 font-semibold text-gray-600" />
+                <SortableTh label="Subtotal" active={sortKey === "subtotal"} dir={sortDir} onClick={() => toggleSort("subtotal")} align="right" className="px-2 py-1.5 font-semibold text-gray-600" />
                 <th className="px-2 py-1.5 w-8" />
               </tr>
             </thead>
             <tbody>
-              {orderSummaries.map((o, i) => (
+              {sortedSummaries.map((o, i) => (
                 <tr
                   key={i}
                   className="border-b hover:bg-blue-50 cursor-pointer transition-colors group"
@@ -372,7 +376,7 @@ function OrderDetailPopup({ groupLabel, orderNames, rows, trafficMap, onClose }:
         </div>
 
         <div className="px-5 py-2.5 bg-gray-50 border-t flex-shrink-0 flex items-center justify-between">
-          <p className="text-[10px] text-gray-400">{orderSummaries.length} order · Klik baris untuk melihat detail</p>
+          <p className="text-[10px] text-gray-400">{sortedSummaries.length} order · Klik baris untuk melihat detail</p>
           <p className="text-[10px] text-gray-400">Klik di luar untuk menutup</p>
         </div>
       </div>
@@ -581,6 +585,7 @@ function MasterTrafficModal({
   const filtered = entries.filter(
     (e) => e.code_traffic.toLowerCase().includes(search.toLowerCase()) || e.notes.toLowerCase().includes(search.toLowerCase())
   );
+  const { sorted: sortedEntries, sortKey: entrySortKey, sortDir: entrySortDir, toggleSort: toggleEntrySort } = useSortableTable(filtered, "code_traffic");
 
   if (!open) return null;
 
@@ -662,8 +667,8 @@ function MasterTrafficModal({
           <table className="w-full text-[11px]">
             <thead className="sticky top-0 bg-gray-50 z-10">
               <tr className="border-b">
-                <th className="px-2 py-1.5 text-left font-semibold text-gray-600 w-24">Kode</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-gray-600">Keterangan</th>
+                <SortableTh label="Kode" active={entrySortKey === "code_traffic"} dir={entrySortDir} onClick={() => toggleEntrySort("code_traffic")} className="px-2 py-1.5 font-semibold text-gray-600 w-24" />
+                <SortableTh label="Keterangan" active={entrySortKey === "notes"} dir={entrySortDir} onClick={() => toggleEntrySort("notes")} className="px-2 py-1.5 font-semibold text-gray-600" />
                 <th className="px-2 py-1.5 text-right font-semibold text-gray-600 w-20">Aksi</th>
               </tr>
             </thead>
@@ -675,7 +680,7 @@ function MasterTrafficModal({
                   {search ? `Tidak ada hasil untuk "${search}"` : "Belum ada kode traffic."}
                 </td></tr>
               ) : (
-                filtered.map((entry) => (
+                sortedEntries.map((entry) => (
                   <tr key={entry.code_traffic} className="border-b hover:bg-gray-50 transition-colors">
                     <td className="px-2 py-1">
                       <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono font-semibold border border-blue-100">
@@ -1175,6 +1180,7 @@ useEffect(() => {
       revenueByStore: [] as { name: string; value: number; count: number }[],
     };
 
+
     const orderMap: Record<string, {
       name: string; date: string; subtotal: number; store: string;
       employee: string; notes: string; itemCount: number;
@@ -1224,6 +1230,8 @@ useEffect(() => {
 
     return { orders, totalRevenue, totalOrders: orders.length, dailyData, revenueByStore };
   })();
+
+  const { sorted: sortedOnlineOrders, sortKey: onlineSortKey, sortDir: onlineSortDir, toggleSort: toggleOnlineSort } = useSortableTable(onlineOrderData.orders, "date");
 
   // ─── Summary Stats ────────────────────────────────────────────────────────
   const totalRevenue = (() => {
@@ -2194,17 +2202,17 @@ useEffect(() => {
                             <table className="w-full text-[11px]">
                               <thead>
                                 <tr className="bg-blue-50 border-b">
-                                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Order</th>
-                                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Tanggal</th>
-                                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Store</th>
-                                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Karyawan</th>
-                                  <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Notes (Order ID)</th>
-                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Items</th>
-                                  <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Subtotal</th>
+                                  <SortableTh label="Order" active={onlineSortKey === "name"} dir={onlineSortDir} onClick={() => toggleOnlineSort("name")} className="px-2 py-1.5 font-semibold text-gray-700" />
+                                  <SortableTh label="Tanggal" active={onlineSortKey === "date"} dir={onlineSortDir} onClick={() => toggleOnlineSort("date")} className="px-2 py-1.5 font-semibold text-gray-700" />
+                                  <SortableTh label="Store" active={onlineSortKey === "store"} dir={onlineSortDir} onClick={() => toggleOnlineSort("store")} className="px-2 py-1.5 font-semibold text-gray-700" />
+                                  <SortableTh label="Karyawan" active={onlineSortKey === "employee"} dir={onlineSortDir} onClick={() => toggleOnlineSort("employee")} className="px-2 py-1.5 font-semibold text-gray-700" />
+                                  <SortableTh label="Notes (Order ID)" active={onlineSortKey === "notes"} dir={onlineSortDir} onClick={() => toggleOnlineSort("notes")} className="px-2 py-1.5 font-semibold text-gray-700" />
+                                  <SortableTh label="Items" active={onlineSortKey === "itemCount"} dir={onlineSortDir} onClick={() => toggleOnlineSort("itemCount")} align="right" className="px-2 py-1.5 font-semibold text-gray-700" />
+                                  <SortableTh label="Subtotal" active={onlineSortKey === "subtotal"} dir={onlineSortDir} onClick={() => toggleOnlineSort("subtotal")} align="right" className="px-2 py-1.5 font-semibold text-gray-700" />
                                 </tr>
                               </thead>
                               <tbody>
-                                {onlineOrderData.orders
+                                {sortedOnlineOrders
                                   .slice((pageOnline - 1) * PAGE_SIZE, pageOnline * PAGE_SIZE)
                                   .map((o, i) => (
                                     <tr key={i} className={clickableRowClass}
@@ -2228,7 +2236,7 @@ useEffect(() => {
                                   ))}
                               </tbody>
                             </table>
-                            <Pagination page={pageOnline} total={onlineOrderData.orders.length} pageSize={PAGE_SIZE} onChange={setPageOnline} />
+                            <Pagination page={pageOnline} total={sortedOnlineOrders.length} pageSize={PAGE_SIZE} onChange={setPageOnline} />
                           </div>
                         </div>
                       </div>

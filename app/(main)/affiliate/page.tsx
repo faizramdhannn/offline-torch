@@ -2,6 +2,8 @@
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useEffect, useMemo, useState } from "react";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import { SortableTh } from "@/components/shared/SortableTh";
 import { useRouter } from "next/navigation";
 import { hasTextSelection } from "@/lib/utils";
 import { QRCodeCanvas } from "qrcode.react";
@@ -384,10 +386,12 @@ function OrderAffiliateTab({
     );
   }, [orders, search]);
 
+  const { sorted: sortedFiltered, sortKey, sortDir, toggleSort } = useSortableTable(filtered, "order_date");
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filtered.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const currentItems = sortedFiltered.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(sortedFiltered.length / itemsPerPage);
 
   const openAdd = () => {
     setForm(emptyOrderForm());
@@ -648,13 +652,13 @@ function OrderAffiliateTab({
           <table className="w-full text-[11px]">
             <thead className="bg-gray-100 border-b">
               <tr>
-                <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Kode Affiliate</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Store</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Sales Order</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Tanggal</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Value</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Komisi</th>
-                <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Status</th>
+                <SortableTh label="Kode Affiliate" active={sortKey === "affiliate_code"} dir={sortDir} onClick={() => toggleSort("affiliate_code")} className="px-2 py-1.5 font-semibold text-gray-700" />
+                <SortableTh label="Store" active={sortKey === "store_name"} dir={sortDir} onClick={() => toggleSort("store_name")} className="px-2 py-1.5 font-semibold text-gray-700" />
+                <SortableTh label="Sales Order" active={sortKey === "sales_order"} dir={sortDir} onClick={() => toggleSort("sales_order")} className="px-2 py-1.5 font-semibold text-gray-700" />
+                <SortableTh label="Tanggal" active={sortKey === "order_date"} dir={sortDir} onClick={() => toggleSort("order_date")} className="px-2 py-1.5 font-semibold text-gray-700" />
+                <SortableTh label="Value" active={sortKey === "value_order"} dir={sortDir} onClick={() => toggleSort("value_order")} className="px-2 py-1.5 font-semibold text-gray-700" />
+                <SortableTh label="Komisi" active={sortKey === "commission_rate"} dir={sortDir} onClick={() => toggleSort("commission_rate")} className="px-2 py-1.5 font-semibold text-gray-700" />
+                <SortableTh label="Status" active={sortKey === "reedem_status"} dir={sortDir} onClick={() => toggleSort("reedem_status")} className="px-2 py-1.5 font-semibold text-gray-700" />
                 <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Aksi</th>
               </tr>
             </thead>

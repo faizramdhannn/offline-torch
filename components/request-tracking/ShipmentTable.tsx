@@ -5,6 +5,8 @@ import { MessageCircle, ExternalLink, Pencil, Trash2, Upload } from "lucide-reac
 import { ExpeditionBadge, TypeReasonBadge, ShipmentStatusBadge, CopyButton, CheckResiButton, ProcessToggle } from "./DomainBadges";
 import { cn } from "@/lib/utils";
 import { thClass, tdClass } from "@/components/shared/tableStyles";
+import { SortableTh } from "@/components/shared/SortableTh";
+import type { SortDirection } from "@/hooks/useSortableTable";
 
 interface TrackingItem {
   id: string;
@@ -44,6 +46,9 @@ interface ShipmentTableProps {
   getStatus: (item: TrackingItem) => "completed" | "pending";
   buildWhatsappLink: (item: TrackingItem) => string | null;
   highlightText: (text: string, query: string) => ReactNode;
+  sortKey?: keyof TrackingItem | null;
+  sortDir?: SortDirection;
+  onSortToggle?: (key: keyof TrackingItem) => void;
 }
 
 
@@ -65,6 +70,9 @@ export function ShipmentTable({
   getStatus,
   buildWhatsappLink,
   highlightText,
+  sortKey,
+  sortDir = "asc",
+  onSortToggle,
 }: ShipmentTableProps) {
   return (
     <>
@@ -73,16 +81,16 @@ export function ShipmentTable({
         <table className="w-full border-collapse">
           <thead>
             <tr className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50">
-              <th className={thClass}>Tanggal</th>
-              <th className={thClass}>Assigned To</th>
-              <th className={thClass}>Ekspedisi</th>
-              <th className={thClass}>Pengirim</th>
-              <th className={cn(thClass, "text-right")}>Berat</th>
-              <th className={thClass}>Penerima</th>
-              <th className={thClass}>No. Resi</th>
-              <th className={thClass}>Tipe</th>
-              <th className={thClass}>Sales Order</th>
-              {canEdit && <th className={thClass}>Request By</th>}
+              <SortableTh label="Tanggal" active={sortKey === "date"} dir={sortDir} onClick={() => onSortToggle?.("date")} className={thClass} />
+              <SortableTh label="Assigned To" active={sortKey === "assigned_to"} dir={sortDir} onClick={() => onSortToggle?.("assigned_to")} className={thClass} />
+              <SortableTh label="Ekspedisi" active={sortKey === "expedition"} dir={sortDir} onClick={() => onSortToggle?.("expedition")} className={thClass} />
+              <SortableTh label="Pengirim" active={sortKey === "sender"} dir={sortDir} onClick={() => onSortToggle?.("sender")} className={thClass} />
+              <SortableTh label="Berat" active={sortKey === "weight"} dir={sortDir} onClick={() => onSortToggle?.("weight")} align="right" className={thClass} />
+              <SortableTh label="Penerima" active={sortKey === "receiver"} dir={sortDir} onClick={() => onSortToggle?.("receiver")} className={thClass} />
+              <SortableTh label="No. Resi" active={sortKey === "tracking_number"} dir={sortDir} onClick={() => onSortToggle?.("tracking_number")} className={thClass} />
+              <SortableTh label="Tipe" active={sortKey === "type_reason"} dir={sortDir} onClick={() => onSortToggle?.("type_reason")} className={thClass} />
+              <SortableTh label="Sales Order" active={sortKey === "sales_order"} dir={sortDir} onClick={() => onSortToggle?.("sales_order")} className={thClass} />
+              {canEdit && <SortableTh label="Request By" active={sortKey === "request_by"} dir={sortDir} onClick={() => onSortToggle?.("request_by")} className={thClass} />}
               <th className={thClass}>Status</th>
               {(canEdit || canUpload) && <th className={cn(thClass, "text-center")}>Proses</th>}
               <th className={cn(thClass, "text-center")}>Aksi</th>

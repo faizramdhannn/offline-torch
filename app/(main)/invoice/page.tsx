@@ -8,6 +8,8 @@ import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import { Button } from "@/components/shared/Button";
 import { Plus, Pencil, Trash2, Download, FileText } from "lucide-react";
+import { useSortableTable } from "@/hooks/useSortableTable";
+import { SortableTh } from "@/components/shared/SortableTh";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface MasterInvoice {
@@ -239,12 +241,14 @@ export default function InvoicePage() {
     return matchQ && matchS;
   });
 
+  const { sorted: sortedInvoices, sortKey, sortDir, toggleSort } = useSortableTable(filteredInvoices, "invoice_date");
+
   // ── Pagination ─────────────────────────────────────────────────────────────
   const itemsPerPage = 20;
   const [currentPage, setCurrentPage] = useState(1);
   useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter]);
-  const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / itemsPerPage));
-  const pagedInvoices = filteredInvoices.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(sortedInvoices.length / itemsPerPage));
+  const pagedInvoices = sortedInvoices.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   // ── Open detail ────────────────────────────────────────────────────────────
   const openDetail = async (inv: Invoice) => {
@@ -657,14 +661,14 @@ export default function InvoicePage() {
                 <table className="w-full text-[11px]">
                   <thead className="bg-gray-100 border-b">
                     <tr>
-                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">No. Invoice</th>
-                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Tipe</th>
-                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Tanggal</th>
-                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Customer</th>
-                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Signature Store</th>
-                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Signature PIC</th>
-                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Subtotal</th>
-                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Status</th>
+                      <SortableTh label="No. Invoice" active={sortKey === "invoice_number"} dir={sortDir} onClick={() => toggleSort("invoice_number")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
+                      <SortableTh label="Tipe" active={sortKey === "doc_type"} dir={sortDir} onClick={() => toggleSort("doc_type")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
+                      <SortableTh label="Tanggal" active={sortKey === "invoice_date"} dir={sortDir} onClick={() => toggleSort("invoice_date")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
+                      <SortableTh label="Customer" active={sortKey === "customer_name"} dir={sortDir} onClick={() => toggleSort("customer_name")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
+                      <SortableTh label="Signature Store" active={sortKey === "signature_store"} dir={sortDir} onClick={() => toggleSort("signature_store")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
+                      <SortableTh label="Signature PIC" active={sortKey === "signature_pic"} dir={sortDir} onClick={() => toggleSort("signature_pic")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
+                      <SortableTh label="Subtotal" active={sortKey === "subtotal"} dir={sortDir} onClick={() => toggleSort("subtotal")} align="right" className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
+                      <SortableTh label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
                       <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Aksi</th>
                     </tr>
                   </thead>
