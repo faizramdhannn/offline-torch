@@ -138,6 +138,16 @@ export function ensureJastiperSchema(): Promise<void> {
         ON jastiper_master(jastiper_store, jastiper_phone_normalized)
         WHERE jastiper_phone_normalized <> ''
       `;
+      // Cegah 2 jastiper di toko yang sama kebagian jastiper_code yang sama
+      // persis — bisa kejadian kalau nomor HP mereka berakhiran 2 digit yang
+      // sama (format kode cuma pakai 2 digit terakhir). API akan auto-resolve
+      // tabrakan ini dengan tambah akhiran huruf sebelum insert/update, index
+      // ini jadi pengaman terakhir di level DB.
+      await sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS uidx_jastiper_store_code
+        ON jastiper_master(jastiper_store, jastiper_code)
+        WHERE jastiper_code <> ''
+      `;
     })();
   }
   return jastiperSchemaReady;

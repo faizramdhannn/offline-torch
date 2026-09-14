@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql, ensureJastiperSchema } from "@/lib/neon";
-import { normalizePhone, generateJastiperCode } from "@/lib/jastiper";
+import { normalizePhone, generateJastiperCode, resolveCodeCollision } from "@/lib/jastiper";
 
 // Sama persis dengan STORE_LIST/EXTRA_STORE_ACCESS/findMatchingStore di
 // app/api/customer/route.ts — dipakai untuk pembatasan akses per toko:
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const jastiper_name = (body.jastiper_name || "").trim();
-    const jastiper_phone_number = (body.jastiper_phone_number || "").trim();
+    const rawPhone = (body.jastiper_phone_number || "").trim();
     const jastiper_respond = (body.jastiper_respond || "").trim();
     const jastiper_store = (body.jastiper_store || "").trim();
     const jastiper_status = (body.jastiper_status || "Active").trim();
@@ -154,9 +154,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Nama jastiper dan toko wajib diisi" }, { status: 400 });
     }
 
-    const jastiper_phone_normalized = normalizePhone(jastiper_phone_number);
-    const jastiper_code =
-      (body.jastiper_code || "").trim() || generateJastiperCode(jastiper_store, jastiper_phone_number);
+    // Simpan nomor HP dalam format "+62..." yang konsisten dengan data
+    // Shopify (shopify_orders.phone), bukan format mentah apa adanya yang
+    // diketik user — bukan cuma untuk lookup internal.
+    const jastiper_phone_number = normalizePhone(rawPhone);
+    const jastiper_phone_normalized = jastiper_phone_number;
+    const baseCode = (body.jastiper_code || "").trim() || generateJastiperCode(jastiper_store, rawPhone);
+
+    // Nomor HP dua jastiper di toko yang sama bisa berakhiran 2 digit yang
+    // sama (kode dasar cuma pakai 2 digit terakhir) — kalau bentrok dengan
+    // kode yang sudah dipakai di toko ini, tambahkan akhiran huruf otomatis
+    // supaya tetap bisa dibuat tanpa gagal.
+    let jastiper_code = baseCode;
+    if (baseCode) {
+      const existing = await sql`
+        SELECT jastiper_code FROM jastiper_master
+        WHERE jastiper_store = ${jastiper_store} AND jastiper_code LIKE ${baseCode + "%"}
+      `;
+      const existingCodes = new Set((existing as any[]).map((r) => r.jastiper_code));
+      jastiper_code = resolveCodeCollision(baseCode, existingCodes);
+    }
 
     const result = await sql`
       INSERT INTO jastiper_master (
@@ -174,8 +191,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, uuid: result[0]?.uuid, jastiper_code });
   } catch (error: any) {
     if (error?.code === "23505") {
+      const isCodeConflict = String(error?.constraint || "").includes("code");
       return NextResponse.json(
-        { error: "Jastiper dengan nomor HP dan toko yang sama sudah ada" },
+        {
+          error: isCodeConflict
+            ? "Kode jastiper ini sudah dipakai jastiper lain di toko yang sama"
+            : "Jastiper dengan nomor HP dan toko yang sama sudah ada",
+        },
         { status: 409 }
       );
     }
@@ -195,15 +217,25 @@ export async function PUT(request: NextRequest) {
     }
 
     const jastiper_name = (body.jastiper_name || "").trim();
-    const jastiper_phone_number = (body.jastiper_phone_number || "").trim();
+    const rawPhone = (body.jastiper_phone_number || "").trim();
     const jastiper_respond = (body.jastiper_respond || "").trim();
     const jastiper_store = (body.jastiper_store || "").trim();
     const jastiper_status = (body.jastiper_status || "Active").trim();
     const update_by = (body.update_by || "").trim();
 
-    const jastiper_phone_normalized = normalizePhone(jastiper_phone_number);
-    const jastiper_code =
-      (body.jastiper_code || "").trim() || generateJastiperCode(jastiper_store, jastiper_phone_number);
+    const jastiper_phone_number = normalizePhone(rawPhone);
+    const jastiper_phone_normalized = jastiper_phone_number;
+    const baseCode = (body.jastiper_code || "").trim() || generateJastiperCode(jastiper_store, rawPhone);
+
+    let jastiper_code = baseCode;
+    if (baseCode) {
+      const existing = await sql`
+        SELECT jastiper_code FROM jastiper_master
+        WHERE jastiper_store = ${jastiper_store} AND jastiper_code LIKE ${baseCode + "%"} AND uuid <> ${uuid}
+      `;
+      const existingCodes = new Set((existing as any[]).map((r) => r.jastiper_code));
+      jastiper_code = resolveCodeCollision(baseCode, existingCodes);
+    }
 
     await sql`
       UPDATE jastiper_master SET
@@ -222,8 +254,13 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: true, jastiper_code });
   } catch (error: any) {
     if (error?.code === "23505") {
+      const isCodeConflict = String(error?.constraint || "").includes("code");
       return NextResponse.json(
-        { error: "Jastiper dengan nomor HP dan toko yang sama sudah ada" },
+        {
+          error: isCodeConflict
+            ? "Kode jastiper ini sudah dipakai jastiper lain di toko yang sama"
+            : "Jastiper dengan nomor HP dan toko yang sama sudah ada",
+        },
         { status: 409 }
       );
     }

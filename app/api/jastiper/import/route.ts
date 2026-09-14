@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Papa from "papaparse";
 import { sql, ensureJastiperSchema } from "@/lib/neon";
-import { normalizePhone, generateJastiperCode } from "@/lib/jastiper";
+import { normalizePhone, generateJastiperCode, resolveCodeCollision } from "@/lib/jastiper";
 
 interface JastiperCsvRow {
   [key: string]: string;
@@ -27,33 +27,57 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const rows = parsed.data
+    const parsedRows = parsed.data
       .map((row) => {
         const jastiper_name = (row["jastiper_name"] || "").trim();
         const jastiper_store = (row["jastiper_store"] || "").trim();
         if (!jastiper_name || !jastiper_store) return null;
-        const jastiper_phone_number = (row["jastiper_phone_number"] || "").trim();
-        const jastiper_phone_normalized = normalizePhone(jastiper_phone_number);
+        const rawPhone = (row["jastiper_phone_number"] || "").trim();
+        // Simpan dalam format "+62..." yang konsisten dengan shopify_orders.phone,
+        // bukan format mentah apa adanya dari CSV.
+        const jastiper_phone_number = normalizePhone(rawPhone);
         const jastiper_respond = (row["jastiper_respond"] || "").trim();
-        const jastiper_code =
-          (row["jastiper_code"] || "").trim() || generateJastiperCode(jastiper_store, jastiper_phone_number);
+        const baseCode = (row["jastiper_code"] || "").trim() || generateJastiperCode(jastiper_store, rawPhone);
         const jastiper_status = (row["jastiper_status"] || "Active").trim();
         return {
           jastiper_name,
           jastiper_phone_number,
-          jastiper_phone_normalized,
           jastiper_respond,
           jastiper_store,
-          jastiper_code,
+          baseCode,
           jastiper_status,
           created_by: (row["created_by"] || created_by || "import").trim(),
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
 
-    if (rows.length === 0) {
+    if (parsedRows.length === 0) {
       return NextResponse.json({ error: "Tidak ada baris valid di file ini" }, { status: 400 });
     }
+
+    // Resolve tabrakan jastiper_code (2 jastiper di toko yang sama nomor
+    // HP-nya berakhiran sama) baik terhadap data yang sudah ada di DB maupun
+    // antar baris dalam file yang sama — supaya semua baris tetap bisa masuk.
+    const storesInFile = [...new Set(parsedRows.map((r) => r.jastiper_store))];
+    const existingRows = storesInFile.length
+      ? await sql`SELECT jastiper_store, jastiper_code FROM jastiper_master WHERE jastiper_store = ANY(${storesInFile}) AND jastiper_code <> ''`
+      : [];
+    const codesByStore = new Map<string, Set<string>>();
+    for (const r of existingRows as any[]) {
+      if (!codesByStore.has(r.jastiper_store)) codesByStore.set(r.jastiper_store, new Set());
+      codesByStore.get(r.jastiper_store)!.add(r.jastiper_code);
+    }
+
+    const rows = parsedRows.map(({ baseCode, ...rest }) => {
+      let jastiper_code = baseCode;
+      if (baseCode) {
+        if (!codesByStore.has(rest.jastiper_store)) codesByStore.set(rest.jastiper_store, new Set());
+        const set = codesByStore.get(rest.jastiper_store)!;
+        jastiper_code = resolveCodeCollision(baseCode, set);
+        set.add(jastiper_code);
+      }
+      return { ...rest, jastiper_phone_normalized: rest.jastiper_phone_number, jastiper_code };
+    });
 
     // Baris dengan HP sama di toko yang sama (partial unique index) dilewati
     // (DO NOTHING) supaya CSV yang sama bisa aman di-import ulang tanpa

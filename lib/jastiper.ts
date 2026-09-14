@@ -1,14 +1,15 @@
 // Normalisasi nomor HP Indonesia yang formatnya berantakan di CSV (mis. "62
-// 851-7711-4215", "8990656293", "089xxxx") jadi bentuk kanonik berawalan
-// "62" tanpa spasi/simbol — dipakai untuk lookup ke shopify_orders.phone dan
-// untuk 2 digit terakhir di jastiper_code.
+// 851-7711-4215", "8990656293", "089xxxx") jadi bentuk kanonik "+62..." —
+// format ini yang konsisten dipakai di data Shopify (shopify_orders.phone),
+// jadi jastiper_phone_number ikut disimpan dalam format yang sama, bukan
+// cuma dipakai untuk lookup/dedup internal.
 export function normalizePhone(raw: string): string {
   const digits = (raw || "").replace(/\D/g, "");
   if (!digits) return "";
-  if (digits.startsWith("0")) return "62" + digits.slice(1);
-  if (digits.startsWith("62")) return digits;
-  if (digits.startsWith("8")) return "62" + digits;
-  return digits;
+  let canonical = digits;
+  if (canonical.startsWith("0")) canonical = "62" + canonical.slice(1);
+  else if (!canonical.startsWith("62") && canonical.startsWith("8")) canonical = "62" + canonical;
+  return "+" + canonical;
 }
 
 // Singkatan toko untuk jastiper_code = 3 huruf awal nama toko, huruf besar
@@ -26,6 +27,26 @@ export function generateJastiperCode(storeName: string, phoneNumber: string): st
   const last2 = normalized.slice(-2);
   if (!abbrev || !last2) return "";
   return `JS${abbrev}${last2}`;
+}
+
+// Kode dasar (JS+toko+2 digit HP) bisa bentrok kalau 2 jastiper di toko yang
+// sama nomor HP-nya berakhiran sama — supaya tetap bisa dibuat tanpa gagal,
+// tambahkan akhiran huruf (B, C, D, ...) sampai ketemu yang belum dipakai di
+// toko itu. `existingCodes` harus berisi kode-kode yang SUDAH dipakai di toko
+// yang sama (dari baris lain, tidak termasuk baris yang sedang diedit).
+export function resolveCodeCollision(baseCode: string, existingCodes: Set<string>): string {
+  if (!baseCode) return baseCode;
+  if (!existingCodes.has(baseCode)) return baseCode;
+  for (let i = 0; i < 26; i++) {
+    const suffix = String.fromCharCode(66 + i); // B, C, D, ...
+    const candidate = `${baseCode}${suffix}`;
+    if (!existingCodes.has(candidate)) return candidate;
+  }
+  // Kasus ekstrem (>26 tabrakan di kode dasar yang sama) — tambahkan angka
+  // urut sebagai fallback terakhir supaya tidak pernah gagal generate.
+  let n = 2;
+  while (existingCodes.has(`${baseCode}-${n}`)) n++;
+  return `${baseCode}-${n}`;
 }
 
 export const JASTIPER_RESPOND_OPTIONS = [
