@@ -455,23 +455,21 @@ export default function CustomerPage() {
     }
   };
 
-  const badgeStats = Object.values(badgeMap).map((b) => {
-    const matching = filteredData.filter((c) => (c.badges || []).includes(b.key));
-    return {
-      badge: b,
-      count: matching.length,
-      totalOrder: matching.reduce((a, c) => a + (Number(c.total_order) || 0), 0),
-      totalQty: matching.reduce((a, c) => a + (Number(c.total_qty) || 0), 0),
-      totalValue: matching.reduce((a, c) => a + (c.total_value_num || 0), 0),
-    };
-  }).filter((s) => s.count > 0);
+  // stats sudah dihitung di server (atas seluruh baris yang cocok filter,
+  // bukan cuma 1 halaman) — di sini tinggal resolve label/logo dari badgeMap.
+  const badgeStats = stats
+    .map((s) => {
+      const badge = badgeMap[s.key];
+      if (!badge) return null;
+      return { badge, count: s.count, totalOrder: s.totalOrder, totalQty: s.totalQty, totalValue: s.totalValue };
+    })
+    .filter((s): s is NonNullable<typeof s> => s !== null);
 
-  const { sorted: sortedData, sortKey, sortDir, toggleSort } = useSortableTable(filteredData, "total_value_num", "desc");
-
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = sortedData.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
+  // `items` sudah 1 halaman dari server — tidak perlu slice lagi di sini.
+  const currentItems = items;
+  const indexOfFirstItem = (currentPage - 1) * itemsPerPage;
+  const indexOfLastItem = Math.min(indexOfFirstItem + itemsPerPage, totalItems);
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
 
   const SortIcon = ({ active }: { active: boolean }) =>
     !active ? (
@@ -496,7 +494,7 @@ return (
                 {isOwner ? `${storeName} — Customer Data` : "Customer Management"}
               </h1>
               <p className="mt-0.5 text-[11px] text-gray-400">
-                {filteredData.length.toLocaleString("id-ID")} customer
+                {totalItems.toLocaleString("id-ID")} customer
               </p>
             </div>
 
@@ -540,7 +538,7 @@ return (
             <div className="flex-none rounded-xl border border-gray-100 bg-white p-3 shadow-sm">
               <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Total Customer</div>
               <div className="mt-1 text-lg font-bold text-gray-900">
-                {filteredData.length.toLocaleString("id-ID")}
+                {totalItems.toLocaleString("id-ID")}
               </div>
             </div>
             {badgeStats.map(({ badge, count, totalOrder, totalQty, totalValue }) => (
@@ -718,7 +716,7 @@ return (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             {loading ? (
               <div className="p-8 text-center text-xs text-gray-400">Loading...</div>
-            ) : filteredData.length === 0 ? (
+            ) : totalItems === 0 ? (
               <div className="p-8 text-center text-xs text-gray-400">Tidak ada data</div>
             ) : (
               <>
@@ -863,8 +861,8 @@ return (
                 {totalPages > 1 && (
                   <div className="flex justify-between items-center px-3 py-2 border-t">
                     <div className="text-[10px] text-gray-500">
-                      {indexOfFirstItem + 1}–{Math.min(indexOfLastItem, filteredData.length)} of{" "}
-                      {filteredData.length}
+                      {indexOfFirstItem + 1}–{Math.min(indexOfLastItem, totalItems)} of{" "}
+                      {totalItems}
                     </div>
                     <div className="flex gap-1">
                       <button
