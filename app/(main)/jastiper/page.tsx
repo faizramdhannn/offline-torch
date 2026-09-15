@@ -61,7 +61,35 @@ const emptyForm = {
   jastiper_store: "",
   jastiper_code: "",
   jastiper_status: "Active",
+  notes: "",
 };
+
+function NotesCell({
+  item,
+  onSave,
+}: {
+  item: Jastiper;
+  onSave: (uuid: string, notes: string) => void;
+}) {
+  const [value, setValue] = useState(item.notes || "");
+  useEffect(() => {
+    setValue(item.notes || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.uuid, item.notes]);
+
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={() => {
+        if (value !== (item.notes || "")) onSave(item.uuid, value);
+      }}
+      placeholder="Tulis catatan..."
+      className="w-full min-w-[140px] rounded border border-transparent px-1.5 py-1 text-[11px] hover:border-gray-200 focus:border-gray-300 focus:outline-none focus:ring-1 focus:ring-primary"
+    />
+  );
+}
 
 export default function JastiperPage() {
   const router = useRouter();
@@ -188,6 +216,7 @@ export default function JastiperPage() {
       jastiper_store: item.jastiper_store,
       jastiper_code: item.jastiper_code,
       jastiper_status: item.jastiper_status || "Active",
+      notes: item.notes || "",
     });
     setCodeManuallyEdited(true); // kode existing dianggap sudah final, tidak auto-overwrite saat edit
     setShowEditModal(true);
@@ -248,6 +277,20 @@ export default function JastiperPage() {
       showMessage(error?.message || "Gagal memperbarui jastiper", "error");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleNotesSave = async (uuid: string, notes: string) => {
+    setItems((prev) => prev.map((it) => (it.uuid === uuid ? { ...it, notes } : it)));
+    try {
+      const res = await fetch("/api/jastiper", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uuid, notes, update_by: user?.user_name }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      showMessage("Gagal menyimpan notes", "error");
     }
   };
 
@@ -375,6 +418,7 @@ export default function JastiperPage() {
                           <th className="px-2 py-1.5 text-center font-semibold text-gray-700">Status</th>
                           <SortableTh label="Total Order" active={sortKey === "total_order"} dir={sortDir} onClick={() => toggleSort("total_order")} className="px-2 py-1.5 text-center font-semibold text-gray-700" />
                           <SortableTh label="Total Value" active={sortKey === "total_value"} dir={sortDir} onClick={() => toggleSort("total_value")} className="px-2 py-1.5 text-center font-semibold text-gray-700" />
+                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Notes</th>
                           <th className="px-2 py-1.5 text-center font-semibold text-gray-700">Aksi</th>
                         </tr>
                       </thead>
@@ -411,6 +455,9 @@ export default function JastiperPage() {
                             </td>
                             <td className="px-2 py-1 text-center">{item.total_order}</td>
                             <td className="px-2 py-1 text-center font-medium">{item.total_value_formatted}</td>
+                            <td className="px-1 py-1">
+                              <NotesCell item={item} onSave={handleNotesSave} />
+                            </td>
                             <td className="px-2 py-1 text-center">
                               <button onClick={() => openEdit(item)} className="rounded p-1.5 text-gray-500 hover:bg-gray-100" title="Edit">
                                 <Pencil className="h-3.5 w-3.5" />
@@ -570,6 +617,16 @@ export default function JastiperPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Notes</label>
+                  <textarea
+                    value={form.notes}
+                    onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+                    placeholder="Catatan bebas, mis. alasan Canceled..."
+                    rows={2}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  />
                 </div>
               </div>
               <div className="mt-5 flex justify-end gap-2">

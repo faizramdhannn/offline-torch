@@ -142,6 +142,7 @@ export interface Jastiper {
   jastiper_store: string;
   jastiper_code: string;
   jastiper_status: string;
+  notes: string;
   created_by: string;
   created_at: string;
   update_by: string;

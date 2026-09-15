@@ -122,12 +122,16 @@ export function ensureJastiperSchema(): Promise<void> {
           jastiper_store TEXT NOT NULL DEFAULT '',
           jastiper_code TEXT NOT NULL DEFAULT '',
           jastiper_status TEXT NOT NULL DEFAULT 'Active',
+          notes TEXT NOT NULL DEFAULT '',
           created_by TEXT DEFAULT '',
           created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
           update_by TEXT DEFAULT '',
           update_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )
       `;
+      // Tabel jastiper_master sudah ada di production sebelum kolom notes
+      // ditambahkan — ALTER ini yang memastikan kolomnya muncul di DB lama.
+      await sql`ALTER TABLE jastiper_master ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT ''`;
       await sql`CREATE INDEX IF NOT EXISTS idx_jastiper_store ON jastiper_master(jastiper_store)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_jastiper_code ON jastiper_master(jastiper_code)`;
       // Cegah duplikat import ulang CSV master data yang sama (per toko + no

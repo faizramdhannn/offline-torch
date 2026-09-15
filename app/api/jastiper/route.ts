@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
     const query = `
       SELECT
         j.uuid, j.jastiper_name, j.jastiper_phone_number, j.jastiper_respond,
-        j.jastiper_store, j.jastiper_code, j.jastiper_status,
+        j.jastiper_store, j.jastiper_code, j.jastiper_status, j.notes,
         j.created_by, j.created_at, j.update_by, j.update_at,
         COALESCE(agg.total_order, 0)::int AS total_order,
         COALESCE(agg.total_value, 0)::numeric AS total_value
@@ -117,6 +117,7 @@ export async function GET(request: NextRequest) {
       jastiper_store: r.jastiper_store || "",
       jastiper_code: r.jastiper_code || "",
       jastiper_status: r.jastiper_status || "",
+      notes: r.notes || "",
       created_by: r.created_by || "",
       created_at: r.created_at || "",
       update_by: r.update_by || "",
@@ -148,6 +149,7 @@ export async function POST(request: NextRequest) {
     const jastiper_respond = toTitleCase((body.jastiper_respond || "").trim());
     const jastiper_store = (body.jastiper_store || "").trim();
     const jastiper_status = (body.jastiper_status || "Active").trim();
+    const notes = (body.notes || "").trim();
     const created_by = (body.created_by || "").trim();
 
     if (!jastiper_name || !jastiper_store) {
@@ -178,11 +180,11 @@ export async function POST(request: NextRequest) {
     const result = await sql`
       INSERT INTO jastiper_master (
         jastiper_name, jastiper_phone_number, jastiper_phone_normalized,
-        jastiper_respond, jastiper_store, jastiper_code, jastiper_status,
+        jastiper_respond, jastiper_store, jastiper_code, jastiper_status, notes,
         created_by, update_by
       ) VALUES (
         ${jastiper_name}, ${jastiper_phone_number}, ${jastiper_phone_normalized},
-        ${jastiper_respond}, ${jastiper_store}, ${jastiper_code}, ${jastiper_status},
+        ${jastiper_respond}, ${jastiper_store}, ${jastiper_code}, ${jastiper_status}, ${notes},
         ${created_by}, ${created_by}
       )
       RETURNING uuid
@@ -221,6 +223,7 @@ export async function PUT(request: NextRequest) {
     const jastiper_respond = toTitleCase((body.jastiper_respond || "").trim());
     const jastiper_store = (body.jastiper_store || "").trim();
     const jastiper_status = (body.jastiper_status || "Active").trim();
+    const notes = (body.notes || "").trim();
     const update_by = (body.update_by || "").trim();
 
     const jastiper_phone_number = normalizePhone(rawPhone);
@@ -246,6 +249,7 @@ export async function PUT(request: NextRequest) {
         jastiper_store = ${jastiper_store},
         jastiper_code = ${jastiper_code},
         jastiper_status = ${jastiper_status},
+        notes = ${notes},
         update_by = ${update_by},
         update_at = now()
       WHERE uuid = ${uuid}
@@ -266,5 +270,35 @@ export async function PUT(request: NextRequest) {
     }
     console.error("Error updating jastiper:", error);
     return NextResponse.json({ error: "Gagal update jastiper" }, { status: 500 });
+  }
+}
+
+// Update cepat kolom Notes langsung dari tabel (tanpa buka modal edit penuh)
+// — dipakai staff untuk catat alasan singkat, mis. kenapa respond-nya jadi
+// Canceled, tanpa perlu isi ulang semua field lain.
+export async function PATCH(request: NextRequest) {
+  try {
+    await ensureJastiperSchema();
+    const body = await request.json();
+
+    const uuid = (body.uuid || "").trim();
+    if (!uuid) {
+      return NextResponse.json({ error: "uuid wajib diisi" }, { status: 400 });
+    }
+    const notes = (body.notes || "").trim();
+    const update_by = (body.update_by || "").trim();
+
+    await sql`
+      UPDATE jastiper_master SET
+        notes = ${notes},
+        update_by = ${update_by},
+        update_at = now()
+      WHERE uuid = ${uuid}
+    `;
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error updating jastiper notes:", error);
+    return NextResponse.json({ error: "Gagal update notes" }, { status: 500 });
   }
 }
