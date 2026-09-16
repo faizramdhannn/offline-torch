@@ -192,7 +192,7 @@ export default function JastiperReportPublicPage() {
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
         .jr-root { min-height: 100vh; background: linear-gradient(180deg, #f4f7fb 0%, #eef2f8 100%); font-family: 'IBM Plex Sans', sans-serif; padding: 2.5rem 1.25rem 3rem; }
-        .jr-container { max-width: 1080px; margin: 0 auto; }
+        .jr-container { max-width: 1320px; margin: 0 auto; }
         .jr-brand { display: flex; align-items: center; justify-content: center; margin-bottom: 0.6rem; }
         .jr-logo-img { height: 34px; width: auto; }
         .jr-tagline { text-align: center; font-size: 0.72rem; color: #6b7280; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 1.75rem; }
@@ -227,9 +227,9 @@ export default function JastiperReportPublicPage() {
         .jr-search:focus { border-color: #0e7490; }
         .jr-export-btn { padding: 0.55rem 1rem; background: #0f172a; color: #ffffff; border: none; border-radius: 9px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
         .jr-export-btn:hover { opacity: 0.9; }
-        table.jr-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+        table.jr-table { width: 100%; min-width: 980px; border-collapse: collapse; font-size: 0.78rem; }
         table.jr-table th, table.jr-table td { text-align: left; padding: 0.6rem 0.65rem; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
-        table.jr-table th { color: #64748b; font-weight: 600; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; background: #f8fafc; }
+        table.jr-table th { color: #64748b; font-weight: 600; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; background: #f8fafc; white-space: nowrap; }
         table.jr-table tbody tr:hover td { background: #fafcfe; }
         .jr-table-wrap { overflow-x: auto; border: 1px solid #eef1f5; border-radius: 10px; }
         .jr-row-clickable { cursor: pointer; }
