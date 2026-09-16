@@ -440,7 +440,18 @@ export default function JastiperReportPublicPage() {
                                   </span>
                                 </td>
                                 <td>{d.social_media ? <SocialMediaIcon platform={d.social_media} size={14} /> : "-"}</td>
-                                <td>{d.social_media_username || "-"}</td>
+                                <td>
+                                  {d.social_media_username ? (
+                                    <span
+                                      style={{ display: "block", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}
+                                      title={d.social_media_username}
+                                    >
+                                      {d.social_media_username}
+                                    </span>
+                                  ) : (
+                                    "-"
+                                  )}
+                                </td>
                                 <td>{d.jastiper_phone_number || "-"}</td>
                                 <td>{d.jastiper_store}</td>
                                 <td style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.72rem" }}>{d.jastiper_code || "-"}</td>

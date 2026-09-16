@@ -475,7 +475,18 @@ export default function JastiperPage() {
                                 "-"
                               )}
                             </td>
-                            <td className="px-2 py-1 text-center">{item.social_media_username || "-"}</td>
+                            <td className="px-2 py-1 text-center">
+                              {item.social_media_username ? (
+                                <span
+                                  className="mx-auto block max-w-[150px] truncate"
+                                  title={item.social_media_username}
+                                >
+                                  {item.social_media_username}
+                                </span>
+                              ) : (
+                                "-"
+                              )}
+                            </td>
                             <td className="px-2 py-1 text-center">{item.jastiper_phone_number || "-"}</td>
                             <td className="px-2 py-1 text-center">{item.jastiper_store}</td>
                             <td className="px-2 py-1 text-center font-mono text-[10px] text-gray-500">{item.jastiper_code || "-"}</td>
