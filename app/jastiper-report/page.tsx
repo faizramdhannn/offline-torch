@@ -18,6 +18,7 @@ import {
 } from "recharts";
 import { CHART_PALETTE as PALETTE, chartTooltipStyle, chartAxisTick, chartGridStroke } from "@/components/shared/chartStyles";
 import { SocialMediaIcon } from "@/components/jastiper/SocialMediaIcon";
+import { CopyableText } from "@/components/jastiper/CopyableText";
 
 // Halaman PUBLIK, TIDAK login-gated — sengaja di luar (main) route group,
 // sama pola dengan app/affiliate-report/page.tsx. Menampilkan monitoring
@@ -436,25 +437,20 @@ export default function JastiperReportPublicPage() {
                                 <td>
                                   <span className="jr-name-toggle">
                                     <span className={`jr-caret ${isExpanded ? "open" : ""}`}>▸</span>
-                                    {d.jastiper_name}
+                                    <CopyableText value={d.jastiper_name} label="nama" />
                                   </span>
                                 </td>
                                 <td>{d.social_media ? <SocialMediaIcon platform={d.social_media} size={14} /> : "-"}</td>
                                 <td>
-                                  {d.social_media_username ? (
-                                    <span
-                                      style={{ display: "block", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}
-                                      title={d.social_media_username}
-                                    >
-                                      {d.social_media_username}
-                                    </span>
-                                  ) : (
-                                    "-"
-                                  )}
+                                  <CopyableText value={d.social_media_username} label="username" className="max-w-[160px]" />
                                 </td>
-                                <td>{d.jastiper_phone_number || "-"}</td>
+                                <td>
+                                  <CopyableText value={d.jastiper_phone_number} label="no HP" />
+                                </td>
                                 <td>{d.jastiper_store}</td>
-                                <td style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.72rem" }}>{d.jastiper_code || "-"}</td>
+                                <td style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.72rem" }}>
+                                  <CopyableText value={d.jastiper_code} label="kode" />
+                                </td>
                                 <td>
                                   <span className={`jr-badge ${respondBadgeClass(d.jastiper_respond)}`}>{d.jastiper_respond || "-"}</span>
                                 </td>

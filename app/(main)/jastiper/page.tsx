@@ -14,6 +14,7 @@ import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTh } from "@/components/shared/SortableTh";
 import { ImportJastiperCsvModal } from "@/components/jastiper/ImportJastiperCsvModal";
 import { SocialMediaIcon } from "@/components/jastiper/SocialMediaIcon";
+import { CopyableText } from "@/components/jastiper/CopyableText";
 import { SOCIAL_MEDIA_OPTIONS } from "@/lib/jastiper";
 
 // Sama dengan STORE_LIST di app/api/jastiper/route.ts — dipakai untuk
@@ -465,7 +466,9 @@ export default function JastiperPage() {
                       <tbody>
                         {currentItems.map((item) => (
                           <tr key={item.uuid} className="border-b hover:bg-gray-50">
-                            <td className="px-2 py-1 font-medium">{item.jastiper_name}</td>
+                            <td className="px-2 py-1 font-medium">
+                              <CopyableText value={item.jastiper_name} label="nama" />
+                            </td>
                             <td className="px-2 py-1 text-center">
                               {item.social_media ? (
                                 <span className="inline-flex items-center justify-center">
@@ -476,20 +479,19 @@ export default function JastiperPage() {
                               )}
                             </td>
                             <td className="px-2 py-1 text-center">
-                              {item.social_media_username ? (
-                                <span
-                                  className="mx-auto block max-w-[150px] truncate"
-                                  title={item.social_media_username}
-                                >
-                                  {item.social_media_username}
-                                </span>
-                              ) : (
-                                "-"
-                              )}
+                              <CopyableText
+                                value={item.social_media_username}
+                                label="username"
+                                className="mx-auto max-w-[150px] justify-center"
+                              />
                             </td>
-                            <td className="px-2 py-1 text-center">{item.jastiper_phone_number || "-"}</td>
+                            <td className="px-2 py-1 text-center">
+                              <CopyableText value={item.jastiper_phone_number} label="no HP" className="justify-center" />
+                            </td>
                             <td className="px-2 py-1 text-center">{item.jastiper_store}</td>
-                            <td className="px-2 py-1 text-center font-mono text-[10px] text-gray-500">{item.jastiper_code || "-"}</td>
+                            <td className="px-2 py-1 text-center font-mono text-[10px] text-gray-500">
+                              <CopyableText value={item.jastiper_code} label="kode" className="justify-center" />
+                            </td>
                             <td className="px-2 py-1 text-center">
                               <span
                                 className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
