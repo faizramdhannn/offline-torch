@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import {
   ResponsiveContainer,
@@ -25,6 +25,14 @@ import { CHART_PALETTE as PALETTE, chartTooltipStyle, chartAxisTick, chartGridSt
 // menampilkan data lengkap per-jastiper (nama, no HP, dll) — bukan lagi
 // agregat-only.
 
+interface JastiperOrderRow {
+  sales_order: string;
+  store_name: string;
+  value: number;
+  value_formatted: string;
+  date: string | null;
+}
+
 interface JastiperRow {
   uuid: string;
   jastiper_name: string;
@@ -37,6 +45,7 @@ interface JastiperRow {
   total_order: number;
   total_value: number;
   total_value_formatted: string;
+  orders: JastiperOrderRow[];
 }
 
 interface ReportData {
@@ -68,6 +77,13 @@ function formatDateLabel(dateStr: string) {
   return d.toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
 }
 
+function formatOrderDate(value: string | null) {
+  if (!value) return "-";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+}
+
 function respondBadgeClass(respond: string) {
   if (respond === "Canceled") return "jr-badge-canceled";
   if (respond === "Joined Group") return "jr-badge-joined";
@@ -83,6 +99,7 @@ export default function JastiperReportPublicPage() {
   const [activeTab, setActiveTab] = useState<"summary" | "data">("summary");
   const [pieMode, setPieMode] = useState<"respond" | "store">("respond");
   const [search, setSearch] = useState("");
+  const [expandedUuid, setExpandedUuid] = useState<string | null>(null);
 
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -209,6 +226,16 @@ export default function JastiperReportPublicPage() {
         table.jr-table th { color: #64748b; font-weight: 600; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; background: #f8fafc; }
         table.jr-table tbody tr:hover td { background: #fafcfe; }
         .jr-table-wrap { overflow-x: auto; border: 1px solid #eef1f5; border-radius: 10px; }
+        .jr-row-clickable { cursor: pointer; }
+        .jr-row-clickable:hover td { background: #f8fafc; }
+        .jr-name-toggle { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 600; color: #0f172a; }
+        .jr-caret { display: inline-block; font-size: 0.65rem; color: #94a3b8; transition: transform 0.15s; }
+        .jr-caret.open { transform: rotate(90deg); }
+        .jr-expand-row td { background: #f8fafc; padding: 0.75rem 1rem; }
+        table.jr-subtable { width: 100%; border-collapse: collapse; font-size: 0.75rem; background: #ffffff; border: 1px solid #eef1f5; border-radius: 8px; overflow: hidden; }
+        table.jr-subtable th, table.jr-subtable td { text-align: left; padding: 0.5rem 0.65rem; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+        table.jr-subtable th { color: #94a3b8; font-weight: 600; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.03em; background: #fafcfe; }
+        table.jr-subtable tbody tr:last-child td { border-bottom: none; }
         .jr-badge { padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.68rem; font-weight: 600; white-space: nowrap; }
         .jr-badge-canceled { background: #fee2e2; color: #b91c1c; }
         .jr-badge-joined { background: #dcfce7; color: #166534; }
@@ -390,21 +417,66 @@ export default function JastiperReportPublicPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredData.map((d) => (
-                          <tr key={d.uuid}>
-                            <td>{d.jastiper_name}</td>
-                            <td>{d.jastiper_phone_number || "-"}</td>
-                            <td>{d.jastiper_store}</td>
-                            <td style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.72rem" }}>{d.jastiper_code || "-"}</td>
-                            <td>
-                              <span className={`jr-badge ${respondBadgeClass(d.jastiper_respond)}`}>{d.jastiper_respond || "-"}</span>
-                            </td>
-                            <td>{d.jastiper_status || "-"}</td>
-                            <td style={{ whiteSpace: "normal", minWidth: 160 }}>{d.notes || "-"}</td>
-                            <td>{d.total_order}</td>
-                            <td>{d.total_value_formatted}</td>
-                          </tr>
-                        ))}
+                        {filteredData.map((d) => {
+                          const isExpanded = expandedUuid === d.uuid;
+                          return (
+                            <Fragment key={d.uuid}>
+                              <tr
+                                onClick={() => setExpandedUuid(isExpanded ? null : d.uuid)}
+                                className="jr-row-clickable"
+                              >
+                                <td>
+                                  <span className="jr-name-toggle">
+                                    <span className={`jr-caret ${isExpanded ? "open" : ""}`}>▸</span>
+                                    {d.jastiper_name}
+                                  </span>
+                                </td>
+                                <td>{d.jastiper_phone_number || "-"}</td>
+                                <td>{d.jastiper_store}</td>
+                                <td style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.72rem" }}>{d.jastiper_code || "-"}</td>
+                                <td>
+                                  <span className={`jr-badge ${respondBadgeClass(d.jastiper_respond)}`}>{d.jastiper_respond || "-"}</span>
+                                </td>
+                                <td>{d.jastiper_status || "-"}</td>
+                                <td style={{ whiteSpace: "normal", minWidth: 160 }}>{d.notes || "-"}</td>
+                                <td>{d.total_order}</td>
+                                <td>{d.total_value_formatted}</td>
+                              </tr>
+                              {isExpanded && (
+                                <tr className="jr-expand-row">
+                                  <td colSpan={9}>
+                                    {d.orders.length === 0 ? (
+                                      <div className="jr-empty" style={{ padding: "0.75rem 0" }}>
+                                        Belum ada sales order untuk kode ini.
+                                      </div>
+                                    ) : (
+                                      <table className="jr-subtable">
+                                        <thead>
+                                          <tr>
+                                            <th>Sales Order</th>
+                                            <th>Store</th>
+                                            <th>Tanggal</th>
+                                            <th>Value</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {d.orders.map((o, i) => (
+                                            <tr key={i}>
+                                              <td>{o.sales_order}</td>
+                                              <td>{o.store_name}</td>
+                                              <td>{formatOrderDate(o.date)}</td>
+                                              <td>{o.value_formatted}</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    )}
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
+                          );
+                        })}
                       </tbody>
                     </table>
                     {filteredData.length === 0 && <div className="jr-empty">Tidak ada data yang cocok.</div>}

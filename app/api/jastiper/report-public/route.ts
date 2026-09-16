@@ -54,6 +54,35 @@ export async function GET(request: NextRequest) {
     `;
     const rows = (await sql(query, params)) as any[];
 
+    // Daftar sales order per kode jastiper — dipakai untuk expand baris di
+    // tab Data (klik nama jastiper langsung lihat order-nya, tanpa fetch
+    // terpisah per baris). Satu query untuk semua kode dalam scope filter,
+    // lalu dikelompokkan per kode di JS.
+    const orderRows = (await sql(
+      `
+        SELECT o.sales_order, o.store_name, o.total, o.created_at, o.paid_at, j.jastiper_code
+        FROM shopify_orders o
+        JOIN jastiper_master j ON j.jastiper_code <> '' AND o.notes ILIKE ('%' || j.jastiper_code || '%')
+        WHERE ${where}
+        ORDER BY COALESCE(o.paid_at, o.created_at) DESC NULLS LAST
+      `,
+      params
+    )) as any[];
+
+    const ordersByCode = new Map<string, { sales_order: string; store_name: string; value: number; value_formatted: string; date: string | null }[]>();
+    for (const o of orderRows) {
+      const code = o.jastiper_code;
+      if (!ordersByCode.has(code)) ordersByCode.set(code, []);
+      const value = Number(o.total) || 0;
+      ordersByCode.get(code)!.push({
+        sales_order: o.sales_order || "",
+        store_name: o.store_name || "",
+        value,
+        value_formatted: formatRupiah(value),
+        date: o.paid_at || o.created_at || null,
+      });
+    }
+
     const data = rows.map((r) => ({
       uuid: r.uuid,
       jastiper_name: r.jastiper_name || "",
@@ -66,6 +95,7 @@ export async function GET(request: NextRequest) {
       total_order: Number(r.total_order) || 0,
       total_value: Number(r.total_value) || 0,
       total_value_formatted: formatRupiah(Number(r.total_value) || 0),
+      orders: ordersByCode.get(r.jastiper_code) || [],
     }));
 
     // Agregasi per toko (untuk bar chart + pie chart mode "Toko").
