@@ -8,7 +8,8 @@ import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import { Button } from "@/components/shared/Button";
 import { Jastiper } from "@/types";
-import { Plus, Pencil, Upload } from "lucide-react";
+import { Plus, Pencil, Upload, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTh } from "@/components/shared/SortableTh";
 import { ImportJastiperCsvModal } from "@/components/jastiper/ImportJastiperCsvModal";
@@ -32,7 +33,7 @@ const STORE_LIST = [
   "Tambun",
 ];
 
-const RESPOND_OPTIONS = ["Interested", "Done Approach", "Joined Group", "Canceled"];
+const RESPOND_OPTIONS = ["Interested", "Done Approach", "On Followup", "Joined Group", "Canceled"];
 const STATUS_OPTIONS = ["Active", "Inactive"];
 
 function storeAbbrev(store: string) {
@@ -315,6 +316,30 @@ export default function JastiperPage() {
 
   const { sorted: sortedData, sortKey, sortDir, toggleSort } = useSortableTable(items, "jastiper_name");
 
+  // Export XLSX untuk baris yang lagi ditampilkan (sesuai filter/sort aktif),
+  // bukan seluruh tabel — hanya untuk user yang punya akses setting.
+  const handleExport = () => {
+    const rows = sortedData.map((item) => ({
+      "Nama Jastiper": item.jastiper_name,
+      "No HP": item.jastiper_phone_number,
+      Toko: item.jastiper_store,
+      "Kode Jastiper": item.jastiper_code,
+      Respond: item.jastiper_respond,
+      Status: item.jastiper_status,
+      Notes: item.notes,
+      "Total Order": item.total_order,
+      "Total Value": item.total_value,
+      "Dibuat Oleh": item.created_by,
+      "Dibuat Pada": item.created_at,
+      "Update Oleh": item.update_by,
+      "Update Pada": item.update_at,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Jastiper");
+    XLSX.writeFile(wb, `jastiper_export_${Date.now()}.xlsx`);
+  };
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = sortedData.slice(indexOfFirstItem, indexOfLastItem);
@@ -335,6 +360,11 @@ export default function JastiperPage() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                {!!user.user_setting && (
+                  <Button variant="secondary" icon={Download} onClick={handleExport}>
+                    Export
+                  </Button>
+                )}
                 <Button variant="secondary" icon={Upload} onClick={() => setShowImportModal(true)}>
                   Import CSV
                 </Button>
@@ -438,6 +468,8 @@ export default function JastiperPage() {
                                     ? "bg-green-100 text-green-700"
                                     : item.jastiper_respond === "Done Approach"
                                     ? "bg-blue-100 text-blue-700"
+                                    : item.jastiper_respond === "On Followup"
+                                    ? "bg-amber-100 text-amber-700"
                                     : "bg-gray-100 text-gray-600"
                                 }`}
                               >
