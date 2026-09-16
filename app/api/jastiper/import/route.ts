@@ -39,6 +39,8 @@ export async function POST(request: NextRequest) {
         const jastiper_respond = toTitleCase((row["jastiper_respond"] || "").trim());
         const baseCode = (row["jastiper_code"] || "").trim() || generateJastiperCode(jastiper_store, rawPhone);
         const jastiper_status = (row["jastiper_status"] || "Active").trim();
+        const social_media = (row["social_media"] || "").trim();
+        const social_media_username = (row["social_media_username"] || "").trim();
         return {
           jastiper_name,
           jastiper_phone_number,
@@ -46,6 +48,8 @@ export async function POST(request: NextRequest) {
           jastiper_store,
           baseCode,
           jastiper_status,
+          social_media,
+          social_media_username,
           created_by: (row["created_by"] || created_by || "import").trim(),
         };
       })
@@ -86,15 +90,18 @@ export async function POST(request: NextRequest) {
       INSERT INTO jastiper_master (
         jastiper_name, jastiper_phone_number, jastiper_phone_normalized,
         jastiper_respond, jastiper_store, jastiper_code, jastiper_status,
+        social_media, social_media_username,
         created_by, update_by
       )
       SELECT
         t.jastiper_name, t.jastiper_phone_number, t.jastiper_phone_normalized,
         t.jastiper_respond, t.jastiper_store, t.jastiper_code, t.jastiper_status,
+        t.social_media, t.social_media_username,
         t.created_by, t.created_by
       FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) AS t(
         jastiper_name TEXT, jastiper_phone_number TEXT, jastiper_phone_normalized TEXT,
         jastiper_respond TEXT, jastiper_store TEXT, jastiper_code TEXT, jastiper_status TEXT,
+        social_media TEXT, social_media_username TEXT,
         created_by TEXT
       )
       ON CONFLICT (jastiper_store, jastiper_phone_normalized) WHERE jastiper_phone_normalized <> ''

@@ -13,6 +13,8 @@ import * as XLSX from "xlsx";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTh } from "@/components/shared/SortableTh";
 import { ImportJastiperCsvModal } from "@/components/jastiper/ImportJastiperCsvModal";
+import { SocialMediaIcon } from "@/components/jastiper/SocialMediaIcon";
+import { SOCIAL_MEDIA_OPTIONS } from "@/lib/jastiper";
 
 // Sama dengan STORE_LIST di app/api/jastiper/route.ts — dipakai untuk
 // dropdown toko di form Add/Edit saat user HQ (tidak match toko manapun).
@@ -63,6 +65,8 @@ const emptyForm = {
   jastiper_code: "",
   jastiper_status: "Active",
   notes: "",
+  social_media: "",
+  social_media_username: "",
 };
 
 function NotesCell({
@@ -218,6 +222,8 @@ export default function JastiperPage() {
       jastiper_code: item.jastiper_code,
       jastiper_status: item.jastiper_status || "Active",
       notes: item.notes || "",
+      social_media: item.social_media || "",
+      social_media_username: item.social_media_username || "",
     });
     setCodeManuallyEdited(true); // kode existing dianggap sudah final, tidak auto-overwrite saat edit
     setShowEditModal(true);
@@ -321,6 +327,8 @@ export default function JastiperPage() {
   const handleExport = () => {
     const rows = sortedData.map((item) => ({
       "Nama Jastiper": item.jastiper_name,
+      "Sosial Media": item.social_media,
+      Username: item.social_media_username,
       "No HP": item.jastiper_phone_number,
       Toko: item.jastiper_store,
       "Kode Jastiper": item.jastiper_code,
@@ -441,6 +449,8 @@ export default function JastiperPage() {
                       <thead className="border-b bg-gray-100">
                         <tr>
                           <SortableTh label="Nama" active={sortKey === "jastiper_name"} dir={sortDir} onClick={() => toggleSort("jastiper_name")} className="px-2 py-1.5 font-semibold text-gray-700" />
+                          <th className="px-2 py-1.5 text-center font-semibold text-gray-700">Sosial Media</th>
+                          <th className="px-2 py-1.5 text-center font-semibold text-gray-700">Username</th>
                           <th className="px-2 py-1.5 text-center font-semibold text-gray-700">No HP</th>
                           <SortableTh label="Toko" active={sortKey === "jastiper_store"} dir={sortDir} onClick={() => toggleSort("jastiper_store")} className="px-2 py-1.5 text-center font-semibold text-gray-700" />
                           <th className="px-2 py-1.5 text-center font-semibold text-gray-700">Kode</th>
@@ -456,6 +466,16 @@ export default function JastiperPage() {
                         {currentItems.map((item) => (
                           <tr key={item.uuid} className="border-b hover:bg-gray-50">
                             <td className="px-2 py-1 font-medium">{item.jastiper_name}</td>
+                            <td className="px-2 py-1 text-center">
+                              {item.social_media ? (
+                                <span className="inline-flex items-center justify-center">
+                                  <SocialMediaIcon platform={item.social_media} size={14} />
+                                </span>
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                            <td className="px-2 py-1 text-center">{item.social_media_username || "-"}</td>
                             <td className="px-2 py-1 text-center">{item.jastiper_phone_number || "-"}</td>
                             <td className="px-2 py-1 text-center">{item.jastiper_store}</td>
                             <td className="px-2 py-1 text-center font-mono text-[10px] text-gray-500">{item.jastiper_code || "-"}</td>
@@ -575,6 +595,33 @@ export default function JastiperPage() {
                     onChange={(e) => setForm((p) => ({ ...p, jastiper_name: e.target.value }))}
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-500">Sosial Media</label>
+                    <select
+                      value={form.social_media}
+                      onChange={(e) => setForm((p) => ({ ...p, social_media: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                    >
+                      <option value="">Pilih platform...</option>
+                      {SOCIAL_MEDIA_OPTIONS.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">Username</label>
+                    <input
+                      type="text"
+                      value={form.social_media_username}
+                      onChange={(e) => setForm((p) => ({ ...p, social_media_username: e.target.value }))}
+                      placeholder="@username"
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="text-xs text-gray-500">No HP</label>

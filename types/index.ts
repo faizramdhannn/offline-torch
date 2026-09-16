@@ -143,6 +143,8 @@ export interface Jastiper {
   jastiper_code: string;
   jastiper_status: string;
   notes: string;
+  social_media: string;
+  social_media_username: string;
   created_by: string;
   created_at: string;
   update_by: string;

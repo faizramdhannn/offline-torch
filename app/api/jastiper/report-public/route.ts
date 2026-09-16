@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
       SELECT
         j.uuid, j.jastiper_name, j.jastiper_phone_number, j.jastiper_store,
         j.jastiper_code, j.jastiper_respond, j.jastiper_status, j.notes,
+        j.social_media, j.social_media_username,
         COALESCE(agg.total_order, 0)::int AS total_order,
         COALESCE(agg.total_value, 0)::numeric AS total_value
       FROM jastiper_master j
@@ -92,6 +93,8 @@ export async function GET(request: NextRequest) {
       jastiper_respond: r.jastiper_respond || "",
       jastiper_status: r.jastiper_status || "",
       notes: r.notes || "",
+      social_media: r.social_media || "",
+      social_media_username: r.social_media_username || "",
       total_order: Number(r.total_order) || 0,
       total_value: Number(r.total_value) || 0,
       total_value_formatted: formatRupiah(Number(r.total_value) || 0),

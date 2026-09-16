@@ -95,6 +95,7 @@ export async function GET(request: NextRequest) {
       SELECT
         j.uuid, j.jastiper_name, j.jastiper_phone_number, j.jastiper_respond,
         j.jastiper_store, j.jastiper_code, j.jastiper_status, j.notes,
+        j.social_media, j.social_media_username,
         j.created_by, j.created_at, j.update_by, j.update_at,
         COALESCE(agg.total_order, 0)::int AS total_order,
         COALESCE(agg.total_value, 0)::numeric AS total_value
@@ -118,6 +119,8 @@ export async function GET(request: NextRequest) {
       jastiper_code: r.jastiper_code || "",
       jastiper_status: r.jastiper_status || "",
       notes: r.notes || "",
+      social_media: r.social_media || "",
+      social_media_username: r.social_media_username || "",
       created_by: r.created_by || "",
       created_at: r.created_at || "",
       update_by: r.update_by || "",
@@ -150,6 +153,8 @@ export async function POST(request: NextRequest) {
     const jastiper_store = (body.jastiper_store || "").trim();
     const jastiper_status = (body.jastiper_status || "Active").trim();
     const notes = (body.notes || "").trim();
+    const social_media = (body.social_media || "").trim();
+    const social_media_username = (body.social_media_username || "").trim();
     const created_by = (body.created_by || "").trim();
 
     if (!jastiper_name || !jastiper_store) {
@@ -181,10 +186,12 @@ export async function POST(request: NextRequest) {
       INSERT INTO jastiper_master (
         jastiper_name, jastiper_phone_number, jastiper_phone_normalized,
         jastiper_respond, jastiper_store, jastiper_code, jastiper_status, notes,
+        social_media, social_media_username,
         created_by, update_by
       ) VALUES (
         ${jastiper_name}, ${jastiper_phone_number}, ${jastiper_phone_normalized},
         ${jastiper_respond}, ${jastiper_store}, ${jastiper_code}, ${jastiper_status}, ${notes},
+        ${social_media}, ${social_media_username},
         ${created_by}, ${created_by}
       )
       RETURNING uuid
@@ -224,6 +231,8 @@ export async function PUT(request: NextRequest) {
     const jastiper_store = (body.jastiper_store || "").trim();
     const jastiper_status = (body.jastiper_status || "Active").trim();
     const notes = (body.notes || "").trim();
+    const social_media = (body.social_media || "").trim();
+    const social_media_username = (body.social_media_username || "").trim();
     const update_by = (body.update_by || "").trim();
 
     const jastiper_phone_number = normalizePhone(rawPhone);
@@ -250,6 +259,8 @@ export async function PUT(request: NextRequest) {
         jastiper_code = ${jastiper_code},
         jastiper_status = ${jastiper_status},
         notes = ${notes},
+        social_media = ${social_media},
+        social_media_username = ${social_media_username},
         update_by = ${update_by},
         update_at = now()
       WHERE uuid = ${uuid}

@@ -68,3 +68,13 @@ export const JASTIPER_RESPOND_OPTIONS = [
 ] as const;
 
 export const JASTIPER_STATUS_OPTIONS = ["Active", "Inactive"] as const;
+
+export const SOCIAL_MEDIA_OPTIONS = [
+  "Instagram",
+  "Threads",
+  "TikTok",
+  "X",
+  "Facebook",
+  "WhatsApp",
+  "WhatsApp Channel",
+] as const;

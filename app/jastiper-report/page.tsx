@@ -17,6 +17,7 @@ import {
   Tooltip,
 } from "recharts";
 import { CHART_PALETTE as PALETTE, chartTooltipStyle, chartAxisTick, chartGridStroke } from "@/components/shared/chartStyles";
+import { SocialMediaIcon } from "@/components/jastiper/SocialMediaIcon";
 
 // Halaman PUBLIK, TIDAK login-gated — sengaja di luar (main) route group,
 // sama pola dengan app/affiliate-report/page.tsx. Menampilkan monitoring
@@ -42,6 +43,8 @@ interface JastiperRow {
   jastiper_respond: string;
   jastiper_status: string;
   notes: string;
+  social_media: string;
+  social_media_username: string;
   total_order: number;
   total_value: number;
   total_value_formatted: string;
@@ -157,7 +160,8 @@ export default function JastiperReportPublicPage() {
         d.jastiper_name.toLowerCase().includes(q) ||
         d.jastiper_phone_number.toLowerCase().includes(q) ||
         d.jastiper_code.toLowerCase().includes(q) ||
-        d.jastiper_store.toLowerCase().includes(q)
+        d.jastiper_store.toLowerCase().includes(q) ||
+        d.social_media_username.toLowerCase().includes(q)
     );
   }, [data, search]);
 
@@ -165,6 +169,8 @@ export default function JastiperReportPublicPage() {
     if (!data) return;
     const rows = filteredData.map((d) => ({
       "Nama Jastiper": d.jastiper_name,
+      "Sosial Media": d.social_media,
+      Username: d.social_media_username,
       "No HP": d.jastiper_phone_number,
       Toko: d.jastiper_store,
       "Kode Jastiper": d.jastiper_code,
@@ -406,6 +412,8 @@ export default function JastiperReportPublicPage() {
                       <thead>
                         <tr>
                           <th>Nama</th>
+                          <th>Sosial Media</th>
+                          <th>Username</th>
                           <th>No HP</th>
                           <th>Toko</th>
                           <th>Kode</th>
@@ -431,6 +439,8 @@ export default function JastiperReportPublicPage() {
                                     {d.jastiper_name}
                                   </span>
                                 </td>
+                                <td>{d.social_media ? <SocialMediaIcon platform={d.social_media} size={14} /> : "-"}</td>
+                                <td>{d.social_media_username || "-"}</td>
                                 <td>{d.jastiper_phone_number || "-"}</td>
                                 <td>{d.jastiper_store}</td>
                                 <td style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.72rem" }}>{d.jastiper_code || "-"}</td>
@@ -444,7 +454,7 @@ export default function JastiperReportPublicPage() {
                               </tr>
                               {isExpanded && (
                                 <tr className="jr-expand-row">
-                                  <td colSpan={9}>
+                                  <td colSpan={11}>
                                     {d.orders.length === 0 ? (
                                       <div className="jr-empty" style={{ padding: "0.75rem 0" }}>
                                         Belum ada sales order untuk kode ini.
