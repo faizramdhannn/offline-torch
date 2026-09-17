@@ -132,19 +132,6 @@ function LoginPageContent() {
           overflow: hidden;
           position: relative;
         }
-        /* Blurred colour blobs — without these behind it, the frosted glass
-           card has nothing but flat colour to blur and looks plain. */
-        .sl-blob {
-          position: absolute;
-          border-radius: 50%;
-          filter: blur(70px);
-          pointer-events: none;
-          z-index: 0;
-        }
-        .sl-blob-1 { width: 380px; height: 380px; background: rgba(96,165,250,0.45); top: -100px; left: 60px; }
-        .sl-blob-2 { width: 320px; height: 320px; background: rgba(244,114,182,0.35); bottom: -80px; left: 220px; }
-        .sl-blob-3 { width: 300px; height: 300px; background: rgba(167,139,250,0.35); top: 40%; left: -80px; }
-
         /* ─── Left panel (white liquid-glass card) ─── */
         .sl-left {
           width: 100%;
@@ -456,10 +443,6 @@ function LoginPageContent() {
           "phase-idle"
         }`}
       >
-        <div className="sl-blob sl-blob-1" />
-        <div className="sl-blob sl-blob-2" />
-        <div className="sl-blob sl-blob-3" />
-
         {/* ── Left panel (form) ── */}
         <div className="sl-left">
           <div className="sl-brand">
