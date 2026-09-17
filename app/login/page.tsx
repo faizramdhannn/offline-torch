@@ -128,10 +128,22 @@ function LoginPageContent() {
           min-height: 100vh;
           display: flex;
           font-family: 'IBM Plex Sans', sans-serif;
-          background: #f1f5f9;
+          background: #eef1f6;
           overflow: hidden;
           position: relative;
         }
+        /* Blurred colour blobs — without these behind it, the frosted glass
+           card has nothing but flat colour to blur and looks plain. */
+        .sl-blob {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(70px);
+          pointer-events: none;
+          z-index: 0;
+        }
+        .sl-blob-1 { width: 380px; height: 380px; background: rgba(96,165,250,0.45); top: -100px; left: 60px; }
+        .sl-blob-2 { width: 320px; height: 320px; background: rgba(244,114,182,0.35); bottom: -80px; left: 220px; }
+        .sl-blob-3 { width: 300px; height: 300px; background: rgba(167,139,250,0.35); top: 40%; left: -80px; }
 
         /* ─── Left panel (white liquid-glass card) ─── */
         .sl-left {
@@ -142,11 +154,11 @@ function LoginPageContent() {
           flex-direction: column;
           justify-content: space-between;
           padding: 2.5rem 3rem;
-          background: rgba(255,255,255,0.55);
+          background: linear-gradient(135deg, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0.45) 100%);
           backdrop-filter: blur(28px) saturate(180%);
           -webkit-backdrop-filter: blur(28px) saturate(180%);
-          border-right: 1px solid rgba(255,255,255,0.6);
-          box-shadow: inset -1px 0 0 rgba(255,255,255,0.4);
+          border: 1px solid rgba(255,255,255,0.7);
+          box-shadow: 0 8px 32px rgba(31,41,55,0.12), inset 0 1px 0 rgba(255,255,255,0.8);
           position: relative;
           z-index: 2;
           transition: transform 0.5s cubic-bezier(.65,0,.35,1), opacity 0.5s cubic-bezier(.65,0,.35,1);
@@ -444,6 +456,10 @@ function LoginPageContent() {
           "phase-idle"
         }`}
       >
+        <div className="sl-blob sl-blob-1" />
+        <div className="sl-blob sl-blob-2" />
+        <div className="sl-blob sl-blob-3" />
+
         {/* ── Left panel (form) ── */}
         <div className="sl-left">
           <div className="sl-brand">

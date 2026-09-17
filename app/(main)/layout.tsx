@@ -46,7 +46,7 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-gray-50 overflow-hidden relative">
       <style>{`
         @keyframes mlEnterLeft {
           from { transform: translateX(-100%); opacity: 0; }
@@ -58,7 +58,16 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
         }
         .ml-enter-sidebar { animation: mlEnterLeft 0.45s cubic-bezier(.32,.72,.35,1) both; }
         .ml-enter-content { animation: mlEnterRight 0.45s cubic-bezier(.32,.72,.35,1) 0.12s both; }
+
+        /* Blurred colour blobs behind the sidebar — without these, the
+           sidebar's frosted-glass backdrop-blur has nothing but flat colour
+           behind it and looks plain instead of "glass". */
+        .ml-blob { position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0; }
+        .ml-blob-1 { width: 300px; height: 300px; background: rgba(96,165,250,0.35); top: -80px; left: -60px; }
+        .ml-blob-2 { width: 260px; height: 260px; background: rgba(167,139,250,0.3); bottom: 10%; left: 40px; }
       `}</style>
+      <div className="ml-blob ml-blob-1" />
+      <div className="ml-blob ml-blob-2" />
       <div className={entering ? "ml-enter-sidebar" : ""}>
         <Sidebar userName={user.name} permissions={user} />
       </div>
