@@ -10,6 +10,9 @@ import { Button } from "@/components/shared/Button";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import { Plus, Pencil, Trash2, Check, X, Mail, Camera, Upload, Image as ImageIcon } from "lucide-react";
+import { GlassCard } from "@/components/shared/GlassCard";
+import { FilterBar } from "@/components/shared/FilterBar";
+import { tableWrapClassGlass, theadClassGlass } from "@/components/shared/tableStyles";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface EDItem {
@@ -677,7 +680,7 @@ export default function EmployeeDiscountPage() {
         )}
       </div>
 
-      <div className="flex items-center gap-2 mb-2 flex-wrap">
+      <FilterBar className="mb-2">
         <div className="relative">
           <input
             ref={searchRef}
@@ -697,13 +700,13 @@ export default function EmployeeDiscountPage() {
           <option value="newest">Terbaru</option>
           <option value="oldest">Terlama</option>
         </select>
-      </div>
+      </FilterBar>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
+      <GlassCard padding="none" className="overflow-hidden">
+        <div className={tableWrapClassGlass}>
           <table className="w-full text-[11px] border-collapse" style={{ tableLayout: "fixed" }}>
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
+              <tr className={`${theadClassGlass} border-b border-gray-200 text-gray-500`}>
                 <th className="px-2 py-1.5 text-center font-semibold border-r border-gray-200 w-[70px]"><span className="text-[8px] uppercase tracking-wide">Tanggal</span></th>
                 <th className="px-2 py-1.5 text-center font-semibold border-r border-gray-200 w-[70px]"><span className="text-[8px] uppercase tracking-wide">Store/Name</span></th>
                 <th className="px-2 py-1.5 text-center font-semibold border-r border-gray-200 w-[70px]"><span className="text-[8px] uppercase tracking-wide">Assigned To</span></th>
@@ -817,7 +820,7 @@ export default function EmployeeDiscountPage() {
             </tbody>
           </table>
         </div>
-      </div>
+      </GlassCard>
 
       {totalPages > 1 && (
         <div className="flex items-center justify-end gap-2 mt-3 text-xs">

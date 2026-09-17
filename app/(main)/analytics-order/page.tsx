@@ -11,6 +11,9 @@ import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import Papa from "papaparse";
 import { Button } from "@/components/shared/Button";
 import { idbGet, idbSet, isCacheFresh } from "@/lib/idbCache";
+import { GlassCard } from "@/components/shared/GlassCard";
+import { Toggle } from "@/components/shared/Toggle";
+import { tableWrapClassGlass, theadClassGlass } from "@/components/shared/tableStyles";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, PieChart, Pie,
@@ -317,7 +320,7 @@ function OrderDetailPopup({ groupLabel, orderNames, rows, trafficMap, onClose }:
 
         <div className="overflow-auto flex-1">
           <table className="w-full text-[11px]">
-            <thead className="sticky top-0 bg-gray-50 z-10 border-b">
+            <thead className={`sticky top-0 z-10 border-b ${theadClassGlass}`}>
               <tr>
                 <SortableTh label="Order" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} className="px-2 py-1.5 font-semibold text-gray-600" />
                 <SortableTh label="Tanggal" active={sortKey === "paidDate"} dir={sortDir} onClick={() => toggleSort("paidDate")} className="px-2 py-1.5 font-semibold text-gray-600" />
@@ -666,7 +669,7 @@ function MasterTrafficModal({
 
         <div className="overflow-y-auto flex-1">
           <table className="w-full text-[11px]">
-            <thead className="sticky top-0 bg-gray-50 z-10">
+            <thead className={`sticky top-0 z-10 ${theadClassGlass}`}>
               <tr className="border-b">
                 <SortableTh label="Kode" active={entrySortKey === "code_traffic"} dir={entrySortDir} onClick={() => toggleEntrySort("code_traffic")} className="px-2 py-1.5 font-semibold text-gray-600 w-24" />
                 <SortableTh label="Keterangan" active={entrySortKey === "notes"} dir={entrySortDir} onClick={() => toggleEntrySort("notes")} className="px-2 py-1.5 font-semibold text-gray-600" />
@@ -1367,10 +1370,10 @@ useEffect(() => {
                     { label: "Total Orders (Offline)", value: totalOrders.toLocaleString(), color: "text-blue-600" },
                     { label: "Pakai Discount", value: totalDiscountUsed.toLocaleString(), color: "text-purple-600" },
                   ].map((c) => (
-                    <div key={c.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                    <GlassCard key={c.label}>
                       <p className="text-xs text-gray-500 mb-1">{c.label}</p>
                       <p className={`text-xl font-bold ${c.color}`}>{c.value}</p>
-                    </div>
+                    </GlassCard>
                   ))}
                 </div>
 
@@ -1406,7 +1409,7 @@ useEffect(() => {
             )}
 
             {/* Filters */}
-            <div className="bg-white rounded-lg shadow p-4 mb-4">
+            <GlassCard className="mb-4">
               <div className="grid grid-cols-2 gap-3 items-end sm:grid-cols-3 lg:grid-cols-5">
                 {/* Date From */}
                 <div>
@@ -1598,10 +1601,10 @@ useEffect(() => {
                   </div>
                 )}
               </div>
-            </div>
+            </GlassCard>
 
             {/* Tabs */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
+            <GlassCard padding="none" className="overflow-hidden">
               <div className="flex items-center justify-between border-b pr-4">
                 <div className="flex overflow-x-auto">
                   {CHART_TABS.map((tab) => (
@@ -1727,10 +1730,10 @@ useEffect(() => {
                         <div>
                           <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail per Store</h3>
                           <p className="text-[10px] text-gray-400 mb-2">Klik baris untuk melihat salah satu order dari store tersebut</p>
-                          <div className="overflow-x-auto">
+                          <div className={tableWrapClassGlass}>
                             <table className="w-full text-[11px]">
                               <thead>
-                                <tr className="bg-gray-50 border-b">
+                                <tr className={`${theadClassGlass} border-b`}>
                                   <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Store</th>
                                   <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Orders</th>
                                   <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Revenue</th>
@@ -1772,10 +1775,7 @@ useEffect(() => {
                           <>
                             <div className="flex items-center gap-2">
                               <label className="flex items-center gap-2 cursor-pointer select-none">
-                                <div onClick={() => setHideUnknownTraffic(v => !v)}
-                                  className={`w-9 h-5 rounded-full transition-colors relative ${hideUnknownTraffic ? "bg-primary" : "bg-gray-300"}`}>
-                                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${hideUnknownTraffic ? "translate-x-4" : "translate-x-0.5"}`} />
-                                </div>
+                                <Toggle checked={hideUnknownTraffic} onChange={(v) => setHideUnknownTraffic(v)} size="sm" />
                                 <span className="text-xs text-gray-600">Sembunyikan <strong>"Tidak Diketahui"</strong> di bar chart</span>
                               </label>
                             </div>
@@ -1859,10 +1859,10 @@ useEffect(() => {
                         <div>
                           <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Traffic Source</h3>
                           <p className="text-[10px] text-gray-400 mb-2">Klik baris untuk melihat contoh order dari traffic ini</p>
-                          <div className="overflow-x-auto">
+                          <div className={tableWrapClassGlass}>
                             <table className="w-full text-[11px]">
                               <thead>
-                                <tr className="bg-gray-50 border-b">
+                                <tr className={`${theadClassGlass} border-b`}>
                                   <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Traffic Source</th>
                                   <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Jumlah Order</th>
                                   <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Total Revenue</th>
@@ -1964,10 +1964,10 @@ useEffect(() => {
                         <div>
                           <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Discount Code</h3>
                           <p className="text-[10px] text-gray-400 mb-2">Klik baris untuk melihat contoh order dengan discount ini</p>
-                          <div className="overflow-x-auto">
+                          <div className={tableWrapClassGlass}>
                             <table className="w-full text-[11px]">
                               <thead>
-                                <tr className="bg-gray-50 border-b">
+                                <tr className={`${theadClassGlass} border-b`}>
                                   <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Discount Code</th>
                                   <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Dipakai (Order)</th>
                                   <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Total Revenue</th>
@@ -2069,10 +2069,10 @@ useEffect(() => {
                         <div>
                           <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Produk Terjual</h3>
                           <p className="text-[10px] text-gray-400 mb-2">Klik baris untuk melihat contoh order yang mengandung produk ini</p>
-                          <div className="overflow-x-auto">
+                          <div className={tableWrapClassGlass}>
                             <table className="w-full text-[11px]">
                               <thead>
-                                <tr className="bg-gray-50 border-b">
+                                <tr className={`${theadClassGlass} border-b`}>
                                   <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Produk</th>
                                   <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Qty Terjual</th>
                                   <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Total Revenue</th>
@@ -2161,10 +2161,10 @@ useEffect(() => {
                         <div>
                           <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail Karyawan</h3>
                           <p className="text-[10px] text-gray-400 mb-2">Klik baris untuk melihat contoh order dari karyawan ini</p>
-                          <div className="overflow-x-auto">
+                          <div className={tableWrapClassGlass}>
                             <table className="w-full text-[11px]">
                               <thead>
-                                <tr className="bg-gray-50 border-b">
+                                <tr className={`${theadClassGlass} border-b`}>
                                   <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Karyawan</th>
                                   <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Jumlah Order</th>
                                   <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Total Revenue</th>
@@ -2252,7 +2252,7 @@ useEffect(() => {
                         <div>
                           <h3 className="text-sm font-semibold text-gray-700 mb-3">Daftar Order Online</h3>
                           <p className="text-[10px] text-gray-400 mb-2">Klik baris untuk melihat detail order</p>
-                          <div className="overflow-x-auto">
+                          <div className={tableWrapClassGlass}>
                             <table className="w-full text-[11px]">
                               <thead>
                                 <tr className="bg-blue-50 border-b">
@@ -2298,7 +2298,7 @@ useEffect(() => {
                   </>
                 )}
               </div>
-            </div>
+            </GlassCard>
           </div>
         </div>
 

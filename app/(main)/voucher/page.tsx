@@ -12,6 +12,9 @@ import { Voucher } from "@/types";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTh } from "@/components/shared/SortableTh";
+import { GlassCard } from "@/components/shared/GlassCard";
+import { FilterBar } from "@/components/shared/FilterBar";
+import { tableWrapClassGlass, theadClassGlass } from "@/components/shared/tableStyles";
 
 export default function VoucherPage() {
   const router = useRouter();
@@ -263,7 +266,7 @@ return (
             )}
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4 mb-4">
+          <FilterBar className="mb-4 flex-col items-stretch">
             <div className="grid grid-cols-3 gap-3 mb-3">
               <div className="relative" ref={categoryDropdownRef}>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -326,16 +329,16 @@ return (
                 Reset Filters
               </Button>
             </div>
-          </div>
+          </FilterBar>
 
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <GlassCard padding="none" className="overflow-hidden">
             {loading ? (
               <div className="p-8 text-center">Loading...</div>
             ) : (
               <>
-                <div className="overflow-x-auto">
+                <div className={tableWrapClassGlass}>
                   <table className="w-full text-[11px]">
-                    <thead className="bg-gray-100 border-b">
+                    <thead className={`${theadClassGlass} border-b`}>
                       <tr>
                         <SortableTh label="Voucher Name" active={sortKey === "voucher_name"} dir={sortDir} onClick={() => toggleSort("voucher_name")} className="px-2 py-1.5 font-semibold text-gray-700" />
                         <SortableTh label="Category" active={sortKey === "category"} dir={sortDir} onClick={() => toggleSort("category")} className="px-2 py-1.5 font-semibold text-gray-700" />
@@ -443,7 +446,7 @@ return (
                 )}
               </>
             )}
-          </div>
+          </GlassCard>
         </div>
       </div>
 

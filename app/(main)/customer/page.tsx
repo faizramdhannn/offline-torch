@@ -8,6 +8,8 @@ import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import { Customer, CustomerBadge } from "@/types";
 import { Button } from "@/components/shared/Button";
+import { GlassCard } from "@/components/shared/GlassCard";
+import { FilterBar } from "@/components/shared/FilterBar";
 import { BadgeManagerModal } from "@/components/customer/BadgeManagerModal";
 import { ImportCsvModal } from "@/components/customer/ImportCsvModal";
 import { FollowupMessageModal } from "@/components/customer/FollowupMessageModal";
@@ -535,16 +537,17 @@ return (
 
           {/* Analytics — mengikuti filter yang aktif */}
           <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
-            <div className="flex-none rounded-xl border border-gray-100 bg-white p-3 shadow-sm">
+            <GlassCard padding="sm" className="flex-none">
               <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Total Customer</div>
               <div className="mt-1 text-lg font-bold text-gray-900">
                 {totalItems.toLocaleString("id-ID")}
               </div>
-            </div>
+            </GlassCard>
             {badgeStats.map(({ badge, count, totalOrder, totalQty, totalValue }) => (
-              <div
+              <GlassCard
                 key={badge.key}
-                className="flex-none min-w-[168px] rounded-xl border border-gray-100 bg-white p-3 shadow-sm"
+                padding="sm"
+                className="flex-none min-w-[168px]"
               >
                 <div className="flex items-center gap-1.5">
                   {badge.logo_url && (
@@ -559,12 +562,12 @@ return (
                 <div className="mt-0.5 text-[10px] text-gray-400">
                   {totalOrder} order · {totalQty} qty · {formatRupiah(totalValue)}
                 </div>
-              </div>
+              </GlassCard>
             ))}
           </div>
 
           {/* Filters */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 mb-3 flex flex-wrap items-end gap-3">
+          <FilterBar className="mb-3 items-end">
             {(!isOwner || stores.length > 1) && (
               <div className="relative w-48" ref={storeDropdownRef}>
                 <label className="block text-[10px] font-medium text-gray-500 mb-1">
@@ -710,10 +713,10 @@ return (
             <Button onClick={resetFilters} variant="secondary" size="sm" className="ml-auto">
               Reset
             </Button>
-          </div>
+          </FilterBar>
 
           {/* Content Area — compact list, ala Shopify customer list */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <GlassCard padding="none" className="overflow-hidden">
             {loading ? (
               <div className="p-8 text-center text-xs text-gray-400">Loading...</div>
             ) : totalItems === 0 ? (
@@ -911,7 +914,7 @@ return (
                 )}
               </>
             )}
-          </div>
+          </GlassCard>
         </div>
       </div>
 

@@ -5,6 +5,8 @@ import { useState, useEffect } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Popup from "@/components/Popup";
 import { Button } from "@/components/shared/Button";
+import { GlassCard } from "@/components/shared/GlassCard";
+import { tableWrapClassGlass, theadClassGlass } from "@/components/shared/tableStyles";
 import { RegistrationRequest } from "@/types";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTh } from "@/components/shared/SortableTh";
@@ -244,13 +246,13 @@ return (
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <GlassCard padding="none" className="overflow-hidden">
             {loading ? (
               <div className="p-8 text-center">Loading...</div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className={tableWrapClassGlass}>
                 <table className="w-full text-[11px]">
-                  <thead className="bg-gray-100 border-b">
+                  <thead className={theadClassGlass}>
                     <tr>
                       <SortableTh label="ID" active={sortKey === "id"} dir={sortDir} onClick={() => toggleSort("id")} className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500" />
                       <SortableTh label="Name" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500" />
@@ -300,14 +302,14 @@ return (
                 )}
               </div>
             )}
-          </div>
+          </GlassCard>
         </div>
       </div>
 
       {/* Approval Modal */}
       {showApprovalModal && selectedRequest && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-6">
-          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="glass-card rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-primary mb-3">Set User Permissions</h2>
             <div className="mb-4 p-3 bg-gray-50 rounded flex gap-6">
               <p className="text-sm text-gray-600"><strong>Name:</strong> {selectedRequest.name}</p>

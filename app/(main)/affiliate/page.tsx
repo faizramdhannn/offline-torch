@@ -13,6 +13,9 @@ import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { ConfirmationDialog } from "@/components/shared/ConfirmationDialog";
 import { AffiliateScannerModal } from "@/components/affiliate/AffiliateScannerModal";
+import { GlassCard } from "@/components/shared/GlassCard";
+import { FilterBar } from "@/components/shared/FilterBar";
+import { tableWrapClassGlass, theadClassGlass } from "@/components/shared/tableStyles";
 import {
   MasterAffiliate,
   MasterAffiliateData,
@@ -129,7 +132,7 @@ export default function AffiliatePage() {
           <p className="text-xs text-gray-500">Kelola affiliate, order, dan laporan komisi</p>
         </div>
 
-        <div className="bg-white rounded-lg shadow px-2 pt-2 mb-4 flex gap-1 overflow-x-auto">
+        <GlassCard padding="none" className="px-2 pt-2 mb-4 flex gap-1 overflow-x-auto">
           {(
             [
               ["list", "List Affiliate"],
@@ -150,7 +153,7 @@ export default function AffiliatePage() {
               {label}
             </button>
           ))}
-        </div>
+        </GlassCard>
 
         {loading ? (
           <div className="p-8 text-center text-sm text-gray-500">Loading...</div>
@@ -208,9 +211,9 @@ function ListAffiliateTab({ affiliates }: { affiliates: MasterAffiliate[] }) {
 
   return (
     <div>
-      <div className="bg-white rounded-lg shadow p-4 mb-4">
-        <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
-        <div className="relative max-w-sm">
+      <FilterBar className="mb-4">
+        <div className="relative max-w-sm w-full">
+          <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
           <input
             ref={searchRef}
             type="text"
@@ -221,12 +224,12 @@ function ListAffiliateTab({ affiliates }: { affiliates: MasterAffiliate[] }) {
           />
           <SearchShortcutHint label={shortcutLabel} />
         </div>
-      </div>
+      </FilterBar>
 
       {filtered.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-8 text-center text-sm text-gray-500">
+        <GlassCard className="p-8 text-center text-sm text-gray-500">
           Tidak ada data affiliate
-        </div>
+        </GlassCard>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((a, i) => (
@@ -298,7 +301,7 @@ function AffiliateCard({ affiliate }: { affiliate: MasterAffiliate }) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-4 flex items-center gap-4">
+    <GlassCard className="flex items-center gap-4">
       <div className="flex-shrink-0">
         <QRCodeCanvas
           id={`affiliate-qr-${affiliate.id}`}
@@ -332,7 +335,7 @@ function AffiliateCard({ affiliate }: { affiliate: MasterAffiliate }) {
           Download
         </Button>
       </div>
-    </div>
+    </GlassCard>
   );
 }
 
@@ -651,9 +654,9 @@ function OrderAffiliateTab({
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4 mb-4">
-        <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
-        <div className="relative max-w-sm">
+      <FilterBar className="mb-4">
+        <div className="relative max-w-sm w-full">
+          <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
           <input
             ref={searchRef}
             type="text"
@@ -664,12 +667,12 @@ function OrderAffiliateTab({
           />
           <SearchShortcutHint label={shortcutLabel} />
         </div>
-      </div>
+      </FilterBar>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
+      <GlassCard padding="none" className="overflow-hidden">
+        <div className={tableWrapClassGlass}>
           <table className="w-full text-[11px]">
-            <thead className="bg-gray-100 border-b">
+            <thead className={theadClassGlass}>
               <tr>
                 <SortableTh label="Kode Affiliate" active={sortKey === "affiliate_code"} dir={sortDir} onClick={() => toggleSort("affiliate_code")} className="px-2 py-1.5 font-semibold text-gray-700" />
                 <SortableTh label="Store" active={sortKey === "store_name"} dir={sortDir} onClick={() => toggleSort("store_name")} className="px-2 py-1.5 font-semibold text-gray-700" />
@@ -749,7 +752,7 @@ function OrderAffiliateTab({
             </div>
           </div>
         )}
-      </div>
+      </GlassCard>
 
       {showAddModal && (
         <div className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4" onClick={() => setShowAddModal(false)}>
@@ -882,8 +885,8 @@ function ReportTab({
 
   return (
     <div>
-      <div className="bg-white rounded-lg shadow p-4 mb-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <FilterBar className="mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Dari Tanggal</label>
             <input
@@ -918,7 +921,7 @@ function ReportTab({
             </select>
           </div>
         </div>
-      </div>
+      </FilterBar>
 
       <div className="flex gap-1 mb-4">
         <button
@@ -939,11 +942,11 @@ function ReportTab({
         </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
+      <GlassCard padding="none" className="overflow-hidden">
+        <div className={tableWrapClassGlass}>
           {subTab === "affiliate" ? (
             <table className="w-full text-[11px]">
-              <thead className="bg-gray-100 border-b">
+              <thead className={theadClassGlass}>
                 <tr>
                   <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Kode Affiliate</th>
                   <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Nama</th>
@@ -966,7 +969,7 @@ function ReportTab({
             </table>
           ) : (
             <table className="w-full text-[11px]">
-              <thead className="bg-gray-100 border-b">
+              <thead className={theadClassGlass}>
                 <tr>
                   <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Store</th>
                   <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Total Order</th>
@@ -990,7 +993,7 @@ function ReportTab({
             <div className="p-8 text-center text-gray-500">Tidak ada data untuk filter ini</div>
           )}
         </div>
-      </div>
+      </GlassCard>
     </div>
   );
 }
@@ -1090,7 +1093,7 @@ function MasterTab({ masterData }: { masterData: MasterAffiliateData[] }) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
+    <GlassCard padding="none" className="overflow-hidden">
       {masterData.length === 0 ? (
         <div className="p-8 text-center text-gray-500">Tidak ada master data</div>
       ) : (
@@ -1138,6 +1141,6 @@ function MasterTab({ masterData }: { masterData: MasterAffiliateData[] }) {
           })}
         </ul>
       )}
-    </div>
+    </GlassCard>
   );
 }

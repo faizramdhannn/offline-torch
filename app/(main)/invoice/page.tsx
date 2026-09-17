@@ -10,6 +10,9 @@ import { Button } from "@/components/shared/Button";
 import { Plus, Pencil, Trash2, Download, FileText } from "lucide-react";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTh } from "@/components/shared/SortableTh";
+import { GlassCard } from "@/components/shared/GlassCard";
+import { FilterBar } from "@/components/shared/FilterBar";
+import { tableWrapClassGlass, theadClassGlass } from "@/components/shared/tableStyles";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface MasterInvoice {
@@ -622,8 +625,7 @@ export default function InvoicePage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-4 mb-4">
-          <div className="flex gap-3 flex-wrap">
+        <FilterBar className="mb-4">
             <div className="flex-1 min-w-48 relative">
               <input
                 ref={searchRef}
@@ -644,8 +646,7 @@ export default function InvoicePage() {
               <option value="draft">Draft</option>
               <option value="submitted">Submitted</option>
             </select>
-          </div>
-        </div>
+        </FilterBar>
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 mb-4">
@@ -654,22 +655,22 @@ export default function InvoicePage() {
             { label: "Draft", value: invoices.filter(i => i.status === "draft").length, color: "text-gray-600" },
             { label: "Submitted", value: invoices.filter(i => i.status === "submitted").length, color: "text-blue-600" },
           ].map(stat => (
-            <div key={stat.label} className="bg-white rounded-lg shadow p-4">
+            <GlassCard key={stat.label} padding="md">
               <p className="text-xs text-gray-500">{stat.label}</p>
               <p className={`text-2xl font-bold mt-1 ${stat.color}`}>{stat.value}</p>
-            </div>
+            </GlassCard>
           ))}
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <GlassCard padding="none" className="overflow-hidden">
           {loading ? (
             <div className="p-8 text-center text-sm text-gray-500">Memuat data...</div>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className={tableWrapClassGlass}>
                 <table className="w-full text-[11px]">
-                  <thead className="bg-gray-100 border-b">
+                  <thead className={theadClassGlass}>
                     <tr>
                       <SortableTh label="No. Invoice" active={sortKey === "invoice_number"} dir={sortDir} onClick={() => toggleSort("invoice_number")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
                       <SortableTh label="Tipe" active={sortKey === "doc_type"} dir={sortDir} onClick={() => toggleSort("doc_type")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
@@ -769,13 +770,13 @@ export default function InvoicePage() {
               )}
             </>
           )}
-        </div>
+        </GlassCard>
       </div>
 
       {/* ── Create Modal ─────────────────────────────────────────────────────── */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 overflow-y-auto py-6">
-          <div className="bg-white rounded-xl w-full max-w-3xl mx-4 shadow-2xl">
+          <div className="glass-card rounded-2xl w-full max-w-3xl mx-4 shadow-2xl">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <h2 className="text-base font-bold text-primary">Buat Dokumen Baru</h2>
@@ -889,7 +890,7 @@ export default function InvoicePage() {
 
                 <div className="border border-gray-200 rounded-lg overflow-visible">
                   <table className="w-full text-[11px]">
-                    <thead className="bg-gray-50 border-b">
+                    <thead className="glass-table-head">
                       <tr>
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-600 w-8">#</th>
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-600">Produk</th>
@@ -1102,8 +1103,8 @@ export default function InvoicePage() {
       {/* ── Detail Modal ──────────────────────────────────────────────────────── */}
       {showDetailModal && selectedInvoice && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-full max-w-2xl mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white flex items-center justify-between px-6 py-4 border-b z-10">
+          <div className="glass-card rounded-2xl w-full max-w-2xl mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 glass-card rounded-none flex items-center justify-between px-6 py-4 border-b z-10">
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-base font-bold text-primary">
@@ -1205,7 +1206,7 @@ export default function InvoicePage() {
               ) : (
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
                   <table className="w-full text-[11px]">
-                    <thead className="bg-gray-50 border-b">
+                    <thead className="glass-table-head">
                       <tr>
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-600">Produk</th>
                         <th className="px-2 py-1.5 text-center font-semibold text-gray-600">Qty</th>
@@ -1327,7 +1328,7 @@ export default function InvoicePage() {
       {/* ── Edit Modal ────────────────────────────────────────────────────────── */}
       {showEditModal && editInvoice && (
         <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-[60] overflow-y-auto py-6">
-          <div className="bg-white rounded-xl w-full max-w-3xl mx-4 shadow-2xl">
+          <div className="glass-card rounded-2xl w-full max-w-3xl mx-4 shadow-2xl">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <div>
@@ -1397,7 +1398,7 @@ export default function InvoicePage() {
 
                 <div className="border border-gray-200 rounded-lg overflow-visible">
                   <table className="w-full text-[11px]">
-                    <thead className="bg-gray-50 border-b">
+                    <thead className="glass-table-head">
                       <tr>
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-600 w-8">#</th>
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-600">Produk</th>
@@ -1610,7 +1611,7 @@ export default function InvoicePage() {
       {/* ── Master Settings Modal ──────────────────────────────────────────────── */}
       {showMasterModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-full max-w-lg mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="glass-card rounded-2xl w-full max-w-lg mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <h2 className="text-base font-bold text-primary">Pengaturan Invoice</h2>
               <button onClick={() => setShowMasterModal(false)}
@@ -1669,7 +1670,7 @@ export default function InvoicePage() {
       {showPdfPreview && pdfPreviewUrl && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70]">
           <div
-            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 flex flex-col"
+            className="glass-card rounded-2xl shadow-2xl w-full max-w-4xl mx-4 flex flex-col"
             style={{ height: "90vh" }}
           >
             {/* Header */}

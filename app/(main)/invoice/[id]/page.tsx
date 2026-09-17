@@ -10,6 +10,7 @@ import {
   DetailLoading,
   DetailNotFound,
 } from "@/components/shared/DetailShell";
+import { tableWrapClassGlass, theadClassGlass } from "@/components/shared/tableStyles";
 
 interface InvoiceItem {
   product_name: string;
@@ -105,9 +106,9 @@ export default function InvoiceDetailPage() {
         <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
           Item
         </label>
-        <div className="overflow-x-auto border border-gray-100 rounded-lg">
+        <div className={tableWrapClassGlass}>
           <table className="w-full text-[11px]">
-            <thead className="bg-gray-50">
+            <thead className={theadClassGlass}>
               <tr>
                 <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Produk</th>
                 <th className="px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-gray-500">Qty</th>

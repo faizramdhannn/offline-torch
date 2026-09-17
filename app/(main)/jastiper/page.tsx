@@ -16,6 +16,9 @@ import { ImportJastiperCsvModal } from "@/components/jastiper/ImportJastiperCsvM
 import { SocialMediaIcon } from "@/components/jastiper/SocialMediaIcon";
 import { CopyableText } from "@/components/jastiper/CopyableText";
 import { SOCIAL_MEDIA_OPTIONS } from "@/lib/jastiper";
+import { GlassCard } from "@/components/shared/GlassCard";
+import { FilterBar } from "@/components/shared/FilterBar";
+import { tableWrapClassGlass, theadClassGlass } from "@/components/shared/tableStyles";
 
 // Sama dengan STORE_LIST di app/api/jastiper/route.ts — dipakai untuk
 // dropdown toko di form Add/Edit saat user HQ (tidak match toko manapun).
@@ -383,8 +386,7 @@ export default function JastiperPage() {
               </div>
             </div>
 
-            <div className="mb-4 rounded-lg bg-white p-3 shadow">
-              <div className="flex flex-wrap items-center gap-2">
+            <FilterBar className="mb-4">
                 <div className="relative min-w-[200px] flex-1">
                   <input
                     ref={searchRef}
@@ -437,17 +439,16 @@ export default function JastiperPage() {
                 <Button variant="secondary" size="sm" onClick={resetFilters}>
                   Reset
                 </Button>
-              </div>
-            </div>
+            </FilterBar>
 
-            <div className="overflow-hidden rounded-lg bg-white shadow">
+            <GlassCard padding="none" className="overflow-hidden">
               {loading ? (
                 <div className="p-8 text-center">Loading...</div>
               ) : (
                 <>
-                  <div className="overflow-x-auto">
+                  <div className={tableWrapClassGlass}>
                     <table className="w-full text-[11px]">
-                      <thead className="border-b bg-gray-100">
+                      <thead className={theadClassGlass}>
                         <tr>
                           <SortableTh label="Nama" active={sortKey === "jastiper_name"} dir={sortDir} onClick={() => toggleSort("jastiper_name")} className="px-2 py-1.5 font-semibold text-gray-700" />
                           <th className="px-2 py-1.5 text-center font-semibold text-gray-700">Sosial Media</th>
@@ -581,7 +582,7 @@ export default function JastiperPage() {
                   )}
                 </>
               )}
-            </div>
+            </GlassCard>
           </div>
         </div>
 
@@ -597,7 +598,7 @@ export default function JastiperPage() {
             className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4"
             onClick={() => (showAddModal ? setShowAddModal(false) : setShowEditModal(false))}
           >
-            <div className="w-full max-w-md rounded-xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="w-full max-w-md glass-card rounded-2xl p-5" onClick={(e) => e.stopPropagation()}>
               <h2 className="mb-4 text-lg font-semibold">{showAddModal ? "Add Jastiper" : "Edit Jastiper"}</h2>
               <div className="space-y-3">
                 <div>

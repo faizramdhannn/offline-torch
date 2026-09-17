@@ -676,7 +676,7 @@ export default function PettyCashPage() {
           {/* ── HISTORY VIEW ── */}
           {viewMode === "history" && (
             <>
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="glass-card rounded-2xl p-4">
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <div>
                     <label className="mb-1 block text-[11px] font-medium text-gray-500">Date From</label>
@@ -732,7 +732,7 @@ export default function PettyCashPage() {
               </div>
 
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
-                className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                className="glass-card overflow-hidden rounded-2xl">
                 {loadingHistory ? (
                   <TableSkeletonRows />
                 ) : historyItems.length === 0 ? (
@@ -763,7 +763,7 @@ export default function PettyCashPage() {
           {/* ── BALANCE VIEW ── */}
           {viewMode === "balance" && user.petty_cash_balance && (
             <>
-              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="glass-card rounded-2xl p-4">
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <div>
                     <label className="mb-1 block text-[11px] font-medium text-gray-500">Date From</label>
@@ -789,7 +789,7 @@ export default function PettyCashPage() {
               </div>
 
               {loadingBalance ? (
-                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                <div className="glass-card overflow-hidden rounded-2xl">
                   <TableSkeletonRows count={4} />
                 </div>
               ) : balanceData ? (
@@ -809,7 +809,7 @@ export default function PettyCashPage() {
                   </div>
 
                   <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
-                    className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                    className="glass-card overflow-hidden rounded-2xl">
                     <div className="border-b border-gray-100 px-4 py-3">
                       <h3 className="text-xs font-semibold text-gray-700">Balance History</h3>
                     </div>
@@ -873,7 +873,7 @@ export default function PettyCashPage() {
               />
 
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
-                className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                className="glass-card overflow-hidden rounded-2xl">
                 {loading ? (
                   <TableSkeletonRows />
                 ) : viewMode === "report" ? (

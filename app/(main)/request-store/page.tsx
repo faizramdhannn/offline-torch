@@ -10,6 +10,9 @@ import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/shared/Button";
+import { GlassCard } from "@/components/shared/GlassCard";
+import { FilterBar } from "@/components/shared/FilterBar";
+import { tableWrapClassGlass, theadClassGlass } from "@/components/shared/tableStyles";
 import { CopyButton } from "@/components/request-tracking/DomainBadges";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTh } from "@/components/shared/SortableTh";
@@ -468,7 +471,7 @@ return (
           </div>
 
           {/* ── Filter Bar ─────────────────────────────────────────────────── */}
-          <div className="bg-white rounded-lg shadow px-3 py-2 mb-3 flex flex-wrap items-center gap-2">
+          <FilterBar className="mb-3">
             <div className="flex items-center gap-1.5">
               <label className="text-[10px] text-gray-400 whitespace-nowrap">Date From</label>
               <input
@@ -524,16 +527,16 @@ return (
                 </span>
               </>
             )}
-          </div>
+          </FilterBar>
 
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <GlassCard padding="none" className="overflow-hidden">
             {loading ? (
               <div className="p-8 text-center text-sm text-gray-500">Loading...</div>
             ) : (
               <>
-                <div className="overflow-x-auto">
+                <div className={tableWrapClassGlass}>
                   <table className="w-full text-[11px] table-fixed">
-                    <thead className="bg-gray-100 border-b">
+                    <thead className={theadClassGlass}>
                       <tr>
                         <SortableTh label="Date" active={sortKey === "date"} dir={sortDir} onClick={() => toggleSort("date")} className="px-2 py-1.5 font-semibold text-gray-700 w-[88px]" />
                         <SortableTh label="Requester" active={sortKey === "requester"} dir={sortDir} onClick={() => toggleSort("requester")} className="px-2 py-1.5 font-semibold text-gray-700 w-[76px]" />
@@ -747,14 +750,14 @@ return (
                 )}
               </>
             )}
-          </div>
+          </GlassCard>
         </div>
       </div>
 
       {/* ── Add Modal ─────────────────────────────────────────────────────── */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
+          <div className="glass-card rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-primary mb-4">Add New Request</h2>
             <div className="space-y-3">
               <div>
@@ -825,7 +828,7 @@ return (
       {/* ── Edit Modal ────────────────────────────────────────────────────── */}
       {showEditModal && selectedItem && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
+          <div className="glass-card rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-primary mb-4">Edit Request</h2>
             <div className="space-y-3">
               <div>

@@ -13,6 +13,9 @@ import { Button } from "@/components/shared/Button";
 import { Plus, X, RefreshCw } from "lucide-react";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTh } from "@/components/shared/SortableTh";
+import { GlassCard } from "@/components/shared/GlassCard";
+import { FilterBar } from "@/components/shared/FilterBar";
+import { tableWrapClassGlass, theadClassGlass } from "@/components/shared/tableStyles";
 
 const STORE_LIST = [
   { key: "torch_cirebon", label: "Torch Cirebon" },
@@ -654,7 +657,7 @@ export default function BundlingPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow px-3 py-2 mb-3 flex flex-wrap items-center gap-2">
+        <FilterBar className="mb-3">
           <div className="relative">
             <svg className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
@@ -686,7 +689,7 @@ export default function BundlingPage() {
               <span className="text-[10px] text-gray-400">{filteredData.length} hasil</span>
             </>
           )}
-        </div>
+        </FilterBar>
 
         {/* Bulk Action Toolbar */}
         {canEdit && selectedIds.length > 0 && (
@@ -735,15 +738,15 @@ export default function BundlingPage() {
         )}
 
         {/* Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <GlassCard padding="none" className="overflow-hidden">
           {loading ? (
             <div className="p-8 text-center text-sm text-gray-500">Loading...</div>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className={tableWrapClassGlass}>
                 <table className="w-full text-[11px] border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200">
+                  <thead className={theadClassGlass}>
+                    <tr className="border-b border-gray-200">
                       {canEdit && (
                         <th className="px-2 py-1.5 text-center w-[32px]">
                           <input
@@ -896,7 +899,7 @@ export default function BundlingPage() {
               )}
             </>
           )}
-        </div>
+        </GlassCard>
       </div>
 
       {/* Add/Edit Modal */}

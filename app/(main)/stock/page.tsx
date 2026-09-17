@@ -34,6 +34,8 @@ import {
 
 import { PageHeader } from "@/components/stock/PageHeader";
 import { Button } from "@/components/shared/Button";
+import { GlassCard } from "@/components/shared/GlassCard";
+import { FilterBar } from "@/components/shared/FilterBar";
 import { ViewTabs } from "@/components/stock/ViewTabs";
 import { FilterDropdown } from "@/components/stock/FilterDropdown";
 import { ChartPanel } from "@/components/stock/ChartPanel";
@@ -846,20 +848,20 @@ export default function StockPage() {
 
         {/* ── Last Update strip ─────────────────────────────────────── */}
         {lastUpdate.length > 0 && (
-          <div className="mb-4 flex flex-col gap-1 rounded-xl border border-gray-200/80 bg-white px-4 py-2.5 text-xs text-gray-500 sm:flex-row sm:gap-4">
+          <GlassCard padding="none" className="mb-4 flex flex-col gap-1 px-4 py-2.5 text-xs text-gray-500 sm:flex-row sm:gap-4">
             {lastUpdate.map((lu) => (
               <div key={lu.type}>
                 <span className="font-semibold text-gray-600">{lu.type}:</span> {lu.last_update}
               </div>
             ))}
-          </div>
+          </GlassCard>
         )}
 
         {/* ── View Selection ─────────────────────────────────────────── */}
-        <div className="mb-4 rounded-2xl border border-gray-200/80 bg-white p-4">
+        <GlassCard padding="md" className="mb-4">
           <label className="mb-2 block text-xs font-medium text-gray-600">Select View</label>
           <ViewTabs items={viewTabItems} active={selectedView} onChange={(v) => setSelectedView(v as any)} />
-        </div>
+        </GlassCard>
 
         {/* ── Chart ──────────────────────────────────────────────────── */}
         <div className="mb-4">
@@ -1038,7 +1040,7 @@ export default function StockPage() {
         </div>
 
         {/* ── Filters ─────────────────────────────────────────────────── */}
-        <div className="mb-4 rounded-2xl border border-gray-200/80 bg-white p-4">
+        <FilterBar className="mb-4 flex-col items-stretch">
           <div className="mb-3 flex flex-wrap items-end gap-2">
             <div className="w-36">
               <FilterDropdown
@@ -1142,10 +1144,10 @@ export default function StockPage() {
           <Button variant="outline" size="sm" icon={RotateCcw} onClick={resetFilters}>
             Reset Filter
           </Button>
-        </div>
+        </FilterBar>
 
         {/* ── Data Table ─────────────────────────────────────────────── */}
-        <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white">
+        <GlassCard padding="none" className="overflow-hidden">
           {loading ? (
             <TableSkeletonRows count={8} />
           ) : filteredData.length === 0 ? (
@@ -1179,7 +1181,7 @@ export default function StockPage() {
               />
             </>
           )}
-        </div>
+        </GlassCard>
 
         {/* ── Import Modal ─────────────────────────────────────────────── */}
         <ImportModal

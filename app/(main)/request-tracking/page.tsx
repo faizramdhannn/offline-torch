@@ -693,7 +693,7 @@ export default function RequestTrackingPage() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2 }}
-              className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
+              className="glass-card overflow-hidden rounded-2xl"
             >
               {loading ? (
                 <TableSkeletonRows />
@@ -756,7 +756,7 @@ export default function RequestTrackingPage() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
-            className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
+            className="glass-card mt-4 overflow-hidden rounded-2xl"
             style={{ height: "calc(100vh - 220px)" }}
           >
             <div style={{ width: "142.86%", height: "142.86%", transform: "scale(0.7)", transformOrigin: "top left" }}>

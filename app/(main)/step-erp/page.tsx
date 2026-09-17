@@ -26,6 +26,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { TableSkeletonRows } from "@/components/shared/LoadingSkeleton";
 import { ConfirmationDialog } from "@/components/shared/ConfirmationDialog";
 import { StatCard } from "@/components/shared/StatCard";
+import { tableWrapClassGlass, theadClassGlass } from "@/components/shared/tableStyles";
 
 import { AddEntryModal } from "@/components/step-erp/AddEntryModal";
 import { EntryDetailPanel } from "@/components/step-erp/EntryDetailPanel";
@@ -504,7 +505,7 @@ export default function StepErpPage() {
           {/* Table */}
           <motion.div
             layout
-            className="min-w-0 flex-1 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
+            className="glass-card min-w-0 flex-1 overflow-hidden rounded-2xl"
           >
             {loading ? (
               <TableSkeletonRows />
@@ -521,9 +522,9 @@ export default function StepErpPage() {
               />
             ) : (
               <>
-                <div className="overflow-x-auto">
+                <div className={tableWrapClassGlass}>
                   <table className="w-full text-[11px]">
-                    <thead className="border-b border-gray-100 bg-gray-50">
+                    <thead className={theadClassGlass}>
                       <tr>
                         <SortableTh
                           label="ERP Number"

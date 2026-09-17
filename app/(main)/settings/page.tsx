@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Popup from "@/components/Popup";
 import { Button } from "@/components/shared/Button";
+import { GlassCard } from "@/components/shared/GlassCard";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 
@@ -403,7 +404,7 @@ export default function SettingsPage() {
         <h1 className="text-xl font-bold text-primary mb-4">Settings</h1>
 
         {/* ── Javelin Card ──────────────────────────────────────────────── */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 flex items-center justify-between px-4 py-2.5 gap-4">
+        <GlassCard padding="none" className="mb-4 flex items-center justify-between px-4 py-2.5 gap-4">
           <div className="min-w-0">
             <p className="text-xs font-semibold text-gray-700">Javelin Configuration</p>
             {loadingJavelin ? (
@@ -439,10 +440,10 @@ export default function SettingsPage() {
           >
             {javelinStatus.hasCookies ? "Update" : "Set Cookie"}
           </Button>
-        </div>
+        </GlassCard>
 
         {/* ── User Management ───────────────────────────────────────────── */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <GlassCard padding="none" className="overflow-hidden">
           {/* Table header bar */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 bg-gray-50">
             <div>
@@ -672,12 +673,12 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
-        </div>
+        </GlassCard>
 
         {/* ── Javelin Modal ──────────────────────────────────────────────── */}
         {showJavelinModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+            <div className="glass-card rounded-xl w-full max-w-lg mx-4 overflow-hidden">
               <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
                 <h2 className="text-sm font-bold text-gray-800">Konfigurasi Javelin</h2>
                 <button

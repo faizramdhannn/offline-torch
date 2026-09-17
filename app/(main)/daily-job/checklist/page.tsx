@@ -15,6 +15,10 @@ import {
 import { CHART_PALETTE, chartTooltipStyle, chartAxisTick, chartGridStroke } from "@/components/shared/chartStyles";
 import { Pencil, Trash2, Save, X, Plus, Eye, Check } from "lucide-react";
 import { jakartaDateKeyFromCreatedAt, todayJakartaKey, parseCreatedAtForSort } from "@/lib/dailyJobDate";
+import { GlassCard } from "@/components/shared/GlassCard";
+import { FilterBar } from "@/components/shared/FilterBar";
+import { Toggle } from "@/components/shared/Toggle";
+import { tableWrapClassGlass, theadClassGlass } from "@/components/shared/tableStyles";
 
 interface ChecklistRow {
   id: string;
@@ -106,22 +110,10 @@ function ToggleSwitch({
   label: string;
 }) {
   return (
-    <label className="flex items-center justify-between gap-3 py-2 cursor-pointer">
+    <div className="flex items-center justify-between gap-3 py-2">
       <span className="text-xs text-gray-700 font-medium">{label}</span>
-      <button
-        type="button"
-        onClick={() => onChange(!checked)}
-        className={`relative w-10 h-[22px] rounded-full transition-colors shrink-0 ${
-          checked ? "bg-primary" : "bg-gray-300"
-        }`}
-      >
-        <span
-          className={`absolute top-[2px] left-[2px] w-[18px] h-[18px] rounded-full bg-white shadow transition-transform ${
-            checked ? "translate-x-[18px]" : "translate-x-0"
-          }`}
-        />
-      </button>
-    </label>
+      <Toggle checked={checked} onChange={onChange} size="sm" aria-label={label} />
+    </div>
   );
 }
 
@@ -527,7 +519,7 @@ export default function DailyChecklistPage() {
       </div>
 
       {canReport && (
-        <div className="bg-white rounded-lg shadow px-2 pt-2 mb-3 flex gap-1">
+        <GlassCard padding="none" className="px-2 pt-2 mb-3 flex gap-1">
           <button
             onClick={() => setActiveTab("checklist")}
             className={`px-3 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-colors ${
@@ -544,7 +536,7 @@ export default function DailyChecklistPage() {
           >
             Report
           </button>
-        </div>
+        </GlassCard>
       )}
 
       {activeTab === "checklist" && (
@@ -558,7 +550,7 @@ export default function DailyChecklistPage() {
             )}
           </div>
 
-          <div className="bg-white rounded-lg shadow p-3 mb-3 flex flex-wrap items-end gap-3">
+          <FilterBar className="mb-3 items-end">
             <div>
               <label className="block text-[10px] text-gray-500 mb-1">Dari Tanggal</label>
               <input
@@ -585,13 +577,13 @@ export default function DailyChecklistPage() {
                 Reset Filter
               </button>
             )}
-          </div>
+          </FilterBar>
 
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="overflow-x-auto">
+          <GlassCard padding="none" className="overflow-hidden">
+            <div className={tableWrapClassGlass}>
               <table className="w-full text-[11px] border-collapse">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
+                  <tr className={`${theadClassGlass} border-b border-gray-200 text-gray-500`}>
                     <SortableTh label="Tanggal" active={sortKey === "created_at"} dir={sortDir} onClick={() => toggleSort("created_at")} className="px-2 py-1.5 border-r border-gray-200 min-w-[140px]" />
                     <SortableTh label="Taft By" active={sortKey === "taft_by"} dir={sortDir} onClick={() => toggleSort("taft_by")} className="px-2 py-1.5 border-r border-gray-200 min-w-[140px]" />
                     <SortableTh label="Role" active={sortKey === "role_taft"} dir={sortDir} onClick={() => toggleSort("role_taft")} className="px-2 py-1.5 border-r border-gray-200 min-w-[90px]" />
@@ -655,13 +647,13 @@ export default function DailyChecklistPage() {
               onPageChange={setPage}
               rangeLabel={`${filteredRows.length === 0 ? 0 : (page - 1) * ITEMS_PER_PAGE + 1}-${Math.min(page * ITEMS_PER_PAGE, filteredRows.length)} dari ${filteredRows.length}`}
             />
-          </div>
+          </GlassCard>
         </>
       )}
 
       {activeTab === "report" && canReport && (
         <div className="space-y-4">
-          <div className="bg-white rounded-lg shadow p-3 flex flex-wrap items-end gap-3">
+          <FilterBar className="items-end">
             <div>
               <label className="block text-[10px] text-gray-500 mb-1">Cari Toko</label>
               <input
@@ -698,9 +690,9 @@ export default function DailyChecklistPage() {
                 Reset Filter
               </button>
             )}
-          </div>
+          </FilterBar>
 
-          <div className="bg-white rounded-lg shadow p-4">
+          <GlassCard>
             <h3 className="text-sm font-bold text-gray-800 mb-3">Trend Completion Rate per Kategori</h3>
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={trendData}>
@@ -714,9 +706,9 @@ export default function DailyChecklistPage() {
                 ))}
               </LineChart>
             </ResponsiveContainer>
-          </div>
+          </GlassCard>
 
-          <div className="bg-white rounded-lg shadow p-4">
+          <GlassCard>
             <h3 className="text-sm font-bold text-gray-800 mb-1">Progress Hari Ini per Item</h3>
             <p className="text-[10px] text-gray-400 mb-3">
               Persentase toko yang sudah mengerjakan item tersebut hari ini (dari {todayItemStats[0]?.total ?? 0} entri masuk hari ini)
@@ -781,11 +773,11 @@ export default function DailyChecklistPage() {
                 })}
               </div>
             )}
-          </div>
+          </GlassCard>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {categoryBreakdown.map(({ category, itemStats }) => (
-              <div key={category.key} className="bg-white rounded-lg shadow p-4">
+              <GlassCard key={category.key}>
                 <h3 className="text-sm font-bold text-gray-800 mb-2">{category.label}</h3>
                 <p className="text-[10px] text-gray-400 mb-3">Detail per item, dari {reportFiltered.length} entri pada rentang filter</p>
                 {itemStats.length === 0 ? (
@@ -811,18 +803,18 @@ export default function DailyChecklistPage() {
                     })}
                   </div>
                 )}
-              </div>
+              </GlassCard>
             ))}
           </div>
 
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <GlassCard padding="none" className="overflow-hidden">
             <div className="px-4 py-2.5 border-b border-gray-100">
               <h3 className="text-sm font-bold text-gray-800">Semua Riwayat</h3>
             </div>
-            <div className="overflow-x-auto">
+            <div className={tableWrapClassGlass}>
               <table className="w-full text-[11px] border-collapse">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200 text-gray-500">
+                  <tr className={`${theadClassGlass} border-b border-gray-200 text-gray-500`}>
                     <th className="px-2 py-1.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[140px]">Tanggal</th>
                     <th className="px-2 py-1.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[120px]">Toko</th>
                     <th className="px-2 py-1.5 text-left border-r border-gray-200 whitespace-nowrap min-w-[140px]">Taft By</th>
@@ -884,7 +876,7 @@ export default function DailyChecklistPage() {
               onPageChange={setReportPage}
               rangeLabel={`${reportFiltered.length === 0 ? 0 : (reportPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(reportPage * ITEMS_PER_PAGE, reportFiltered.length)} dari ${reportFiltered.length}`}
             />
-          </div>
+          </GlassCard>
         </div>
       )}
 

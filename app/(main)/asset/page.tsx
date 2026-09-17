@@ -19,6 +19,8 @@ import { Button } from "@/components/shared/Button";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmationDialog } from "@/components/shared/ConfirmationDialog";
 import { StatCard } from "@/components/shared/StatCard";
+import { GlassCard } from "@/components/shared/GlassCard";
+import { FilterBar } from "@/components/shared/FilterBar";
 
 import { AssetCard } from "@/components/asset/AssetCard";
 import { AssetListRow } from "@/components/asset/AssetListRow";
@@ -247,7 +249,7 @@ export default function AssetPage() {
 
         {/* Toolbar: search + filter + view toggle */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
+          <FilterBar className="p-0 bg-transparent">
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
               <input
@@ -273,7 +275,7 @@ export default function AssetPage() {
               ))}
             </select>
             <span className="text-[11px] text-gray-400">{filtered.length} asset</span>
-          </div>
+          </FilterBar>
 
           <div className="flex gap-1 rounded-lg border border-gray-200 bg-white p-0.5">
             <button
@@ -300,7 +302,7 @@ export default function AssetPage() {
         </div>
 
         {/* Content */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <GlassCard>
           {loading ? (
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
               {Array.from({ length: 12 }).map((_, i) => (
@@ -393,7 +395,7 @@ export default function AssetPage() {
               ))}
             </div>
           )}
-        </div>
+        </GlassCard>
       </div>
 
       {/* Add / Edit modal */}

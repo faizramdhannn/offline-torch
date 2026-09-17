@@ -24,6 +24,7 @@ import { ReportView, buildReportData } from "@/components/canvasing/ReportView";
 import { EmptyState } from "@/components/canvasing/EmptyState";
 import { TableSkeletonRows } from "@/components/canvasing/LoadingSkeleton";
 import { Button } from "@/components/shared/Button";
+import { GlassCard } from "@/components/shared/GlassCard";
 
 // ── Utilities ───────────────────────────────────────────────────────────────
 
@@ -590,7 +591,7 @@ export default function CanvasingPage() {
               toTitleCase={toTitleCase}
             />
 
-            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <GlassCard padding="none" className="overflow-hidden">
               {loading ? (
                 <TableSkeletonRows count={8} />
               ) : filteredData.length === 0 ? (
@@ -632,7 +633,7 @@ export default function CanvasingPage() {
                   />
                 </>
               )}
-            </div>
+            </GlassCard>
           </>
         )}
 

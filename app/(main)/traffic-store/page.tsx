@@ -1134,7 +1134,7 @@ export default function TrafficStorePage() {
           {/* ── LIST TAB ── */}
           {activeTab === "list" && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
-              className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+              className="glass-card overflow-hidden rounded-2xl">
               {loading ? (
                 <TableSkeletonRows />
               ) : fd.length === 0 ? (
@@ -1187,7 +1187,7 @@ export default function TrafficStorePage() {
 
               {/* Chart Card */}
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
-                className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                className="glass-card overflow-hidden rounded-2xl">
                 <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
                   <h2 className="text-sm font-semibold text-gray-700">Analitik Survey Store</h2>
                   <div className="flex items-center gap-3">

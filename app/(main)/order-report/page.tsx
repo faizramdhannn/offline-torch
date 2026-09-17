@@ -16,6 +16,8 @@ import { ReportCharts } from "@/components/order-report/ReportCharts";
 import { PackageSearch, CalendarRange, FileWarning, ReceiptText } from "lucide-react";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { SortableTh } from "@/components/shared/SortableTh";
+import { GlassCard } from "@/components/shared/GlassCard";
+import { tableWrapClassGlass, theadClassGlass } from "@/components/shared/tableStyles";
 
 // Mapping username ke warehouse
 const USERNAME_TO_WAREHOUSE: Record<string, string> = {
@@ -491,7 +493,7 @@ export default function OrderReportPage() {
           <div className="p-6">
             <h1 className="text-2xl font-bold text-primary mb-6">Order Report</h1>
 
-            <div className="bg-white rounded-lg shadow p-4 mb-4">
+            <GlassCard padding="md" className="mb-4">
               {/* Row 1: Date From, Date To, Warehouse, Status, Channel Name, Search */}
               <div className="grid grid-cols-2 gap-2 mb-3 sm:grid-cols-3 lg:grid-cols-6">
                 {/* Date From */}
@@ -688,7 +690,7 @@ export default function OrderReportPage() {
                   </Button>
                 )}
               </div>
-            </div>
+            </GlassCard>
 
             {/* Summary Statistics */}
             <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -754,14 +756,14 @@ export default function OrderReportPage() {
             <ReportCharts data={filteredData} parseOrderDate={parseOrderDate} />
 
             {/* Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
+            <GlassCard padding="none" className="overflow-hidden">
               {loading ? (
                 <div className="p-8 text-center">Loading...</div>
               ) : (
                 <>
-                  <div className="overflow-x-auto">
+                  <div className={tableWrapClassGlass}>
                     <table className="w-full" style={{ fontSize: "11px" }}>
-                      <thead className="bg-gray-100 border-b">
+                      <thead className={theadClassGlass}>
                         <tr>
                           <SortableTh label="Order Date" active={sortKey === "order_date"} dir={sortDir} onClick={() => toggleSort("order_date")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
                           <SortableTh label="Sales Order" active={sortKey === "sales_order"} dir={sortDir} onClick={() => toggleSort("sales_order")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
@@ -869,14 +871,14 @@ export default function OrderReportPage() {
                   )}
                 </>
               )}
-            </div>
+            </GlassCard>
           </div>
         </div>
 
         {/* Import Modal */}
         {showImportModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="glass-card rounded-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
               <h2 className="text-lg font-bold text-primary mb-4">Import Data</h2>
 
               <div className="space-y-4">

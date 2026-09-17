@@ -9,6 +9,8 @@ import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
 import SearchableSelect from "@/components/SearchableSelect";
 import { Button } from "@/components/shared/Button";
 import { Plus } from "lucide-react";
+import { GlassCard } from "@/components/shared/GlassCard";
+import { FilterBar } from "@/components/shared/FilterBar";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface MIItem {
@@ -222,9 +224,9 @@ function GroupDetailPopup({
       className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="glass-card rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b bg-gray-50 rounded-t-xl">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b rounded-t-2xl">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-bold text-gray-800 shrink-0">Detail Material Issue</h2>
             <span className="font-mono text-[10px] text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded truncate">
@@ -1177,7 +1179,7 @@ export default function MaterialIssuePage() {
         </div>
 
         {/* Search */}
-        <div className="bg-white rounded-lg shadow px-3 py-2 mb-3 flex flex-wrap items-center gap-2">
+        <FilterBar className="px-3 py-2 mb-3">
           <div className="relative">
             <svg className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
@@ -1243,10 +1245,10 @@ export default function MaterialIssuePage() {
               <span className="text-[10px] text-gray-400">{groupedRows.length} result{groupedRows.length !== 1 ? "s" : ""}</span>
             </>
           )}
-        </div>
+        </FilterBar>
 
         {/* Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <GlassCard padding="none" className="overflow-hidden">
           {loading ? (
             <div className="p-8 text-center text-sm text-gray-500">Loading...</div>
           ) : (
@@ -1483,7 +1485,7 @@ export default function MaterialIssuePage() {
               )}
             </>
           )}
-        </div>
+        </GlassCard>
       </div>
 
       {/* ── Group Detail Popup ─────────────────────────────────────────────── */}
@@ -1500,7 +1502,7 @@ export default function MaterialIssuePage() {
       {/* ── Add Modal ─────────────────────────────────────────────────────── */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+          <div className="glass-card rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <div>
                 <h2 className="text-base font-bold text-gray-900">Material Issue Baru</h2>
@@ -1646,7 +1648,7 @@ export default function MaterialIssuePage() {
       {/* ── Edit Modal ─────────────────────────────────────────────────────── */}
       {showEditModal && selectedItem && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+          <div className="glass-card rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <div>
                 <h2 className="text-base font-bold text-gray-900">Edit Material Issue</h2>

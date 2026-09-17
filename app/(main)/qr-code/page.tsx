@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmationDialog } from "@/components/shared/ConfirmationDialog";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
+import { GlassCard } from "@/components/shared/GlassCard";
 
 // Menu QR Code — sheet qr_code (kolom: uuid, name, url, created_at, update_at),
 // digerbang oleh permission `dashboard` (bukan permission baru — dashboard
@@ -318,9 +319,10 @@ export default function QrCodePage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((item) => (
-            <div
+            <GlassCard
               key={item.uuid}
-              className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+              padding="md"
+              className="flex items-center gap-3"
             >
               <button
                 type="button"
@@ -383,7 +385,7 @@ export default function QrCodePage() {
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
-            </div>
+            </GlassCard>
           ))}
         </div>
       )}
@@ -396,7 +398,7 @@ export default function QrCodePage() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-sm glass-card rounded-2xl shadow-2xl"
           >
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <h2 className="text-sm font-semibold text-gray-800">
@@ -451,7 +453,7 @@ export default function QrCodePage() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-2xl"
+            className="w-full max-w-xs glass-card rounded-2xl p-5 shadow-2xl"
           >
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-800">QR Code</h2>
@@ -503,7 +505,7 @@ export default function QrCodePage() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden glass-card rounded-2xl shadow-2xl"
           >
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <div>
