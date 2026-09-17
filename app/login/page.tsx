@@ -154,11 +154,11 @@ function LoginPageContent() {
           flex-direction: column;
           justify-content: space-between;
           padding: 2.5rem 3rem;
-          background: linear-gradient(135deg, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0.45) 100%);
-          backdrop-filter: blur(28px) saturate(180%);
-          -webkit-backdrop-filter: blur(28px) saturate(180%);
-          border: 1px solid rgba(255,255,255,0.7);
-          box-shadow: 0 8px 32px rgba(31,41,55,0.12), inset 0 1px 0 rgba(255,255,255,0.8);
+          background: linear-gradient(135deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.28) 100%);
+          backdrop-filter: blur(30px) saturate(200%);
+          -webkit-backdrop-filter: blur(30px) saturate(200%);
+          border: 1px solid rgba(255,255,255,0.6);
+          box-shadow: 0 8px 32px rgba(31,41,55,0.15), inset 0 1px 0 rgba(255,255,255,0.8);
           position: relative;
           z-index: 2;
           transition: transform 0.5s cubic-bezier(.65,0,.35,1), opacity 0.5s cubic-bezier(.65,0,.35,1);

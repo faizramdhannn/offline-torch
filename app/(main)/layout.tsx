@@ -59,15 +59,19 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
         .ml-enter-sidebar { animation: mlEnterLeft 0.45s cubic-bezier(.32,.72,.35,1) both; }
         .ml-enter-content { animation: mlEnterRight 0.45s cubic-bezier(.32,.72,.35,1) 0.12s both; }
 
-        /* Blurred colour blobs behind the sidebar — without these, the
-           sidebar's frosted-glass backdrop-blur has nothing but flat colour
-           behind it and looks plain instead of "glass". */
-        .ml-blob { position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0; }
-        .ml-blob-1 { width: 300px; height: 300px; background: rgba(96,165,250,0.35); top: -80px; left: -60px; }
-        .ml-blob-2 { width: 260px; height: 260px; background: rgba(167,139,250,0.3); bottom: 10%; left: 40px; }
+        /* Blurred colour blobs spread down the full height of the sidebar —
+           without these, the sidebar's frosted-glass backdrop-blur has
+           nothing but flat colour behind it and looks plain instead of
+           "glass". Sized/positioned so at least one sits behind the sidebar
+           at any scroll position or collapsed width. */
+        .ml-blob { position: fixed; border-radius: 50%; filter: blur(90px); pointer-events: none; z-index: 0; }
+        .ml-blob-1 { width: 420px; height: 420px; background: rgba(96,165,250,0.55); top: -140px; left: -140px; }
+        .ml-blob-2 { width: 380px; height: 380px; background: rgba(167,139,250,0.5); top: 30%; left: -120px; }
+        .ml-blob-3 { width: 400px; height: 400px; background: rgba(244,114,182,0.45); bottom: -140px; left: -100px; }
       `}</style>
       <div className="ml-blob ml-blob-1" />
       <div className="ml-blob ml-blob-2" />
+      <div className="ml-blob ml-blob-3" />
       <div className={entering ? "ml-enter-sidebar" : ""}>
         <Sidebar userName={user.name} permissions={user} />
       </div>

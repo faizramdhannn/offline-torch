@@ -871,23 +871,38 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
 
         /* ── Liquid Glass ── */
         .glass-sidebar {
-          background: linear-gradient(165deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.02) 100%), rgba(13,51,77,0.78);
-          backdrop-filter: blur(24px) saturate(180%);
-          -webkit-backdrop-filter: blur(24px) saturate(180%);
-          border-right: 1px solid rgba(255,255,255,0.16);
-          box-shadow: 4px 0 24px rgba(0,0,0,0.15);
+          position: relative;
+          background: linear-gradient(165deg, rgba(41,84,115,0.55) 0%, rgba(13,51,77,0.45) 100%);
+          backdrop-filter: blur(28px) saturate(200%);
+          -webkit-backdrop-filter: blur(28px) saturate(200%);
+          border: 1px solid rgba(255,255,255,0.22);
+          box-shadow: 0 8px 32px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.35);
         }
+        /* Specular highlight sweeping down from the top-left, like light
+           catching the surface of glass. */
+        .glass-sidebar::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(160deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.05) 30%, rgba(255,255,255,0) 55%);
+          pointer-events: none;
+          z-index: 0;
+        }
+        .glass-sidebar > * { position: relative; z-index: 1; }
+
         .glass-fab {
-          background: linear-gradient(165deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.02) 100%), rgba(13,51,77,0.6);
-          backdrop-filter: blur(16px) saturate(180%);
-          -webkit-backdrop-filter: blur(16px) saturate(180%);
-          border: 1px solid rgba(255,255,255,0.2);
+          background: linear-gradient(160deg, rgba(255,255,255,0.3) 0%, rgba(41,84,115,0.55) 100%);
+          backdrop-filter: blur(18px) saturate(200%);
+          -webkit-backdrop-filter: blur(18px) saturate(200%);
+          border: 1px solid rgba(255,255,255,0.35);
+          box-shadow: 0 4px 16px rgba(0,0,0,0.2);
         }
         .glass-panel {
-          background: linear-gradient(165deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.03) 100%), rgba(13,51,77,0.75);
-          backdrop-filter: blur(20px) saturate(180%);
-          -webkit-backdrop-filter: blur(20px) saturate(180%);
-          border: 1px solid rgba(255,255,255,0.2) !important;
+          background: linear-gradient(160deg, rgba(41,84,115,0.6) 0%, rgba(13,51,77,0.55) 100%);
+          backdrop-filter: blur(24px) saturate(200%);
+          -webkit-backdrop-filter: blur(24px) saturate(200%);
+          border: 1px solid rgba(255,255,255,0.28) !important;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.25);
         }
       `}</style>
 
@@ -917,7 +932,9 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
 
       <aside
         className={`
-          fixed md:relative z-40 flex flex-col h-screen glass-sidebar text-white
+          fixed md:relative z-40 flex flex-col h-screen md:h-[calc(100vh-1.5rem)]
+          md:my-3 md:ml-3 rounded-none md:rounded-2xl overflow-hidden
+          glass-sidebar text-white
           transition-all duration-300 ease-in-out
           ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
           ${isCollapsed ? "md:w-14" : "w-48"} shrink-0
