@@ -127,34 +127,13 @@ function LoginPageContent() {
         .sl-root {
           min-height: 100vh;
           display: flex;
-          align-items: center;
-          justify-content: center;
           font-family: 'IBM Plex Sans', sans-serif;
-          background: linear-gradient(135deg, #1e1b4b 0%, #4c1d95 45%, #9d174d 100%);
+          background: #f1f5f9;
           overflow: hidden;
           position: relative;
-          padding: 2rem;
-        }
-        .sl-root::before, .sl-root::after {
-          content: '';
-          position: absolute;
-          border-radius: 50%;
-          filter: blur(60px);
-          pointer-events: none;
-          z-index: 0;
-        }
-        .sl-root::before {
-          width: 420px; height: 420px;
-          background: rgba(96,165,250,0.35);
-          top: -120px; left: -100px;
-        }
-        .sl-root::after {
-          width: 380px; height: 380px;
-          background: rgba(236,72,153,0.3);
-          bottom: -100px; right: -80px;
         }
 
-        /* ─── Left panel (glass card) ─── */
+        /* ─── Left panel (white liquid-glass card) ─── */
         .sl-left {
           width: 100%;
           max-width: 480px;
@@ -163,12 +142,11 @@ function LoginPageContent() {
           flex-direction: column;
           justify-content: space-between;
           padding: 2.5rem 3rem;
-          background: rgba(255,255,255,0.1);
-          backdrop-filter: blur(24px) saturate(180%);
-          -webkit-backdrop-filter: blur(24px) saturate(180%);
-          border: 1px solid rgba(255,255,255,0.22);
-          border-radius: 24px;
-          box-shadow: 0 8px 32px rgba(0,0,0,0.28);
+          background: rgba(255,255,255,0.55);
+          backdrop-filter: blur(28px) saturate(180%);
+          -webkit-backdrop-filter: blur(28px) saturate(180%);
+          border-right: 1px solid rgba(255,255,255,0.6);
+          box-shadow: inset -1px 0 0 rgba(255,255,255,0.4);
           position: relative;
           z-index: 2;
           transition: transform 0.5s cubic-bezier(.65,0,.35,1), opacity 0.5s cubic-bezier(.65,0,.35,1);
@@ -194,19 +172,14 @@ function LoginPageContent() {
           opacity: 1;
         }
 
-        /* ─── Right panel ─── */
+        /* ─── Right panel (cover login, unchanged) ─── */
         .sl-right {
           flex: 1;
-          max-width: 560px;
-          margin-left: 1.5rem;
-          border-radius: 24px;
           position: relative;
           overflow: hidden;
           display: flex;
           align-items: flex-end;
-          background: rgba(255,255,255,0.06);
-          border: 1px solid rgba(255,255,255,0.18);
-          box-shadow: 0 8px 32px rgba(0,0,0,0.28);
+          background: #eff6ff;
           z-index: 1;
           transition: transform 0.5s cubic-bezier(.65,0,.35,1), opacity 0.5s cubic-bezier(.65,0,.35,1);
         }
@@ -250,7 +223,7 @@ function LoginPageContent() {
           display: flex; flex-direction: column;
           align-items: center; justify-content: center;
           z-index: 10;
-          background: rgba(30,27,75,0.55);
+          background: rgba(255,255,255,0.6);
           backdrop-filter: blur(24px) saturate(180%);
           -webkit-backdrop-filter: blur(24px) saturate(180%);
           opacity: 0;
@@ -335,19 +308,19 @@ function LoginPageContent() {
           100% { transform: translate(-50%, -50%) rotate(360deg) translateX(52px) rotate(-360deg) scale(1.1); opacity: 0; }
         }
 
-        /* ─── Brand / form styles (Liquid Glass) ─── */
+        /* ─── Brand / form styles (white Liquid Glass) ─── */
         .sl-brand { display: flex; align-items: center; gap: 0.6rem; }
         .sl-logo-box {
-          width: 30px; height: 30px; background: rgba(96,165,250,0.35);
+          width: 30px; height: 30px; background: rgba(37,99,235,0.85);
           backdrop-filter: blur(8px);
-          border: 1px solid rgba(255,255,255,0.3);
+          border: 1px solid rgba(255,255,255,0.5);
           border-radius: 7px; display: flex; align-items: center;
           justify-content: center; flex-shrink: 0;
         }
         .sl-logo-box svg { width: 16px; height: 16px; }
         .sl-brand-name {
           font-family: 'IBM Plex Mono', monospace;
-          font-size: 0.75rem; font-weight: 500; color: #dbeafe;
+          font-size: 0.75rem; font-weight: 500; color: #2563eb;
           letter-spacing: 0.12em; text-transform: uppercase;
         }
 
@@ -356,10 +329,10 @@ function LoginPageContent() {
           justify-content: center; max-width: 360px; padding: 3rem 0;
         }
         .sl-heading {
-          font-size: 1.8rem; font-weight: 600; color: #ffffff;
+          font-size: 1.8rem; font-weight: 600; color: #111827;
           letter-spacing: -0.025em; line-height: 1.2; margin-bottom: 0.4rem;
         }
-        .sl-subheading { font-size: 0.82rem; color: rgba(255,255,255,0.65); font-weight: 300; margin-bottom: 2rem; }
+        .sl-subheading { font-size: 0.82rem; color: #6b7280; font-weight: 300; margin-bottom: 2rem; }
 
         .sl-alert {
           display: flex; align-items: flex-start; gap: 0.55rem;
@@ -367,49 +340,49 @@ function LoginPageContent() {
           margin-bottom: 1.25rem; font-size: 0.775rem; line-height: 1.5;
           backdrop-filter: blur(10px);
         }
-        .sl-alert-warn { background: rgba(251,191,36,0.14); border: 1px solid rgba(251,191,36,0.35); color: #fde68a; }
-        .sl-alert-success { background: rgba(16,185,129,0.14); border: 1px solid rgba(16,185,129,0.35); color: #6ee7b7; }
+        .sl-alert-warn { background: rgba(251,191,36,0.15); border: 1px solid rgba(251,191,36,0.4); color: #92400e; }
+        .sl-alert-success { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); color: #166534; }
 
         .sl-field { margin-bottom: 1.1rem; }
         .sl-label {
-          display: block; font-size: 0.7rem; font-weight: 500; color: rgba(255,255,255,0.6);
+          display: block; font-size: 0.7rem; font-weight: 500; color: #6b7280;
           letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 0.4rem;
         }
         .sl-iw { position: relative; }
         .sl-input {
           width: 100%; padding: 0.7rem 0.95rem;
-          background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2);
+          background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.7);
           backdrop-filter: blur(10px);
-          border-radius: 8px; color: #ffffff;
+          border-radius: 8px; color: #111827;
           font-family: 'IBM Plex Sans', sans-serif;
           font-size: 0.875rem; outline: none;
           transition: border-color 0.15s, background 0.15s;
           -webkit-appearance: none;
         }
-        .sl-input::placeholder { color: rgba(255,255,255,0.4); font-weight: 300; }
-        .sl-input:focus { border-color: rgba(96,165,250,0.7); background: rgba(255,255,255,0.14); }
+        .sl-input::placeholder { color: #9ca3af; font-weight: 300; }
+        .sl-input:focus { border-color: #2563eb; background: rgba(255,255,255,0.75); }
         .sl-input.pw { padding-right: 2.8rem; }
 
         .sl-eye {
           position: absolute; right: 0.8rem; top: 50%;
           transform: translateY(-50%); background: none; border: none;
-          cursor: pointer; color: rgba(255,255,255,0.5);
+          cursor: pointer; color: #9ca3af;
           display: flex; align-items: center; padding: 0.2rem;
           transition: color 0.15s;
         }
-        .sl-eye:hover { color: #ffffff; }
+        .sl-eye:hover { color: #374151; }
 
         .sl-error {
           display: flex; align-items: center; gap: 0.4rem;
-          font-size: 0.75rem; color: #fca5a5;
+          font-size: 0.75rem; color: #dc2626;
           padding: 0.55rem 0.75rem; margin-bottom: 1rem;
-          background: rgba(239,68,68,0.14); border: 1px solid rgba(239,68,68,0.35); border-radius: 7px;
+          background: rgba(254,242,242,0.7); border: 1px solid rgba(252,165,165,0.6); border-radius: 7px;
           backdrop-filter: blur(10px);
         }
 
         .sl-btn {
           width: 100%; padding: 0.75rem;
-          background: rgba(37,99,235,0.55); border: 1px solid rgba(255,255,255,0.25);
+          background: rgba(37,99,235,0.85); border: 1px solid rgba(255,255,255,0.35);
           backdrop-filter: blur(12px) saturate(180%);
           -webkit-backdrop-filter: blur(12px) saturate(180%);
           border-radius: 8px;
@@ -419,7 +392,7 @@ function LoginPageContent() {
           display: flex; align-items: center; justify-content: center; gap: 0.5rem;
           margin-top: 0.25rem;
         }
-        .sl-btn:hover:not(:disabled) { background: rgba(37,99,235,0.75); transform: translateY(-1px); }
+        .sl-btn:hover:not(:disabled) { background: rgba(29,78,216,0.9); transform: translateY(-1px); }
         .sl-btn:active:not(:disabled) { transform: translateY(0); }
         .sl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -431,28 +404,28 @@ function LoginPageContent() {
         }
 
         .sl-divider {
-          height: 1px; background: rgba(255,255,255,0.15); margin: 1.5rem 0; position: relative;
+          height: 1px; background: rgba(229,231,235,0.8); margin: 1.5rem 0; position: relative;
         }
         .sl-divider span {
           position: absolute; left: 50%; top: 50%;
           transform: translate(-50%, -50%);
-          background: #4c3a7a; padding: 0 0.75rem;
-          font-size: 0.7rem; color: rgba(255,255,255,0.5);
+          background: rgba(255,255,255,0.7); padding: 0 0.75rem;
+          font-size: 0.7rem; color: #9ca3af;
           letter-spacing: 0.05em; font-family: 'IBM Plex Mono', monospace;
         }
 
-        .sl-switch-link { text-align: center; font-size: 0.8rem; color: rgba(255,255,255,0.6); }
+        .sl-switch-link { text-align: center; font-size: 0.8rem; color: #6b7280; }
         .sl-switch-link button {
           background: none; border: none; cursor: pointer;
-          color: #93c5fd; font-weight: 500; font-size: 0.8rem;
-          border-bottom: 1px solid rgba(147,197,253,0.35);
+          color: #2563eb; font-weight: 500; font-size: 0.8rem;
+          border-bottom: 1px solid rgba(37,99,235,0.25);
           padding: 0; transition: color 0.15s, border-color 0.15s;
         }
-        .sl-switch-link button:hover { color: #bfdbfe; border-color: rgba(191,219,254,0.5); }
+        .sl-switch-link button:hover { color: #1d4ed8; border-color: rgba(29,78,216,0.5); }
 
         .sl-footer {
           font-family: 'IBM Plex Mono', monospace;
-          font-size: 0.62rem; color: rgba(255,255,255,0.4); letter-spacing: 0.05em;
+          font-size: 0.62rem; color: #9ca3af; letter-spacing: 0.05em;
         }
 
         @media (max-width: 768px) {
