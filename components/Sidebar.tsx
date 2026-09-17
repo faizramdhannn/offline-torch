@@ -570,7 +570,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         className={`
           menu-btn w-full flex items-center gap-3
           ${isCollapsed ? "justify-center px-0 py-2" : "px-3 py-2"}
-          ${isActive ? "active text-white" : "text-white/55"}
+          ${isActive ? "active text-gray-900" : "text-gray-500"}
         `}
       >
         <span className={`shrink-0 transition-opacity duration-150 ${isActive ? "opacity-100" : "opacity-60"}`}>
@@ -582,7 +582,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           </span>
         )}
         {!isCollapsed && isActive && (
-          <span className="ml-auto w-1 h-1 rounded-full bg-white/70 shrink-0" />
+          <span className="ml-auto w-1 h-1 rounded-full bg-[#0d334d]/70 shrink-0" />
         )}
       </button>
     );
@@ -602,7 +602,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       <div className="relative group">
         <button
           title={label}
-          className={`menu-btn w-full flex items-center justify-center px-0 py-2 transition-colors ${isActive ? "active text-white" : "text-white/55"}`}
+          className={`menu-btn w-full flex items-center justify-center px-0 py-2 transition-colors ${isActive ? "active text-gray-900" : "text-gray-500"}`}
         >
           <span className={`shrink-0 ${isActive ? "opacity-100" : "opacity-70"}`}>
             {groupIcon}
@@ -613,7 +613,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           style={{ minWidth: "160px" }}
         >
           <div className="glass-panel rounded-lg shadow-xl overflow-hidden py-1">
-            <p className="px-3 py-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+            <p className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
               {label}
             </p>
             {items.map(
@@ -623,7 +623,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
                     key={sub.path}
                     data-navpath={sub.path}
                     onClick={() => jellyNavigate(sub.path)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${pathname === sub.path ? "bg-white/15 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"}`}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${pathname === sub.path ? "bg-black/5 text-gray-900" : "text-gray-600 hover:bg-black/5 hover:text-gray-900"}`}
                   >
                     <span className="shrink-0">{sub.icon}</span>
                     <span className="truncate min-w-0 flex-1 text-left">{sub.label}</span>
@@ -666,7 +666,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       <div>
         <button
           onClick={onToggle}
-          className={`menu-btn w-full flex items-center gap-3 px-3 py-2 transition-colors ${isActive || open ? "text-white" : "text-white/55 hover:text-white"} ${isActive ? "active" : ""}`}
+          className={`menu-btn w-full flex items-center gap-3 px-3 py-2 transition-colors ${isActive || open ? "text-gray-900" : "text-gray-500 hover:text-gray-900"} ${isActive ? "active" : ""}`}
         >
           <span className={`shrink-0 transition-opacity duration-150 ${isActive ? "opacity-100" : "opacity-60"}`}>
             {groupIcon}
@@ -675,9 +675,9 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
             {label}
           </span>
           <span className="flex items-center gap-1 shrink-0">
-            {isActive && <span className="w-1 h-1 rounded-full bg-white/70" />}
+            {isActive && <span className="w-1 h-1 rounded-full bg-[#0d334d]/70" />}
             <svg
-              className={`w-3 h-3 text-white/50 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+              className={`w-3 h-3 text-gray-400 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -688,7 +688,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         </button>
         {open && (
           <div className={`overflow-hidden ${justOpened ? "submenu-enter" : ""}`}>
-            <div className="bg-black/15 border-l-2 border-white/20 ml-4 mr-2 rounded-r-lg mb-0.5">
+            <div className="bg-black/15 border-l-2 border-black/10 ml-4 mr-2 rounded-r-lg mb-0.5">
               {items.map(
                 (sub) =>
                   sub.show && (
@@ -696,7 +696,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
                       key={sub.path}
                       data-navpath={sub.path}
                       onClick={() => jellyNavigate(sub.path)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors rounded-r-lg ${pathname === sub.path ? "bg-white/15 text-white font-medium" : "text-white/60 hover:bg-white/15 hover:text-white"}`}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors rounded-r-lg ${pathname === sub.path ? "bg-black/5 text-gray-900 font-medium" : "text-gray-500 hover:bg-black/5 hover:text-gray-900"}`}
                     >
                       <span className="shrink-0">{sub.icon}</span>
                       <span className="truncate min-w-0 flex-1 text-left">{sub.label}</span>
@@ -825,12 +825,12 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           transition: background 0.18s ease;
           pointer-events: none;
         }
-        .menu-btn:hover::before { background: rgba(255,255,255,0.08); }
-        .menu-btn:hover { color: white; }
-        .menu-btn.active::before { background: rgba(255,255,255,0.12); }
+        .menu-btn:hover::before { background: rgba(13,51,77,0.06); }
+        .menu-btn:hover { color: #111827; }
+        .menu-btn.active::before { background: rgba(13,51,77,0.1); }
         .menu-btn.active {
-          color: white;
-          border-right: 2px solid rgba(255,255,255,0.8);
+          color: #111827;
+          border-right: 2px solid rgba(13,51,77,0.8);
         }
 
         @keyframes jellyIn {
@@ -869,14 +869,14 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           animation: popIn 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
         }
 
-        /* ── Liquid Glass ── */
+        /* ── Liquid Glass (netral putih) ── */
         .glass-sidebar {
           position: relative;
-          background: linear-gradient(165deg, rgba(41,84,115,0.55) 0%, rgba(13,51,77,0.45) 100%);
-          backdrop-filter: blur(28px) saturate(200%);
-          -webkit-backdrop-filter: blur(28px) saturate(200%);
-          border: 1px solid rgba(255,255,255,0.22);
-          box-shadow: 0 8px 32px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.35);
+          background: linear-gradient(165deg, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0.55) 100%);
+          backdrop-filter: blur(28px) saturate(180%);
+          -webkit-backdrop-filter: blur(28px) saturate(180%);
+          border: 1px solid rgba(255,255,255,0.8);
+          box-shadow: 0 8px 32px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.9);
         }
         /* Specular highlight sweeping down from the top-left, like light
            catching the surface of glass. */
@@ -884,26 +884,52 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           content: '';
           position: absolute;
           inset: 0;
-          background: linear-gradient(160deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.05) 30%, rgba(255,255,255,0) 55%);
+          background: linear-gradient(160deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.1) 30%, rgba(255,255,255,0) 55%);
           pointer-events: none;
           z-index: 0;
         }
         .glass-sidebar > * { position: relative; z-index: 1; }
 
         .glass-fab {
-          background: linear-gradient(160deg, rgba(255,255,255,0.3) 0%, rgba(41,84,115,0.55) 100%);
-          backdrop-filter: blur(18px) saturate(200%);
-          -webkit-backdrop-filter: blur(18px) saturate(200%);
-          border: 1px solid rgba(255,255,255,0.35);
-          box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+          background: linear-gradient(160deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.6) 100%);
+          backdrop-filter: blur(18px) saturate(180%);
+          -webkit-backdrop-filter: blur(18px) saturate(180%);
+          border: 1px solid rgba(255,255,255,0.85);
+          box-shadow: 0 4px 16px rgba(15,23,42,0.15);
         }
         .glass-panel {
-          background: linear-gradient(160deg, rgba(41,84,115,0.6) 0%, rgba(13,51,77,0.55) 100%);
-          backdrop-filter: blur(24px) saturate(200%);
-          -webkit-backdrop-filter: blur(24px) saturate(200%);
-          border: 1px solid rgba(255,255,255,0.28) !important;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+          background: linear-gradient(160deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.7) 100%);
+          backdrop-filter: blur(24px) saturate(180%);
+          -webkit-backdrop-filter: blur(24px) saturate(180%);
+          border: 1px solid rgba(255,255,255,0.85) !important;
+          box-shadow: 0 8px 24px rgba(15,23,42,0.15);
         }
+
+        /* ── Dark mode: flip the white glass tint to a dark one so the
+           (already-light, via globals.css) menu text stays readable. ── */
+        html.dark .glass-sidebar {
+          background: linear-gradient(165deg, rgba(51,65,85,0.7) 0%, rgba(15,23,42,0.65) 100%);
+          border: 1px solid rgba(255,255,255,0.12);
+          box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
+        }
+        html.dark .glass-sidebar::before {
+          background: linear-gradient(160deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 30%, rgba(255,255,255,0) 55%);
+        }
+        html.dark .glass-fab {
+          background: linear-gradient(160deg, rgba(71,85,105,0.75) 0%, rgba(15,23,42,0.7) 100%);
+          border: 1px solid rgba(255,255,255,0.16);
+          box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        }
+        html.dark .glass-panel {
+          background: linear-gradient(160deg, rgba(51,65,85,0.85) 0%, rgba(15,23,42,0.85) 100%);
+          border: 1px solid rgba(255,255,255,0.14) !important;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+        }
+        html.dark .menu-btn:hover::before { background: rgba(255,255,255,0.08); }
+        html.dark .menu-btn.active::before { background: rgba(255,255,255,0.14); }
+        html.dark .menu-btn.active { border-right: 2px solid rgba(255,255,255,0.7); }
+        html.dark .bg-black\/5 { background-color: rgba(255,255,255,0.08) !important; }
+        html.dark .border-black\/10 { border-color: rgba(255,255,255,0.14) !important; }
       `}</style>
 
       {(permissions?.request ||
@@ -922,7 +948,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
 
       <button
         onClick={toggleOpen}
-        className={`fixed top-3 left-3 z-50 md:hidden w-9 h-9 flex items-center justify-center rounded-lg glass-fab text-white shadow-lg transition-all duration-200 ${isOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+        className={`fixed top-3 left-3 z-50 md:hidden w-9 h-9 flex items-center justify-center rounded-lg glass-fab text-gray-900 shadow-lg transition-all duration-200 ${isOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}
         aria-label="Open menu"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -934,14 +960,14 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         className={`
           fixed md:relative z-40 flex flex-col h-screen md:h-[calc(100vh-1.5rem)]
           md:my-3 md:ml-3 rounded-none md:rounded-2xl overflow-hidden
-          glass-sidebar text-white
+          glass-sidebar text-gray-900
           transition-all duration-300 ease-in-out
           ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
           ${isCollapsed ? "md:w-14" : "w-48"} shrink-0
         `}
       >
         {/* Header */}
-        <div className={`border-b border-white/10 ${isCollapsed ? "p-2" : "p-3"} flex items-center justify-between`}>
+        <div className={`border-b border-black/10 ${isCollapsed ? "p-2" : "p-3"} flex items-center justify-between`}>
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
               <Image
@@ -951,24 +977,24 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
                 height={60}
                 className="object-contain mx-auto"
               />
-              <p className="text-[10px] text-white/50 mt-1 text-center truncate">
+              <p className="text-[10px] text-gray-400 mt-1 text-center truncate">
                 {userName}
               </p>
             </div>
           )}
           {isCollapsed && (
             <div className="w-full flex justify-center py-1">
-              <span className="text-xs font-bold text-white/50 tracking-widest">OT</span>
+              <span className="text-xs font-bold text-gray-400 tracking-widest">OT</span>
             </div>
           )}
           <button
             ref={collapseButtonRef}
             onClick={handleToggleCollapsed}
-            className={`hidden md:flex items-center justify-center w-6 h-6 rounded-md hover:bg-white/10 transition-colors shrink-0 ${isCollapsed ? "w-full mt-1" : "ml-1"}`}
+            className={`hidden md:flex items-center justify-center w-6 h-6 rounded-md hover:bg-black/5 transition-colors shrink-0 ${isCollapsed ? "w-full mt-1" : "ml-1"}`}
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             <svg
-              className={`w-3.5 h-3.5 text-white/50 transition-transform duration-300 ${isCollapsed ? "rotate-180" : ""}`}
+              className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-300 ${isCollapsed ? "rotate-180" : ""}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -978,10 +1004,10 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           </button>
           <button
             onClick={toggleOpen}
-            className="md:hidden flex items-center justify-center w-7 h-7 rounded-md hover:bg-white/10 ml-1 shrink-0"
+            className="md:hidden flex items-center justify-center w-7 h-7 rounded-md hover:bg-black/5 ml-1 shrink-0"
             aria-label="Close menu"
           >
-            <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -1057,7 +1083,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
               onClick={handleGenerateCatalog}
               disabled={generatingCatalog}
               title={isCollapsed ? "E-Catalog" : undefined}
-              className={`w-full flex items-center gap-3 transition-colors mt-1 text-white/60 hover:text-white hover:bg-white/8 disabled:opacity-40 disabled:cursor-not-allowed ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}`}
+              className={`w-full flex items-center gap-3 transition-colors mt-1 text-gray-500 hover:text-gray-900 hover:bg-black/5 disabled:opacity-40 disabled:cursor-not-allowed ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}`}
             >
               <span className="shrink-0 opacity-70">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1077,7 +1103,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
               onClick={handleGenerateIhlsCatalog}
               disabled={generatingIhlsCatalog}
               title={isCollapsed ? "E-Catalog IHLS" : undefined}
-              className={`w-full flex items-center gap-3 transition-colors mt-1 text-white/60 hover:text-white hover:bg-white/8 disabled:opacity-40 disabled:cursor-not-allowed ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}`}
+              className={`w-full flex items-center gap-3 transition-colors mt-1 text-gray-500 hover:text-gray-900 hover:bg-black/5 disabled:opacity-40 disabled:cursor-not-allowed ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}`}
             >
               <span className="shrink-0 opacity-70">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1097,7 +1123,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
               onClick={handleGenerateClearanceCatalog}
               disabled={generatingClearanceCatalog}
               title={isCollapsed ? "E-Catalog Clearance" : undefined}
-              className={`w-full flex items-center gap-3 transition-colors mt-1 text-white/60 hover:text-white hover:bg-white/8 disabled:opacity-40 disabled:cursor-not-allowed ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}`}
+              className={`w-full flex items-center gap-3 transition-colors mt-1 text-gray-500 hover:text-gray-900 hover:bg-black/5 disabled:opacity-40 disabled:cursor-not-allowed ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}`}
             >
               <span className="shrink-0 opacity-70">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1117,7 +1143,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
               onClick={handleGeneratePasarayaCatalog}
               disabled={generatingPasarayaCatalog}
               title={isCollapsed ? "E-Catalog Pasaraya" : undefined}
-              className={`w-full flex items-center gap-3 transition-colors mt-1 text-white/60 hover:text-white hover:bg-white/8 disabled:opacity-40 disabled:cursor-not-allowed ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}`}
+              className={`w-full flex items-center gap-3 transition-colors mt-1 text-gray-500 hover:text-gray-900 hover:bg-black/5 disabled:opacity-40 disabled:cursor-not-allowed ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}`}
             >
               <span className="shrink-0 opacity-70">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1137,7 +1163,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
               onClick={handleGenerateClearance2Catalog}
               disabled={generatingClearance2Catalog}
               title={isCollapsed ? "E-Catalog Clearance 2" : undefined}
-              className={`w-full flex items-center gap-3 transition-colors mt-1 text-white/60 hover:text-white hover:bg-white/8 disabled:opacity-40 disabled:cursor-not-allowed ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}`}
+              className={`w-full flex items-center gap-3 transition-colors mt-1 text-gray-500 hover:text-gray-900 hover:bg-black/5 disabled:opacity-40 disabled:cursor-not-allowed ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}`}
             >
               <span className="shrink-0 opacity-70">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1154,11 +1180,11 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         </nav>
 
         {/* Footer */}
-        <div className={`border-t border-white/10 ${isCollapsed ? "p-2 flex flex-col gap-2" : "p-3 flex items-center gap-2"}`}>
+        <div className={`border-t border-black/10 ${isCollapsed ? "p-2 flex flex-col gap-2" : "p-3 flex items-center gap-2"}`}>
           <button
             onClick={toggleTheme}
             title={isDark ? "Light mode" : "Dark mode"}
-            className={`flex items-center justify-center rounded-lg text-white/60 hover:text-white bg-white/8 hover:bg-white/15 transition-all duration-200 ${isCollapsed ? "w-full h-8" : "w-8 h-8 shrink-0"}`}
+            className={`flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-900 bg-black/5 hover:bg-black/5 transition-all duration-200 ${isCollapsed ? "w-full h-8" : "w-8 h-8 shrink-0"}`}
           >
             {isDark ? (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1180,7 +1206,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           {!isCollapsed ? (
             <button
               onClick={handleLogout}
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-white/10 hover:bg-red-500/80 text-white/70 hover:text-white rounded text-xs transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-black/5 hover:bg-red-500/80 text-gray-600 hover:text-white rounded text-xs transition-colors"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -1191,7 +1217,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
             <button
               onClick={handleLogout}
               title="Logout"
-              className="w-full h-8 flex items-center justify-center text-white/60 hover:text-white bg-white/8 hover:bg-red-500/80 rounded-lg transition-colors"
+              className="w-full h-8 flex items-center justify-center text-gray-500 hover:text-white bg-black/5 hover:bg-red-500/80 rounded-lg transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
