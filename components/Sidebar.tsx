@@ -612,7 +612,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           className="absolute left-full top-0 ml-1.5 z-50 hidden group-hover:block submenu-pop"
           style={{ minWidth: "160px" }}
         >
-          <div className="bg-primary border border-white/20 rounded-lg shadow-xl overflow-hidden py-1">
+          <div className="glass-panel rounded-lg shadow-xl overflow-hidden py-1">
             <p className="px-3 py-1.5 text-[10px] font-semibold text-white/40 uppercase tracking-wider">
               {label}
             </p>
@@ -868,6 +868,27 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         .submenu-pop {
           animation: popIn 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
         }
+
+        /* ── Liquid Glass ── */
+        .glass-sidebar {
+          background: linear-gradient(165deg, rgba(13,51,77,0.82) 0%, rgba(13,51,77,0.62) 100%);
+          backdrop-filter: blur(24px) saturate(180%);
+          -webkit-backdrop-filter: blur(24px) saturate(180%);
+          border-right: 1px solid rgba(255,255,255,0.12);
+          box-shadow: 4px 0 24px rgba(0,0,0,0.15);
+        }
+        .glass-fab {
+          background: rgba(13,51,77,0.6);
+          backdrop-filter: blur(16px) saturate(180%);
+          -webkit-backdrop-filter: blur(16px) saturate(180%);
+          border: 1px solid rgba(255,255,255,0.16);
+        }
+        .glass-panel {
+          background: rgba(13,51,77,0.72);
+          backdrop-filter: blur(20px) saturate(180%);
+          -webkit-backdrop-filter: blur(20px) saturate(180%);
+          border: 1px solid rgba(255,255,255,0.16) !important;
+        }
       `}</style>
 
       {(permissions?.request ||
@@ -886,7 +907,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
 
       <button
         onClick={toggleOpen}
-        className={`fixed top-3 left-3 z-50 md:hidden w-9 h-9 flex items-center justify-center rounded-lg bg-primary text-white shadow-lg transition-all duration-200 ${isOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+        className={`fixed top-3 left-3 z-50 md:hidden w-9 h-9 flex items-center justify-center rounded-lg glass-fab text-white shadow-lg transition-all duration-200 ${isOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}
         aria-label="Open menu"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -896,7 +917,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
 
       <aside
         className={`
-          fixed md:relative z-40 flex flex-col h-screen bg-primary text-white
+          fixed md:relative z-40 flex flex-col h-screen glass-sidebar text-white
           transition-all duration-300 ease-in-out
           ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
           ${isCollapsed ? "md:w-14" : "w-48"} shrink-0
