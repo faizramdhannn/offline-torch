@@ -19,6 +19,7 @@ import {
 } from "recharts";
 import PrintBarcodeModal from "@/components/PrintBarcodeModal";
 import { CekHargaModal } from "@/components/stock/CekHargaModal";
+import { PriceCalculatorModal } from "@/components/stock/PriceCalculatorModal";
 import {
   Upload,
   Download,
@@ -28,6 +29,7 @@ import {
   ScanLine,
   Eye,
   EyeOff,
+  Calculator,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/stock/PageHeader";
@@ -247,6 +249,7 @@ export default function StockPage() {
   const [qrItem, setQrItem] = useState<StockItem | null>(null);
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
   const [showCekHargaModal, setShowCekHargaModal] = useState(false);
+  const [showCalculatorModal, setShowCalculatorModal] = useState(false);
   const [storeBreakdownItem, setStoreBreakdownItem] = useState<StockItem | null>(null);
   const [showStockSummaryPopup, setShowStockSummaryPopup] = useState(false);
   // Map "sku::warehouse" -> stock kemarin, dari result_stock_yesterday /
@@ -834,6 +837,9 @@ export default function StockPage() {
               <Button variant="outline" size="sm" icon={ScanLine} onClick={() => setShowCekHargaModal(true)}>
                 Cek Harga
               </Button>
+              <Button variant="outline" size="sm" icon={Calculator} onClick={() => setShowCalculatorModal(true)}>
+                Kalkulator
+              </Button>
             </>
           }
         />
@@ -1249,6 +1255,16 @@ export default function StockPage() {
             onClose={() => setShowCekHargaModal(false)}
             toProperCase={toProperCase}
             parseDiscount={parseDiscount}
+            parseHarga={parseHarga}
+            formatRupiah={formatRupiah}
+          />
+        )}
+
+        {showCalculatorModal && (
+          <PriceCalculatorModal
+            items={data}
+            onClose={() => setShowCalculatorModal(false)}
+            toProperCase={toProperCase}
             parseHarga={parseHarga}
             formatRupiah={formatRupiah}
           />
