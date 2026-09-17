@@ -52,6 +52,7 @@ interface JastiperRow {
 
 interface ReportData {
   stores: string[];
+  responds: string[];
   summary: { jastiper_count: number; total_order: number; total_value: number; total_value_formatted: string };
   chart_by_store: { store: string; jastiper_count: number; total_order: number; total_value: number }[];
   chart_by_respond: { respond: string; count: number }[];
@@ -98,6 +99,9 @@ export default function JastiperReportPublicPage() {
   const [selectedStores, setSelectedStores] = useState<string[]>([]);
   const [showStoreDropdown, setShowStoreDropdown] = useState(false);
   const storeDropdownRef = useRef<HTMLDivElement>(null);
+  const [selectedResponds, setSelectedResponds] = useState<string[]>([]);
+  const [showRespondDropdown, setShowRespondDropdown] = useState(false);
+  const respondDropdownRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<"summary" | "data">("summary");
   const [pieMode, setPieMode] = useState<"respond" | "store">("respond");
   const [search, setSearch] = useState("");
@@ -112,17 +116,23 @@ export default function JastiperReportPublicPage() {
       if (storeDropdownRef.current && !storeDropdownRef.current.contains(e.target as Node)) {
         setShowStoreDropdown(false);
       }
+      if (respondDropdownRef.current && !respondDropdownRef.current.contains(e.target as Node)) {
+        setShowRespondDropdown(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const fetchReport = async (stores: string[]) => {
+  const fetchReport = async (stores: string[], responds: string[]) => {
     setLoading(true);
     setError("");
     try {
-      const qs = stores.length > 0 ? `?stores=${encodeURIComponent(stores.join(","))}` : "";
-      const res = await fetch(`/api/jastiper/report-public${qs}`);
+      const params = new URLSearchParams();
+      if (stores.length > 0) params.set("stores", stores.join(","));
+      if (responds.length > 0) params.set("respond", responds.join(","));
+      const qs = params.toString();
+      const res = await fetch(`/api/jastiper/report-public${qs ? `?${qs}` : ""}`);
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "Gagal memuat report");
       setData(result);
@@ -134,12 +144,16 @@ export default function JastiperReportPublicPage() {
   };
 
   useEffect(() => {
-    fetchReport(selectedStores);
+    fetchReport(selectedStores, selectedResponds);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStores]);
+  }, [selectedStores, selectedResponds]);
 
   const toggleStore = (store: string) => {
     setSelectedStores((prev) => (prev.includes(store) ? prev.filter((s) => s !== store) : [...prev, store]));
+  };
+
+  const toggleRespond = (respond: string) => {
+    setSelectedResponds((prev) => (prev.includes(respond) ? prev.filter((r) => r !== respond) : [...prev, respond]));
   };
 
   const jastiperCountData = useMemo(() => {
@@ -269,24 +283,45 @@ export default function JastiperReportPublicPage() {
 
           <div className="jr-toolbar">
             <div className="jr-title">Monitoring Jastiper</div>
-            <div className="jr-dropdown" ref={storeDropdownRef}>
-              <button className="jr-dropdown-btn" onClick={() => setShowStoreDropdown((p) => !p)}>
-                <span>
-                  {selectedStores.length === 0 ? "Semua Toko" : `${selectedStores.length} toko dipilih`}
-                </span>
-                <span style={{ color: "#94a3b8" }}>▾</span>
-              </button>
-              {showStoreDropdown && (
-                <div className="jr-dropdown-panel">
-                  {data?.stores.map((s) => (
-                    <label key={s} className="jr-dropdown-item">
-                      <input type="checkbox" checked={selectedStores.includes(s)} onChange={() => toggleStore(s)} />
-                      {s}
-                    </label>
-                  ))}
-                  {(!data || data.stores.length === 0) && <div className="jr-dropdown-item">Tidak ada toko</div>}
-                </div>
-              )}
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              <div className="jr-dropdown" ref={respondDropdownRef}>
+                <button className="jr-dropdown-btn" onClick={() => setShowRespondDropdown((p) => !p)}>
+                  <span>
+                    {selectedResponds.length === 0 ? "Semua Respond" : `${selectedResponds.length} respond dipilih`}
+                  </span>
+                  <span style={{ color: "#94a3b8" }}>▾</span>
+                </button>
+                {showRespondDropdown && (
+                  <div className="jr-dropdown-panel">
+                    {data?.responds.map((r) => (
+                      <label key={r} className="jr-dropdown-item">
+                        <input type="checkbox" checked={selectedResponds.includes(r)} onChange={() => toggleRespond(r)} />
+                        {r}
+                      </label>
+                    ))}
+                    {(!data || data.responds.length === 0) && <div className="jr-dropdown-item">Tidak ada respond</div>}
+                  </div>
+                )}
+              </div>
+              <div className="jr-dropdown" ref={storeDropdownRef}>
+                <button className="jr-dropdown-btn" onClick={() => setShowStoreDropdown((p) => !p)}>
+                  <span>
+                    {selectedStores.length === 0 ? "Semua Toko" : `${selectedStores.length} toko dipilih`}
+                  </span>
+                  <span style={{ color: "#94a3b8" }}>▾</span>
+                </button>
+                {showStoreDropdown && (
+                  <div className="jr-dropdown-panel">
+                    {data?.stores.map((s) => (
+                      <label key={s} className="jr-dropdown-item">
+                        <input type="checkbox" checked={selectedStores.includes(s)} onChange={() => toggleStore(s)} />
+                        {s}
+                      </label>
+                    ))}
+                    {(!data || data.stores.length === 0) && <div className="jr-dropdown-item">Tidak ada toko</div>}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

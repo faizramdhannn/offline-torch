@@ -17,14 +17,21 @@ export async function GET(request: NextRequest) {
   try {
     await ensureJastiperSchema();
     const { searchParams } = new URL(request.url);
-    // Multi-select toko: comma-separated, kosong/absen = semua toko.
+    // Multi-select toko & respond: comma-separated, kosong/absen = semua.
     const storesParam = (searchParams.get("stores") || "").trim();
     const storeList = storesParam ? storesParam.split(",").filter(Boolean) : null;
+    const respondParam = (searchParams.get("respond") || "").trim();
+    const respondList = respondParam ? respondParam.split(",").filter(Boolean) : null;
 
     const allStoresResult = await sql`
       SELECT DISTINCT jastiper_store FROM jastiper_master WHERE jastiper_store <> ''
     `;
     const allStores = (allStoresResult as any[]).map((r) => r.jastiper_store).filter(Boolean).sort();
+
+    const allRespondsResult = await sql`
+      SELECT DISTINCT jastiper_respond FROM jastiper_master WHERE jastiper_respond <> ''
+    `;
+    const allResponds = (allRespondsResult as any[]).map((r) => r.jastiper_respond).filter(Boolean).sort();
 
     const params: any[] = [];
     const ph = (v: any, cast: string) => {
@@ -33,6 +40,7 @@ export async function GET(request: NextRequest) {
     };
     let where = "j.jastiper_code <> ''";
     if (storeList) where += ` AND j.jastiper_store = ANY(${ph(storeList, "text[]")})`;
+    if (respondList) where += ` AND j.jastiper_respond = ANY(${ph(respondList, "text[]")})`;
 
     // Data lengkap per-jastiper + kontribusinya — dasar untuk tab Data,
     // ringkasan, dan pie chart (semua dihitung dari array ini, bukan query
@@ -141,6 +149,7 @@ export async function GET(request: NextRequest) {
     };
     let trendJastiperWhere = "j.jastiper_code <> ''";
     if (storeList) trendJastiperWhere += ` AND j.jastiper_store = ANY(${trendPh(storeList, "text[]")})`;
+    if (respondList) trendJastiperWhere += ` AND j.jastiper_respond = ANY(${trendPh(respondList, "text[]")})`;
     const trendQuery = `
       WITH matched AS (
         SELECT DISTINCT o.sales_order, COALESCE(o.paid_at, o.created_at) AS d, o.total
@@ -166,6 +175,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       stores: allStores,
+      responds: allResponds,
       summary: { ...summary, total_value_formatted: formatRupiah(summary.total_value) },
       chart_by_store: chartByStore,
       chart_by_respond: chartByRespond,
