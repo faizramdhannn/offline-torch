@@ -4,7 +4,7 @@ import { LucideIcon, Loader2 } from "lucide-react";
 import { ButtonHTMLAttributes, forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
-type ButtonVariant = "primary" | "secondary" | "outline" | "danger" | "ghost";
+type ButtonVariant = "primary" | "secondary" | "outline" | "danger" | "ghost" | "glass";
 type ButtonSize = "sm" | "md" | "icon";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -20,6 +20,9 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   outline: "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-gray-300",
   danger: "bg-red-600 text-white border border-red-600 hover:bg-red-700 shadow-sm",
   ghost: "bg-transparent text-gray-500 border border-transparent hover:bg-gray-100 hover:text-gray-700",
+  /** Liquid Glass — translucent/blurred surface, dark mode handled by the
+      `.glass-card` rule in globals.css + the app-wide text-gray-900 override. */
+  glass: "glass-card text-gray-900 hover:brightness-105",
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {

@@ -929,6 +929,18 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         html.dark .menu-btn.active::before { background: rgba(255,255,255,0.14); }
         html.dark .menu-btn.active { border-right: 2px solid rgba(255,255,255,0.7); }
         html.dark .bg-black\/5 { background-color: rgba(255,255,255,0.08) !important; }
+
+        /* Sidebar text: white regardless of the app-wide gray-scale dark
+           overrides in globals.css (those are tuned for content cards, not
+           this dark-glass sidebar — higher specificity here wins). */
+        html.dark .glass-sidebar .text-gray-900,
+        html.dark .glass-panel .text-gray-900 { color: #ffffff !important; }
+        html.dark .glass-sidebar .text-gray-600,
+        html.dark .glass-panel .text-gray-600 { color: rgba(255,255,255,0.75) !important; }
+        html.dark .glass-sidebar .text-gray-500,
+        html.dark .glass-panel .text-gray-500 { color: rgba(255,255,255,0.55) !important; }
+        html.dark .glass-sidebar .text-gray-400,
+        html.dark .glass-panel .text-gray-400 { color: rgba(255,255,255,0.4) !important; }
         html.dark .border-black\/10 { border-color: rgba(255,255,255,0.14) !important; }
       `}</style>
 

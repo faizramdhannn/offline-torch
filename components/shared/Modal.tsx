@@ -13,6 +13,8 @@ interface ModalProps {
   children: ReactNode;
   footer?: ReactNode;
   maxWidth?: string;
+  /** Render the panel as a Liquid Glass surface instead of a flat white card. */
+  glass?: boolean;
 }
 
 /**
@@ -29,6 +31,7 @@ export function Modal({
   children,
   footer,
   maxWidth = "max-w-lg",
+  glass = false,
 }: ModalProps) {
   useEffect(() => {
     if (!open) return;
@@ -53,7 +56,7 @@ export function Modal({
           }}
         >
           <motion.div
-            className={`flex w-full ${maxWidth} max-h-[90vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl`}
+            className={`flex w-full ${maxWidth} max-h-[90vh] flex-col overflow-hidden rounded-2xl shadow-2xl ${glass ? "glass-card" : "bg-white"}`}
             initial={{ opacity: 0, y: 12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.98 }}

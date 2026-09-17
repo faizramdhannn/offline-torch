@@ -190,3 +190,56 @@ html.dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
     padding-top: 3.5rem;
   }
 }
+/* Liquid Glass shared surfaces for GlassCard / FilterBar / Toggle / table
+   wrappers (components/shared). Centralised here (rather than per-component
+   style blocks) so every consumer gets the same look plus one dark-mode
+   variant, instead of each page inventing its own translucency values. */
+.glass-card {
+  background: linear-gradient(160deg, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0.55) 100%);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.7);
+  box-shadow: 0 4px 24px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.8);
+}
+html.dark .glass-card {
+  background: linear-gradient(160deg, rgba(51,65,85,0.6) 0%, rgba(15,23,42,0.55) 100%);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+.glass-filterbar {
+  background: linear-gradient(160deg, rgba(255,255,255,0.65) 0%, rgba(255,255,255,0.45) 100%);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.6);
+}
+html.dark .glass-filterbar {
+  background: linear-gradient(160deg, rgba(51,65,85,0.55) 0%, rgba(15,23,42,0.5) 100%);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.glass-table-wrap {
+  background: linear-gradient(160deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.4) 100%);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.6);
+}
+html.dark .glass-table-wrap {
+  background: linear-gradient(160deg, rgba(51,65,85,0.5) 0%, rgba(15,23,42,0.45) 100%);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.glass-table-head { background: rgba(255,255,255,0.3); }
+html.dark .glass-table-head { background: rgba(255,255,255,0.04); }
+
+/* Toggle switch */
+.glass-toggle {
+  background: rgba(148,163,184,0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.5);
+  transition: background 0.2s ease;
+}
+.glass-toggle[data-checked="true"] { background: rgba(37,99,235,0.85); }
+html.dark .glass-toggle { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.14); }
+html.dark .glass-toggle[data-checked="true"] { background: rgba(59,130,246,0.85); }
+.glass-toggle-knob { background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.25); }

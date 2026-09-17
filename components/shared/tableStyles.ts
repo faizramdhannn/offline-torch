@@ -10,3 +10,11 @@ export const tableWrapClass = "overflow-x-auto rounded-lg border border-gray-100
 export const tableClass = "min-w-full divide-y divide-gray-100";
 export const theadClass = "bg-gray-50";
 export const trHoverClass = "hover:bg-gray-50 transition-colors";
+
+/**
+ * Liquid Glass variants of the above — opt-in via className, same cell/text
+ * sizing so a page can swap tableWrapClass -> tableWrapClassGlass without
+ * touching thClass/tdClass.
+ */
+export const tableWrapClassGlass = "overflow-x-auto rounded-xl glass-table-wrap";
+export const theadClassGlass = "glass-table-head";
