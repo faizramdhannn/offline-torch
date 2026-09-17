@@ -6,9 +6,7 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
+  LabelList,
   LineChart,
   Line,
   CartesianGrid,
@@ -144,13 +142,24 @@ export default function JastiperReportPublicPage() {
     setSelectedStores((prev) => (prev.includes(store) ? prev.filter((s) => s !== store) : [...prev, store]));
   };
 
-  const pieData = useMemo(() => {
+  const jastiperCountData = useMemo(() => {
     if (!data) return [];
     if (pieMode === "respond") {
-      return data.chart_by_respond.map((r) => ({ name: r.respond, value: r.count }));
+      return data.chart_by_respond.map((r) => ({ name: r.respond || "Belum Diisi", value: r.count }));
     }
     return data.chart_by_store.map((s) => ({ name: s.store, value: s.jastiper_count }));
   }, [data, pieMode]);
+
+  // Top 10 jastiper by kontribusi (Total Value) — sama pola dengan "Top 10
+  // Affiliate" di affiliate-report, cuma tampilkan yang sudah ada order-nya.
+  const salesPerJastiper = useMemo(() => {
+    if (!data) return [];
+    return [...data.data]
+      .filter((d) => d.total_value > 0)
+      .sort((a, b) => b.total_value - a.total_value)
+      .slice(0, 10)
+      .map((d) => ({ name: d.jastiper_name, value: d.total_value }));
+  }, [data]);
 
   const filteredData = useMemo(() => {
     if (!data) return [];
@@ -221,9 +230,6 @@ export default function JastiperReportPublicPage() {
         .jr-pie-toggle { display: flex; gap: 0.3rem; background: #f1f5f9; border-radius: 8px; padding: 0.2rem; }
         .jr-pie-toggle button { padding: 0.3rem 0.7rem; font-size: 0.72rem; font-weight: 600; border: none; border-radius: 6px; background: transparent; color: #64748b; cursor: pointer; }
         .jr-pie-toggle button.active { background: #ffffff; color: #0f172a; box-shadow: 0 1px 2px rgba(16,24,40,0.08); }
-        .jr-pie-legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.75rem; justify-content: center; }
-        .jr-pie-legend-item { display: flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: #475569; }
-        .jr-pie-dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; }
         .jr-search { padding: 0.55rem 0.9rem; background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 9px; font-size: 0.82rem; color: #0f172a; outline: none; width: 240px; max-width: 100%; }
         .jr-search:focus { border-color: #0e7490; }
         .jr-export-btn { padding: 0.55rem 1rem; background: #0f172a; color: #ffffff; border: none; border-radius: 9px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
@@ -329,29 +335,20 @@ export default function JastiperReportPublicPage() {
                           </button>
                         </div>
                       </div>
-                      {pieData.length === 0 ? (
+                      {jastiperCountData.length === 0 ? (
                         <div className="jr-empty">Tidak ada data</div>
                       ) : (
-                        <>
-                          <ResponsiveContainer width="100%" height={220}>
-                            <PieChart>
-                              <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={2}>
-                                {pieData.map((_, i) => (
-                                  <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
-                                ))}
-                              </Pie>
-                              <Tooltip contentStyle={chartTooltipStyle} />
-                            </PieChart>
-                          </ResponsiveContainer>
-                          <div className="jr-pie-legend">
-                            {pieData.map((p, i) => (
-                              <div key={p.name} className="jr-pie-legend-item">
-                                <span className="jr-pie-dot" style={{ background: PALETTE[i % PALETTE.length] }} />
-                                {p.name} ({p.value})
-                              </div>
-                            ))}
-                          </div>
-                        </>
+                        <ResponsiveContainer width="100%" height={Math.max(180, jastiperCountData.length * 34)}>
+                          <BarChart data={jastiperCountData} layout="vertical" margin={{ right: 28 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} horizontal={false} />
+                            <XAxis type="number" tick={chartAxisTick} axisLine={false} tickLine={false} allowDecimals={false} />
+                            <YAxis type="category" dataKey="name" tick={chartAxisTick} axisLine={false} tickLine={false} width={100} />
+                            <Tooltip contentStyle={chartTooltipStyle} />
+                            <Bar dataKey="value" name="Jumlah" fill={PALETTE[1]} radius={[0, 6, 6, 0]}>
+                              <LabelList dataKey="value" position="right" style={{ fontSize: 10, fill: "#475569" }} />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
                       )}
                     </div>
 
@@ -360,13 +357,20 @@ export default function JastiperReportPublicPage() {
                       {data.chart_by_store.length === 0 ? (
                         <div className="jr-empty">Tidak ada data</div>
                       ) : (
-                        <ResponsiveContainer width="100%" height={240}>
-                          <BarChart data={data.chart_by_store}>
-                            <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
-                            <XAxis dataKey="store" tick={chartAxisTick} axisLine={false} tickLine={false} />
-                            <YAxis tick={chartAxisTick} axisLine={false} tickLine={false} tickFormatter={formatCompact} />
+                        <ResponsiveContainer width="100%" height={Math.max(180, data.chart_by_store.length * 34)}>
+                          <BarChart data={data.chart_by_store} layout="vertical" margin={{ right: 48 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} horizontal={false} />
+                            <XAxis type="number" tick={chartAxisTick} axisLine={false} tickLine={false} tickFormatter={formatCompact} />
+                            <YAxis type="category" dataKey="store" tick={chartAxisTick} axisLine={false} tickLine={false} width={100} />
                             <Tooltip contentStyle={chartTooltipStyle} formatter={(v?: number) => formatRupiah(v ?? 0)} />
-                            <Bar dataKey="total_value" name="Total Value" fill={PALETTE[1]} radius={[6, 6, 0, 0]} />
+                            <Bar dataKey="total_value" name="Total Value" fill={PALETTE[3]} radius={[0, 6, 6, 0]}>
+                              <LabelList
+                                dataKey="total_value"
+                                position="right"
+                                formatter={(v: any) => formatCompact(Number(v) || 0)}
+                                style={{ fontSize: 10, fill: "#475569" }}
+                              />
+                            </Bar>
                           </BarChart>
                         </ResponsiveContainer>
                       )}
@@ -374,12 +378,36 @@ export default function JastiperReportPublicPage() {
                   </div>
 
                   <div className="jr-card">
+                    <div className="jr-card-title">Sales per Jastiper (Top 10)</div>
+                    {salesPerJastiper.length === 0 ? (
+                      <div className="jr-empty">Belum ada penjualan tercatat</div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={Math.max(220, salesPerJastiper.length * 34)}>
+                        <BarChart data={salesPerJastiper} layout="vertical" margin={{ right: 56 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} horizontal={false} />
+                          <XAxis type="number" tick={chartAxisTick} axisLine={false} tickLine={false} tickFormatter={formatCompact} />
+                          <YAxis type="category" dataKey="name" tick={chartAxisTick} axisLine={false} tickLine={false} width={130} />
+                          <Tooltip contentStyle={chartTooltipStyle} formatter={(v?: number) => formatRupiah(v ?? 0)} />
+                          <Bar dataKey="value" name="Total Value" fill={PALETTE[2]} radius={[0, 6, 6, 0]}>
+                            <LabelList
+                              dataKey="value"
+                              position="right"
+                              formatter={(v: any) => formatCompact(Number(v) || 0)}
+                              style={{ fontSize: 10, fill: "#475569" }}
+                            />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+
+                  <div className="jr-card">
                     <div className="jr-card-title">Tren Harian (30 Hari Terakhir)</div>
                     {data.chart_trend.length === 0 ? (
                       <div className="jr-empty">Tidak ada data</div>
                     ) : (
-                      <ResponsiveContainer width="100%" height={220}>
-                        <LineChart data={data.chart_trend}>
+                      <ResponsiveContainer width="100%" height={240}>
+                        <LineChart data={data.chart_trend} margin={{ top: 20 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
                           <XAxis dataKey="date" tickFormatter={formatDateLabel} tick={chartAxisTick} axisLine={false} tickLine={false} />
                           <YAxis tick={chartAxisTick} axisLine={false} tickLine={false} tickFormatter={formatCompact} />
@@ -388,7 +416,14 @@ export default function JastiperReportPublicPage() {
                             labelFormatter={(v) => formatDateLabel(String(v))}
                             formatter={(v?: number, name?: string) => (name === "Total Value" ? formatRupiah(v ?? 0) : v)}
                           />
-                          <Line type="monotone" dataKey="total_value" name="Total Value" stroke={PALETTE[0]} strokeWidth={2} dot={false} />
+                          <Line type="monotone" dataKey="total_value" name="Total Value" stroke={PALETTE[0]} strokeWidth={2} dot={{ r: 3 }}>
+                            <LabelList
+                              dataKey="total_value"
+                              position="top"
+                              formatter={(v: any) => (Number(v) > 0 ? formatCompact(Number(v)) : "")}
+                              style={{ fontSize: 9, fill: "#64748b" }}
+                            />
+                          </Line>
                         </LineChart>
                       </ResponsiveContainer>
                     )}
