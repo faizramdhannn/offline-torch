@@ -294,12 +294,28 @@ export async function GET(request: NextRequest) {
       return { badge: b, query, keyParams };
     });
 
-    const [countResult, rows, tierStatsResult, ...nonTierStatsResults] = await Promise.all([
+    // Data terbaru — MAX(paid_at) di scope store yang sama dengan listing ini,
+    // supaya user tahu order paling baru yang sudah masuk sampai kapan (bukan
+    // waktu cache/fetch terakhir, tapi tanggal transaksi asli dari Shopify).
+    const latestDataQuery = storeScope
+      ? sql`SELECT MAX(paid_at) AS latest FROM shopify_orders WHERE store_name = ANY(${storeScope})`
+      : sql`SELECT MAX(paid_at) AS latest FROM shopify_orders`;
+
+    const [countResult, rows, tierStatsResult, latestDataResult, ...nonTierStatsResults] = await Promise.all([
       sql(countQuery, countParams) as Promise<any[]>,
       sql(dataQuery, params) as Promise<any[]>,
       sql(tierStatsQuery, countParams) as Promise<any[]>,
+      latestDataQuery as Promise<any[]>,
       ...nonTierStatsQueries.map((q) => sql(q.query, q.keyParams) as Promise<any[]>),
     ]);
+
+    const latestPaidAt = latestDataResult[0]?.latest || null;
+    const latestDataAt = latestPaidAt
+      ? new Date(latestPaidAt).toLocaleString('id-ID', {
+          day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+          timeZone: 'Asia/Jakarta',
+        }) + ' WIB'
+      : '';
 
     const total = countResult[0]?.total || 0;
 
@@ -359,6 +375,7 @@ export async function GET(request: NextRequest) {
       total,
       stats,
       stores: availableStores,
+      latestDataAt,
     };
 
     return NextResponse.json(responsePayload);

@@ -282,105 +282,69 @@ function NumberPad() {
     setWaitingForSecond(false);
   };
 
-  const btnBase =
-    "select-none rounded-full text-lg font-medium transition-all active:scale-95 backdrop-blur-xl border border-white/20";
+  const btnBase = "select-none rounded-full text-lg font-medium transition-all active:scale-95";
+  const funcBtn = `${btnBase} h-12 bg-black/5 text-gray-900 hover:bg-black/10 border border-white/60`;
+  const digitBtn = `${btnBase} h-12 bg-white/40 text-gray-900 hover:bg-white/60 border border-white/50`;
+  const opBtn = (active: boolean) =>
+    `${btnBase} h-12 bg-orange-500/80 text-white hover:bg-orange-500/95 border border-white/30 ${
+      active ? "ring-2 ring-orange-300" : ""
+    }`;
 
+  // Liquid Glass tembus pandang — pakai .glass-card yang sama dengan
+  // GlassCard/sidebar (blur netral, tanpa warna latar), bukan gradasi warna.
   return (
-    <div
-      className="rounded-2xl p-3"
-      style={{
-        background: "linear-gradient(135deg, #1e1b4b 0%, #4c1d95 45%, #9d174d 100%)",
-      }}
-    >
+    <div className="glass-card rounded-2xl p-3">
       <div className="mb-3 px-2 pt-1 text-right">
-        <span className="break-all font-mono text-3xl font-light text-white">{display}</span>
+        <span className="break-all font-mono text-3xl font-light text-gray-900">{display}</span>
       </div>
       <div className="grid grid-cols-4 gap-2">
-        <button
-          onClick={clearAll}
-          className={`${btnBase} h-12 bg-white/25 text-white hover:bg-white/35`}
-        >
+        <button onClick={clearAll} className={funcBtn}>
           AC
         </button>
-        <button onClick={toggleSign} className={`${btnBase} h-12 bg-white/25 text-white hover:bg-white/35`}>
+        <button onClick={toggleSign} className={funcBtn}>
           +/-
         </button>
-        <button onClick={inputPercent} className={`${btnBase} h-12 bg-white/25 text-white hover:bg-white/35`}>
+        <button onClick={inputPercent} className={funcBtn}>
           %
         </button>
-        <button
-          onClick={() => performOperation("÷")}
-          className={`${btnBase} h-12 bg-orange-500/80 text-white hover:bg-orange-500/95 ${
-            operator === "÷" && waitingForSecond ? "ring-2 ring-white" : ""
-          }`}
-        >
+        <button onClick={() => performOperation("÷")} className={opBtn(operator === "÷" && waitingForSecond)}>
           ÷
         </button>
 
         {[7, 8, 9].map((n) => (
-          <button
-            key={n}
-            onClick={() => inputDigit(String(n))}
-            className={`${btnBase} h-12 bg-white/15 text-white hover:bg-white/25`}
-          >
+          <button key={n} onClick={() => inputDigit(String(n))} className={digitBtn}>
             {n}
           </button>
         ))}
-        <button
-          onClick={() => performOperation("×")}
-          className={`${btnBase} h-12 bg-orange-500/80 text-white hover:bg-orange-500/95 ${
-            operator === "×" && waitingForSecond ? "ring-2 ring-white" : ""
-          }`}
-        >
+        <button onClick={() => performOperation("×")} className={opBtn(operator === "×" && waitingForSecond)}>
           ×
         </button>
 
         {[4, 5, 6].map((n) => (
-          <button
-            key={n}
-            onClick={() => inputDigit(String(n))}
-            className={`${btnBase} h-12 bg-white/15 text-white hover:bg-white/25`}
-          >
+          <button key={n} onClick={() => inputDigit(String(n))} className={digitBtn}>
             {n}
           </button>
         ))}
-        <button
-          onClick={() => performOperation("-")}
-          className={`${btnBase} h-12 bg-orange-500/80 text-white hover:bg-orange-500/95 ${
-            operator === "-" && waitingForSecond ? "ring-2 ring-white" : ""
-          }`}
-        >
+        <button onClick={() => performOperation("-")} className={opBtn(operator === "-" && waitingForSecond)}>
           −
         </button>
 
         {[1, 2, 3].map((n) => (
-          <button
-            key={n}
-            onClick={() => inputDigit(String(n))}
-            className={`${btnBase} h-12 bg-white/15 text-white hover:bg-white/25`}
-          >
+          <button key={n} onClick={() => inputDigit(String(n))} className={digitBtn}>
             {n}
           </button>
         ))}
-        <button
-          onClick={() => performOperation("+")}
-          className={`${btnBase} h-12 bg-orange-500/80 text-white hover:bg-orange-500/95 ${
-            operator === "+" && waitingForSecond ? "ring-2 ring-white" : ""
-          }`}
-        >
+        <button onClick={() => performOperation("+")} className={opBtn(operator === "+" && waitingForSecond)}>
           +
         </button>
 
-        <button
-          onClick={() => inputDigit("0")}
-          className={`${btnBase} col-span-2 h-12 bg-white/15 text-left pl-5 text-white hover:bg-white/25`}
-        >
+        <button onClick={() => inputDigit("0")} className={`${digitBtn} col-span-2 text-left pl-5`}>
           0
         </button>
-        <button onClick={inputDecimal} className={`${btnBase} h-12 bg-white/15 text-white hover:bg-white/25`}>
+        <button onClick={inputDecimal} className={digitBtn}>
           .
         </button>
-        <button onClick={handleEquals} className={`${btnBase} h-12 bg-orange-500/80 text-white hover:bg-orange-500/95`}>
+        <button onClick={handleEquals} className={opBtn(false)}>
           =
         </button>
       </div>

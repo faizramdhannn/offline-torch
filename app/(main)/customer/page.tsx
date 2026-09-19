@@ -51,6 +51,9 @@ export default function CustomerPage() {
   const [stats, setStats] = useState<
     { key: string; count: number; totalOrder: number; totalQty: number; totalValue: number }[]
   >([]);
+  // Order Shopify paling baru yang sudah masuk (MAX paid_at) — beda dari
+  // waktu cache/fetch terakhir, ini tanggal transaksi asli di data.
+  const [latestDataAt, setLatestDataAt] = useState("");
   const [loading, setLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
   const [storeName, setStoreName] = useState("");
@@ -240,6 +243,7 @@ export default function CustomerPage() {
     setTotalItems(result.total || 0);
     setStats(result.stats || []);
     setStores(result.stores || []);
+    setLatestDataAt(result.latestDataAt || "");
   };
 
   const buildListQuery = (username: string, fullAccess?: boolean) => {
@@ -497,6 +501,12 @@ return (
               </h1>
               <p className="mt-0.5 text-[11px] text-gray-400">
                 {totalItems.toLocaleString("id-ID")} customer
+                {latestDataAt && (
+                  <>
+                    {" · "}
+                    <span className="font-semibold text-gray-500">Data terbaru:</span> {latestDataAt}
+                  </>
+                )}
               </p>
             </div>
 
