@@ -63,7 +63,7 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
       <div className={entering ? "ml-enter-sidebar" : ""}>
         <Sidebar userName={user.name} permissions={user} />
       </div>
-      <main className={`flex-1 overflow-auto min-w-0 ${entering ? "ml-enter-content" : ""}`}>
+      <main className={`flex-1 overflow-y-auto overflow-x-hidden min-w-0 ${entering ? "ml-enter-content" : ""}`}>
         <div className="md:hidden h-12" />
         <TopBar />
         {children}

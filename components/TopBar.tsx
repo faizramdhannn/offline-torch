@@ -200,9 +200,9 @@ export default function TopBar() {
               </button>
             </div>
           ) : showAnnouncement ? (
-            <div className="flex items-center gap-2 text-xs text-gray-700">
+            <div className="flex min-w-0 items-center gap-2 text-xs text-gray-700">
               <Megaphone className="h-3.5 w-3.5 shrink-0 text-primary" />
-              <span className="truncate">{announcement.message}</span>
+              <span className="min-w-0 flex-1 truncate">{announcement.message}</span>
               {hasImage && (
                 <button
                   onClick={() => setShowImagePopup(true)}
