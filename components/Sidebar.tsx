@@ -958,7 +958,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
 
       <button
         onClick={toggleOpen}
-        className={`fixed top-3 left-3 z-50 md:hidden w-9 h-9 flex items-center justify-center rounded-lg glass-fab text-gray-900 shadow-lg transition-all duration-200 ${isOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+        className={`fixed top-[calc(0.75rem+env(safe-area-inset-top))] left-[calc(0.75rem+env(safe-area-inset-left))] z-50 md:hidden w-9 h-9 flex items-center justify-center rounded-lg glass-fab text-gray-900 shadow-lg transition-all duration-200 ${isOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}
         aria-label="Open menu"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1024,7 +1024,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 py-1.5 overflow-y-auto overflow-x-hidden">
+        <nav className="flex-1 py-1.5 pb-[env(safe-area-inset-bottom)] overflow-y-auto overflow-x-hidden">
           {checkPermission(menuItems[0]) && <MenuButton item={menuItems[0]} />}
 
           {/* QR Code, Asset, Attendance, Capture Attendance, Bundling, Canvasing */}
