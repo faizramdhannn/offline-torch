@@ -15,14 +15,19 @@ html, body {
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  /* Base font color for every page — Gunmetal in light mode, Icy Blue in
+     dark. Only affects text that doesn't set its own explicit color class
+     (any Tailwind text-gray-900, text-gray-700, etc. still wins via its own
+     !important rule below) — this is what any UNSTYLED span/div inherits. */
+  color: var(--text-primary);
 }
 
 /* â”€â”€ Dark mode CSS variables â”€â”€ */
 :root {
-  --bg-primary: #f9fafb;
+  --bg-primary: #A4D8FF;
   --bg-card: #ffffff;
   --bg-header: #f3f4f6;
-  --text-primary: #111827;
+  --text-primary: #35393C;
   --text-secondary: #6b7280;
   --border-color: #e5e7eb;
   --input-bg: #ffffff;
@@ -31,14 +36,14 @@ body {
 }
 
 html.dark {
-  --bg-primary: #0f172a;
-  --bg-card: #1e293b;
-  --bg-header: #1e293b;
-  --text-primary: #f1f5f9;
+  --bg-primary: #35393C;
+  --bg-card: #24272A;
+  --bg-header: #24272A;
+  --text-primary: #A4D8FF;
   --text-secondary: #94a3b8;
-  --border-color: #334155;
-  --input-bg: #0f172a;
-  --hover-bg: #1e293b;
+  --border-color: #484D51;
+  --input-bg: #1A1C1E;
+  --hover-bg: #2C3033;
   --shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 
@@ -52,21 +57,87 @@ html.dark body {
   color: var(--text-primary);
 }
 
-/* Background */
+/* Background â€” bg-gray-50 is this app's existing convention for a
+   page/section's own background (dark mode already remapped it to
+   --bg-primary before this change; light mode now gets the same treatment)
+   so every page consistently uses the Icy Blue / Gunmetal app theme, not
+   just the outer app shell. Doesn't touch hover:bg-gray-50 (a distinct
+   selector) so row-hover accents are unaffected. */
+.bg-gray-50 { background-color: var(--bg-primary); }
 html.dark .bg-gray-50 { background-color: var(--bg-primary) !important; }
-html.dark .bg-white { background-color: var(--bg-card) !important; }
-html.dark .bg-gray-100 { background-color: #1e293b !important; }
-html.dark .bg-gray-200 { background-color: #334155 !important; }
+
+/* Liquid Glass — cards, panels, table wrappers and secondary buttons all use
+   plain bg-white / bg-gray-100 across the app; making those two classes
+   translucent + blurred here cascades the glass look everywhere at once
+   instead of touching every page/component individually. Page-level
+   bg-gray-50 (above) stays a SOLID fill — it's the canvas the glass sits on,
+   there's nothing behind it worth blurring. */
+/* NOTE: pushed lower (0.32) once already per "kurang transparan" feedback,
+   but on the vivid Icy Blue/Gunmetal page background that made cards and
+   buttons lose all definition — ghost-looking buttons, illegible panels
+   (reported "terlihat aneh"). Settled back at a level that still reads as
+   glass (translucent + blurred, not flat opaque white) while keeping enough
+   contrast that content stays usable — usability wins over max-transparency
+   here. */
+.bg-white {
+  background-color: rgba(255,255,255,0.65) !important;
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+}
+html.dark .bg-white {
+  background-color: rgba(36,39,42,0.65) !important;
+  backdrop-filter: blur(14px) saturate(100%);
+  -webkit-backdrop-filter: blur(14px) saturate(100%);
+}
+.bg-gray-100 {
+  background-color: rgba(15,23,42,0.13) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+html.dark .bg-gray-100 {
+  background-color: rgba(255,255,255,0.13) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+html.dark .bg-gray-200 { background-color: #484D51 !important; }
+
+/* Buttons — the shared Button component's "primary" variant (and any other
+   bg-primary CTA) becomes a translucent glass chip instead of a flat solid
+   fill. Kept fairly opaque (~90%) so button labels/icons stay clearly
+   legible and it still reads as a clickable button, not a ghost outline. */
+.bg-primary {
+  background-color: rgba(13,51,77,0.9) !important;
+  backdrop-filter: blur(10px) saturate(160%);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
+}
 
 /* Opacity-modifier variants (Tailwind's bg-gray-50/50 etc. compile to a
    different class than bg-gray-50, so they need their own overrides â€” these
    were previously invisible/washed-out on Dashboard & Stock in dark mode) */
-html.dark .bg-gray-50\/50 { background-color: var(--bg-primary) !important; }
-html.dark .bg-gray-50\/40 { background-color: rgba(30,41,59,0.6) !important; }
-html.dark .bg-gray-50\/80 { background-color: rgba(30,41,59,0.8) !important; }
+.bg-gray-50\/40,
+.bg-gray-50\/50,
+.bg-gray-50\/60,
+.bg-gray-50\/70,
+.bg-gray-50\/80 { background-color: var(--bg-primary); }
+html.dark .bg-gray-50\/40,
+html.dark .bg-gray-50\/50,
+html.dark .bg-gray-50\/60,
+html.dark .bg-gray-50\/70,
+html.dark .bg-gray-50\/80 { background-color: var(--bg-primary) !important; }
+
+/* Row-stripe — a NEUTRAL subtle alternate-row tint for tables, deliberately
+   NOT tied to the Icy Blue/Gunmetal page-background theme above. Many
+   tables reused bg-gray-50 (solid or /40) for zebra striping, which after
+   the theme change turned every other row a vivid Icy Blue instead of a
+   faint tint. Use this class instead in table row markup. */
+.row-stripe { background-color: rgba(15,23,42,0.035); }
+html.dark .row-stripe { background-color: rgba(255,255,255,0.035); }
+/* Opaque variant for sticky table cells, where a translucent tint would let
+   scrolled-past content show through underneath. */
+.row-stripe-solid { background-color: var(--hover-bg); }
 html.dark .border-gray-200\/80 { border-color: var(--border-color) !important; }
-html.dark .bg-white\/95 { background-color: rgba(30,41,59,0.92) !important; }
-html.dark .bg-white\/80 { background-color: rgba(30,41,59,0.8) !important; }
+html.dark .bg-white\/95 { background-color: rgba(36,39,42,0.92) !important; }
+html.dark .bg-white\/80 { background-color: rgba(36,39,42,0.8) !important; }
 
 /* Map preview (Leaflet) — floating chips + built-in zoom/attribution controls
    need their own dark styling since they're rendered by the library, not by
@@ -77,14 +148,14 @@ html.dark .leaflet-control-zoom a {
   color: var(--text-primary) !important;
 }
 html.dark .leaflet-control-attribution {
-  background-color: rgba(30,41,59,0.85) !important;
+  background-color: rgba(36,39,42,0.85) !important;
   color: #64748b !important;
 }
 html.dark .leaflet-control-attribution a {
   color: #94a3b8 !important;
 }
 html.dark .leaflet-container {
-  background-color: #0f172a !important;
+  background-color: #1A1C1E !important;
 }
 
 /* Dark tile filter — flips the OSM raster tiles to a dark look without a
@@ -95,6 +166,7 @@ html.dark .leaflet-container {
 }
 
 /* Text */
+.text-gray-900 { color: #35393C !important; }
 html.dark .text-gray-900 { color: #f1f5f9 !important; }
 html.dark .text-gray-800 { color: #e2e8f0 !important; }
 html.dark .text-gray-700 { color: #cbd5e1 !important; }
@@ -102,11 +174,23 @@ html.dark .text-gray-600 { color: #94a3b8 !important; }
 html.dark .text-gray-500 { color: #64748b !important; }
 html.dark .text-gray-400 { color: #475569 !important; }
 
+/* text-gray-300/200 were faint even against a solid white card; now that
+   bg-white cards are translucent (Liquid Glass) they blend into the page
+   background almost entirely. Darken slightly for legibility in both modes. */
+.text-gray-300 { color: #9ca3af !important; }
+html.dark .text-gray-300 { color: #64748b !important; }
+.text-gray-200 { color: #9ca3af !important; }
+html.dark .text-gray-200 { color: #5A6065 !important; }
+
 /* Borders */
-html.dark .border-gray-200 { border-color: #334155 !important; }
-html.dark .border-gray-300 { border-color: #475569 !important; }
-html.dark .border-b { border-color: #334155 !important; }
-html.dark .border-t { border-color: #334155 !important; }
+html.dark .border-gray-200 { border-color: #484D51 !important; }
+html.dark .border-gray-300 { border-color: #5A6065 !important; }
+html.dark .border-b { border-color: #484D51 !important; }
+html.dark .border-t { border-color: #484D51 !important; }
+/* border-gray-100 was near-invisible on solid white; on translucent glass
+   cards over the Icy Blue/Gunmetal background it disappears entirely. */
+.border-gray-100 { border-color: #dbe4ea !important; }
+html.dark .border-gray-100 { border-color: #484D51 !important; }
 
 /* Inputs & selects */
 html.dark input[type="text"],
@@ -116,9 +200,9 @@ html.dark input[type="password"],
 html.dark input[type="email"],
 html.dark select,
 html.dark textarea {
-  background-color: #0f172a !important;
+  background-color: #1A1C1E !important;
   color: #f1f5f9 !important;
-  border-color: #334155 !important;
+  border-color: #484D51 !important;
 }
 
 html.dark input::placeholder,
@@ -127,8 +211,8 @@ html.dark textarea::placeholder {
 }
 
 /* Table */
-html.dark .hover\:bg-gray-50:hover { background-color: #1e293b !important; }
-html.dark .hover\:bg-gray-100:hover { background-color: #1e293b !important; }
+html.dark .hover\:bg-gray-50:hover { background-color: #2C3033 !important; }
+html.dark .hover\:bg-gray-100:hover { background-color: #2C3033 !important; }
 
 /* Badges */
 html.dark .bg-green-50 { background-color: rgba(16,185,129,0.1) !important; }
@@ -139,7 +223,6 @@ html.dark .bg-orange-50 { background-color: rgba(249,115,22,0.12) !important; }
 html.dark .bg-purple-50 { background-color: rgba(168,85,247,0.12) !important; }
 html.dark .bg-pink-50 { background-color: rgba(236,72,153,0.12) !important; }
 html.dark .bg-indigo-50 { background-color: rgba(99,102,241,0.12) !important; }
-html.dark .bg-gray-50 { background-color: #0f172a !important; }
 
 /* Solid pastel badges (e.g. attendance shift codes, activity log method tags) â€”
    keep saturated text but soften the pastel background so it reads correctly
@@ -154,8 +237,8 @@ html.dark .bg-pink-100   { background-color: rgba(236,72,153,0.18)  !important; 
 html.dark .bg-indigo-100 { background-color: rgba(99,102,241,0.18)  !important; }
 html.dark .bg-red-200    { background-color: rgba(239,68,68,0.28)   !important; }
 
-html.dark .text-blue-700,   html.dark .text-blue-600   { color: #93c5fd !important; }
-html.dark .text-green-700,  html.dark .text-green-600  { color: #6ee7b7 !important; }
+html.dark .text-blue-800,   html.dark .text-blue-700,   html.dark .text-blue-600   { color: #93c5fd !important; }
+html.dark .text-green-800,  html.dark .text-green-700,  html.dark .text-green-600  { color: #6ee7b7 !important; }
 html.dark .text-yellow-800, html.dark .text-yellow-700 { color: #fde047 !important; }
 html.dark .text-purple-800, html.dark .text-purple-600 { color: #d8b4fe !important; }
 html.dark .text-orange-800, html.dark .text-orange-600 { color: #fdba74 !important; }
@@ -175,14 +258,14 @@ html.dark .shadow-md { box-shadow: 0 4px 6px rgba(0,0,0,0.5) !important; }
 html.dark .bg-black { background-color: #000 !important; }
 
 /* Disabled */
-html.dark .disabled\:bg-gray-200:disabled { background-color: #1e293b !important; }
-html.dark .bg-gray-100[disabled] { background-color: #1e293b !important; }
+html.dark .disabled\:bg-gray-200:disabled { background-color: #24272A !important; }
+html.dark .bg-gray-100[disabled] { background-color: #24272A !important; }
 
 /* Scrollbar */
 html.dark ::-webkit-scrollbar { width: 6px; height: 6px; }
-html.dark ::-webkit-scrollbar-track { background: #1e293b; }
-html.dark ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
-html.dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+html.dark ::-webkit-scrollbar-track { background: #24272A; }
+html.dark ::-webkit-scrollbar-thumb { background: #5A6065; border-radius: 3px; }
+html.dark ::-webkit-scrollbar-thumb:hover { background: #7A8085; }
 
 /* â”€â”€ Mobile content offset when hamburger button is visible â”€â”€ */
 @media (max-width: 767px) {
@@ -195,16 +278,16 @@ html.dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
    style blocks) so every consumer gets the same look plus one dark-mode
    variant, instead of each page inventing its own translucency values. */
 .glass-card {
-  background: linear-gradient(160deg, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0.55) 100%);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255,255,255,0.7);
-  box-shadow: 0 4px 24px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.8);
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.5);
+  box-shadow: 0 4px 24px rgba(15,23,42,0.08);
 }
 html.dark .glass-card {
-  background: linear-gradient(160deg, rgba(51,65,85,0.6) 0%, rgba(15,23,42,0.55) 100%);
+  background: rgba(36,39,42,0.55);
   border: 1px solid rgba(255,255,255,0.1);
-  box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.35);
 }
 
 .glass-filterbar {
@@ -214,7 +297,7 @@ html.dark .glass-card {
   border: 1px solid rgba(255,255,255,0.6);
 }
 html.dark .glass-filterbar {
-  background: linear-gradient(160deg, rgba(51,65,85,0.55) 0%, rgba(15,23,42,0.5) 100%);
+  background: linear-gradient(160deg, rgba(60,65,68,0.55) 0%, rgba(36,39,42,0.5) 100%);
   border: 1px solid rgba(255,255,255,0.1);
 }
 
@@ -225,7 +308,7 @@ html.dark .glass-filterbar {
   border: 1px solid rgba(255,255,255,0.6);
 }
 html.dark .glass-table-wrap {
-  background: linear-gradient(160deg, rgba(51,65,85,0.5) 0%, rgba(15,23,42,0.45) 100%);
+  background: linear-gradient(160deg, rgba(60,65,68,0.5) 0%, rgba(36,39,42,0.45) 100%);
   border: 1px solid rgba(255,255,255,0.1);
 }
 .glass-table-head { background: rgba(255,255,255,0.3); }
@@ -243,3 +326,19 @@ html.dark .glass-table-head { background: rgba(255,255,255,0.04); }
 html.dark .glass-toggle { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.14); }
 html.dark .glass-toggle[data-checked="true"] { background: rgba(59,130,246,0.85); }
 .glass-toggle-knob { background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.25); }
+
+/* TopBar — sticky bar above page content (announcement + theme/notif/logout).
+   Transparent glass like the sidebar, tinted with the same Icy Blue/Gunmetal
+   base so it reads as part of the same surface family. */
+.topbar-glass {
+  background: rgba(164,216,255,0.35);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border-bottom: 1px solid rgba(255,255,255,0.4);
+}
+html.dark .topbar-glass {
+  background: rgba(53,57,60,0.55);
+  backdrop-filter: blur(18px) saturate(100%);
+  -webkit-backdrop-filter: blur(18px) saturate(100%);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}

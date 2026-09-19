@@ -571,7 +571,7 @@ return (
                           <tr
                             key={item.id}
                             onClick={() => { if (hasTextSelection()) return; router.push(`/request-store/${item.id}`); }}
-                            className={`border-b cursor-pointer ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-gray-100`}
+                            className={`border-b cursor-pointer ${idx % 2 === 0 ? "bg-white" : "row-stripe"} hover:bg-gray-100`}
                           >
                             <td className="px-2 py-1 text-gray-600 whitespace-nowrap">{item.date}</td>
                             <td className="truncate overflow-hidden whitespace-nowrap px-2 py-1 text-gray-700" title={item.requester}>

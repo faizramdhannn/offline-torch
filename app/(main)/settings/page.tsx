@@ -546,13 +546,13 @@ export default function SettingsPage() {
                       <tr
                         key={u.id}
                         className={`border-b border-gray-100 transition-colors
-                          ${hasPending ? "bg-amber-50" : idx % 2 === 0 ? "bg-white" : "bg-gray-50/50"}
+                          ${hasPending ? "bg-amber-50" : idx % 2 === 0 ? "bg-white" : "row-stripe"}
                           ${isSaving ? "opacity-60" : ""}`}
                       >
                         {/* Sticky: Name */}
                         <td
                           className={`sticky left-0 z-10 px-2 py-1 font-semibold text-gray-800 border-r-2 border-gray-300 whitespace-nowrap
-                            ${hasPending ? "bg-amber-50" : idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
+                            ${hasPending ? "bg-amber-50" : idx % 2 === 0 ? "bg-white" : "row-stripe-solid"}`}
                           style={{ minWidth: 120 }}
                         >
                           {u.name}
@@ -560,7 +560,7 @@ export default function SettingsPage() {
                         {/* Sticky: Username */}
                         <td
                           className={`sticky px-2 py-1 text-gray-500 border-r-2 border-gray-300 whitespace-nowrap
-                            ${hasPending ? "bg-amber-50" : idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
+                            ${hasPending ? "bg-amber-50" : idx % 2 === 0 ? "bg-white" : "row-stripe-solid"}`}
                           style={{ left: 120, zIndex: 10, minWidth: 90 }}
                         >
                           {u.user_name}

@@ -82,7 +82,7 @@ export function AttendanceTable({ records, isAll }: { records: AttendanceRecord[
               const closeStaff = rec.close_staff_name?.trim() || "";
               const isValid =
                 rec.is_valid_location === "TRUE" || rec.is_valid_location === "true" || rec.is_valid_location === "1";
-              const rowBg = isExpanded ? "bg-blue-50/30" : idx % 2 === 0 ? "bg-white" : "bg-gray-50/40";
+              const rowBg = isExpanded ? "bg-blue-50/30" : idx % 2 === 0 ? "bg-white" : "row-stripe";
 
               return (
                 <React.Fragment key={rec.id}>

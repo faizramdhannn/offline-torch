@@ -160,3 +160,35 @@ export function ensureJastiperSchema(): Promise<void> {
   }
   return jastiperSchemaReady;
 }
+
+let announcementSchemaReady: Promise<void> | null = null;
+
+export function ensureAnnouncementSchema(): Promise<void> {
+  if (!announcementSchemaReady) {
+    announcementSchemaReady = (async () => {
+      await sql`
+        CREATE TABLE IF NOT EXISTS app_announcement (
+          id INT PRIMARY KEY DEFAULT 1,
+          message TEXT NOT NULL DEFAULT '',
+          active BOOLEAN NOT NULL DEFAULT true,
+          update_by TEXT DEFAULT '',
+          update_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          CONSTRAINT app_announcement_singleton CHECK (id = 1)
+        )
+      `;
+      // Baris tunggal (id selalu 1) — announcement bar cuma butuh satu pesan
+      // aktif sekaligus, bukan daftar/riwayat.
+      await sql`
+        INSERT INTO app_announcement (id, message, active)
+        VALUES (1, '', false)
+        ON CONFLICT (id) DO NOTHING
+      `;
+      // Gambar opsional + label tombol untuk buka popup gambar itu (mis.
+      // "Klik", "Link") — ditambahkan belakangan, kolom lama di production
+      // butuh ALTER supaya tetap ada.
+      await sql`ALTER TABLE app_announcement ADD COLUMN IF NOT EXISTS image_url TEXT NOT NULL DEFAULT ''`;
+      await sql`ALTER TABLE app_announcement ADD COLUMN IF NOT EXISTS link_text TEXT NOT NULL DEFAULT ''`;
+    })();
+  }
+  return announcementSchemaReady;
+}

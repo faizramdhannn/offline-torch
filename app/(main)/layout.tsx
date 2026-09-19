@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import TopBar from "@/components/TopBar";
 import "../globals.css";
 import { UserProvider, useUser } from "@/context/UserContext";
 import AttendanceGateModal from "@/components/AttendanceGateModal";
@@ -64,6 +65,7 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
       </div>
       <main className={`flex-1 overflow-auto min-w-0 ${entering ? "ml-enter-content" : ""}`}>
         <div className="md:hidden h-12" />
+        <TopBar />
         {children}
       </main>
 

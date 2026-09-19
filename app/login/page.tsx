@@ -3,13 +3,17 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/shared/Button";
+import { useTheme } from "@/context/ThemeContext";
 
-// phase: "idle" | "sliding-out" | "loading" | "sliding-in-error" | "success"
-type Phase = "idle" | "sliding-out" | "loading" | "sliding-in-error" | "success";
+// phase: "idle" | "loading" | "success" — layout is a single centered card
+// now (no more sliding left/right panels), so loading is just an overlay on
+// top and errors return straight to "idle" without any re-mount trick.
+type Phase = "idle" | "loading" | "success";
 
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isDark, toggleTheme } = useTheme();
   const [mode, setMode] = useState<"login" | "register">("login");
 
   const [username, setUsername] = useState("");
@@ -50,12 +54,6 @@ function LoginPageContent() {
     e.preventDefault();
     setError("");
     setSessionExpired(false);
-
-    // Phase 1: slide form left, image right
-    setPhase("sliding-out");
-
-    // After slide-out animation (500ms), show loading spinner
-    await new Promise((r) => setTimeout(r, 500));
     setPhase("loading");
 
     try {
@@ -82,12 +80,6 @@ function LoginPageContent() {
       setTimeout(() => router.push(destination), 400);
     } catch {
       setError("Username or password is incorrect");
-
-      // First snap panels back to their "off-screen" starting positions (no transition)
-      setPhase("sliding-in-error");
-
-      // Then on next frame, add transition + slide them back in
-      await new Promise((r) => setTimeout(r, 30)); // allow reflow
       setPhase("idle");
     }
   };
@@ -114,9 +106,7 @@ function LoginPageContent() {
     }
   };
 
-  const isSliding = phase === "sliding-out" || phase === "success";
-  const isReturning = phase === "sliding-in-error";
-  const isLoading = phase === "loading";
+  const isBusy = phase !== "idle";
 
   return (
     <>
@@ -127,108 +117,93 @@ function LoginPageContent() {
         .sl-root {
           min-height: 100vh;
           display: flex;
+          align-items: center;
+          justify-content: center;
           font-family: 'IBM Plex Sans', sans-serif;
-          background: #eef1f6;
+          background: #A4D8FF;
           overflow: hidden;
           position: relative;
+          padding: 1.5rem;
         }
-        /* ─── Left panel (white liquid-glass card) ─── */
-        .sl-left {
-          width: 100%;
-          max-width: 480px;
-          flex-shrink: 0;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          padding: 2.5rem 3rem;
-          background: linear-gradient(135deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.28) 100%);
-          backdrop-filter: blur(30px) saturate(200%);
-          -webkit-backdrop-filter: blur(30px) saturate(200%);
-          border: 1px solid rgba(255,255,255,0.6);
-          box-shadow: 0 8px 32px rgba(31,41,55,0.15), inset 0 1px 0 rgba(255,255,255,0.8);
-          position: relative;
-          z-index: 2;
-          transition: transform 0.5s cubic-bezier(.65,0,.35,1), opacity 0.5s cubic-bezier(.65,0,.35,1);
-        }
+        html.dark .sl-root { background: #35393C; }
 
-        /* Slide form OUT to the left (on submit) */
-        .sl-root.phase-out .sl-left,
-        .sl-root.phase-loading .sl-left,
-        .sl-root.phase-success .sl-left {
-          transform: translateX(-105%);
-          opacity: 0;
-          pointer-events: none;
-        }
-
-        /* Slide form back IN from the left (on error) */
-        .sl-root.phase-error-enter .sl-left {
-          transform: translateX(-105%);
-          opacity: 0;
-          transition: none; /* snap to start position */
-        }
-        .sl-root.phase-idle .sl-left {
-          transform: translateX(0);
-          opacity: 1;
-        }
-
-        /* ─── Right panel (cover login, unchanged) ─── */
-        .sl-right {
-          flex: 1;
-          position: relative;
-          overflow: hidden;
-          display: flex;
-          align-items: flex-end;
-          background: #eff6ff;
-          z-index: 1;
-          transition: transform 0.5s cubic-bezier(.65,0,.35,1), opacity 0.5s cubic-bezier(.65,0,.35,1);
-        }
-
-        /* Slide image OUT to the right (on submit) */
-        .sl-root.phase-out .sl-right,
-        .sl-root.phase-loading .sl-right,
-        .sl-root.phase-success .sl-right {
-          transform: translateX(105%);
-          opacity: 0;
-        }
-
-        /* Snap image back to off-screen right (on error, before returning) */
-        .sl-root.phase-error-enter .sl-right {
-          transform: translateX(105%);
-          opacity: 0;
-          transition: none;
-        }
-        .sl-root.phase-idle .sl-right {
-          transform: translateX(0);
-          opacity: 1;
-        }
-
-        .sl-right video {
-          position: absolute; inset: 0;
+        /* ─── Full-screen video background ─── */
+        /* object-fit: cover, edge-to-edge, tidak di-scale — video mengisi
+           penuh layar tanpa margin/bar di pinggir. */
+        .sl-bg-video {
+          position: fixed; inset: 0;
           width: 100%; height: 100%;
           object-fit: cover; object-position: center;
           z-index: 0;
         }
-        .sl-right::after {
-          content: '';
-          position: absolute; inset: 0;
-          background: rgba(37,99,235,0.18);
+        .sl-bg-overlay {
+          position: fixed; inset: 0;
+          background: rgba(15,23,42,0.2);
           z-index: 1; pointer-events: none;
         }
-        .sl-right-content { position: relative; z-index: 2; padding: 2.5rem; width: 100%; }
+        html.dark .sl-bg-overlay { background: rgba(0,0,0,0.35); }
+
+        /* ─── Centered liquid-glass login card ─── */
+        /* Mengikuti pola Liquid Glass Apple: tint hampir tidak ada (nyaris
+           cuma blur+saturate), definisi bentuknya datang dari border tipis
+           terang + highlight, bukan dari warna solid di baliknya. */
+        .sl-card {
+          position: relative;
+          z-index: 2;
+          width: 100%;
+          max-width: 400px;
+          padding: 2.25rem 2.25rem 1.75rem;
+          background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
+          backdrop-filter: blur(2px) saturate(220%);
+          -webkit-backdrop-filter: blur(2px) saturate(220%);
+          border: 1px solid rgba(255,255,255,0.45);
+          border-radius: 24px;
+          box-shadow: 0 24px 70px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.45);
+          transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+        .sl-card.busy { opacity: 0; transform: scale(0.97); pointer-events: none; }
+        html.dark .sl-card {
+          background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.005) 100%);
+          border-color: rgba(255,255,255,0.08);
+          box-shadow: 0 20px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+
+        .sl-card-header { display: flex; flex-direction: column; align-items: center; margin-bottom: 1.5rem; position: relative; }
+        .sl-card-logo { width: 56px; height: 56px; object-fit: contain; margin-bottom: 0.6rem; filter: drop-shadow(0 2px 10px rgba(0,0,0,0.25)); }
+        .sl-brand-name {
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 0.7rem; font-weight: 500; color: #2563eb;
+          letter-spacing: 0.14em; text-transform: uppercase;
+        }
+        html.dark .sl-brand-name { color: #A4D8FF; }
+
+        .sl-theme-toggle {
+          position: absolute; top: 0; right: 0;
+          width: 30px; height: 30px; border-radius: 8px;
+          display: flex; align-items: center; justify-content: center;
+          background: rgba(37,99,235,0.12); border: 1px solid rgba(37,99,235,0.2);
+          color: #2563eb; cursor: pointer; transition: background 0.15s;
+        }
+        .sl-theme-toggle:hover { background: rgba(37,99,235,0.2); }
+        html.dark .sl-theme-toggle {
+          background: rgba(164,216,255,0.14); border-color: rgba(164,216,255,0.25); color: #A4D8FF;
+        }
+        html.dark .sl-theme-toggle:hover { background: rgba(164,216,255,0.22); }
 
         /* ─── Loading overlay ─── */
         .sl-loading-overlay {
-          position: absolute; inset: 0;
+          position: fixed; inset: 0;
           display: flex; flex-direction: column;
           align-items: center; justify-content: center;
           z-index: 10;
-          background: rgba(255,255,255,0.6);
+          background: rgba(255,255,255,0.5);
           backdrop-filter: blur(24px) saturate(180%);
           -webkit-backdrop-filter: blur(24px) saturate(180%);
           opacity: 0;
           pointer-events: none;
           transition: opacity 0.3s ease;
         }
+        html.dark .sl-loading-overlay { background: rgba(53,57,60,0.6); }
         .sl-root.phase-loading .sl-loading-overlay,
         .sl-root.phase-success .sl-loading-overlay {
           opacity: 1;
@@ -307,31 +282,15 @@ function LoginPageContent() {
           100% { transform: translate(-50%, -50%) rotate(360deg) translateX(52px) rotate(-360deg) scale(1.1); opacity: 0; }
         }
 
-        /* ─── Brand / form styles (white Liquid Glass) ─── */
-        .sl-brand { display: flex; align-items: center; gap: 0.6rem; }
-        .sl-logo-box {
-          width: 30px; height: 30px; background: rgba(37,99,235,0.85);
-          backdrop-filter: blur(8px);
-          border: 1px solid rgba(255,255,255,0.5);
-          border-radius: 7px; display: flex; align-items: center;
-          justify-content: center; flex-shrink: 0;
-        }
-        .sl-logo-box svg { width: 16px; height: 16px; }
-        .sl-brand-name {
-          font-family: 'IBM Plex Mono', monospace;
-          font-size: 0.75rem; font-weight: 500; color: #2563eb;
-          letter-spacing: 0.12em; text-transform: uppercase;
-        }
-
-        .sl-form-area {
-          flex: 1; display: flex; flex-direction: column;
-          justify-content: center; max-width: 360px; padding: 3rem 0;
-        }
+        /* ─── Form styles ─── */
         .sl-heading {
-          font-size: 1.8rem; font-weight: 600; color: #111827;
-          letter-spacing: -0.025em; line-height: 1.2; margin-bottom: 0.4rem;
+          font-size: 1.5rem; font-weight: 700; color: #111827;
+          letter-spacing: -0.025em; line-height: 1.2; margin-bottom: 0.3rem;
+          text-align: center; text-shadow: 0 1px 3px rgba(255,255,255,0.6);
         }
-        .sl-subheading { font-size: 0.82rem; color: #6b7280; font-weight: 300; margin-bottom: 2rem; }
+        html.dark .sl-heading { color: #A4D8FF; }
+        .sl-subheading { font-size: 0.8rem; color: #6b7280; font-weight: 300; margin-bottom: 1.5rem; text-align: center; }
+        html.dark .sl-subheading { color: rgba(164,216,255,0.65); }
 
         .sl-alert {
           display: flex; align-items: flex-start; gap: 0.55rem;
@@ -344,23 +303,31 @@ function LoginPageContent() {
 
         .sl-field { margin-bottom: 1.1rem; }
         .sl-label {
-          display: block; font-size: 0.7rem; font-weight: 500; color: #6b7280;
+          display: block; font-size: 0.7rem; font-weight: 600; color: #374151;
           letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 0.4rem;
+          text-shadow: 0 1px 2px rgba(255,255,255,0.5);
         }
+        html.dark .sl-label { color: rgba(164,216,255,0.65); }
         .sl-iw { position: relative; }
         .sl-input {
           width: 100%; padding: 0.7rem 0.95rem;
-          background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.7);
-          backdrop-filter: blur(10px);
+          background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.4);
+          backdrop-filter: blur(1px) saturate(180%);
+          -webkit-backdrop-filter: blur(1px) saturate(180%);
           border-radius: 8px; color: #111827;
           font-family: 'IBM Plex Sans', sans-serif;
           font-size: 0.875rem; outline: none;
           transition: border-color 0.15s, background 0.15s;
           -webkit-appearance: none;
         }
-        .sl-input::placeholder { color: #9ca3af; font-weight: 300; }
-        .sl-input:focus { border-color: #2563eb; background: rgba(255,255,255,0.75); }
+        .sl-input::placeholder { color: #374151; font-weight: 300; }
+        .sl-input:focus { border-color: #2563eb; background: rgba(255,255,255,0.12); }
         .sl-input.pw { padding-right: 2.8rem; }
+        html.dark .sl-input {
+          background: rgba(255,255,255,0.015); border-color: rgba(255,255,255,0.08); color: #e0f2ff;
+        }
+        html.dark .sl-input::placeholder { color: rgba(224,242,255,0.35); }
+        html.dark .sl-input:focus { border-color: #A4D8FF; background: rgba(255,255,255,0.11); }
 
         .sl-eye {
           position: absolute; right: 0.8rem; top: 50%;
@@ -370,6 +337,8 @@ function LoginPageContent() {
           transition: color 0.15s;
         }
         .sl-eye:hover { color: #374151; }
+        html.dark .sl-eye { color: rgba(224,242,255,0.5); }
+        html.dark .sl-eye:hover { color: #A4D8FF; }
 
         .sl-error {
           display: flex; align-items: center; gap: 0.4rem;
@@ -412,6 +381,8 @@ function LoginPageContent() {
           font-size: 0.7rem; color: #9ca3af;
           letter-spacing: 0.05em; font-family: 'IBM Plex Mono', monospace;
         }
+        html.dark .sl-divider { background: rgba(255,255,255,0.12); }
+        html.dark .sl-divider span { background: rgba(53,57,60,0.85); color: rgba(224,242,255,0.4); }
 
         .sl-switch-link { text-align: center; font-size: 0.8rem; color: #6b7280; }
         .sl-switch-link button {
@@ -421,69 +392,151 @@ function LoginPageContent() {
           padding: 0; transition: color 0.15s, border-color 0.15s;
         }
         .sl-switch-link button:hover { color: #1d4ed8; border-color: rgba(29,78,216,0.5); }
+        html.dark .sl-switch-link { color: rgba(164,216,255,0.65); }
+        html.dark .sl-switch-link button { color: #A4D8FF; border-color: rgba(164,216,255,0.35); }
+        html.dark .sl-switch-link button:hover { color: #c9e8ff; border-color: rgba(201,232,255,0.5); }
 
         .sl-footer {
           font-family: 'IBM Plex Mono', monospace;
           font-size: 0.62rem; color: #9ca3af; letter-spacing: 0.05em;
+          text-align: center; margin-top: 1.5rem;
         }
+        html.dark .sl-footer { color: rgba(224,242,255,0.35); }
 
-        @media (max-width: 768px) {
-          .sl-right { display: none; }
-          .sl-left { max-width: 100%; padding: 2rem 1.75rem; }
+        @media (max-width: 480px) {
+          .sl-card { max-width: 100%; padding: 1.75rem 1.5rem 1.25rem; border-radius: 20px; }
         }
       `}</style>
 
-      {/* Phase classes drive all CSS transitions */}
       <div
         className={`sl-root ${
-          phase === "sliding-out"     ? "phase-out" :
-          phase === "loading"         ? "phase-loading" :
-          phase === "success"         ? "phase-success" :
-          phase === "sliding-in-error" ? "phase-error-enter" :
-          "phase-idle"
+          phase === "loading" ? "phase-loading" : phase === "success" ? "phase-success" : ""
         }`}
       >
-        {/* ── Left panel (form) ── */}
-        <div className="sl-left">
-          <div className="sl-brand">
-            <div className="sl-logo-box">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 3L4 9v12h16V9L12 3z" fill="white" />
-                <path d="M12 7l-5 3.5V19h10v-8.5L12 7z" fill="#2563eb" opacity="0.2" />
-                <rect x="9" y="14" width="6" height="5" rx="1" fill="#2563eb" />
-              </svg>
-            </div>
-            <span className="sl-brand-name">Welcome Back</span>
+        {/* ── Full-screen cover video ── */}
+        <video className="sl-bg-video" src="/cover_login.mp4" autoPlay loop muted playsInline preload="auto" />
+        <div className="sl-bg-overlay" />
+
+        {/* ── Centered liquid-glass card ── */}
+        <div className={`sl-card ${isBusy ? "busy" : ""}`}>
+          <div className="sl-card-header">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo_offline_torch.png" alt="Offline Torch" className="sl-card-logo" />
+            <span className="sl-brand-name">Offline Torch</span>
+            <button
+              type="button"
+              className="sl-theme-toggle"
+              onClick={toggleTheme}
+              title={isDark ? "Light mode" : "Dark mode"}
+              aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {isDark ? (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              ) : (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+              )}
+            </button>
           </div>
 
-          <div className="sl-form-area">
-            {mode === "login" && (
-              <>
-                <h1 className="sl-heading">Login</h1>
+          {mode === "login" && (
+            <>
+              <h1 className="sl-heading">Login</h1>
 
-                {sessionExpired && (
-                  <div className="sl-alert sl-alert-warn">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
-                      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+              {sessionExpired && (
+                <div className="sl-alert sl-alert-warn">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                    <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  Your session has expired. Please log in again.
+                </div>
+              )}
+
+              <form onSubmit={handleLogin}>
+                <div className="sl-field">
+                  <label className="sl-label">Username</label>
+                  <input type="text" value={username} onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Enter username" className="sl-input" required autoComplete="username" />
+                </div>
+                <div className="sl-field">
+                  <label className="sl-label">Password</label>
+                  <div className="sl-iw">
+                    <input type={showPassword ? "text" : "password"} value={password}
+                      onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
+                      className="sl-input pw" required autoComplete="current-password" />
+                    <button type="button" className="sl-eye" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}>
+                      {showPassword ? (
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
+                          <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
+                          <line x1="1" y1="1" x2="23" y2="23" />
+                        </svg>
+                      ) : (
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="sl-error">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                      <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                     </svg>
-                    Your session has expired. Please log in again.
+                    {error}
                   </div>
                 )}
 
-                <form onSubmit={handleLogin}>
+                <Button type="submit" className="sl-btn" disabled={isBusy}>
+                  Login
+                </Button>
+              </form>
+
+              <div className="sl-divider"><span>or</span></div>
+              <p className="sl-switch-link">
+                Don't have an account?&nbsp;
+                <button onClick={() => switchMode("register")}>Register here</button>
+              </p>
+            </>
+          )}
+
+          {mode === "register" && (
+            <>
+              <h1 className="sl-heading">Registration</h1>
+              <p className="sl-subheading">The request will be approved by the admin</p>
+
+              {regSuccess ? (
+                <div className="sl-alert sl-alert-success">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
+                  Registration request successfully submitted. Please wait for admin approval.
+                </div>
+              ) : (
+                <form onSubmit={handleRegister}>
+                  <div className="sl-field">
+                    <label className="sl-label">Full Name</label>
+                    <input type="text" value={regName} onChange={(e) => setRegName(e.target.value)}
+                      placeholder="Enter full name" className="sl-input" required />
+                  </div>
                   <div className="sl-field">
                     <label className="sl-label">Username</label>
-                    <input type="text" value={username} onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Enter username" className="sl-input" required autoComplete="username" />
+                    <input type="text" value={regUsername} onChange={(e) => setRegUsername(e.target.value)}
+                      placeholder="Buat username" className="sl-input" required />
                   </div>
                   <div className="sl-field">
                     <label className="sl-label">Password</label>
                     <div className="sl-iw">
-                      <input type={showPassword ? "text" : "password"} value={password}
-                        onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
-                        className="sl-input pw" required autoComplete="current-password" />
-                      <button type="button" className="sl-eye" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}>
-                        {showPassword ? (
+                      <input type={regShowPassword ? "text" : "password"} value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)} placeholder="••••••••"
+                        className="sl-input pw" required />
+                      <button type="button" className="sl-eye" onClick={() => setRegShowPassword(!regShowPassword)} tabIndex={-1}>
+                        {regShowPassword ? (
                           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
                             <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
@@ -498,102 +551,33 @@ function LoginPageContent() {
                     </div>
                   </div>
 
-                  {error && (
+                  {regError && (
                     <div className="sl-error">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                         <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                       </svg>
-                      {error}
+                      {regError}
                     </div>
                   )}
 
-                  <Button type="submit" className="sl-btn" disabled={phase !== "idle"}>
-                    Login
+                  <Button type="submit" className="sl-btn" disabled={regLoading} loading={regLoading}>
+                    {regLoading ? "Sending..." : "Send Request"}
                   </Button>
                 </form>
+              )}
 
-                <div className="sl-divider"><span>or</span></div>
-                <p className="sl-switch-link">
-                  Don't have an account?&nbsp;
-                  <button onClick={() => switchMode("register")}>Register here</button>
-                </p>
-              </>
-            )}
-
-            {mode === "register" && (
-              <>
-                <h1 className="sl-heading">Registration</h1>
-                <p className="sl-subheading">The request will be approved by the admin</p>
-
-                {regSuccess ? (
-                  <div className="sl-alert sl-alert-success">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
-                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-                    </svg>
-                    Registration request successfully submitted. Please wait for admin approval.
-                  </div>
-                ) : (
-                  <form onSubmit={handleRegister}>
-                    <div className="sl-field">
-                      <label className="sl-label">Full Name</label>
-                      <input type="text" value={regName} onChange={(e) => setRegName(e.target.value)}
-                        placeholder="Enter full name" className="sl-input" required />
-                    </div>
-                    <div className="sl-field">
-                      <label className="sl-label">Username</label>
-                      <input type="text" value={regUsername} onChange={(e) => setRegUsername(e.target.value)}
-                        placeholder="Buat username" className="sl-input" required />
-                    </div>
-                    <div className="sl-field">
-                      <label className="sl-label">Password</label>
-                      <div className="sl-iw">
-                        <input type={regShowPassword ? "text" : "password"} value={regPassword}
-                          onChange={(e) => setRegPassword(e.target.value)} placeholder="••••••••"
-                          className="sl-input pw" required />
-                        <button type="button" className="sl-eye" onClick={() => setRegShowPassword(!regShowPassword)} tabIndex={-1}>
-                          {regShowPassword ? (
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
-                              <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
-                              <line x1="1" y1="1" x2="23" y2="23" />
-                            </svg>
-                          ) : (
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {regError && (
-                      <div className="sl-error">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                          <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-                        </svg>
-                        {regError}
-                      </div>
-                    )}
-
-                    <Button type="submit" className="sl-btn" disabled={regLoading} loading={regLoading}>
-                      {regLoading ? "Sending..." : "Send Request"}
-                    </Button>
-                  </form>
-                )}
-
-                <div className="sl-divider"><span>or</span></div>
-                <p className="sl-switch-link">
-                  Already have an account?&nbsp;
-                  <button onClick={() => switchMode("login")}>Log in here</button>
-                </p>
-              </>
-            )}
-          </div>
+              <div className="sl-divider"><span>or</span></div>
+              <p className="sl-switch-link">
+                Already have an account?&nbsp;
+                <button onClick={() => switchMode("login")}>Log in here</button>
+              </p>
+            </>
+          )}
 
           <div className="sl-footer">© 2026 OFFLINE TORCH</div>
         </div>
 
-        {/* ── Loading overlay (centre) — logo Offline Torch + animasi orbit, tanpa teks ── */}
+        {/* ── Loading overlay (full screen) — logo Offline Torch + animasi orbit, tanpa teks ── */}
         <div className="sl-loading-overlay">
           <div className="sl-loader">
             <div className="sl-flame-glow" />
@@ -605,19 +589,6 @@ function LoginPageContent() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo_offline_torch.png" alt="Offline Torch" className="sl-logo-img" />
           </div>
-        </div>
-
-        {/* ── Right panel (image) ── */}
-        <div className="sl-right">
-          <video
-            src="/cover_login.mp4"
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="auto"
-          />
-          <div className="sl-right-content"></div>
         </div>
       </div>
     </>

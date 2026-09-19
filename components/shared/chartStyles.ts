@@ -17,5 +17,5 @@ export const chartTooltipStyle: Record<string, string | number> = {
   boxShadow: "0 8px 24px rgba(15,23,42,0.08)",
 };
 
-export const chartAxisTick = { fontSize: 10, fill: "#94a3b8" };
-export const chartGridStroke = "#f1f5f9";
+export const chartAxisTick = { fontSize: 10, fill: "#475569" };
+export const chartGridStroke = "#cbd5e1";

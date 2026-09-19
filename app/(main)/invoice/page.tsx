@@ -1216,7 +1216,7 @@ export default function InvoicePage() {
                     </thead>
                     <tbody>
                       {selectedItems.map((it, i) => (
-                        <tr key={i} className={`border-b last:border-0 ${i % 2 === 0 ? "bg-gray-50/50" : ""}`}>
+                        <tr key={i} className={`border-b last:border-0 ${i % 2 === 0 ? "row-stripe" : ""}`}>
                           <td className="px-2 py-1">{it.product_name}</td>
                           <td className="px-2 py-1 text-center">{it.qty}</td>
                           <td className="px-2 py-1 text-right">{formatRupiah(it.unit_price)}</td>

@@ -284,7 +284,7 @@ export function EntryTable({ items, isStoreUser, canEdit, onEdit, onDelete, form
           </thead>
           <tbody className="divide-y divide-gray-100">
             {items.map((row, idx) => (
-              <tr key={row.id || idx} className={cn("transition-colors duration-150", idx % 2 === 1 ? "bg-gray-50/40" : "bg-white", "hover:bg-primary/[0.04]")}>
+              <tr key={row.id || idx} className={cn("transition-colors duration-150", idx % 2 === 1 ? "row-stripe" : "bg-white", "hover:bg-primary/[0.04]")}>
                 {activeColumns.map((c) => {
                   const content = c.render(row, { formatDate, toTitleCase });
                   const titleAttr = typeof content === "string" ? content : undefined;

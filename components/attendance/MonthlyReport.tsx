@@ -493,7 +493,7 @@ export function MonthlyReport({ user, isStoreUser, myStoreName }: MonthlyReportP
                           {LIST_ROWS.map((row, i) => (
                             <div
                               key={row.label}
-                              className={`flex items-center justify-between px-2 py-1 border-b border-gray-200 last:border-b-0 ${row.bg || (i % 2 === 0 ? 'bg-white' : 'bg-gray-50')}`}
+                              className={`flex items-center justify-between px-2 py-1 border-b border-gray-200 last:border-b-0 ${row.bg || (i % 2 === 0 ? 'bg-white' : 'row-stripe')}`}
                             >
                               <span className={`font-semibold uppercase text-[8px] ${row.bg ? 'text-blue-700 font-black' : 'text-gray-700'}`}>
                                 {row.label}

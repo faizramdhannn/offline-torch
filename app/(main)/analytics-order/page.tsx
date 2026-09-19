@@ -1665,7 +1665,7 @@ useEffect(() => {
                               <h3 className="text-sm font-semibold text-gray-700 mb-4">Revenue per Store (IDR)</h3>
                               <ResponsiveContainer width="100%" height={280}>
                                 <BarChart data={revenueByStore} margin={{ top: 16, right: 8, left: 0, bottom: 40 }}>
-                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#cbd5e1" />
                                   <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-30} textAnchor="end" interval={0} />
                                   <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}k` : v} width={50} />
                                   <Tooltip content={<DarkTooltip formatter={formatRupiah} />} />
@@ -1679,7 +1679,7 @@ useEffect(() => {
                               <h3 className="text-sm font-semibold text-gray-700 mb-4">Jumlah Order per Store</h3>
                               <ResponsiveContainer width="100%" height={240}>
                                 <BarChart data={orderCountByStore.sort((a,b) => b.count - a.count)} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
-                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#cbd5e1" />
                                   <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-30} textAnchor="end" interval={0} />
                                   <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
                                   <Tooltip content={<DarkTooltip />} />
@@ -1697,7 +1697,7 @@ useEffect(() => {
                               <p className="text-xs text-gray-400 mb-4">Revenue per hari berdasarkan tanggal order</p>
                               <ResponsiveContainer width="100%" height={300}>
                                 <LineChart data={dailyRevenueByStore.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
-                                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                                   <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={Math.floor(dailyRevenueByStore.chartData.length / 15)} />
                                   <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}k` : v} width={50} />
                                   <Tooltip content={<DarkTooltip formatter={formatRupiah} />} />
@@ -1713,7 +1713,7 @@ useEffect(() => {
                               <p className="text-xs text-gray-400 mb-4">Jumlah order per hari</p>
                               <ResponsiveContainer width="100%" height={260}>
                                 <LineChart data={dailyOrdersByStore.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
-                                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                                   <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={Math.floor(dailyOrdersByStore.chartData.length / 15)} />
                                   <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
                                   <Tooltip content={<DarkTooltip />} />
@@ -1822,7 +1822,7 @@ useEffect(() => {
                                   <BarChart
                                     data={(hideUnknownTraffic ? trafficData.filter(d => d.name !== "Tidak Diketahui") : trafficData).slice(0, 12)}
                                     layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 4 }}>
-                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#cbd5e1" />
                                     <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }} />
                                     <YAxis dataKey="name" type="category" tick={{ fontSize: 10, fill: "#6b7280" }} width={130} />
                                     <Tooltip content={<DarkTooltip />} />
@@ -1843,7 +1843,7 @@ useEffect(() => {
                             <p className="text-xs text-gray-400 mb-4">Jumlah order per sumber traffic per hari</p>
                             <ResponsiveContainer width="100%" height={320}>
                               <LineChart data={dailyTrafficData.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                                 <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={Math.floor(dailyTrafficData.chartData.length / 15)} />
                                 <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
                                 <Tooltip content={<DarkTooltip />} />
@@ -1917,7 +1917,7 @@ useEffect(() => {
                               <h3 className="text-sm font-semibold text-gray-700 mb-4">Penggunaan Discount Code (Top 20)</h3>
                               <ResponsiveContainer width="100%" height={300}>
                                 <BarChart data={discountData} margin={{ top: 16, right: 8, left: 0, bottom: 50 }}>
-                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#cbd5e1" />
                                   <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={0} />
                                   <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
                                   <Tooltip content={<DarkTooltip />} />
@@ -1932,7 +1932,7 @@ useEffect(() => {
                               <h3 className="text-sm font-semibold text-gray-700 mb-4">Total Subtotal per Discount Code</h3>
                               <ResponsiveContainer width="100%" height={280}>
                                 <BarChart data={discountData} margin={{ top: 16, right: 8, left: 0, bottom: 50 }}>
-                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#cbd5e1" />
                                   <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={0} />
                                   <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}k` : v} width={50} />
                                   <Tooltip content={<DarkTooltip formatter={formatRupiah} />} />
@@ -1949,7 +1949,7 @@ useEffect(() => {
                             <p className="text-xs text-gray-400 mb-4">Perbandingan total order vs order yang memakai discount per hari</p>
                             <ResponsiveContainer width="100%" height={300}>
                               <LineChart data={dailyDiscountData} margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                                 <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={Math.floor(dailyDiscountData.length / 15)} />
                                 <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
                                 <Tooltip content={<DarkTooltip />} />
@@ -2018,7 +2018,7 @@ useEffect(() => {
                               <h3 className="text-sm font-semibold text-gray-700 mb-4">Top 20 Produk Terjual (by Quantity)</h3>
                               <ResponsiveContainer width="100%" height={320}>
                                 <BarChart data={productData} layout="vertical" margin={{ top: 4, right: 60, left: 8, bottom: 4 }}>
-                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
+                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#cbd5e1" />
                                   <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }} />
                                   <YAxis dataKey="name" type="category" tick={{ fontSize: 9, fill: "#6b7280" }} width={200}
                                     tickFormatter={(v: string) => v.length > 32 ? v.slice(0, 32) + "…" : v} />
@@ -2035,7 +2035,7 @@ useEffect(() => {
                               <ResponsiveContainer width="100%" height={320}>
                                 <BarChart data={[...productData].sort((a, b) => b.revenue - a.revenue).slice(0, 20)}
                                   layout="vertical" margin={{ top: 4, right: 80, left: 8, bottom: 4 }}>
-                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
+                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#cbd5e1" />
                                   <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : `${(v/1e3).toFixed(0)}k`} />
                                   <YAxis dataKey="name" type="category" tick={{ fontSize: 9, fill: "#6b7280" }} width={200}
                                     tickFormatter={(v: string) => v.length > 32 ? v.slice(0, 32) + "…" : v} />
@@ -2053,7 +2053,7 @@ useEffect(() => {
                             <p className="text-xs text-gray-400 mb-4">Qty terjual per hari untuk 5 produk terlaris</p>
                             <ResponsiveContainer width="100%" height={320}>
                               <LineChart data={dailyProductData.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                                 <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={Math.floor(dailyProductData.chartData.length / 15)} />
                                 <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
                                 <Tooltip content={<DarkTooltip />} />
@@ -2113,7 +2113,7 @@ useEffect(() => {
                               <h3 className="text-sm font-semibold text-gray-700 mb-4">Revenue yang Ditangani per Karyawan</h3>
                               <ResponsiveContainer width="100%" height={300}>
                                 <BarChart data={employeeData} margin={{ top: 16, right: 8, left: 0, bottom: 60 }}>
-                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#cbd5e1" />
                                   <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={0} />
                                   <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}k` : v} width={50} />
                                   <Tooltip content={<DarkTooltip formatter={formatRupiah} />} />
@@ -2127,7 +2127,7 @@ useEffect(() => {
                               <h3 className="text-sm font-semibold text-gray-700 mb-4">Jumlah Order per Karyawan</h3>
                               <ResponsiveContainer width="100%" height={280}>
                                 <BarChart data={employeeData} margin={{ top: 16, right: 8, left: 0, bottom: 60 }}>
-                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#cbd5e1" />
                                   <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={0} />
                                   <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
                                   <Tooltip content={<DarkTooltip />} />
@@ -2145,7 +2145,7 @@ useEffect(() => {
                             <p className="text-xs text-gray-400 mb-4">Revenue yang ditangani per karyawan per hari</p>
                             <ResponsiveContainer width="100%" height={320}>
                               <LineChart data={dailyEmployeeData.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 40 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                                 <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end" interval={Math.floor(dailyEmployeeData.chartData.length / 15)} />
                                 <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}k` : v} width={50} />
                                 <Tooltip content={<DarkTooltip formatter={formatRupiah} />} />
@@ -2207,7 +2207,7 @@ useEffect(() => {
                               <h3 className="text-sm font-semibold text-gray-700 mb-4">Revenue Harian (Online)</h3>
                               <ResponsiveContainer width="100%" height={220}>
                                 <BarChart data={onlineOrderData.dailyData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
-                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#cbd5e1" />
                                   <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end"
                                     interval={Math.max(0, Math.floor(onlineOrderData.dailyData.length / 12))} />
                                   <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}k` : v} width={50} />
@@ -2220,7 +2220,7 @@ useEffect(() => {
                               <h3 className="text-sm font-semibold text-gray-700 mb-4">Jumlah Order Harian (Online)</h3>
                               <ResponsiveContainer width="100%" height={220}>
                                 <BarChart data={onlineOrderData.dailyData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
-                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#cbd5e1" />
                                   <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#6b7280" }} angle={-40} textAnchor="end"
                                     interval={Math.max(0, Math.floor(onlineOrderData.dailyData.length / 12))} />
                                   <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} width={36} />
@@ -2237,7 +2237,7 @@ useEffect(() => {
                             <h3 className="text-sm font-semibold text-gray-700 mb-4">Revenue Online per Store</h3>
                             <ResponsiveContainer width="100%" height={220}>
                               <BarChart data={onlineOrderData.revenueByStore} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#cbd5e1" />
                                 <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-30} textAnchor="end" interval={0} />
                                 <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : v >= 1e3 ? `${(v/1e3).toFixed(0)}k` : v} width={50} />
                                 <Tooltip content={<DarkTooltip formatter={formatRupiah} />} />

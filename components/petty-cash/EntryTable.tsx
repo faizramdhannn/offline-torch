@@ -69,7 +69,7 @@ export function EntryTable({
                 onClick={() => onRowClick(item)}
                 className={cn(
                   "cursor-pointer transition-colors duration-150",
-                  idx % 2 === 1 ? "bg-gray-50/40" : "bg-white",
+                  idx % 2 === 1 ? "row-stripe" : "bg-white",
                   "hover:bg-primary/[0.04]"
                 )}
               >

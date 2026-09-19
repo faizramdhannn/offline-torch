@@ -923,7 +923,7 @@ export default function StockPage() {
                             const isActive = warehouseFilter.length === 1 &&
                               warehouseFilter[0] === WAREHOUSES.find((w) => w.name === entry.name)?.key;
                             const isDimmed = warehouseFilter.length === 1 && !isActive;
-                            const color = entry.stock === maxStock ? "#3de400" : entry.stock === minStock && entry.stock > 0 ? "#e20000" : "#cbe2ff";
+                            const color = entry.stock === maxStock ? "#3de400" : entry.stock === minStock && entry.stock > 0 ? "#e20000" : "#2563eb";
                             return <Cell key={index} fill={color} opacity={isDimmed ? 0.35 : 1} stroke={isActive ? "#0d334d" : undefined} strokeWidth={isActive ? 2 : 0} />;
                           })}
                         </Bar>

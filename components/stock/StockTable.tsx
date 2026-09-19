@@ -301,7 +301,7 @@ export function StockTable({
               className={cn(
                 "cursor-pointer border-b border-gray-50 transition-colors hover:bg-gray-50 active:bg-gray-100",
                 isExpanded && "bg-primary/5",
-                index % 2 === 1 && !isExpanded && "bg-gray-50/40"
+                index % 2 === 1 && !isExpanded && "row-stripe"
               )}
             >
               <td className="px-2 py-1" onClick={(e) => e.stopPropagation()}>

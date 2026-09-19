@@ -281,7 +281,7 @@ export function SalesWagesChart({
                   </thead>
                   <tbody>
                     {taftDetails.map((t, i) => (
-                      <tr key={t.taft_name} className={`border-b border-gray-50 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}>
+                      <tr key={t.taft_name} className={`border-b border-gray-50 ${i % 2 === 0 ? 'bg-white' : 'row-stripe'}`}>
                         <td className="px-2 py-1 font-medium text-gray-800">{t.taft_name}</td>
                         <td className="px-2 py-1 text-right text-orange-500 font-semibold">{fmtJt(t.gaji)}</td>
                         <td className="px-2 py-1 text-right text-purple-500 font-semibold">

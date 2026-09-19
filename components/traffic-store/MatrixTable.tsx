@@ -50,7 +50,7 @@ export function MatrixTable({ matrix, fd, totalBeli, totalEntries, toTitleCase }
               const storeBeli = fd.filter((r) => r.store_location === store && r.customer_convert === "Beli").length;
               const storeTidak = fd.filter((r) => r.store_location === store && r.customer_convert === "Tidak Beli").length;
               return (
-                <tr key={store} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                <tr key={store} className={i % 2 === 0 ? "bg-white" : "row-stripe"}>
                   <td className="whitespace-nowrap border border-gray-200 px-2 py-1 font-medium text-gray-700">{toTitleCase(store)}</td>
                   {matrix.sources.map((src) => {
                     const val = matrix.map[store]?.[src] || 0;

@@ -473,7 +473,7 @@ export function FullReport({ user }: FullReportProps) {
                             return (
                               <tr
                                 key={i}
-                                className={`border-b border-gray-50 last:border-0 transition-colors ${weekend ? 'bg-blue-50/40' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} hover:bg-primary/5`}
+                                className={`border-b border-gray-50 last:border-0 transition-colors ${weekend ? 'bg-blue-50/40' : i % 2 === 0 ? 'bg-white' : 'row-stripe'} hover:bg-primary/5`}
                               >
                                 <td className="px-2 py-1">
                                   <span className={`text-[11px] font-medium ${weekend ? 'text-blue-600' : 'text-gray-700'}`}>

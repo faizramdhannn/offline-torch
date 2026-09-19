@@ -698,7 +698,7 @@ function MetricTrendChart({
                 <stop offset="5%" stopColor={cfg.color} stopOpacity={0.35} /><stop offset="95%" stopColor={cfg.color} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? "rgba(255,255,255,0.06)" : "#f1f5f9"} />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? "rgba(255,255,255,0.06)" : "#cbd5e1"} />
             <XAxis dataKey="label" tick={{ ...chartAxisTick, fontSize: 9, dy: 4 }} axisLine={false} tickLine={false} interval={0} angle={-45} textAnchor="end" />
             <YAxis tick={{ ...chartAxisTick, fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={fmtY} width={54} domain={[0, 'auto']} />
             <Tooltip content={<CustomTooltip />} />

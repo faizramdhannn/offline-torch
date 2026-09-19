@@ -83,7 +83,14 @@ export async function uploadToGoogleDrive(
   fileBuffer: Buffer,
   fileName: string,
   mimeType: string,
-  username: string
+  username: string,
+  // Opt-in only (default false) — existing callers (customer followup proof,
+  // employee discount photos, etc.) rely on the private webViewLink and must
+  // NOT suddenly become publicly readable. Announcement images are the one
+  // case that needs to render inline as <img src> for every logged-in user,
+  // which requires both public "anyone with the link" read access AND a
+  // direct-image URL (webViewLink is an HTML preview page, not a raw image).
+  makePublicImage = false
 ): Promise<string> {
   try {
     const credentials = getGoogleCredentials();
@@ -150,6 +157,17 @@ export async function uploadToGoogleDrive(
       fields: 'id, webViewLink',
       supportsAllDrives: true,
     });
+
+    if (makePublicImage && response.data.id) {
+      await drive.permissions.create({
+        fileId: response.data.id,
+        requestBody: { role: 'reader', type: 'anyone' },
+        supportsAllDrives: true,
+      });
+      // Direct-image URL (not the HTML "view" page) so it can be used as an
+      // <img src> — Drive's thumbnail endpoint renders the raw file content.
+      return `https://drive.google.com/thumbnail?id=${response.data.id}&sz=w1600`;
+    }
 
     return response.data.webViewLink || `https://drive.google.com/file/d/${response.data.id}/view`;
   } catch (error) {

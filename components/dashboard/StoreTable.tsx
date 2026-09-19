@@ -93,7 +93,7 @@ export function StoreTable({
                   transition={{ duration: 0.15, delay: index * 0.02 }}
                   className={cn(
                     "border-b border-gray-50 transition-colors hover:bg-gray-50",
-                    index % 2 === 1 && "bg-gray-50/40"
+                    index % 2 === 1 && "row-stripe"
                   )}
                 >
                   <td className="px-2 py-1">

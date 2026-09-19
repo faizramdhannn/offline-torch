@@ -4,9 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
 import { useState, ReactNode, useRef, useEffect, useCallback } from "react";
 import { useSidebar } from "@/context/SidebarContext";
-import { useTheme } from "@/context/ThemeContext";
 import NotificationListener from "@/components/NotificationListener";
-import NotificationBell from "@/components/NotificationBell";
 
 interface SidebarProps {
   userName: string;
@@ -142,7 +140,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
 
   const collapseButtonRef = useRef<HTMLButtonElement>(null);
   const { isOpen, isCollapsed, toggleOpen, toggleCollapsed } = useSidebar();
-  const { isDark, toggleTheme } = useTheme();
 
   const handleToggleCollapsed = useCallback(() => {
     toggleCollapsed();
@@ -171,11 +168,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           }
         })()
       : userName;
-
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    router.push("/login");
-  };
 
   const jellyNavigate = useCallback(
     (path: string) => {
@@ -869,60 +861,66 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           animation: popIn 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
         }
 
-        /* ── Liquid Glass (netral putih) ── */
+        /* ── Liquid Glass — tint dari warna app-shell (Icy Blue #A4D8FF /
+           Gunmetal #35393C), bukan putih generik, supaya sidebar menyatu
+           dengan background di belakangnya. ── */
         .glass-sidebar {
+          /* Neutral (no Icy Blue tint like .topbar-glass) — same transparency
+             LEVEL as the top bar, just colorless glass instead of colored. */
           position: relative;
-          background: linear-gradient(165deg, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0.55) 100%);
-          backdrop-filter: blur(28px) saturate(180%);
-          -webkit-backdrop-filter: blur(28px) saturate(180%);
-          border: 1px solid rgba(255,255,255,0.8);
-          box-shadow: 0 8px 32px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.9);
-        }
-        /* Specular highlight sweeping down from the top-left, like light
-           catching the surface of glass. */
-        .glass-sidebar::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(160deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.1) 30%, rgba(255,255,255,0) 55%);
-          pointer-events: none;
-          z-index: 0;
+          background: rgba(255,255,255,0.22);
+          backdrop-filter: blur(14px) saturate(140%);
+          -webkit-backdrop-filter: blur(14px) saturate(140%);
+          border: 1px solid rgba(255,255,255,0.35);
+          box-shadow: 0 8px 32px rgba(15,23,42,0.1);
         }
         .glass-sidebar > * { position: relative; z-index: 1; }
 
         .glass-fab {
-          background: linear-gradient(160deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.6) 100%);
+          background: linear-gradient(160deg, rgba(164,216,255,0.9) 0%, rgba(164,216,255,0.65) 100%);
           backdrop-filter: blur(18px) saturate(180%);
           -webkit-backdrop-filter: blur(18px) saturate(180%);
-          border: 1px solid rgba(255,255,255,0.85);
+          border: 1px solid rgba(255,255,255,0.75);
           box-shadow: 0 4px 16px rgba(15,23,42,0.15);
         }
         .glass-panel {
-          background: linear-gradient(160deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.7) 100%);
+          background: linear-gradient(160deg, rgba(164,216,255,0.9) 0%, rgba(164,216,255,0.75) 100%);
           backdrop-filter: blur(24px) saturate(180%);
           -webkit-backdrop-filter: blur(24px) saturate(180%);
-          border: 1px solid rgba(255,255,255,0.85) !important;
+          border: 1px solid rgba(255,255,255,0.75) !important;
           box-shadow: 0 8px 24px rgba(15,23,42,0.15);
         }
 
-        /* ── Dark mode: flip the white glass tint to a dark one so the
-           (already-light, via globals.css) menu text stays readable. ── */
+        /* ── Dark mode: Gunmetal tint (bukan slate generik) so the
+           (already-light, via globals.css) menu text stays readable.
+           The earlier "sidebar looks different from the page" bug was a
+           duplicate/conflicting html.dark .bg-gray-50 rule elsewhere in
+           globals.css silently overriding the page's real background color
+           (now fixed) — it was never the sidebar's own translucency, so it's
+           safe to match .topbar-glass's alpha/blur here for one consistent
+           transparency level across both surfaces. saturate() stays at 100%
+           (not light mode's 180%) since Gunmetal's slight blue channel bias
+           gets exaggerated by extra saturation boost. ── */
         html.dark .glass-sidebar {
-          background: linear-gradient(165deg, rgba(51,65,85,0.7) 0%, rgba(15,23,42,0.65) 100%);
-          border: 1px solid rgba(255,255,255,0.12);
-          box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
-        }
-        html.dark .glass-sidebar::before {
-          background: linear-gradient(160deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 30%, rgba(255,255,255,0) 55%);
+          /* Neutral black glass (no Gunmetal tint), same transparency level. */
+          background: rgba(0,0,0,0.32);
+          backdrop-filter: blur(14px) saturate(100%);
+          -webkit-backdrop-filter: blur(14px) saturate(100%);
+          border: 1px solid rgba(255,255,255,0.07);
+          box-shadow: 0 8px 32px rgba(0,0,0,0.45);
         }
         html.dark .glass-fab {
-          background: linear-gradient(160deg, rgba(71,85,105,0.75) 0%, rgba(15,23,42,0.7) 100%);
-          border: 1px solid rgba(255,255,255,0.16);
+          background: linear-gradient(160deg, rgba(60,65,68,0.94) 0%, rgba(53,57,60,0.9) 100%);
+          backdrop-filter: blur(18px) saturate(100%);
+          -webkit-backdrop-filter: blur(18px) saturate(100%);
+          border: 1px solid rgba(255,255,255,0.1);
           box-shadow: 0 4px 16px rgba(0,0,0,0.4);
         }
         html.dark .glass-panel {
-          background: linear-gradient(160deg, rgba(51,65,85,0.85) 0%, rgba(15,23,42,0.85) 100%);
-          border: 1px solid rgba(255,255,255,0.14) !important;
+          background: linear-gradient(160deg, rgba(60,65,68,0.96) 0%, rgba(53,57,60,0.96) 100%);
+          backdrop-filter: blur(24px) saturate(100%);
+          -webkit-backdrop-filter: blur(24px) saturate(100%);
+          border: 1px solid rgba(255,255,255,0.1) !important;
           box-shadow: 0 8px 24px rgba(0,0,0,0.45);
         }
         html.dark .menu-btn:hover::before { background: rgba(255,255,255,0.08); }
@@ -1190,53 +1188,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
             </button>
           )}
         </nav>
-
-        {/* Footer */}
-        <div className={`border-t border-black/10 ${isCollapsed ? "p-2 flex flex-col gap-2" : "p-3 flex items-center gap-2"}`}>
-          <button
-            onClick={toggleTheme}
-            title={isDark ? "Light mode" : "Dark mode"}
-            className={`flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-900 bg-black/5 hover:bg-black/5 transition-all duration-200 ${isCollapsed ? "w-full h-8" : "w-8 h-8 shrink-0"}`}
-          >
-            {isDark ? (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-              </svg>
-            )}
-          </button>
-
-          <NotificationBell
-            userName={loginName}
-            canAddCustom={!!permissions.user_setting}
-            isCollapsed={isCollapsed}
-          />
-
-          {!isCollapsed ? (
-            <button
-              onClick={handleLogout}
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-black/5 hover:bg-red-500/80 text-gray-600 hover:text-white rounded text-xs transition-colors"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              Logout
-            </button>
-          ) : (
-            <button
-              onClick={handleLogout}
-              title="Logout"
-              className="w-full h-8 flex items-center justify-center text-gray-500 hover:text-white bg-black/5 hover:bg-red-500/80 rounded-lg transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-            </button>
-          )}
-        </div>
       </aside>
     </>
   );
