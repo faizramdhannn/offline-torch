@@ -373,18 +373,26 @@ export function StockTable({
               <tr className="border-b border-gray-100 bg-primary/5">
                 <td colSpan={columnCount} className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-6">
-                    <div>
-                      <div className="text-[9px] uppercase tracking-wide text-gray-400">Stock Hari Ini</div>
-                      <div className="text-sm font-semibold text-gray-800">{item.stock || "-"}</div>
-                    </div>
-                    <div>
-                      <div className="text-[9px] uppercase tracking-wide text-gray-400">Stock Kemarin</div>
-                      <div className="text-sm font-semibold text-gray-800">{yesterdayStock ?? "-"}</div>
-                    </div>
-                    <div>
-                      <div className="text-[9px] uppercase tracking-wide text-gray-400">Keterangan</div>
-                      <StockChangeBadge today={item.stock} yesterday={yesterdayStock} />
-                    </div>
+                    {/* Stock qty di expand row digate permission yang sama dengan
+                        kolom Stock (showStockColumn) — sebelumnya expand row
+                        selalu menampilkan stock walau kolomnya sendiri disembunyikan
+                        untuk user tanpa akses (mis. tab PCA tanpa stock_pca_view). */}
+                    {showStockColumn && (
+                      <>
+                        <div>
+                          <div className="text-[9px] uppercase tracking-wide text-gray-400">Stock Hari Ini</div>
+                          <div className="text-sm font-semibold text-gray-800">{item.stock || "-"}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] uppercase tracking-wide text-gray-400">Stock Kemarin</div>
+                          <div className="text-sm font-semibold text-gray-800">{yesterdayStock ?? "-"}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] uppercase tracking-wide text-gray-400">Keterangan</div>
+                          <StockChangeBadge today={item.stock} yesterday={yesterdayStock} />
+                        </div>
+                      </>
+                    )}
                     <button
                       onClick={(e) => { e.stopPropagation(); router.push(`/stock/${encodeURIComponent(item.sku)}`); }}
                       className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
