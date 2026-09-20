@@ -785,7 +785,7 @@ export default function StockPage() {
 
   if (!canSeeAnyView) {
     return (
-      <div className="flex-1 overflow-auto bg-gray-50/50">
+      <div className="flex-1 overflow-auto page-bg">
         <div className="flex h-full items-center justify-center p-4 sm:p-6">
           <div className="text-center text-gray-500">
             <p className="mb-2 text-lg font-semibold">No View Access</p>
@@ -803,7 +803,7 @@ export default function StockPage() {
   ].filter(Boolean) as { key: string; label: string }[];
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-50/50">
+    <div className="flex-1 overflow-auto page-bg">
       <div className="p-4">
 
         {/* ── Header + Toolbar ─────────────────────────────────────── */}

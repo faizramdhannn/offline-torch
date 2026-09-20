@@ -47,7 +47,7 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden relative">
+    <div className="flex h-screen page-bg overflow-hidden relative">
       <style>{`
         @keyframes mlEnterLeft {
           from { transform: translateX(-100%); opacity: 0; }

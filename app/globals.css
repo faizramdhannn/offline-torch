@@ -74,14 +74,24 @@ html.dark body {
   color: var(--text-primary);
 }
 
-/* Background â€” bg-gray-50 is this app's existing convention for a
-   page/section's own background (dark mode already remapped it to
-   --bg-primary before this change; light mode now gets the same treatment)
-   so every page consistently uses the Icy Blue / Gunmetal app theme, not
-   just the outer app shell. Doesn't touch hover:bg-gray-50 (a distinct
-   selector) so row-hover accents are unaffected. */
-.bg-gray-50 { background-color: var(--bg-primary); }
-html.dark .bg-gray-50 { background-color: var(--bg-primary) !important; }
+/* REVERTED: bg-gray-50 is NOT remapped to the Icy Blue/Gunmetal theme
+   anymore. It turned out to be used for two unrelated things across this
+   app — (a) a page's own outer canvas background, AND (b) countless form
+   input fields' neutral light-gray background (e.g. components/traffic-store/
+   EntryFormModal.tsx's shared input class) — and there's no way for one CSS
+   selector to serve both correctly. Forcing it to Icy Blue made every
+   bg-gray-50 INPUT FIELD across the app render solid blue (reported: Survey
+   Store's "Tambah Data Traffic" form fields nearly unreadable). Page-level
+   backgrounds now use the dedicated .page-bg class below instead, applied
+   only to each page's actual top-level wrapper. */
+.page-bg { background-color: var(--bg-primary); }
+html.dark .page-bg { background-color: var(--bg-primary) !important; }
+
+/* bg-gray-50 in dark mode still needs a neutral (non-Icy-Blue) legibility
+   fix — it's overwhelmingly used for form input backgrounds, and dark-mode
+   Tailwind gray-50 (near-white) on a dark Gunmetal page would be wrong too
+   if left completely unstyled. */
+html.dark .bg-gray-50 { background-color: var(--input-bg) !important; }
 
 /* Liquid Glass — cards, panels, table wrappers and secondary buttons all use
    plain bg-white / bg-gray-100 across the app; making those two classes
@@ -128,19 +138,21 @@ html.dark .bg-gray-200 { background-color: #484D51 !important; }
   -webkit-backdrop-filter: blur(10px) saturate(160%);
 }
 
-/* Opacity-modifier variants (Tailwind's bg-gray-50/50 etc. compile to a
-   different class than bg-gray-50, so they need their own overrides â€” these
-   were previously invisible/washed-out on Dashboard & Stock in dark mode) */
-.bg-gray-50\/40,
-.bg-gray-50\/50,
-.bg-gray-50\/60,
-.bg-gray-50\/70,
-.bg-gray-50\/80 { background-color: var(--bg-primary); }
+/* REVERTED, same reason as .bg-gray-50 above: the /NN opacity variants are
+   overwhelmingly used for small subtle sub-panels, sticky table cells, and
+   hover accents (badge sub-headers, report footers, card dividers) across
+   dozens of components — only a handful of pages (Dashboard, Stock,
+   Canvasing) actually used bg-gray-50/50 as their page-level canvas, and
+   those have been switched to .page-bg directly in their own file instead.
+   Dark mode still needs its own fix though — these WERE genuinely invisible
+   in dark mode before any of this (a pre-existing bug, not something this
+   rebrand introduced), so map them to a neutral dark panel tone instead of
+   the page's Icy Blue/Gunmetal theme color. */
 html.dark .bg-gray-50\/40,
 html.dark .bg-gray-50\/50,
 html.dark .bg-gray-50\/60,
 html.dark .bg-gray-50\/70,
-html.dark .bg-gray-50\/80 { background-color: var(--bg-primary) !important; }
+html.dark .bg-gray-50\/80 { background-color: rgba(255,255,255,0.06) !important; }
 
 /* Row-stripe — a NEUTRAL subtle alternate-row tint for tables, deliberately
    NOT tied to the Icy Blue/Gunmetal page-background theme above. Many

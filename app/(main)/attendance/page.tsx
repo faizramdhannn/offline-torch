@@ -47,7 +47,7 @@ export default function AttendancePage() {
   ] as { key: 'weekly'|'monthly'|'report'; label: string }[];
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-50">
+    <div className="flex-1 overflow-auto page-bg">
       <div className="space-y-5 p-4">
         <SectionHeader
           icon={CalendarClock}

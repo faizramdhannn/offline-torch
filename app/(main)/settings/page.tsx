@@ -399,7 +399,7 @@ export default function SettingsPage() {
   if (!user) return null;
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-50">
+    <div className="flex-1 overflow-auto page-bg">
       <div className="p-4">
         <h1 className="text-xl font-bold text-primary mb-4">Settings</h1>
 

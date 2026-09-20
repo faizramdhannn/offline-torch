@@ -491,7 +491,7 @@ export default function CanvasingPage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-50/50">
+    <div className="flex-1 overflow-auto page-bg">
       <div className="space-y-6 p-4">
 
         {/* Header */}
