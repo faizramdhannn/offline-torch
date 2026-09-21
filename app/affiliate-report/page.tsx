@@ -5,6 +5,7 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  LabelList,
   LineChart,
   Line,
   CartesianGrid,
@@ -79,6 +80,21 @@ export default function AffiliateReportPublicPage() {
     fetchReport(store);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store]);
+
+  // Jumlah affiliate per toko — dihitung di client dari affiliate_list
+  // (satu baris = satu affiliate), bukan dari API, karena backend belum
+  // punya agregat ini secara terpisah dan datanya sudah lengkap di sini.
+  const affiliateCountByStore = useMemo(() => {
+    if (!data) return [];
+    const counts = new Map<string, number>();
+    for (const a of data.affiliate_list) {
+      const key = a.affiliate_store || "Tidak Ada Toko";
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .map(([store_name, count]) => ({ store_name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [data]);
 
   const badgeClass = (status: string) =>
     status === "Sudah Redeem" ? "ar-badge-redeem" : status === "Diproses" ? "ar-badge-diproses" : "ar-badge-belum";
@@ -204,6 +220,32 @@ export default function AffiliateReportPublicPage() {
                     </ResponsiveContainer>
                   )}
                 </div>
+              </div>
+
+              <div className="ar-card" style={{ marginBottom: "1.5rem" }}>
+                <div className="ar-card-title">Jumlah Affiliate per Toko</div>
+                {affiliateCountByStore.length === 0 ? (
+                  <div className="ar-empty">Tidak ada data</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={Math.max(220, affiliateCountByStore.length * 32)}>
+                    <BarChart data={affiliateCountByStore} layout="vertical" margin={{ left: 8, right: 24 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} horizontal={false} />
+                      <XAxis type="number" tick={chartAxisTick} axisLine={false} tickLine={false} allowDecimals={false} />
+                      <YAxis
+                        type="category"
+                        dataKey="store_name"
+                        tick={chartAxisTick}
+                        axisLine={false}
+                        tickLine={false}
+                        width={110}
+                      />
+                      <Tooltip contentStyle={chartTooltipStyle} formatter={(v?: number) => `${v ?? 0} affiliate`} />
+                      <Bar dataKey="count" name="Jumlah Affiliate" fill={PALETTE[2]} radius={[0, 6, 6, 0]}>
+                        <LabelList dataKey="count" position="right" style={{ fontSize: 11, fill: "#0f172a", fontWeight: 600 }} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
 
               <div className="ar-card" style={{ marginBottom: "1.5rem" }}>
