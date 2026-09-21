@@ -11,9 +11,12 @@
 html, body {
   overflow-x: hidden;
   max-width: 100vw;
-  /* Native-app feel on mobile: no rubber-band/pull-to-refresh bounce, and no
-     grey flash + persistent highlight box on every tap. */
-  overscroll-behavior-y: none;
+  /* NOT overscroll-behavior-y here — it's a known WebKit/iOS Safari bug
+     source when applied to html/body directly (can lock scrolling entirely
+     on some versions) rather than to a specific inner scroll container.
+     Reported: /jastiper-report became completely unscrollable on a real
+     phone after this was added — removed rather than risk it recurring
+     elsewhere. Tap-highlight removal alone is safe and kept below. */
   -webkit-tap-highlight-color: transparent;
 }
 
