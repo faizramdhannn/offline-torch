@@ -13,7 +13,7 @@ import {
   YAxis,
   Tooltip,
 } from "recharts";
-import { CHART_PALETTE as PALETTE, chartTooltipStyle, chartAxisTick, chartGridStroke } from "@/components/shared/chartStyles";
+import { chartTooltipStyle, chartAxisTick, chartGridStroke } from "@/components/shared/chartStyles";
 
 // Halaman PUBLIK, TIDAK login-gated — sengaja di luar (main) route group,
 // sama pola dengan app/affiliator/page.tsx. Menampilkan report Affiliate
@@ -96,43 +96,79 @@ export default function AffiliateReportPublicPage() {
       .sort((a, b) => b.count - a.count);
   }, [data]);
 
+  // Tingkat aktivasi per toko: affiliate terdaftar vs yang sudah pernah
+  // closing (orders > 0) — sama-sama dihitung dari affiliate_list.
+  const activationByStore = useMemo(() => {
+    if (!data) return [];
+    const rows = new Map<string, { registered: number; active: number }>();
+    for (const a of data.affiliate_list) {
+      const key = a.affiliate_store || "Tidak Ada Toko";
+      const row = rows.get(key) || { registered: 0, active: 0 };
+      row.registered += 1;
+      if (a.orders > 0) row.active += 1;
+      rows.set(key, row);
+    }
+    return Array.from(rows.entries())
+      .map(([store_name, v]) => ({
+        store_name,
+        registered: v.registered,
+        active: v.active,
+        rate: v.registered ? Math.round((v.active / v.registered) * 100) : 0,
+      }))
+      .sort((a, b) => b.rate - a.rate);
+  }, [data]);
+
   const badgeClass = (status: string) =>
     status === "Sudah Redeem" ? "ar-badge-redeem" : status === "Diproses" ? "ar-badge-diproses" : "ar-badge-belum";
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        .ar-root { min-height: 100vh; background: linear-gradient(180deg, #f4f7fb 0%, #eef2f8 100%); font-family: 'IBM Plex Sans', sans-serif; padding: 2.5rem 1.25rem 3rem; }
+        .ar-root {
+          --ar-ink: #1c2530; --ar-ink-soft: #57616d; --ar-ink-faint: #8b93a0;
+          --ar-line: #e7e3d9; --ar-accent: #0e6e64; --ar-accent-soft: #e4f1ef; --ar-accent-ink: #08423b;
+          --ar-warn: #b5580c; --ar-warn-soft: #fbe9d8;
+          --ar-good: #1c7c3f; --ar-good-soft: #e3f4e8;
+          --ar-shadow: 0 1px 2px rgba(28,37,48,0.04), 0 8px 24px -12px rgba(28,37,48,0.12);
+          min-height: 100vh; background: #ffffff; color: var(--ar-ink);
+          font-family: 'Inter', -apple-system, sans-serif; padding: 2.5rem 1.25rem 3rem;
+        }
         .ar-container { max-width: 1080px; margin: 0 auto; }
         .ar-brand { display: flex; align-items: center; justify-content: center; margin-bottom: 0.6rem; }
         .ar-logo-img { height: 34px; width: auto; }
-        .ar-tagline { text-align: center; font-size: 0.72rem; color: #6b7280; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 1.75rem; }
-        .ar-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 1.25rem; }
-        .ar-title { font-size: 1.25rem; font-weight: 700; color: #0f172a; letter-spacing: -0.01em; }
-        .ar-select { padding: 0.55rem 0.9rem; background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 9px; font-size: 0.85rem; color: #0f172a; outline: none; }
-        .ar-select:focus { border-color: #0e7490; }
+        .ar-tagline { text-align: center; font-size: 0.72rem; color: var(--ar-accent); font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 1.75rem; font-family: 'IBM Plex Mono', monospace; }
+        .ar-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 1.5rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--ar-line); }
+        .ar-title { font-family: 'Fraunces', Georgia, serif; font-size: 1.65rem; font-weight: 600; color: var(--ar-ink); letter-spacing: -0.01em; }
+        .ar-select { padding: 0.55rem 0.9rem; background: #ffffff; border: 1.5px solid var(--ar-line); border-radius: 9px; font-size: 0.85rem; color: var(--ar-ink); outline: none; font-family: inherit; }
+        .ar-select:focus { border-color: var(--ar-accent); }
         .ar-error { font-size: 0.8rem; color: #b91c1c; font-weight: 500; padding: 0.65rem 0.85rem; margin-bottom: 1rem; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; }
-        .ar-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.85rem; margin-bottom: 1.5rem; }
-        .ar-stat { background: #ffffff; border: 1px solid #e7eaef; border-radius: 12px; padding: 1.1rem 1.25rem; box-shadow: 0 1px 2px rgba(16,24,40,0.04); }
-        .ar-stat-label { font-size: 0.68rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-        .ar-stat-value { font-size: 1.3rem; font-weight: 700; color: #0f172a; margin-top: 0.3rem; letter-spacing: -0.01em; }
+        .ar-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1px; background: var(--ar-line); border: 1px solid var(--ar-line); border-radius: 12px; overflow: hidden; margin-bottom: 1.5rem; box-shadow: var(--ar-shadow); }
+        .ar-stat { background: #ffffff; padding: 1.1rem 1.25rem; }
+        .ar-stat-label { font-size: 0.68rem; color: var(--ar-ink-faint); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        .ar-stat-value { font-family: 'Fraunces', Georgia, serif; font-size: 1.5rem; font-weight: 600; color: var(--ar-ink); margin-top: 0.35rem; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
         .ar-grid-2 { display: grid; grid-template-columns: 1fr; gap: 1.25rem; margin-bottom: 1.5rem; }
         @media (min-width: 900px) { .ar-grid-2 { grid-template-columns: 1fr 1fr; } }
-        .ar-card { background: #ffffff; border: 1px solid #e7eaef; border-radius: 16px; box-shadow: 0 1px 2px rgba(16,24,40,0.04), 0 8px 24px -8px rgba(16,24,40,0.08); padding: 1.5rem; }
-        .ar-card-title { font-size: 0.85rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+        .ar-card { background: #ffffff; border: 1px solid var(--ar-line); border-radius: 12px; box-shadow: var(--ar-shadow); padding: 1.5rem; }
+        .ar-card-title { font-family: 'Fraunces', Georgia, serif; font-size: 1.05rem; font-weight: 600; color: var(--ar-ink); margin-bottom: 1rem; }
         table.ar-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-        table.ar-table th, table.ar-table td { text-align: left; padding: 0.65rem 0.7rem; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
-        table.ar-table th { color: #64748b; font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; background: #f8fafc; }
-        table.ar-table tbody tr:hover td { background: #fafcfe; }
-        .ar-table-wrap { overflow-x: auto; border: 1px solid #eef1f5; border-radius: 10px; }
+        table.ar-table th, table.ar-table td { text-align: left; padding: 0.65rem 0.7rem; border-bottom: 1px solid var(--ar-line); white-space: nowrap; }
+        table.ar-table th { color: var(--ar-ink-faint); font-weight: 700; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        table.ar-table tbody tr:hover td { background: #fafaf8; }
+        table.ar-table tbody tr:last-child td { border-bottom: none; }
+        .ar-num { text-align: right; font-variant-numeric: tabular-nums; }
+        .ar-table-wrap { overflow-x: auto; border: 1px solid var(--ar-line); border-radius: 10px; }
         .ar-badge { padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.68rem; font-weight: 600; white-space: nowrap; }
-        .ar-badge-belum { background: #fef3c7; color: #92400e; }
-        .ar-badge-diproses { background: #dbeafe; color: #1e40af; }
-        .ar-badge-redeem { background: #dcfce7; color: #166534; }
-        .ar-empty { text-align: center; padding: 2rem 0; color: #94a3b8; font-size: 0.85rem; }
-        .ar-footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; color: #94a3b8; letter-spacing: 0.06em; text-align: center; margin-top: 2.5rem; }
+        .ar-badge-belum { background: var(--ar-warn-soft); color: var(--ar-warn); }
+        .ar-badge-diproses { background: var(--ar-accent-soft); color: var(--ar-accent-ink); }
+        .ar-badge-redeem { background: var(--ar-good-soft); color: var(--ar-good); }
+        .ar-pill { display: inline-flex; align-items: center; font-size: 0.68rem; font-weight: 700; padding: 0.1rem 0.55rem; border-radius: 999px; }
+        .ar-pill-good { background: var(--ar-good-soft); color: var(--ar-good); }
+        .ar-pill-warn { background: var(--ar-warn-soft); color: var(--ar-warn); }
+        .ar-empty { text-align: center; padding: 2rem 0; color: var(--ar-ink-faint); font-size: 0.85rem; }
+        .ar-footer { font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; color: var(--ar-ink-faint); letter-spacing: 0.06em; text-align: center; margin-top: 2.5rem; }
+        .ar-code { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--ar-ink-soft); }
       `}</style>
 
       <div className="ar-root">
@@ -191,7 +227,7 @@ export default function AffiliateReportPublicPage() {
                           contentStyle={chartTooltipStyle}
                           formatter={(v?: number) => formatRupiah(v ?? 0)}
                         />
-                        <Bar dataKey="commission" name="Komisi" fill={PALETTE[1]} radius={[6, 6, 0, 0]} />
+                        <Bar dataKey="commission" name="Komisi" fill="#0e6e64" radius={[6, 6, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   )}
@@ -215,7 +251,7 @@ export default function AffiliateReportPublicPage() {
                           width={100}
                         />
                         <Tooltip contentStyle={chartTooltipStyle} formatter={(v?: number) => formatRupiah(v ?? 0)} />
-                        <Bar dataKey="commission" name="Komisi" fill={PALETTE[3]} radius={[0, 6, 6, 0]} />
+                        <Bar dataKey="commission" name="Komisi" fill="#0e6e64" radius={[0, 6, 6, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   )}
@@ -240,11 +276,43 @@ export default function AffiliateReportPublicPage() {
                         width={110}
                       />
                       <Tooltip contentStyle={chartTooltipStyle} formatter={(v?: number) => `${v ?? 0} affiliate`} />
-                      <Bar dataKey="count" name="Jumlah Affiliate" fill={PALETTE[2]} radius={[0, 6, 6, 0]}>
+                      <Bar dataKey="count" name="Jumlah Affiliate" fill="#0e6e64" radius={[0, 6, 6, 0]}>
                         <LabelList dataKey="count" position="right" style={{ fontSize: 11, fill: "#0f172a", fontWeight: 600 }} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
+                )}
+              </div>
+
+              <div className="ar-card" style={{ marginBottom: "1.5rem" }}>
+                <div className="ar-card-title">Tingkat Aktivasi Affiliate</div>
+                {activationByStore.length === 0 ? (
+                  <div className="ar-empty">Tidak ada data</div>
+                ) : (
+                  <div className="ar-table-wrap">
+                    <table className="ar-table">
+                      <thead>
+                        <tr>
+                          <th>Toko</th>
+                          <th className="ar-num">Terdaftar</th>
+                          <th className="ar-num">Aktif</th>
+                          <th className="ar-num">Aktivasi</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activationByStore.map((s) => (
+                          <tr key={s.store_name}>
+                            <td>{s.store_name}</td>
+                            <td className="ar-num">{s.registered}</td>
+                            <td className="ar-num">{s.active}</td>
+                            <td className="ar-num">
+                              <span className={`ar-pill ${s.rate >= 50 ? "ar-pill-good" : "ar-pill-warn"}`}>{s.rate}%</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
 
@@ -259,7 +327,7 @@ export default function AffiliateReportPublicPage() {
                       <XAxis dataKey="date" tick={chartAxisTick} axisLine={false} tickLine={false} />
                       <YAxis tick={chartAxisTick} axisLine={false} tickLine={false} tickFormatter={formatCompact} />
                       <Tooltip contentStyle={chartTooltipStyle} formatter={(v?: number) => formatRupiah(v ?? 0)} />
-                      <Line type="monotone" dataKey="commission" name="Komisi" stroke={PALETTE[0]} strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="commission" name="Komisi" stroke="#0e6e64" strokeWidth={2} dot={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 )}
@@ -286,7 +354,7 @@ export default function AffiliateReportPublicPage() {
                           <td>{a.affiliate_name}</td>
                           <td>{a.affiliate_store || "-"}</td>
                           <td>{a.affiliate_job || "-"}</td>
-                          <td style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.72rem" }}>{a.affiliate_code}</td>
+                          <td className="ar-code">{a.affiliate_code}</td>
                           <td>{a.orders}</td>
                           <td>{formatRupiah(a.value)}</td>
                           <td>{formatRupiah(a.commission)}</td>
