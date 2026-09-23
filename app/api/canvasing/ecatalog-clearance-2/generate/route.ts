@@ -129,25 +129,81 @@ function parseNum(value: string | number | undefined): number {
   return isNaN(num) ? 0 : num;
 }
 
+type SortMode = 'sheet' | 'category' | 'stock';
+
+// Selalu buang produk dengan stock_all 0 (tidak dibawa ke catalog sama sekali),
+// urutan lain (sheet asli / category / stock terbanyak) dipilih user di picker.
+function mapProducts(data: any[]) {
+  return (data as any[])
+    .filter((item) => item.artikel || item.item_name)
+    .map((p) => ({
+      sku: String(p.sku || p.id || ''),
+      item_name: p.artikel || p.item_name || '',
+      category: p.category || 'Lainnya',
+      image_url: p.image_url || '',
+      price: p.price || '',
+      price_promo: p.price_promo || '',
+      stock_all: parseNum(p.stock_all),
+    }))
+    .filter((p) => p.stock_all > 0);
+}
+
+function sortProducts<T extends { category: string; stock_all: number }>(
+  products: T[],
+  sortMode: SortMode
+): T[] {
+  if (sortMode === 'category') {
+    return [...products].sort((a, b) => a.category.localeCompare(b.category, 'id'));
+  }
+  if (sortMode === 'stock') {
+    return [...products].sort((a, b) => b.stock_all - a.stock_all);
+  }
+  return products; // 'sheet' → urutan asli sheet, tidak diubah
+}
+
+function parseSortMode(value: unknown): SortMode {
+  return value === 'category' || value === 'stock' ? value : 'sheet';
+}
+
+// GET → daftar produk untuk picker di frontend (default urutan sesuai sheet;
+// frontend yang menerapkan mode urutan category/stock secara lokal untuk
+// tampilan, lalu mengirim `sortMode` balik ke POST agar PDF ikut urutan sama).
+export async function GET() {
+  try {
+    const data = await getSheetData('clearance_product_2');
+    const products = mapProducts(data);
+    return NextResponse.json({ products });
+  } catch (error) {
+    console.error('Error listing clearance-2 products:', error);
+    return NextResponse.json({
+      error: 'Failed to list clearance-2 products',
+      details: error instanceof Error ? error.message : String(error),
+    }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const data = await getSheetData('clearance_product_2');
 
-    const products = (data as any[])
-      .filter((item) => item.artikel || item.item_name)
-      .map((p) => ({
-        item_name: p.artikel || p.item_name || '',
-        category: p.category || 'Lainnya',
-        image_url: p.image_url || '',
-        price: p.price || '',
-        price_promo: p.price_promo || '',
-        stock_all: parseNum(p.stock_all),
-      }))
-      .sort((a, b) => {
-        const catCmp = a.category.localeCompare(b.category, 'id');
-        if (catCmp !== 0) return catCmp;
-        return a.item_name.localeCompare(b.item_name, 'id');
-      });
+    let selectedSkus: string[] | null = null;
+    let sortMode: SortMode = 'sheet';
+    try {
+      const body = await request.json();
+      if (Array.isArray(body?.skus) && body.skus.length > 0) {
+        selectedSkus = body.skus.map((s: any) => String(s));
+      }
+      sortMode = parseSortMode(body?.sortMode);
+    } catch {
+      // body kosong/bukan JSON → generate semua produk (perilaku lama, backward-compatible)
+    }
+
+    let products = mapProducts(data);
+    if (selectedSkus) {
+      const selectedSet = new Set(selectedSkus);
+      products = products.filter((p) => selectedSet.has(p.sku));
+    }
+    products = sortProducts(products, sortMode);
 
     const [torchLogo, torchIconLogo] = await Promise.all([
       downloadImage(TORCH_LOGO_URL),
@@ -231,9 +287,9 @@ async function createProductPage(doc: jsPDF, products: any[], torchLogo: string 
   const NAME_SIZE = 17;
   const NAME_LINE_H = 20;
   const NAME_LINES_RESERVED = 2; // dipakai HANYA untuk hitung budget tinggi gambar (worst-case)
-  const STRIKE_SIZE = 15;
-  const PROMO_SIZE = 19;
-  const STOCK_SIZE = 13;
+  const STRIKE_SIZE = 18;
+  const PROMO_SIZE = 24;
+  const STOCK_SIZE = 17;
   const GAP_IMG_TO_NAME = 14;
   const GAP_NAME_TO_PRICE = 6;
   const GAP_STRIKE_TO_PROMO = 15;

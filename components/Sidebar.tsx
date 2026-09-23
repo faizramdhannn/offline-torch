@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useState, ReactNode, useRef, useEffect, useCallback } from "react";
 import { useSidebar } from "@/context/SidebarContext";
 import NotificationListener from "@/components/NotificationListener";
+import { Clearance2CatalogPicker } from "@/components/canvasing/Clearance2CatalogPicker";
 
 interface SidebarProps {
   userName: string;
@@ -63,7 +64,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
   const [generatingIhlsCatalog, setGeneratingIhlsCatalog] = useState(false);
   const [generatingClearanceCatalog, setGeneratingClearanceCatalog] = useState(false);
   const [generatingPasarayaCatalog, setGeneratingPasarayaCatalog] = useState(false);
-  const [generatingClearance2Catalog, setGeneratingClearance2Catalog] = useState(false);
+  const [showClearance2Picker, setShowClearance2Picker] = useState(false);
 
   const initialGroup = (() => {
     if (
@@ -296,30 +297,8 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     }
   };
 
-  const handleGenerateClearance2Catalog = async () => {
-    setGeneratingClearance2Catalog(true);
-    try {
-      const response = await fetch("/api/canvasing/ecatalog-clearance-2/generate", {
-        method: "POST",
-      });
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `Clearance_Catalog_${Date.now()}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        alert("Failed to generate Clearance 2 e-catalog");
-      }
-    } catch {
-      alert("Failed to generate Clearance 2 e-catalog");
-    } finally {
-      setGeneratingClearance2Catalog(false);
-    }
+  const handleGenerateClearance2Catalog = () => {
+    setShowClearance2Picker(true);
   };
 
   const hasRequestAccess = !!(permissions.request || permissions.edit_request);
@@ -1171,7 +1150,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           {permissions?.canvasing && pathname === "/canvasing" && (
             <button
               onClick={handleGenerateClearance2Catalog}
-              disabled={generatingClearance2Catalog}
               title={isCollapsed ? "E-Catalog Clearance 2" : undefined}
               className={`w-full flex items-center gap-3 transition-colors mt-1 text-gray-500 hover:text-gray-900 hover:bg-black/5 disabled:opacity-40 disabled:cursor-not-allowed ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}`}
             >
@@ -1181,11 +1159,13 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
                 </svg>
               </span>
               {!isCollapsed && (
-                <span className="text-xs truncate">
-                  {generatingClearance2Catalog ? "Generating..." : "E-Catalog Clearance 2"}
-                </span>
+                <span className="text-xs truncate">E-Catalog Clearance 2</span>
               )}
             </button>
+          )}
+
+          {showClearance2Picker && (
+            <Clearance2CatalogPicker onClose={() => setShowClearance2Picker(false)} />
           )}
         </nav>
       </aside>

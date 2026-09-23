@@ -638,6 +638,7 @@ export function exportProductTab(
   > = {};
   const allStores = new Set<string>();
   const allProducts = new Set<string>();
+  const productSkuMap: Record<string, string> = {};
 
   filteredRows.forEach((r) => {
     const store = cleanLocationName(r.Location);
@@ -652,6 +653,10 @@ export function exportProductTab(
       storeProductMap[store][name] = { qty: 0, revenue: 0 };
     storeProductMap[store][name].qty += qty;
     storeProductMap[store][name].revenue += price * qty;
+    if (!productSkuMap[name]) {
+      const sku = r["Lineitem sku"]?.trim();
+      if (sku) productSkuMap[name] = sku;
+    }
   });
 
   const stores = [...allStores].sort();
@@ -669,6 +674,7 @@ export function exportProductTab(
 
   const globalSummaryData = [
     [
+      "SKU",
       "Produk",
       "Qty Terjual",
       "Total Revenue (IDR)",
@@ -683,7 +689,7 @@ export function exportProductTab(
         (s, st) => s + (storeProductMap[st]?.[p]?.revenue || 0),
         0
       );
-      return [p, totalQty, totalRev, formatRupiahRaw(totalRev)];
+      return [productSkuMap[p] || "", p, totalQty, totalRev, formatRupiahRaw(totalRev)];
     }),
   ];
 
@@ -692,7 +698,7 @@ export function exportProductTab(
     `${s} - Revenue (IDR)`,
   ]);
   const perStoreData = [
-    ["Produk", ...storeHeaders, "TOTAL Qty", "TOTAL Revenue (IDR)"],
+    ["SKU", "Produk", ...storeHeaders, "TOTAL Qty", "TOTAL Revenue (IDR)"],
     ...products.map((p) => {
       const cells = stores.flatMap((s) => [
         storeProductMap[s]?.[p]?.qty || 0,
@@ -706,7 +712,7 @@ export function exportProductTab(
         (s, st) => s + (storeProductMap[st]?.[p]?.revenue || 0),
         0
       );
-      return [p, ...cells, totalQty, totalRev];
+      return [productSkuMap[p] || "", p, ...cells, totalQty, totalRev];
     }),
   ];
 
