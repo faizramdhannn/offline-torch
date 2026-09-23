@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
       const lineItems = Array.isArray(o.line_items) ? o.line_items : [];
 
       if (lineItems.length === 0) {
-        rows.push({ ...head, 'Lineitem name': '', 'Lineitem quantity': '', 'Lineitem price': '' });
+        rows.push({ ...head, 'Lineitem name': '', 'Lineitem sku': '', 'Lineitem quantity': '', 'Lineitem price': '' });
         continue;
       }
 
@@ -84,6 +84,7 @@ export async function GET(request: NextRequest) {
                 Notes: '', 'Discount Code': '', 'Discount Amount': '', Employee: '', Location: '',
               };
         row['Lineitem name'] = li.name || '';
+        row['Lineitem sku'] = li.sku || '';
         row['Lineitem quantity'] = li.quantity != null ? String(li.quantity) : '';
         row['Lineitem price'] = li.price != null ? String(li.price) : '';
         rows.push(row);
