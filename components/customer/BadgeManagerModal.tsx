@@ -62,7 +62,13 @@ export function BadgeManagerModal({ onClose, onChanged }: BadgeManagerModalProps
     try {
       const res = await fetch("/api/customer/badges");
       const result = await res.json();
-      setBadges(result.data || []);
+      const rows = (result.data || []).map((r: any) => ({
+        ...r,
+        key: r.badge_key,
+        type: r.badge_type,
+        sku_list: Array.isArray(r.sku_list) ? r.sku_list : [],
+      }));
+      setBadges(rows);
     } finally {
       setLoading(false);
     }
