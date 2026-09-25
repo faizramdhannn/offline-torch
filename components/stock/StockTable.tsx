@@ -39,6 +39,8 @@ interface StockTableProps {
   formatRupiah: (v: number) => string;
   /** Map "sku::warehouse" -> stock kemarin (dari result_stock_yesterday/pca_stock_yesterday). */
   yesterdayStockMap?: Record<string, string>;
+  /** SKU -> badge collection (Gundam, Watch, Metro Ride, dst) yang cocok, dari Customer Segmentation. */
+  skuToBadges?: Record<string, { label: string; logo_url: string }[]>;
   /** Dipanggil saat tombol "Barcode" di detail panel diklik. */
   onBarcodeClick: (item: StockItem) => void;
   /** Tombol "Store" (breakdown stock per toko) hanya tampil kalau true — digate oleh stock_export di pemanggil. */
@@ -233,6 +235,7 @@ export function StockTable({
   parseHarga,
   formatRupiah,
   yesterdayStockMap = {},
+  skuToBadges = {},
   onBarcodeClick,
   canViewStoreBreakdown = false,
   onShowStoreBreakdown,
@@ -245,12 +248,14 @@ export function StockTable({
   const router = useRouter();
 
   const showStockColumn = selectedView === "store" || (selectedView === "pca" && showStockPca);
+  const hasBadges = Object.keys(skuToBadges).length > 0;
 
   const columnCount =
     8 + // Img, SKU, Product Name, Category, Grade, Tier Product, Tier Phase, Barcode
     (showStockColumn ? 1 : 0) + // Stock
     (selectedView === "pca" ? 1 : 0) + // Threshold
     (selectedView === "store" ? 1 : 0) + // Warehouse
+    (hasBadges ? 1 : 0) + // Badge
     (showHpp ? 1 : 0) +
     (showHpt ? 1 : 0) +
     (showHpj ? 1 : 0);
@@ -267,6 +272,9 @@ export function StockTable({
             <SortableTh label="Grade" column="grade" {...thProps} />
             <SortableTh label="Tier Product" column="tier_product" {...thProps} />
             <SortableTh label="Tier Phase" column="tier_phase" {...thProps} />
+            {hasBadges && (
+              <th className="px-2 py-1.5 text-left font-semibold text-gray-600">Badge</th>
+            )}
             {showStockColumn && (
               <SortableTh label="Stock" column="stock" {...thProps} />
             )}
@@ -340,6 +348,24 @@ export function StockTable({
               <td className="max-w-[90px] px-2 py-1 text-gray-600">
                 <span className="block truncate" title={toProperCase(item.tier_phase)}>{toProperCase(item.tier_phase)}</span>
               </td>
+              {hasBadges && (
+                <td className="px-2 py-1">
+                  <div className="flex items-center gap-1">
+                    {(skuToBadges[item.sku] || []).map((b) =>
+                      b.logo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          key={b.label}
+                          src={b.logo_url}
+                          alt={b.label}
+                          title={b.label}
+                          className="h-5 w-5 flex-none rounded-full object-cover ring-1 ring-gray-100"
+                        />
+                      ) : null
+                    )}
+                  </div>
+                </td>
+              )}
               {showStockColumn && (
                 <td className="whitespace-nowrap px-2 py-1 font-medium text-gray-700">{item.stock}</td>
               )}

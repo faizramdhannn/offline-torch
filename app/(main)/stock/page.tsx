@@ -184,6 +184,11 @@ export default function StockPage() {
   const [tiers, setTiers] = useState<string[]>([]);
   const [tierPhases, setTierPhases] = useState<string[]>([]);
   const [warehouses, setWarehouses] = useState<string[]>([]);
+  // Badge collection (Gundam, Watch, Metro Ride, dst) dari Customer Segmentation
+  // — hanya badge_type "collection" yang punya sku_list yang relevan di sini;
+  // badge Tier/Bulk (New Customer, Champion, dst) berbasis jumlah order
+  // customer, bukan SKU, jadi tidak ditampilkan/difilter di Stock.
+  const [badges, setBadges] = useState<{ label: string; logo_url: string; sku_list: string[] }[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedView, setSelectedView] = useState<"store" | "pca" | "master">("store");
   useSessionGuard();
@@ -209,6 +214,9 @@ export default function StockPage() {
   const [warehouseFilter, setWarehouseFilter] = useState<string[]>(
     searchParams.get("wh")?.split(",").filter(Boolean) ?? [],
   );
+  const [badgeFilter, setBadgeFilter] = useState<string[]>(
+    searchParams.get("badge")?.split(",").filter(Boolean) ?? [],
+  );
   // Price range filter (HPJ) — sama seperti Value Min/Max di Customer
   // Segmentation: input angka bebas, kosong = tidak dibatasi.
   const [priceMin, setPriceMin] = useState(searchParams.get("pmin") ?? "");
@@ -225,6 +233,7 @@ export default function StockPage() {
   const [showTierDropdown, setShowTierDropdown] = useState(false);
   const [showTierPhaseDropdown, setShowTierPhaseDropdown] = useState(false);
   const [showWarehouseDropdown, setShowWarehouseDropdown] = useState(false);
+  const [showBadgeDropdown, setShowBadgeDropdown] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importing, setImporting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -264,6 +273,7 @@ export default function StockPage() {
   const tierDropdownRef = useRef<HTMLDivElement>(null);
   const tierPhaseDropdownRef = useRef<HTMLDivElement>(null);
   const warehouseDropdownRef = useRef<HTMLDivElement>(null);
+  const badgeDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -277,6 +287,8 @@ export default function StockPage() {
         setShowTierPhaseDropdown(false);
       if (warehouseDropdownRef.current && !warehouseDropdownRef.current.contains(event.target as Node))
         setShowWarehouseDropdown(false);
+      if (badgeDropdownRef.current && !badgeDropdownRef.current.contains(event.target as Node))
+        setShowBadgeDropdown(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -294,10 +306,24 @@ export default function StockPage() {
     else if (parsedUser.stock_view_master) setSelectedView("master");
     fetchData();
     fetchLastUpdate();
+    fetchBadges();
   }, []);
 
+  const fetchBadges = async () => {
+    try {
+      const res = await fetch("/api/customer/badges");
+      const result = await res.json();
+      const collectionBadges = (result.data || [])
+        .filter((b: any) => b.badge_type === "collection" && Array.isArray(b.sku_list) && b.sku_list.length > 0)
+        .map((b: any) => ({ label: b.label, logo_url: b.logo_url || "", sku_list: b.sku_list }));
+      setBadges(collectionBadges);
+    } catch {
+      setBadges([]);
+    }
+  };
+
   useEffect(() => { fetchData(); }, [selectedView]);
-  useEffect(() => { applyFilters(); }, [categoryFilter, gradeFilter, tierFilter, tierPhaseFilter, warehouseFilter, priceMin, priceMax, searchQuery, data, sortColumn, sortDirection]);
+  useEffect(() => { applyFilters(); }, [categoryFilter, gradeFilter, tierFilter, tierPhaseFilter, warehouseFilter, badgeFilter, priceMin, priceMax, searchQuery, data, sortColumn, sortDirection]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -306,12 +332,13 @@ export default function StockPage() {
     if (tierFilter.length > 0) params.set("tier", tierFilter.join(","));
     if (tierPhaseFilter.length > 0) params.set("tierphase", tierPhaseFilter.join(","));
     if (warehouseFilter.length > 0) params.set("wh", warehouseFilter.join(","));
+    if (badgeFilter.length > 0) params.set("badge", badgeFilter.join(","));
     if (priceMin) params.set("pmin", priceMin);
     if (priceMax) params.set("pmax", priceMax);
     if (searchQuery) params.set("q", searchQuery);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [categoryFilter, gradeFilter, tierFilter, tierPhaseFilter, warehouseFilter, priceMin, priceMax, searchQuery, pathname, router]);
+  }, [categoryFilter, gradeFilter, tierFilter, tierPhaseFilter, warehouseFilter, badgeFilter, priceMin, priceMax, searchQuery, pathname, router]);
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message);
@@ -514,6 +541,10 @@ export default function StockPage() {
       filtered = filtered.filter((i) => tierPhaseFilter.includes(i.tier_phase) || (tierPhaseFilter.includes(EMPTY_FILTER_VALUE) && !i.tier_phase));
     if (selectedView === "store" && warehouseFilter.length > 0)
       filtered = filtered.filter((i) => i.warehouse && warehouseFilter.includes(i.warehouse));
+    if (badgeFilter.length > 0)
+      filtered = filtered.filter((i) =>
+        (skuToBadges[i.sku] || []).some((b) => badgeFilter.includes(b.label))
+      );
     const priceMinNum = priceMin ? parseFloat(priceMin) : null;
     const priceMaxNum = priceMax ? parseFloat(priceMax) : null;
     if (priceMinNum !== null || priceMaxNum !== null) {
@@ -575,6 +606,7 @@ export default function StockPage() {
 
   const resetFilters = () => {
     setCategoryFilter([]); setGradeFilter([]); setTierFilter([]); setTierPhaseFilter([]); setWarehouseFilter([]);
+    setBadgeFilter([]);
     setPriceMin(""); setPriceMax("");
     setSearchQuery(""); setSortColumn(null); setSortDirection("asc");
     setFilteredData(data); setCurrentPage(1);
@@ -585,6 +617,17 @@ export default function StockPage() {
   const toggleTier = (v: string) => setTierFilter((p) => p.includes(v) ? p.filter((t) => t !== v) : [...p, v]);
   const toggleTierPhase = (v: string) => setTierPhaseFilter((p) => p.includes(v) ? p.filter((t) => t !== v) : [...p, v]);
   const toggleWarehouse = (v: string) => setWarehouseFilter((p) => p.includes(v) ? p.filter((w) => w !== v) : [...p, v]);
+  const toggleBadge = (v: string) => setBadgeFilter((p) => p.includes(v) ? p.filter((b) => b !== v) : [...p, v]);
+
+  // SKU -> badge collection yang cocok (bisa lebih dari satu badge per SKU
+  // kalau overlap). Dipakai untuk filter Badge dan kolom Badge di tabel.
+  const skuToBadges: Record<string, { label: string; logo_url: string }[]> = {};
+  badges.forEach((b) => {
+    b.sku_list.forEach((sku) => {
+      if (!skuToBadges[sku]) skuToBadges[sku] = [];
+      skuToBadges[sku].push({ label: b.label, logo_url: b.logo_url });
+    });
+  });
 
   // ── Chart → filter shortcuts ────────────────────────────────────────────
   // Clicking a bar isolates that value as the active filter (replacing
@@ -1108,6 +1151,19 @@ export default function StockPage() {
                 />
               </div>
             )}
+            {badges.length > 0 && (
+              <div className="w-36">
+                <FilterDropdown
+                  label="Badge"
+                  options={badges.map((b) => b.label)}
+                  selected={badgeFilter}
+                  onToggle={toggleBadge}
+                  open={showBadgeDropdown}
+                  onOpenChange={setShowBadgeDropdown}
+                  containerRef={badgeDropdownRef}
+                />
+              </div>
+            )}
             {!!user.stock_view_hpj && (
               <>
                 <div className="w-28">
@@ -1175,6 +1231,7 @@ export default function StockPage() {
                 parseHarga={parseHarga}
                 formatRupiah={formatRupiah}
                 yesterdayStockMap={yesterdayStockMap}
+                skuToBadges={skuToBadges}
                 onBarcodeClick={setQrItem}
                 canViewStoreBreakdown={!!user.stock_export && selectedView === "store"}
                 onShowStoreBreakdown={setStoreBreakdownItem}
