@@ -44,8 +44,18 @@ export function BadgeManagerModal({ onClose, onChanged }: BadgeManagerModalProps
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [newLabel, setNewLabel] = useState("");
   const [newSkus, setNewSkus] = useState("");
+  const [newLogoDataUrl, setNewLogoDataUrl] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const logoInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const newLogoInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleNewLogoFile = async (file: File) => {
+    if (file.type !== "image/png" && file.type !== "image/jpeg") {
+      alert("Logo hanya boleh PNG atau JPG");
+      return;
+    }
+    setNewLogoDataUrl(await fileToDataUrl(file));
+  };
 
   const load = async () => {
     setLoading(true);
@@ -74,6 +84,22 @@ export function BadgeManagerModal({ onClose, onChanged }: BadgeManagerModalProps
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, logo_url: dataUrl }),
+      });
+      await load();
+      onChanged();
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleLogoRemove = async (id: number) => {
+    if (!confirm("Hapus gambar badge ini?")) return;
+    setSavingId(id);
+    try {
+      await fetch("/api/customer/badges", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, remove_logo: true }),
       });
       await load();
       onChanged();
@@ -131,7 +157,7 @@ export function BadgeManagerModal({ onClose, onChanged }: BadgeManagerModalProps
       const res = await fetch("/api/customer/badges", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ badge_key, label: newLabel.trim(), sku_list }),
+        body: JSON.stringify({ badge_key, label: newLabel.trim(), sku_list, logo_url: newLogoDataUrl }),
       });
       const result = await res.json();
       if (!res.ok) {
@@ -140,6 +166,7 @@ export function BadgeManagerModal({ onClose, onChanged }: BadgeManagerModalProps
       }
       setNewLabel("");
       setNewSkus("");
+      setNewLogoDataUrl(null);
       await load();
       onChanged();
     } finally {
@@ -180,6 +207,7 @@ export function BadgeManagerModal({ onClose, onChanged }: BadgeManagerModalProps
                   onToggleExpand={() => setExpandedId(expandedId === b.id ? null : b.id)}
                   onLogoPick={() => logoInputRefs.current[b.id]?.click()}
                   onLogoFile={(f) => handleLogoUpload(b.id, f)}
+                  onLogoRemove={() => handleLogoRemove(b.id)}
                   logoInputRef={(el) => (logoInputRefs.current[b.id] = el)}
                   editableSku={false}
                   onLabelSave={handleLabelSave}
@@ -200,6 +228,7 @@ export function BadgeManagerModal({ onClose, onChanged }: BadgeManagerModalProps
                   onToggleExpand={() => setExpandedId(expandedId === b.id ? null : b.id)}
                   onLogoPick={() => logoInputRefs.current[b.id]?.click()}
                   onLogoFile={(f) => handleLogoUpload(b.id, f)}
+                  onLogoRemove={() => handleLogoRemove(b.id)}
                   logoInputRef={(el) => (logoInputRefs.current[b.id] = el)}
                   editableSku
                   onSkuListSave={handleSkuListSave}
@@ -214,6 +243,40 @@ export function BadgeManagerModal({ onClose, onChanged }: BadgeManagerModalProps
 
             <div className="rounded-lg border border-dashed border-gray-300 p-3">
               <h4 className="mb-2 text-[11px] font-semibold text-gray-600">+ Tambah Collection Baru</h4>
+              <div className="mb-2 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => newLogoInputRef.current?.click()}
+                  className="flex h-10 w-10 flex-none items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-gray-50 text-[9px] text-gray-400 hover:bg-gray-100"
+                  title="Upload foto logo"
+                >
+                  {newLogoDataUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={newLogoDataUrl} alt="Preview logo" className="h-full w-full object-cover" />
+                  ) : (
+                    "Logo"
+                  )}
+                </button>
+                <input
+                  ref={newLogoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleNewLogoFile(f);
+                  }}
+                />
+                {newLogoDataUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setNewLogoDataUrl(null)}
+                    className="text-[10px] text-red-500 hover:text-red-700"
+                  >
+                    Hapus gambar
+                  </button>
+                )}
+              </div>
               <input
                 value={newLabel}
                 onChange={(e) => setNewLabel(e.target.value)}
@@ -249,6 +312,7 @@ function BadgeRowEditor({
   onToggleExpand,
   onLogoPick,
   onLogoFile,
+  onLogoRemove,
   logoInputRef,
   editableSku,
   onSkuListSave,
@@ -261,6 +325,7 @@ function BadgeRowEditor({
   onToggleExpand: () => void;
   onLogoPick: () => void;
   onLogoFile: (f: File) => void;
+  onLogoRemove?: () => void;
   logoInputRef: (el: HTMLInputElement | null) => void;
   editableSku: boolean;
   onSkuListSave?: (id: number, sku_list: string[]) => void;
@@ -314,6 +379,18 @@ function BadgeRowEditor({
             if (f) onLogoFile(f);
           }}
         />
+        {badge.logo_url && onLogoRemove && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onLogoRemove();
+            }}
+            className="flex-none text-[9px] text-red-500 hover:text-red-700"
+            title="Hapus gambar"
+          >
+            Hapus foto
+          </button>
+        )}
         <div className="flex-1 cursor-pointer" onClick={onToggleExpand}>
           <div className="flex items-center gap-2">
             <input

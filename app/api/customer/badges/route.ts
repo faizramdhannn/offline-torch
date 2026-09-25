@@ -51,7 +51,7 @@ export async function PUT(request: NextRequest) {
   try {
     await ensureCustomerSchema();
     const body = await request.json();
-    const { id, label, logo_url, sku_list } = body;
+    const { id, label, logo_url, remove_logo, sku_list } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'id wajib diisi' }, { status: 400 });
@@ -59,15 +59,25 @@ export async function PUT(request: NextRequest) {
 
     const skuArray = Array.isArray(sku_list) ? sku_list : undefined;
 
-    const rows = await sql`
-      UPDATE customer_badges SET
-        label = COALESCE(${label ?? null}, label),
-        logo_url = COALESCE(${logo_url ?? null}, logo_url),
-        sku_list = COALESCE(${skuArray ? JSON.stringify(skuArray) : null}::jsonb, sku_list),
-        updated_at = now()
-      WHERE id = ${id}
-      RETURNING id, badge_key, label, badge_type, logo_url, sku_list, sort_order
-    `;
+    const rows = remove_logo
+      ? await sql`
+          UPDATE customer_badges SET
+            label = COALESCE(${label ?? null}, label),
+            logo_url = NULL,
+            sku_list = COALESCE(${skuArray ? JSON.stringify(skuArray) : null}::jsonb, sku_list),
+            updated_at = now()
+          WHERE id = ${id}
+          RETURNING id, badge_key, label, badge_type, logo_url, sku_list, sort_order
+        `
+      : await sql`
+          UPDATE customer_badges SET
+            label = COALESCE(${label ?? null}, label),
+            logo_url = COALESCE(${logo_url ?? null}, logo_url),
+            sku_list = COALESCE(${skuArray ? JSON.stringify(skuArray) : null}::jsonb, sku_list),
+            updated_at = now()
+          WHERE id = ${id}
+          RETURNING id, badge_key, label, badge_type, logo_url, sku_list, sort_order
+        `;
 
     if (rows.length === 0) {
       return NextResponse.json({ error: 'Badge tidak ditemukan' }, { status: 404 });
