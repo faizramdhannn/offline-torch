@@ -739,7 +739,7 @@ export default function DailyChecklistPage() {
                               stroke="none"
                             >
                               <Cell fill={color} />
-                              <Cell fill="#cbd5e1" />
+                              <Cell fill="#64748b" />
                             </Pie>
                           </PieChart>
                         </ResponsiveContainer>

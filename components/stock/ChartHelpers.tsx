@@ -12,7 +12,7 @@ export const CustomXTick = ({ x, y, payload }: any) => {
   const label = name.length > maxLen ? name.slice(0, maxLen) + "…" : name;
   return (
     <g transform={`translate(${x},${y})`}>
-      <text x={0} y={0} dy={12} textAnchor="middle" fill="#9ca3af" fontSize={8.5}>
+      <text x={0} y={0} dy={12} textAnchor="middle" fill="#334155" fontSize={8.5}>
         {label}
       </text>
     </g>

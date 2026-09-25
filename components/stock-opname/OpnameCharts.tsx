@@ -147,7 +147,7 @@ export function OpnameCharts({ reports, isDark, css }: OpnameChartsProps) {
               <XAxis dataKey="date" tick={{ ...axisTick, fontSize: 9 }} />
               <YAxis tick={axisTick} unit="%" domain={[0, 100]} />
               <Tooltip contentStyle={tooltipStyle} />
-              <Line type="monotone" dataKey="accuracy" name="Accuracy Qty %" stroke="#0d334d" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="accuracy" name="Accuracy Qty %" stroke={isDark ? "#38bdf8" : "#0d334d"} strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>

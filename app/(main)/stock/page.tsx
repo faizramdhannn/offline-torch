@@ -916,7 +916,7 @@ export default function StockPage() {
                           maxBarSize={32}
                           cursor="pointer"
                           onClick={(entry: any) => handleWarehouseBarClick(entry.name)}
-                          label={{ position: "top", fontSize: 8, fill: "#6b7280", formatter: (v: any) => Number(v) > 0 ? formatMetricTick(Number(v), storeMetricMode) : "" }}
+                          label={{ position: "top", fontSize: 8, fill: "#334155", formatter: (v: any) => Number(v) > 0 ? formatMetricTick(Number(v), storeMetricMode) : "" }}
                         >
                           {chartData.map((entry, index) => {
                             const minStock = Math.min(...chartData.filter((d) => d.stock > 0).map((d) => d.stock));
@@ -1011,7 +1011,7 @@ export default function StockPage() {
                             ? handleCategoryBarClick(entry.name)
                             : handleGradeBarClick(entry.name)
                         }
-                        label={{ position: "top", fontSize: 8, fill: "#6b7280", formatter: (v: any) => Number(v) > 0 ? formatMetricTick(Number(v), pcaMetricMode) : "" }}
+                        label={{ position: "top", fontSize: 8, fill: "#334155", formatter: (v: any) => Number(v) > 0 ? formatMetricTick(Number(v), pcaMetricMode) : "" }}
                       >
                         {pcaActiveData.map((entry, index) => {
                           const activeList = pcaChartMode === "category" ? categoryFilter : gradeFilter;

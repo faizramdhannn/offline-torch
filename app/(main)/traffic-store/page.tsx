@@ -1237,7 +1237,7 @@ export default function TrafficStorePage() {
                                 <BarChart data={trafficChartData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
                                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                                   <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
-                                  <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                  <YAxis tick={{ fontSize: 10, fill: "#334155" }} axisLine={false} tickLine={false} />
                                   <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                                   <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={48}>
                                     {trafficChartData.map((_, i) => (
@@ -1273,7 +1273,7 @@ export default function TrafficStorePage() {
                                 <BarChart data={conversionByTraffic} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
                                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                                   <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
-                                  <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                  <YAxis tick={{ fontSize: 10, fill: "#334155" }} axisLine={false} tickLine={false} />
                                   <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                                   <Legend wrapperStyle={{ fontSize: 11 }} />
                                   <Bar dataKey="beli" name="Beli" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={28}>
@@ -1293,7 +1293,7 @@ export default function TrafficStorePage() {
                               <ResponsiveContainer width="100%" height={Math.max(220, categoryChartData.length * 32)}>
                                 <BarChart data={categoryChartData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
                                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartGridStroke} />
-                                  <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                  <XAxis type="number" tick={{ fontSize: 10, fill: "#334155" }} axisLine={false} tickLine={false} />
                                   <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={110} axisLine={false} tickLine={false} />
                                   <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                                   <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={22}>
@@ -1324,7 +1324,7 @@ export default function TrafficStorePage() {
                             <ResponsiveContainer width="100%" height={Math.max(260, storeTrafficMatrix.barData.length * 36)}>
                               <BarChart data={storeTrafficMatrix.barData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartGridStroke} />
-                                <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                <XAxis type="number" tick={{ fontSize: 10, fill: "#334155" }} axisLine={false} tickLine={false} />
                                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={100} axisLine={false} tickLine={false} />
                                 <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                                 <Bar dataKey="total" radius={[0, 4, 4, 0]} maxBarSize={20}>
@@ -1343,7 +1343,7 @@ export default function TrafficStorePage() {
                               <ResponsiveContainer width="100%" height={Math.max(240, discountChartData.length * 34)}>
                                 <BarChart data={discountChartData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
                                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartGridStroke} />
-                                  <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                  <XAxis type="number" tick={{ fontSize: 10, fill: "#334155" }} axisLine={false} tickLine={false} />
                                   <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={110} axisLine={false} tickLine={false} />
                                   <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                                   <Bar dataKey="count" name="Jumlah Pemakai" radius={[0, 4, 4, 0]} maxBarSize={20}>
@@ -1363,7 +1363,7 @@ export default function TrafficStorePage() {
                               <ResponsiveContainer width="100%" height={Math.max(240, brandChartData.length * 34)}>
                                 <BarChart data={brandChartData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
                                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartGridStroke} />
-                                  <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                  <XAxis type="number" tick={{ fontSize: 10, fill: "#334155" }} axisLine={false} tickLine={false} />
                                   <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={110} axisLine={false} tickLine={false} />
                                   <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                                   <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={20}>
@@ -1386,7 +1386,7 @@ export default function TrafficStorePage() {
                                   <BarChart data={wagChartData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
-                                    <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                    <YAxis tick={{ fontSize: 10, fill: "#334155" }} axisLine={false} tickLine={false} />
                                     <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                                     <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40}>
                                       <LabelList dataKey="value" position="top" style={{ fontSize: 10, fill: "#374151" }} />
@@ -1403,7 +1403,7 @@ export default function TrafficStorePage() {
                                   <BarChart data={eigerChartData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
-                                    <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                    <YAxis tick={{ fontSize: 10, fill: "#334155" }} axisLine={false} tickLine={false} />
                                     <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                                     <Bar dataKey="value" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={40}>
                                       <LabelList dataKey="value" position="top" style={{ fontSize: 10, fill: "#374151" }} />
@@ -1420,7 +1420,7 @@ export default function TrafficStorePage() {
                                   <BarChart data={organicChartData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
-                                    <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                    <YAxis tick={{ fontSize: 10, fill: "#334155" }} axisLine={false} tickLine={false} />
                                     <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                                     <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40}>
                                       <LabelList dataKey="value" position="top" style={{ fontSize: 10, fill: "#374151" }} />
@@ -1439,7 +1439,7 @@ export default function TrafficStorePage() {
                             <ResponsiveContainer width="100%" height={Math.max(220, intentionData.length * 40)}>
                               <BarChart data={intentionData} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartGridStroke} />
-                                <XAxis type="number" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                <XAxis type="number" tick={{ fontSize: 10, fill: "#334155" }} axisLine={false} tickLine={false} />
                                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "#374151" }} width={130} axisLine={false} tickLine={false} />
                                 <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
                                 <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={24}>
@@ -1467,7 +1467,7 @@ export default function TrafficStorePage() {
                               <LineChart data={dailyConversionData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#6b7280" }} />
-                                <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fontSize: 10, fill: "#334155" }} axisLine={false} tickLine={false} />
                                 <Tooltip content={<DarkTooltip />} />
                                 <Legend wrapperStyle={{ fontSize: 11 }} />
                                 <Line type="monotone" dataKey="Beli" stroke="#10b981" strokeWidth={2} dot={false} />
@@ -1483,7 +1483,7 @@ export default function TrafficStorePage() {
                               <LineChart data={dailyTrafficChartData.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#6b7280" }} />
-                                <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fontSize: 10, fill: "#334155" }} axisLine={false} tickLine={false} />
                                 <Tooltip content={<DarkTooltip />} />
                                 <Legend wrapperStyle={{ fontSize: 11 }} />
                                 {dailyTrafficChartData.top6.map((t, i) => (
@@ -1500,7 +1500,7 @@ export default function TrafficStorePage() {
                               <LineChart data={dailyStoreChartData.chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#6b7280" }} />
-                                <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fontSize: 10, fill: "#334155" }} axisLine={false} tickLine={false} />
                                 <Tooltip content={<DarkTooltip />} />
                                 <Legend wrapperStyle={{ fontSize: 11 }} />
                                 {dailyStoreChartData.storeNames.map((s, i) => (

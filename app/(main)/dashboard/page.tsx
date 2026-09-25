@@ -498,7 +498,7 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
                       } else if (page === currentPage - 2 || page === currentPage + 2) {
                         return <span key={page} className="px-1 text-xs text-gray-400">...</span>;
                       }
-                      return <span key={page} />;
+                      return null;
                     })}
                     <button
                       onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
