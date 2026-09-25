@@ -525,14 +525,23 @@ export default function StockPage() {
       });
     }
     if (searchQuery) {
-      const words = searchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
-      filtered = filtered.filter((i) => {
-        const haystack = `${i.sku} ${i.item_name}`.toLowerCase();
-        const haystackWords = haystack.split(/[\s\-_/]+/);
-        return words.every((word) =>
-          haystackWords.some((hw) => hw.startsWith(word))
-        );
-      });
+      // Pisah dengan koma → multi-search (OR antar-grup): "abc, def" cari item
+      // yang cocok "abc" ATAU "def". Tiap grup sendiri tetap AND per-kata
+      // seperti sebelumnya (mis. "abc xyz, def" = ("abc" AND "xyz") OR "def").
+      const groups = searchQuery
+        .toLowerCase()
+        .split(",")
+        .map((g) => g.trim().split(/\s+/).filter(Boolean))
+        .filter((words) => words.length > 0);
+      if (groups.length > 0) {
+        filtered = filtered.filter((i) => {
+          const haystack = `${i.sku} ${i.item_name}`.toLowerCase();
+          const haystackWords = haystack.split(/[\s\-_/]+/);
+          return groups.some((words) =>
+            words.every((word) => haystackWords.some((hw) => hw.startsWith(word)))
+          );
+        });
+      }
     }
     if (sortColumn && SORTABLE_COLUMNS[sortColumn]) {
       const { get, type } = SORTABLE_COLUMNS[sortColumn];
@@ -1131,7 +1140,7 @@ export default function StockPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Cari SKU atau nama produk..."
+                  placeholder="Cari SKU atau nama produk... (pisah koma untuk multi-search)"
                   className="min-h-[36px] w-full rounded-lg border border-gray-200 px-3 py-2 pr-14 text-xs outline-none transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/10 sm:py-1.5"
                 />
                 <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
