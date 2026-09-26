@@ -138,7 +138,7 @@ export function OpnameCharts({ reports, isDark, css }: OpnameChartsProps) {
       </div>
 
       {/* Charts */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, marginBottom: 14 }}>
         <div style={{ background: css.cardBg, border: `1px solid ${css.cardBorder}`, borderRadius: 10, padding: "12px 14px", boxShadow: css.cardShadow }}>
           <p style={{ fontSize: 12, fontWeight: 700, color: css.textHeading, margin: "0 0 8px" }}>Inventory Accuracy Trend</p>
           <ResponsiveContainer width="100%" height={200}>

@@ -129,6 +129,13 @@ export default function TopBar() {
   const hasImage = !!announcement.image_url;
 
   return (
+    <>
+    {/* Popup gambar announcement DIPISAH sebagai sibling, BUKAN di dalam
+        wrapper .topbar-glass — elemen dengan backdrop-filter jadi containing
+        block untuk descendant "fixed" di banyak browser (terutama mobile
+        Safari), jadi popup fixed inset-0 di dalam wrapper ini ke-clip ke
+        area topbar (nempel di atas, tidak full-viewport, dan sering gagal
+        di-tap untuk ditutup) alih-alih menutupi seluruh layar. */}
     <div className="topbar-glass sticky top-0 z-30 flex flex-col">
       <div className="flex items-center gap-2 px-4 py-2">
         {/* ── Announcement ── */}
@@ -268,6 +275,7 @@ export default function TopBar() {
           </button>
         </div>
       </div>
+    </div>
 
       {/* ── Popup gambar announcement ── */}
       {showImagePopup && announcement.image_url && (
@@ -292,6 +300,6 @@ export default function TopBar() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
