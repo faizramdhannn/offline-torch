@@ -845,8 +845,13 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
            dengan background di belakangnya. ── */
         .glass-sidebar {
           /* Neutral (no Icy Blue tint like .topbar-glass) — same transparency
-             LEVEL as the top bar, just colorless glass instead of colored. */
-          position: relative;
+             LEVEL as the top bar, just colorless glass instead of colored.
+             TIDAK set position di sini — <aside> sudah punya "fixed
+             md:relative" dari Tailwind (off-canvas di mobile, static di
+             desktop); "position: relative" tanpa media-query di sini pernah
+             menimpa .fixed di mobile (sama specificity, <style> ini render
+             setelah stylesheet Tailwind) sehingga sidebar gagal off-canvas
+             dan selalu memakan lebar layout walau ditranslate keluar layar. */
           background: rgba(255,255,255,0.22);
           backdrop-filter: blur(14px) saturate(140%);
           -webkit-backdrop-filter: blur(14px) saturate(140%);
