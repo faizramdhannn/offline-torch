@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       SELECT sales_order, store_name, customer_name, email, financial_status, fulfillment_status,
              total, created_at, paid_at, line_items
       FROM shopify_orders
-      WHERE phone = ${phone}
+      WHERE lower(financial_status) = 'paid' AND phone = ${phone}
       ORDER BY created_at ASC NULLS LAST
     `;
 

@@ -85,8 +85,8 @@ export async function GET(request: NextRequest) {
     // search/badge/value/order filter lain (supaya opsi dropdown-nya stabil),
     // hanya dibatasi oleh store yang memang boleh diakses user ini.
     const storesResult = accessibleStores
-      ? await sql`SELECT DISTINCT store_name FROM shopify_orders WHERE store_name = ANY(${accessibleStores}) AND phone IS NOT NULL AND phone <> ''`
-      : await sql`SELECT DISTINCT store_name FROM shopify_orders WHERE phone IS NOT NULL AND phone <> ''`;
+      ? await sql`SELECT DISTINCT store_name FROM shopify_orders WHERE lower(financial_status) = 'paid' AND store_name = ANY(${accessibleStores}) AND phone IS NOT NULL AND phone <> ''`
+      : await sql`SELECT DISTINCT store_name FROM shopify_orders WHERE lower(financial_status) = 'paid' AND phone IS NOT NULL AND phone <> ''`;
     const availableStores = (storesResult as any[]).map((r) => r.store_name).filter(Boolean).sort();
 
     if (view !== 'list') {
@@ -127,13 +127,13 @@ export async function GET(request: NextRequest) {
       ? await sql`
           SELECT DISTINCT o.store_name, o.phone
           FROM shopify_orders o
-          WHERE o.phone IS NOT NULL AND o.phone <> '' AND o.store_name = ANY(${storeScope})
+          WHERE lower(o.financial_status) = 'paid' AND o.phone IS NOT NULL AND o.phone <> '' AND o.store_name = ANY(${storeScope})
             AND (SELECT COALESCE(SUM((li->>'quantity')::numeric), 0) FROM jsonb_array_elements(o.line_items) li) > 5
         `
       : await sql`
           SELECT DISTINCT o.store_name, o.phone
           FROM shopify_orders o
-          WHERE o.phone IS NOT NULL AND o.phone <> ''
+          WHERE lower(o.financial_status) = 'paid' AND o.phone IS NOT NULL AND o.phone <> ''
             AND (SELECT COALESCE(SUM((li->>'quantity')::numeric), 0) FROM jsonb_array_elements(o.line_items) li) > 5
         `;
     const bulkSet = new Set<string>(bulkRows.map((r: any) => bulkKey(r.store_name, r.phone)));
@@ -146,13 +146,13 @@ export async function GET(request: NextRequest) {
         ? await sql`
             SELECT DISTINCT o.store_name, o.phone
             FROM shopify_orders o, jsonb_array_elements(o.line_items) li
-            WHERE o.phone IS NOT NULL AND o.phone <> '' AND o.store_name = ANY(${storeScope})
+            WHERE lower(o.financial_status) = 'paid' AND o.phone IS NOT NULL AND o.phone <> '' AND o.store_name = ANY(${storeScope})
               AND upper(li->>'sku') = ANY(${skus})
           `
         : await sql`
             SELECT DISTINCT o.store_name, o.phone
             FROM shopify_orders o, jsonb_array_elements(o.line_items) li
-            WHERE o.phone IS NOT NULL AND o.phone <> ''
+            WHERE lower(o.financial_status) = 'paid' AND o.phone IS NOT NULL AND o.phone <> ''
               AND upper(li->>'sku') = ANY(${skus})
           `;
       const set = new Set<string>();
@@ -185,7 +185,7 @@ export async function GET(request: NextRequest) {
       return `$${params.length}::${cast}`;
     };
 
-    let baseWhere = `o.phone IS NOT NULL AND o.phone <> ''`;
+    let baseWhere = `lower(o.financial_status) = 'paid' AND o.phone IS NOT NULL AND o.phone <> ''`;
     if (storeScope) baseWhere += ` AND o.store_name = ANY(${ph(storeScope, 'text[]')})`;
 
     let outerWhere = '1=1';

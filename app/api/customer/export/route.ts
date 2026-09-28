@@ -19,7 +19,8 @@ export async function GET(request: NextRequest) {
             payment_method, risk_level, source, tags, notes,
             created_at, paid_at, line_items
           FROM shopify_orders
-          WHERE (${from}::date IS NULL OR created_at >= ${from}::date)
+          WHERE lower(financial_status) = 'paid'
+            AND (${from}::date IS NULL OR created_at >= ${from}::date)
             AND (${to}::date IS NULL OR created_at < (${to}::date + INTERVAL '1 day'))
           ORDER BY created_at ASC NULLS LAST
         `
@@ -32,6 +33,7 @@ export async function GET(request: NextRequest) {
             payment_method, risk_level, source, tags, notes,
             created_at, paid_at, line_items
           FROM shopify_orders
+          WHERE lower(financial_status) = 'paid'
           ORDER BY created_at ASC NULLS LAST
         `;
 
@@ -47,7 +49,7 @@ export async function GET(request: NextRequest) {
       const rows = await sql`
         SELECT phone, COUNT(DISTINCT sales_order)::int AS total_order
         FROM shopify_orders
-        WHERE phone = ANY(${phones})
+        WHERE lower(financial_status) = 'paid' AND phone = ANY(${phones})
         GROUP BY phone
       `;
       rows.forEach((r: any) => tierCountByPhone.set(r.phone, Number(r.total_order) || 0));
@@ -58,7 +60,7 @@ export async function GET(request: NextRequest) {
       const rows = await sql`
         SELECT DISTINCT phone
         FROM shopify_orders
-        WHERE phone = ANY(${phones})
+        WHERE lower(financial_status) = 'paid' AND phone = ANY(${phones})
           AND (SELECT COALESCE(SUM((li->>'quantity')::numeric), 0) FROM jsonb_array_elements(line_items) li) > 5
       `;
       rows.forEach((r: any) => bulkPhones.add(r.phone));
@@ -71,7 +73,7 @@ export async function GET(request: NextRequest) {
       const rows = await sql`
         SELECT DISTINCT o.phone
         FROM shopify_orders o, jsonb_array_elements(o.line_items) li
-        WHERE o.phone = ANY(${phones}) AND upper(li->>'sku') = ANY(${skus})
+        WHERE lower(o.financial_status) = 'paid' AND o.phone = ANY(${phones}) AND upper(li->>'sku') = ANY(${skus})
       `;
       const set = new Set<string>();
       rows.forEach((r: any) => set.add(r.phone));
