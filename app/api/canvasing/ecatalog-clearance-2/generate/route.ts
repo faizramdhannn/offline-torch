@@ -136,7 +136,8 @@ type SortMode = 'sheet' | 'category' | 'stock';
 function mapProducts(data: any[]) {
   return (data as any[])
     .filter((item) => item.artikel || item.item_name)
-    .map((p) => ({
+    .map((p, idx) => ({
+      uid: `${String(p.sku || p.id || '')}#${idx}`,
       sku: String(p.sku || p.id || ''),
       item_name: p.artikel || p.item_name || '',
       category: p.category || 'Lainnya',
@@ -201,7 +202,7 @@ export async function POST(request: NextRequest) {
     let products = mapProducts(data);
     if (selectedSkus) {
       const selectedSet = new Set(selectedSkus);
-      products = products.filter((p) => selectedSet.has(p.sku));
+      products = products.filter((p) => selectedSet.has(p.uid));
     }
     products = sortProducts(products, sortMode);
 

@@ -727,6 +727,17 @@ export default function StockPage() {
     finally { setImporting(false); }
   };
 
+  // Sheet menyimpan stock sebagai teks; di Excel harus angka supaya bisa dihitung.
+  const toExportNumber = (v: string | undefined | null): number | "" => {
+    if (v === undefined || v === null || String(v).trim() === "") return "";
+    const n = parseInt(String(v).replace(/[^0-9-]/g, ""), 10);
+    return isNaN(n) ? "" : n;
+  };
+
+  // Harga di sheet berformat teks (mis. "Rp 1.000"); di Excel jadi angka rupiah utuh.
+  const toExportPrice = (v: string | undefined | null): number | "" =>
+    v && String(v).trim() !== "" ? parseHarga(v) : "";
+
   const exportToExcel = () => {
     const exportData = filteredData.map((item) => {
       // Urutan & kelengkapan kolom di sini SENGAJA disamakan persis dengan
@@ -740,13 +751,13 @@ export default function StockPage() {
         "Tier Product": toProperCase(item.tier_product),
         "Tier Phase": toProperCase(item.tier_phase),
       };
-      if (selectedView === "store" || (selectedView === "pca" && user?.stock_pca_view)) base["Stock"] = item.stock;
+      if (selectedView === "store" || (selectedView === "pca" && user?.stock_pca_view)) base["Stock"] = toExportNumber(item.stock);
       if (selectedView === "store") base["Warehouse"] = item.warehouse;
-      if (selectedView === "pca") base["Threshold"] = item.threshold || "";
-      if (user?.stock_view_hpp) base["HPP"] = item.hpp;
-      if (user?.stock_view_hpt) base["HPT"] = item.hpt;
+      if (selectedView === "pca") base["Threshold"] = toExportNumber(item.threshold);
+      if (user?.stock_view_hpp) base["HPP"] = toExportPrice(item.hpp);
+      if (user?.stock_view_hpt) base["HPT"] = toExportPrice(item.hpt);
       if (user?.stock_view_hpj) {
-        base["HPJ"] = item.hpj;
+        base["HPJ"] = toExportPrice(item.hpj);
         const discountPct = parseDiscount(item.discount);
         const hpjVal = parseHarga(item.hpj);
         base["Discount (%)"] = discountPct > 0 ? `${discountPct}%` : "";

@@ -5,6 +5,7 @@ import { X, Loader2, PackageSearch } from "lucide-react";
 import { Button } from "@/components/shared/Button";
 
 interface ClearanceProduct {
+  uid: string;
   sku: string;
   item_name: string;
   category: string;
@@ -42,7 +43,7 @@ export function Clearance2CatalogPicker({ onClose }: Props) {
         if (!res.ok) throw new Error(json?.error || "Gagal memuat daftar produk");
         const list: ClearanceProduct[] = json.products || [];
         setProducts(list);
-        setSelected(new Set(list.map((p) => p.sku)));
+        setSelected(new Set(list.map((p) => p.uid)));
       } catch (e: any) {
         setError(e?.message || "Gagal memuat daftar produk");
       } finally {
@@ -87,18 +88,18 @@ export function Clearance2CatalogPicker({ onClose }: Props) {
   };
 
   const toggleCategory = (items: ClearanceProduct[]) => {
-    const allSelected = items.every((p) => selected.has(p.sku));
+    const allSelected = items.every((p) => selected.has(p.uid));
     setSelected((prev) => {
       const next = new Set(prev);
       for (const p of items) {
-        if (allSelected) next.delete(p.sku);
-        else next.add(p.sku);
+        if (allSelected) next.delete(p.uid);
+        else next.add(p.uid);
       }
       return next;
     });
   };
 
-  const selectAll = () => setSelected(new Set(products.map((p) => p.sku)));
+  const selectAll = () => setSelected(new Set(products.map((p) => p.uid)));
   const selectNone = () => setSelected(new Set());
 
   const handleGenerate = async () => {
@@ -194,7 +195,7 @@ export function Clearance2CatalogPicker({ onClose }: Props) {
             <div className="flex-1 overflow-y-auto px-5 py-3">
               {grouped ? (
                 grouped.map(([category, items]) => {
-                  const allSelected = items.every((p) => selected.has(p.sku));
+                  const allSelected = items.every((p) => selected.has(p.uid));
                   return (
                     <div key={category} className="mb-4">
                       <label className="mb-2 flex cursor-pointer items-center gap-2 text-sm font-semibold text-gray-900">
@@ -210,14 +211,14 @@ export function Clearance2CatalogPicker({ onClose }: Props) {
                       <div className="space-y-1 pl-6">
                         {items.map((p) => (
                           <label
-                            key={p.sku}
+                            key={p.uid}
                             className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-black/5"
                           >
                             <span className="flex items-center gap-2 truncate">
                               <input
                                 type="checkbox"
-                                checked={selected.has(p.sku)}
-                                onChange={() => toggle(p.sku)}
+                                checked={selected.has(p.uid)}
+                                onChange={() => toggle(p.uid)}
                                 className="h-4 w-4 shrink-0 rounded border-gray-300"
                               />
                               <span className="truncate text-sm text-gray-800">{p.item_name}</span>
@@ -235,14 +236,14 @@ export function Clearance2CatalogPicker({ onClose }: Props) {
                 <div className="space-y-1">
                   {sortedProducts.map((p) => (
                     <label
-                      key={p.sku}
+                      key={p.uid}
                       className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-black/5"
                     >
                       <span className="flex items-center gap-2 truncate">
                         <input
                           type="checkbox"
-                          checked={selected.has(p.sku)}
-                          onChange={() => toggle(p.sku)}
+                          checked={selected.has(p.uid)}
+                          onChange={() => toggle(p.uid)}
                           className="h-4 w-4 shrink-0 rounded border-gray-300"
                         />
                         <span className="truncate text-sm text-gray-800">{p.item_name}</span>
