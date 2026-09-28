@@ -5,6 +5,7 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { hasTextSelection } from "@/lib/utils";
+import { compressImageFile } from "@/lib/compressImage";
 import Popup from "@/components/Popup";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
@@ -227,7 +228,7 @@ export default function RequestStorePage() {
       fd.append("sales_order", form.sales_order);
       fd.append("delivery_note", form.delivery_note);
       fd.append("sales_invoice", form.sales_invoice);
-      if (addImageFile) fd.append("image", addImageFile);
+      if (addImageFile) fd.append("image", await compressImageFile(addImageFile));
 
       const res = await fetch("/api/request-store", { method: "POST", body: fd });
 
@@ -279,7 +280,7 @@ export default function RequestStorePage() {
       fd.append("delivery_note", editForm.delivery_note);
       fd.append("sales_invoice", editForm.sales_invoice);
       fd.append("image_url", editForm.image_url);
-      if (editImageFile) fd.append("image", editImageFile);
+      if (editImageFile) fd.append("image", await compressImageFile(editImageFile));
 
       const res = await fetch("/api/request-store", { method: "PUT", body: fd });
 

@@ -3,22 +3,25 @@
 import { useEffect, useMemo, useState } from "react";
 import { X, Loader2, PackageSearch } from "lucide-react";
 import { Button } from "@/components/shared/Button";
+import { catalogGroupIndex } from "@/lib/clearanceCategoryMap";
 
 interface ClearanceProduct {
   uid: string;
   sku: string;
   item_name: string;
   category: string;
+  group: string;
   image_url: string;
   price: string;
   price_promo: string;
   stock_all: number;
 }
 
-type SortMode = "sheet" | "category" | "stock";
+type SortMode = "sheet" | "category" | "stock" | "mapping";
 
 const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: "sheet", label: "Sesuai List di Sheet" },
+  { value: "mapping", label: "Sesuai Mapping Category" },
   { value: "category", label: "Sesuai Category" },
   { value: "stock", label: "Stock Paling Banyak" },
 ];
@@ -33,7 +36,7 @@ export function Clearance2CatalogPicker({ onClose }: Props) {
   const [products, setProducts] = useState<ClearanceProduct[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [generating, setGenerating] = useState(false);
-  const [sortMode, setSortMode] = useState<SortMode>("sheet");
+  const [sortMode, setSortMode] = useState<SortMode>("mapping");
 
   useEffect(() => {
     (async () => {
@@ -55,6 +58,9 @@ export function Clearance2CatalogPicker({ onClose }: Props) {
 // API mengembalikan urutan asli sheet (stock 0 sudah dibuang) — pengurutan
   // category/stock diterapkan di sini sesuai pilihan user.
   const sortedProducts = useMemo(() => {
+    if (sortMode === "mapping") {
+      return [...products].sort((a, b) => catalogGroupIndex(a.group) - catalogGroupIndex(b.group));
+    }
     if (sortMode === "category") {
       return [...products].sort((a, b) => a.category.localeCompare(b.category, "id"));
     }
@@ -68,12 +74,13 @@ export function Clearance2CatalogPicker({ onClose }: Props) {
   // "sheet"/"stock" ditampilkan sebagai satu list flat supaya urutannya
   // (urutan sheet asli / ranking stock global) tidak pecah oleh kategori.
   const grouped = useMemo(() => {
-    if (sortMode !== "category") return null;
+    if (sortMode !== "category" && sortMode !== "mapping") return null;
     const map = new Map<string, ClearanceProduct[]>();
     for (const p of sortedProducts) {
-      const arr = map.get(p.category) || [];
+      const key = sortMode === "mapping" ? p.group : p.category;
+      const arr = map.get(key) || [];
       arr.push(p);
-      map.set(p.category, arr);
+      map.set(key, arr);
     }
     return Array.from(map.entries());
   }, [sortedProducts, sortMode]);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData } from '@/lib/sheets';
 import jsPDF from 'jspdf';
 import sharp from 'sharp';
+import { catalogGroupOf, catalogGroupIndex } from '@/lib/clearanceCategoryMap';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // E-Catalog Clearance 2 — sheet clearance_product_2. Layout kartu (grid 3
@@ -34,7 +35,50 @@ const PAGE_W = 1080;
 const PAGE_H = 1350;
 const COLS = 3;
 const ROWS = 4;
-const PRODUCTS_PER_PAGE = COLS * ROWS; // 12
+
+const MARGIN_LR = 40;
+const MARGIN_BOTTOM = 36;
+const HEADER_H = 84;
+const CONTENT_TOP = HEADER_H + 26;
+const CONTENT_W = PAGE_W - MARGIN_LR * 2;
+const CONTENT_H = PAGE_H - CONTENT_TOP - MARGIN_BOTTOM;
+const CELL_W = CONTENT_W / COLS;
+const CELL_H = CONTENT_H / ROWS;
+const BANNER_H = 62;
+const BANNER_SLOT = BANNER_H + 14; // banner + jarak ke baris berikutnya
+
+type PageRow =
+  | { type: 'header'; title: string }
+  | { type: 'products'; items: any[]; group: string };
+
+// Bagi baris (banner grup + baris produk) ke halaman berdasarkan tinggi.
+// Banner tidak boleh jadi elemen terakhir di halaman (harus ikut minimal 1
+// baris produk). Banner hanya muncul di awal grup (tidak diulang di halaman
+// lanjutan) supaya tiap halaman tetap muat 4 baris produk.
+function paginateRows(rows: PageRow[]): PageRow[][] {
+  const EPS = 0.5;
+  const pages: PageRow[][] = [];
+  let cur: PageRow[] = [];
+  let used = 0;
+  const flush = () => {
+    if (cur.length > 0) pages.push(cur);
+    cur = [];
+    used = 0;
+  };
+  for (const row of rows) {
+    if (row.type === 'header') {
+      if (used + BANNER_SLOT + CELL_H > CONTENT_H + EPS) flush();
+      cur.push(row);
+      used += BANNER_SLOT;
+    } else {
+      if (used + CELL_H > CONTENT_H + EPS) flush();
+      cur.push(row);
+      used += CELL_H;
+    }
+  }
+  flush();
+  return pages;
+}
 
 async function fetchImageBuffer(url: string, retries = 2): Promise<{ buffer: Buffer; mime: string } | null> {
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -129,7 +173,7 @@ function parseNum(value: string | number | undefined): number {
   return isNaN(num) ? 0 : num;
 }
 
-type SortMode = 'sheet' | 'category' | 'stock';
+type SortMode = 'sheet' | 'category' | 'stock' | 'mapping';
 
 // Selalu buang produk dengan stock_all 0 (tidak dibawa ke catalog sama sekali),
 // urutan lain (sheet asli / category / stock terbanyak) dipilih user di picker.
@@ -141,6 +185,7 @@ function mapProducts(data: any[]) {
       sku: String(p.sku || p.id || ''),
       item_name: p.artikel || p.item_name || '',
       category: p.category || 'Lainnya',
+      group: catalogGroupOf(p.category),
       image_url: p.image_url || '',
       price: p.price || '',
       price_promo: p.price_promo || '',
@@ -149,12 +194,15 @@ function mapProducts(data: any[]) {
     .filter((p) => p.stock_all > 0);
 }
 
-function sortProducts<T extends { category: string; stock_all: number }>(
+function sortProducts<T extends { category: string; group: string; stock_all: number }>(
   products: T[],
   sortMode: SortMode
 ): T[] {
   if (sortMode === 'category') {
     return [...products].sort((a, b) => a.category.localeCompare(b.category, 'id'));
+  }
+  if (sortMode === 'mapping') {
+    return [...products].sort((a, b) => catalogGroupIndex(a.group) - catalogGroupIndex(b.group));
   }
   if (sortMode === 'stock') {
     return [...products].sort((a, b) => b.stock_all - a.stock_all);
@@ -163,7 +211,7 @@ function sortProducts<T extends { category: string; stock_all: number }>(
 }
 
 function parseSortMode(value: unknown): SortMode {
-  return value === 'category' || value === 'stock' ? value : 'sheet';
+  return value === 'category' || value === 'stock' || value === 'mapping' ? value : 'sheet';
 }
 
 // GET → daftar produk untuk picker di frontend (default urutan sesuai sheet;
@@ -220,10 +268,34 @@ export async function POST(request: NextRequest) {
 
     createCoverPage(doc, torchIconLogo);
 
-    for (let i = 0; i < products.length; i += PRODUCTS_PER_PAGE) {
-      const batch = products.slice(i, i + PRODUCTS_PER_PAGE);
+    const rows: PageRow[] = [];
+    if (sortMode === 'mapping') {
+      // Grup mengalir berurutan tanpa pindah halaman; tiap grup diawali banner header di tengah.
+      let currentGroup = '';
+      let buffer3: any[] = [];
+      const flushRow = () => {
+        if (buffer3.length > 0) rows.push({ type: 'products', items: buffer3, group: currentGroup });
+        buffer3 = [];
+      };
+      for (const p of products) {
+        if (p.group !== currentGroup) {
+          flushRow();
+          currentGroup = p.group;
+          rows.push({ type: 'header', title: currentGroup });
+        }
+        buffer3.push(p);
+        if (buffer3.length === COLS) flushRow();
+      }
+      flushRow();
+    } else {
+      for (let i = 0; i < products.length; i += COLS) {
+        rows.push({ type: 'products', items: products.slice(i, i + COLS), group: '' });
+      }
+    }
+
+    for (const pageRows of paginateRows(rows)) {
       doc.addPage([PAGE_W, PAGE_H]);
-      await createProductPage(doc, batch, torchLogo);
+      await createProductPage(doc, pageRows, torchLogo);
     }
 
     const buffer = Buffer.from(doc.output('arraybuffer'));
@@ -259,29 +331,51 @@ function createCoverPage(doc: jsPDF, logo: string | null) {
   doc.text('Clearance Catalog', PAGE_W / 2, PAGE_H / 2 + 20, { align: 'center' });
 }
 
-async function createProductPage(doc: jsPDF, products: any[], torchLogo: string | null) {
+function drawGroupBanner(doc: jsPDF, title: string, y: number) {
+  doc.setFillColor(TORCH_BLUE.r, TORCH_BLUE.g, TORCH_BLUE.b);
+  doc.roundedRect(MARGIN_LR, y, CONTENT_W, BANNER_H, 14, 14, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(30);
+  doc.setFont('helvetica', 'bold');
+  const textW = doc.getTextWidth(title);
+  const cx = PAGE_W / 2;
+  const midY = y + BANNER_H / 2;
+  doc.text(title, cx, midY + 10, { align: 'center' });
+
+  // Garis dekoratif kiri-kanan judul.
+  doc.setDrawColor(255, 255, 255);
+  doc.setLineWidth(2);
+  const gap = 22;
+  const edge = 36;
+  const leftEnd = cx - textW / 2 - gap;
+  const rightStart = cx + textW / 2 + gap;
+  if (leftEnd - (MARGIN_LR + edge) > 20) doc.line(MARGIN_LR + edge, midY, leftEnd, midY);
+  if (MARGIN_LR + CONTENT_W - edge - rightStart > 20) doc.line(rightStart, midY, MARGIN_LR + CONTENT_W - edge, midY);
+}
+
+async function createProductPage(doc: jsPDF, pageRows: PageRow[], torchLogo: string | null) {
   doc.setFillColor(255, 255, 255);
   doc.rect(0, 0, PAGE_W, PAGE_H, 'F');
 
-  // Header: logo Torch polos, center-top.
-  const headerLogoW = 195;
-  const headerLogoH = 65;
-  const headerTopPad = 30;
+  // Header: strip biru di atas, logo Torch di kiri, judul katalog di kanan.
+  doc.setFillColor(TORCH_BLUE.r, TORCH_BLUE.g, TORCH_BLUE.b);
+  doc.rect(0, 0, PAGE_W, 14, 'F');
   if (torchLogo) {
-    try {
-      doc.addImage(torchLogo, 'PNG', (PAGE_W - headerLogoW) / 2, headerTopPad, headerLogoW, headerLogoH);
-    } catch {}
+    try { doc.addImage(torchLogo, 'PNG', MARGIN_LR, 32, 156, 52); } catch {}
   }
-  const headerHeight = headerTopPad + headerLogoH;
+  doc.setTextColor(TORCH_BLUE.r, TORCH_BLUE.g, TORCH_BLUE.b);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('CLEARANCE CATALOG', PAGE_W - MARGIN_LR, 66, { align: 'right' });
+  doc.setDrawColor(TORCH_BLUE.r, TORCH_BLUE.g, TORCH_BLUE.b);
+  doc.setLineWidth(1.5);
+  doc.line(MARGIN_LR, HEADER_H + 8, PAGE_W - MARGIN_LR, HEADER_H + 8);
 
-  const marginLR = 40;
-  const marginBottom = 36;
-  const contentTop = headerHeight + 30;
-
-  const contentW = PAGE_W - marginLR * 2;
-  const contentH = PAGE_H - contentTop - marginBottom;
-  const cellW = contentW / COLS;
-  const cellH = contentH / ROWS;
+  const marginLR = MARGIN_LR;
+  const contentTop = CONTENT_TOP;
+  const cellW = CELL_W;
+  const cellH = CELL_H;
 
   // ── Layout per-kartu — slot tetap (bukan proporsional ke cellH), sama
   // pola dengan E-Catalog Pasaraya, plus 1 baris tambahan untuk stock per store.
@@ -306,18 +400,28 @@ async function createProductPage(doc: jsPDF, products: any[], torchLogo: string 
   const imgBoxByHeight = cellH - PAD_TOP - textZoneH - 16;
   const imgBox = Math.max(60, Math.min(imgBoxByWidth, imgBoxByHeight));
 
+  // Susun posisi Y tiap baris; banner digambar langsung, sel produk dikumpulkan.
+  const cells: { p: any; col: number; cellY: number }[] = [];
+  let y = contentTop;
+  for (const row of pageRows) {
+    if (row.type === 'header') {
+      drawGroupBanner(doc, row.title, y);
+      y += BANNER_SLOT;
+    } else {
+      row.items.forEach((p, col) => cells.push({ p, col, cellY: y }));
+      y += cellH;
+    }
+  }
+
   const images = await Promise.all(
-    products.map((p) => (p.image_url ? downloadProductImage(p.image_url) : Promise.resolve(null)))
+    cells.map(({ p }) => (p.image_url ? downloadProductImage(p.image_url) : Promise.resolve(null)))
   );
 
-  for (let i = 0; i < products.length; i++) {
-    const p = products[i];
+  for (let i = 0; i < cells.length; i++) {
+    const { p, col, cellY } = cells[i];
     const img = images[i];
-    const col = i % COLS;
-    const row = Math.floor(i / COLS);
 
     const cellX = marginLR + col * cellW;
-    const cellY = contentTop + row * cellH;
     const cellCenterX = cellX + cellW / 2;
 
     // ── Gambar produk — "contain" fit (jaga rasio asli) ──────────────────
