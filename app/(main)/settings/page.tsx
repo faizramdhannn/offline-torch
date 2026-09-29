@@ -271,6 +271,8 @@ export default function SettingsPage() {
   const [manualCookie, setManualCookie] = useState("");
   const [savingJavelin, setSavingJavelin] = useState(false);
   const [loadingJavelin, setLoadingJavelin] = useState(false);
+  const [dbTables, setDbTables] = useState<{ key: string; label: string }[]>([]);
+  const [copiedTable, setCopiedTable] = useState<string | null>(null);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -280,7 +282,22 @@ export default function SettingsPage() {
     setUser(parsedUser);
     fetchUsers();
     fetchJavelinStatus();
+    if (parsedUser.registration_request) {
+      fetch("/api/admin/db-export?list=1")
+        .then((r) => r.json())
+        .then((d) => setDbTables(d.tables || []))
+        .catch(() => setDbTables([]));
+    }
   }, [router]);
+
+  const copyImportFormula = (tableKey: string) => {
+    const url = `${window.location.origin}/api/admin/db-export?table=${tableKey}&username=${encodeURIComponent(user.user_name)}`;
+    const formula = `=IMPORTDATA("${url}")`;
+    navigator.clipboard.writeText(formula).then(() => {
+      setCopiedTable(tableKey);
+      setTimeout(() => setCopiedTable(null), 1500);
+    });
+  };
 
   const showMessage = (message: string, type: "success" | "error") => {
     setPopupMessage(message); setPopupType(type); setShowPopup(true);
@@ -441,6 +458,36 @@ export default function SettingsPage() {
             {javelinStatus.hasCookies ? "Update" : "Set Cookie"}
           </Button>
         </GlassCard>
+
+        {/* ── Export Database ke Spreadsheet ─────────────────────────────── */}
+        {/* Hanya untuk user dengan registration_request (page ini sendiri
+            sudah digate user_setting) — dua permission ini yang paling dekat
+            dengan "akses users, setting" yang diminta untuk fitur ini. */}
+        {!!user.registration_request && dbTables.length > 0 && (
+          <GlassCard padding="none" className="mb-4 px-4 py-3">
+            <p className="mb-0.5 text-xs font-semibold text-gray-700">Export Database ke Spreadsheet</p>
+            <p className="mb-2.5 text-[11px] text-gray-400">
+              Tabel-tabel ini tersimpan di database (bukan Google Sheets). Klik "Copy" lalu tempel
+              formulanya di sel Google Sheets — hasilnya otomatis jadi tabel.
+            </p>
+            <div className="flex flex-col gap-1.5">
+              {dbTables.map((t) => (
+                <div
+                  key={t.key}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2"
+                >
+                  <span className="text-[11px] font-medium text-gray-600">{t.label}</span>
+                  <button
+                    onClick={() => copyImportFormula(t.key)}
+                    className="shrink-0 rounded bg-primary px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-primary/90"
+                  >
+                    {copiedTable === t.key ? "Tersalin!" : "Copy Formula"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </GlassCard>
+        )}
 
         {/* ── User Management ───────────────────────────────────────────── */}
         <GlassCard padding="none" className="overflow-hidden">
