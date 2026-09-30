@@ -26,6 +26,7 @@ import {
   exportProductTab,
   exportEmployeeTab,
   exportOnlineTab,
+  exportBadgeTab,
 } from "@/lib/analyticsExport";
 
 const COLORS = [
@@ -393,6 +394,7 @@ const CHART_TABS = [
   { id: "traffic",  label: "Traffic Source" },
   { id: "discount", label: "Discount Code" },
   { id: "product",  label: "Product Sales" },
+  { id: "badge",    label: "Sales by Badge" },
   { id: "employee", label: "Employee" },
   { id: "online",   label: "Online" },
 ];
@@ -750,7 +752,15 @@ export default function AnalyticsOrderPage() {
   const [pageProduct, setPageProduct] = useState(1);
   const [pageEmployee, setPageEmployee] = useState(1);
   const [pageOnline, setPageOnline] = useState(1);
+  const [pageBadge, setPageBadge] = useState(1);
   const PAGE_SIZE = 10;
+
+  // ─── Sales by Badge — dihitung server-side (butuh join ke lifetime order
+  // history per customer utk klasifikasi badge), bukan dari `fr` client-side
+  // seperti tab lain. Di-fetch ulang tiap kali tab ini aktif atau filter
+  // tanggal/store berubah. ───────────────────────────────────────────────────
+  const [badgeData, setBadgeData] = useState<{ badge_key: string; label: string; orders: number; qty: number; value: number; customers: number }[]>([]);
+  const [badgeLoading, setBadgeLoading] = useState(false);
   const [hideUnknownTraffic, setHideUnknownTraffic] = useState(searchParams.get("hidenull") === "1");
 
   // ─── Traffic filter ───────────────────────────────────────────────────────
@@ -968,6 +978,20 @@ useEffect(() => {
   }, [rows, dateFrom, dateTo, storeFilter, trafficFilter, trafficMap, isTrafficActive, isStoreActive, activeTab]);
 
   const fr = filteredRows();
+
+  useEffect(() => {
+    if (activeTab !== "badge") return;
+    setBadgeLoading(true);
+    const params = new URLSearchParams();
+    if (dateFrom) params.set("from", dateFrom);
+    if (dateTo) params.set("to", dateTo);
+    if (storeFilter.length > 0) params.set("store", storeFilter.join(","));
+    fetch(`/api/analytics-order/sales-by-badge?${params.toString()}`)
+      .then((res) => res.json())
+      .then((json) => setBadgeData(json.data || []))
+      .catch(() => setBadgeData([]))
+      .finally(() => setBadgeLoading(false));
+  }, [activeTab, dateFrom, dateTo, storeFilter]);
 
   const dataDateRange = (() => {
     // Use only paid rows for date range display
@@ -1311,6 +1335,7 @@ useEffect(() => {
       case "product":  exportProductTab(fr, trafficMap);  break;
       case "employee": exportEmployeeTab(fr, trafficMap); break;
       case "online":   exportOnlineTab(fr);               break;
+      case "badge":    exportBadgeTab(badgeData);          break;
     }
   };
 
@@ -1319,11 +1344,11 @@ useEffect(() => {
     setDateTo(getTodayStr());
     setStoreFilter([]);
     setTrafficFilter([]);
-    setPageStore(1); setPageTraffic(1); setPageDiscount(1); setPageProduct(1); setPageEmployee(1); setPageOnline(1);
+    setPageStore(1); setPageTraffic(1); setPageDiscount(1); setPageProduct(1); setPageEmployee(1); setPageOnline(1); setPageBadge(1);
   };
 
   const resetPages = () => {
-    setPageStore(1); setPageTraffic(1); setPageDiscount(1); setPageProduct(1); setPageEmployee(1); setPageOnline(1);
+    setPageStore(1); setPageTraffic(1); setPageDiscount(1); setPageProduct(1); setPageEmployee(1); setPageOnline(1); setPageBadge(1);
   };
 
   if (!user) return null;
@@ -2101,6 +2126,67 @@ useEffect(() => {
                             <Pagination page={pageProduct} total={productData.length} pageSize={PAGE_SIZE} onChange={setPageProduct} />
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {/* ── Tab: Sales by Badge ──────────────────────────────── */}
+                    {activeTab === "badge" && (
+                      <div className="space-y-8">
+                        {badgeLoading ? (
+                          <div className="py-12 text-center text-xs text-gray-400">Memuat...</div>
+                        ) : badgeData.length === 0 ? (
+                          <div className="py-12 text-center text-xs text-gray-400">Tidak ada data untuk rentang/filter ini</div>
+                        ) : (
+                          <>
+                            <div>
+                              <h3 className="text-sm font-semibold text-gray-700 mb-1">Revenue per Badge Customer</h3>
+                              <p className="text-xs text-gray-400 mb-4">
+                                Badge dihitung dari riwayat order customer secara keseluruhan (bukan cuma rentang ini);
+                                satu customer bisa punya lebih dari 1 badge, jadi total di sini bisa melebihi total revenue asli.
+                              </p>
+                              <ResponsiveContainer width="100%" height={Math.max(240, badgeData.length * 32)}>
+                                <BarChart data={badgeData} layout="vertical" margin={{ top: 4, right: 80, left: 8, bottom: 4 }}>
+                                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#94a3b8" />
+                                  <XAxis type="number" tick={{ fontSize: 9, fill: "#334155" }} tickFormatter={(v) => v >= 1e6 ? `${(v/1e6).toFixed(0)}jt` : `${(v/1e3).toFixed(0)}k`} />
+                                  <YAxis dataKey="label" type="category" tick={{ fontSize: 9, fill: "#6b7280" }} width={140} />
+                                  <Tooltip content={<DarkTooltip formatter={formatRupiah} />} />
+                                  <Bar dataKey="value" name="Revenue" radius={[0, 4, 4, 0]} maxBarSize={18}>
+                                    {badgeData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+
+                            <div>
+                              <h3 className="text-sm font-semibold text-gray-700 mb-3">Detail per Badge</h3>
+                              <div className={tableWrapClassGlass}>
+                                <table className="w-full text-[11px]">
+                                  <thead>
+                                    <tr className={`${theadClassGlass} border-b`}>
+                                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Badge</th>
+                                      <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Customer</th>
+                                      <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Order</th>
+                                      <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Qty</th>
+                                      <th className="px-2 py-1.5 text-right font-semibold text-gray-700">Revenue</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {badgeData.slice((pageBadge - 1) * PAGE_SIZE, pageBadge * PAGE_SIZE).map((b) => (
+                                      <tr key={b.badge_key} className="border-b border-gray-50">
+                                        <td className="px-2 py-1">{b.label}</td>
+                                        <td className="px-2 py-1 text-right">{b.customers}</td>
+                                        <td className="px-2 py-1 text-right">{b.orders}</td>
+                                        <td className="px-2 py-1 text-right">{b.qty}</td>
+                                        <td className="px-2 py-1 text-right">{formatRupiah(b.value)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                                <Pagination page={pageBadge} total={badgeData.length} pageSize={PAGE_SIZE} onChange={setPageBadge} />
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                     )}
 

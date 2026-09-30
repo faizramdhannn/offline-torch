@@ -1022,3 +1022,18 @@ export function exportOnlineTab(filteredRows: Row[]) {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dailyData), "Daily Online Trend");
   downloadXlsx(wb, `Analytics_Online_Orders_${Date.now()}.xlsx`);
 }
+// ─── TAB: Sales by Badge ───────────────────────────────────────────────────
+// Beda dari tab lain — datanya sudah pre-agregat dari server (lihat
+// /api/analytics-order/sales-by-badge), bukan diturunkan dari filteredRows,
+// karena butuh riwayat order LIFETIME per customer untuk klasifikasi badge.
+export function exportBadgeTab(
+  badgeData: { badge_key: string; label: string; orders: number; qty: number; value: number; customers: number }[]
+) {
+  const sheetData = [
+    ["Badge", "Jumlah Customer", "Jumlah Order", "Qty Terjual", "Revenue (IDR)", "Revenue (Rp)"],
+    ...badgeData.map((b) => [b.label, b.customers, b.orders, b.qty, b.value, formatRupiahRaw(b.value)]),
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheetData), "Sales by Badge");
+  downloadXlsx(wb, `Analytics_Sales_By_Badge_${Date.now()}.xlsx`);
+}
