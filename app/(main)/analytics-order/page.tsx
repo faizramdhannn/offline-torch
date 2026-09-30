@@ -773,6 +773,13 @@ export default function AnalyticsOrderPage() {
   const [showStoreDropdown, setShowStoreDropdown] = useState(false);
   const storeDropdownRef = useRef<HTMLDivElement>(null);
 
+  // ─── Bulk filter — qty PER SKU (per baris Lineitem) dalam 1 order, BUKAN
+  // total qty se-order. "exclude" = buang baris dengan qty >5 (cuma sisakan
+  // 1-5), "only" = cuma baris dengan qty >=6, "include" = tidak difilter. ──
+  const [bulkFilter, setBulkFilter] = useState<"include" | "exclude" | "only">(
+    (searchParams.get("bulk") as "include" | "exclude" | "only") || "include"
+  );
+
   const toLocalDateStr = (d: Date) => {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -900,9 +907,10 @@ useEffect(() => {
   if (trafficFilter.length > 0) params.set("traffic", trafficFilter.join(","));
   if (storeFilter.length > 0) params.set("store", storeFilter.join(","));
   if (hideUnknownTraffic) params.set("hidenull", "1");
+  if (bulkFilter !== "include") params.set("bulk", bulkFilter);
   const qs = params.toString();
   router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-}, [dateFrom, dateTo, trafficFilter, storeFilter, hideUnknownTraffic, pathname, router]);
+}, [dateFrom, dateTo, trafficFilter, storeFilter, hideUnknownTraffic, bulkFilter, pathname, router]);
 
 
   const isTrafficActive = trafficFilter.length > 0;
@@ -973,9 +981,15 @@ useEffect(() => {
         if (!matchesAny) return false;
       }
 
+      if (bulkFilter !== "include") {
+        const qty = parseInt(r["Lineitem quantity"] || "1") || 1;
+        if (bulkFilter === "exclude" && qty > 5) return false;
+        if (bulkFilter === "only" && qty < 6) return false;
+      }
+
       return true;
     });
-  }, [rows, dateFrom, dateTo, storeFilter, trafficFilter, trafficMap, isTrafficActive, isStoreActive, activeTab]);
+  }, [rows, dateFrom, dateTo, storeFilter, trafficFilter, trafficMap, isTrafficActive, isStoreActive, activeTab, bulkFilter]);
 
   const fr = filteredRows();
 
@@ -1344,6 +1358,7 @@ useEffect(() => {
     setDateTo(getTodayStr());
     setStoreFilter([]);
     setTrafficFilter([]);
+    setBulkFilter("include");
     setPageStore(1); setPageTraffic(1); setPageDiscount(1); setPageProduct(1); setPageEmployee(1); setPageOnline(1); setPageBadge(1);
   };
 
@@ -1435,7 +1450,7 @@ useEffect(() => {
 
             {/* Filters */}
             <GlassCard className="mb-4">
-              <div className="grid grid-cols-2 gap-3 items-end sm:grid-cols-3 lg:grid-cols-5">
+              <div className="grid grid-cols-2 gap-3 items-end sm:grid-cols-3 lg:grid-cols-6">
                 {/* Date From */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Date From</label>
@@ -1554,6 +1569,22 @@ useEffect(() => {
                     </div>
                   </div>
                 )}
+
+                {/* Bulk filter — qty per SKU per order (bukan total order) */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Bulk (Qty per SKU)</label>
+                  <select
+                    value={bulkFilter}
+                    onChange={(e) => { setBulkFilter(e.target.value as "include" | "exclude" | "only"); resetPages(); }}
+                    className={`w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary transition-colors ${
+                      bulkFilter !== "include" ? "border-primary bg-primary/5 text-primary font-medium" : "border-gray-300 bg-white text-gray-700"
+                    }`}
+                  >
+                    <option value="include">Semua (Include Bulk)</option>
+                    <option value="exclude">Exclude Bulk (qty 1-5)</option>
+                    <option value="only">Only Bulk (qty ≥6)</option>
+                  </select>
+                </div>
 
                 {/* Reset */}
                 <div>
