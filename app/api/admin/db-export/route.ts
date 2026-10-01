@@ -52,12 +52,20 @@ const TABLES: Record<string, TableConfig> = {
   customer_badges: {
     label: "Customer Badges",
     ensureSchema: ensureCustomerSchema,
-    query: () =>
-      sql`
-        SELECT id, badge_key, label, badge_type, sku_list, sort_order, created_at, updated_at
+    query: async () => {
+      const rows = (await sql`
+        SELECT label, sku_list
         FROM customer_badges
+        WHERE badge_type = 'collection'
         ORDER BY sort_order ASC
-      ` as Promise<Record<string, unknown>[]>,
+      `) as { label: string; sku_list: string[] }[];
+      // sku_list 1 kolom per baris newline (bukan dipisah koma) supaya di
+      // Google Sheets kebaca sebagai list, bukan satu baris panjang.
+      return rows.map((r) => ({
+        label: r.label,
+        sku_list: Array.isArray(r.sku_list) ? r.sku_list.join("\n") : "",
+      }));
+    },
   },
   customer_wa_followups: {
     label: "Customer WA Follow-up (Log)",
