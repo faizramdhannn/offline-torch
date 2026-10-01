@@ -71,6 +71,7 @@ const emptyForm = {
   notes: "",
   social_media: "",
   social_media_username: "",
+  date_exist: "",
 };
 
 function NotesCell({
@@ -228,6 +229,7 @@ export default function JastiperPage() {
       notes: item.notes || "",
       social_media: item.social_media || "",
       social_media_username: item.social_media_username || "",
+      date_exist: item.date_exist || "",
     });
     setCodeManuallyEdited(true); // kode existing dianggap sudah final, tidak auto-overwrite saat edit
     setShowEditModal(true);
@@ -345,6 +347,7 @@ export default function JastiperPage() {
       "Dibuat Pada": item.created_at,
       "Update Oleh": item.update_by,
       "Update Pada": item.update_at,
+      "Tanggal Jadi Jastiper": item.date_exist,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -458,6 +461,7 @@ export default function JastiperPage() {
                           <th className="px-2 py-1.5 text-center font-semibold text-gray-700">Kode</th>
                           <SortableTh label="Respond" active={sortKey === "jastiper_respond"} dir={sortDir} onClick={() => toggleSort("jastiper_respond")} className="px-2 py-1.5 text-center font-semibold text-gray-700" />
                           <th className="px-2 py-1.5 text-center font-semibold text-gray-700">Status</th>
+                          <SortableTh label="Tanggal Jadi Jastiper" active={sortKey === "date_exist"} dir={sortDir} onClick={() => toggleSort("date_exist")} className="px-2 py-1.5 text-center font-semibold text-gray-700" />
                           <SortableTh label="Total Order" active={sortKey === "total_order"} dir={sortDir} onClick={() => toggleSort("total_order")} className="px-2 py-1.5 text-center font-semibold text-gray-700" />
                           <SortableTh label="Total Value" active={sortKey === "total_value"} dir={sortDir} onClick={() => toggleSort("total_value")} className="px-2 py-1.5 text-center font-semibold text-gray-700" />
                           <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Notes</th>
@@ -519,6 +523,7 @@ export default function JastiperPage() {
                                 {item.jastiper_status || "-"}
                               </span>
                             </td>
+                            <td className="px-2 py-1 text-center">{item.date_exist || "-"}</td>
                             <td className="px-2 py-1 text-center">{item.total_order}</td>
                             <td className="px-2 py-1 text-center font-medium">{item.total_value_formatted}</td>
                             <td className="px-1 py-1">
@@ -710,6 +715,15 @@ export default function JastiperPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Tanggal Jadi Jastiper</label>
+                  <input
+                    type="date"
+                    value={form.date_exist}
+                    onChange={(e) => setForm((p) => ({ ...p, date_exist: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500">Notes</label>

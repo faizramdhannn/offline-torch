@@ -34,7 +34,7 @@ const TABLES: Record<string, TableConfig> = {
         SELECT
           jastiper_name, jastiper_phone_number, jastiper_store, jastiper_code,
           jastiper_status, jastiper_respond, social_media, social_media_username,
-          notes, created_at, update_at
+          notes, created_at, update_at, date_exist::text AS date_exist
         FROM jastiper_master
         ORDER BY jastiper_store ASC, jastiper_name ASC
       ` as Promise<Record<string, unknown>[]>,

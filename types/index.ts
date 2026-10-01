@@ -149,6 +149,8 @@ export interface Jastiper {
   created_at: string;
   update_by: string;
   update_at: string;
+  /** Tanggal resmi jadi jastiper (diisi manual admin), bukan timestamp otomatis. */
+  date_exist: string;
   total_order: number;
   total_value: number;
   total_value_formatted: string;

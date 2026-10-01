@@ -128,7 +128,8 @@ export function ensureJastiperSchema(): Promise<void> {
           created_by TEXT DEFAULT '',
           created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
           update_by TEXT DEFAULT '',
-          update_at TIMESTAMPTZ NOT NULL DEFAULT now()
+          update_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          date_exist DATE
         )
       `;
       // Tabel jastiper_master sudah ada di production sebelum kolom notes
@@ -136,6 +137,10 @@ export function ensureJastiperSchema(): Promise<void> {
       await sql`ALTER TABLE jastiper_master ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT ''`;
       await sql`ALTER TABLE jastiper_master ADD COLUMN IF NOT EXISTS social_media TEXT NOT NULL DEFAULT ''`;
       await sql`ALTER TABLE jastiper_master ADD COLUMN IF NOT EXISTS social_media_username TEXT NOT NULL DEFAULT ''`;
+      // date_exist = tanggal resmi jadi jastiper (diisi manual admin, BUKAN
+      // auto-timestamp seperti created_at/update_at) — ditambah belakangan,
+      // jadi ALTER juga diperlukan untuk DB production yang sudah ada.
+      await sql`ALTER TABLE jastiper_master ADD COLUMN IF NOT EXISTS date_exist DATE`;
       await sql`CREATE INDEX IF NOT EXISTS idx_jastiper_store ON jastiper_master(jastiper_store)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_jastiper_code ON jastiper_master(jastiper_code)`;
       // Cegah duplikat import ulang CSV master data yang sama (per toko + no

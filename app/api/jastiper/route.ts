@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
         j.uuid, j.jastiper_name, j.jastiper_phone_number, j.jastiper_respond,
         j.jastiper_store, j.jastiper_code, j.jastiper_status, j.notes,
         j.social_media, j.social_media_username,
-        j.created_by, j.created_at, j.update_by, j.update_at,
+        j.created_by, j.created_at, j.update_by, j.update_at, j.date_exist::text AS date_exist,
         COALESCE(agg.total_order, 0)::int AS total_order,
         COALESCE(agg.total_value, 0)::numeric AS total_value
       FROM jastiper_master j
@@ -125,6 +125,7 @@ export async function GET(request: NextRequest) {
       created_at: r.created_at || "",
       update_by: r.update_by || "",
       update_at: r.update_at || "",
+      date_exist: r.date_exist || "",
       total_order: Number(r.total_order) || 0,
       total_value: Number(r.total_value) || 0,
       total_value_formatted: formatRupiah(Number(r.total_value) || 0),
@@ -156,6 +157,7 @@ export async function POST(request: NextRequest) {
     const social_media = (body.social_media || "").trim();
     const social_media_username = (body.social_media_username || "").trim();
     const created_by = (body.created_by || "").trim();
+    const date_exist = (body.date_exist || "").trim() || null;
 
     if (!jastiper_name || !jastiper_store) {
       return NextResponse.json({ error: "Nama jastiper dan toko wajib diisi" }, { status: 400 });
@@ -187,12 +189,12 @@ export async function POST(request: NextRequest) {
         jastiper_name, jastiper_phone_number, jastiper_phone_normalized,
         jastiper_respond, jastiper_store, jastiper_code, jastiper_status, notes,
         social_media, social_media_username,
-        created_by, update_by
+        created_by, update_by, date_exist
       ) VALUES (
         ${jastiper_name}, ${jastiper_phone_number}, ${jastiper_phone_normalized},
         ${jastiper_respond}, ${jastiper_store}, ${jastiper_code}, ${jastiper_status}, ${notes},
         ${social_media}, ${social_media_username},
-        ${created_by}, ${created_by}
+        ${created_by}, ${created_by}, ${date_exist}
       )
       RETURNING uuid
     `;
@@ -234,6 +236,7 @@ export async function PUT(request: NextRequest) {
     const social_media = (body.social_media || "").trim();
     const social_media_username = (body.social_media_username || "").trim();
     const update_by = (body.update_by || "").trim();
+    const date_exist = (body.date_exist || "").trim() || null;
 
     const jastiper_phone_number = normalizePhone(rawPhone);
     const jastiper_phone_normalized = jastiper_phone_number;
@@ -262,7 +265,8 @@ export async function PUT(request: NextRequest) {
         social_media = ${social_media},
         social_media_username = ${social_media_username},
         update_by = ${update_by},
-        update_at = now()
+        update_at = now(),
+        date_exist = ${date_exist}
       WHERE uuid = ${uuid}
     `;
 
