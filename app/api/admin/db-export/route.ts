@@ -59,12 +59,16 @@ const TABLES: Record<string, TableConfig> = {
         WHERE badge_type = 'collection'
         ORDER BY sort_order ASC
       `) as { label: string; sku_list: string[] }[];
-      // sku_list 1 kolom per baris newline (bukan dipisah koma) supaya di
-      // Google Sheets kebaca sebagai list, bukan satu baris panjang.
-      return rows.map((r) => ({
-        label: r.label,
-        sku_list: Array.isArray(r.sku_list) ? r.sku_list.join("\n") : "",
-      }));
+      // 1 baris per SKU (label diulang) — newline-dalam-sel sebelumnya
+      // berantakan di IMPORTDATA (tiap newline malah jadi baris sheet baru
+      // dengan kolom label kosong), jadi di-flatten literal di sini supaya
+      // hasilnya predictable: tiap baris = 1 pasangan label+sku.
+      const flat: { label: string; sku: string }[] = [];
+      for (const r of rows) {
+        const skus = Array.isArray(r.sku_list) ? r.sku_list : [];
+        for (const sku of skus) flat.push({ label: r.label, sku });
+      }
+      return flat;
     },
   },
   customer_wa_followups: {
