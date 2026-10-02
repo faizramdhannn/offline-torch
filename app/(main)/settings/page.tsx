@@ -469,7 +469,7 @@ export default function SettingsPage() {
           style={{ background: "linear-gradient(135deg, #35393C 0%, #1f4e63 45%, #0d7a8f 100%)" }}
         >
           <div
-            className="pointer-events-none absolute -right-14 -top-16 h-52 w-52 rounded-full opacity-40 blur-3xl"
+            className="pointer-events-none absolute -right-14 -top-16 h-52 w-52 rounded-full opacity-30 blur-2xl"
             style={{ background: "radial-gradient(circle, #A4D8FF 0%, transparent 70%)" }}
           />
           <div className="relative flex items-center gap-3">

@@ -795,6 +795,15 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           background: rgba(255,255,255,0);
           transition: background 0.18s ease;
           pointer-events: none;
+          z-index: 0;
+        }
+        /* Konten (icon+label) harus di atas ::before — sebelumnya tidak ada
+           z-index di sini, jadi waktu ::before active jadi gradien solid
+           (bukan tint tipis lagi), kontennya ketutup gradien dan jadi tidak
+           kelihatan sama sekali. */
+        .menu-btn > * {
+          position: relative;
+          z-index: 1;
         }
         .menu-btn:hover::before { background: rgba(13,51,77,0.06); }
         .menu-btn:hover { color: #111827; }
@@ -802,10 +811,15 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           background: linear-gradient(135deg, #35393C 0%, #1f4e63 55%, #0d7a8f 100%);
         }
         .menu-btn.active {
-          color: #ffffff;
+          /* !important wajib — elemen ini juga punya class Tailwind
+             "text-gray-900" yang di-override global jadi warna hitam dengan
+             !important (lihat .text-gray-900 di globals.css), jadi tanpa
+             !important di sini teks tetap hitam di atas pill gradien gelap
+             dan jadi tidak kebaca. */
+          color: #ffffff !important;
           border-right: none;
         }
-        .menu-btn.active svg { color: #ffffff; }
+        .menu-btn.active svg { color: #ffffff !important; }
 
         @keyframes jellyIn {
           0%   { transform: scaleY(0) scaleX(0.85); opacity: 0; transform-origin: top; }

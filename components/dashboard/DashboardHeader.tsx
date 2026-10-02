@@ -41,13 +41,11 @@ export function DashboardHeader({
         background: "linear-gradient(135deg, #35393C 0%, #1f4e63 45%, #0d7a8f 100%)",
       }}
     >
-      {/* Decorative glows */}
+      {/* Decorative glow — cuma satu (bukan dua) dan blur lebih tipis, dua
+          blur-3xl sebelumnya lumayan berat di-render bareng banyak kartu
+          glass-card-elevated lain di halaman yang sama. */}
       <div
-        className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full opacity-40 blur-3xl"
-        style={{ background: "radial-gradient(circle, #A4D8FF 0%, transparent 70%)" }}
-      />
-      <div
-        className="pointer-events-none absolute -bottom-24 left-1/3 h-56 w-56 rounded-full opacity-25 blur-3xl"
+        className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full opacity-30 blur-2xl"
         style={{ background: "radial-gradient(circle, #A4D8FF 0%, transparent 70%)" }}
       />
 
