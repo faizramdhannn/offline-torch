@@ -1,13 +1,25 @@
 "use client";
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { Activity, Search } from "lucide-react";
 import Popup from "@/components/Popup";
 import { Button } from "@/components/shared/Button";
 import { GlassCard } from "@/components/shared/GlassCard";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
+import { ActivityTimeline } from "@/components/dashboard/ActivityTimeline";
+import { EmptyState } from "@/components/dashboard/EmptyState";
+import { TableSkeletonRows } from "@/components/dashboard/LoadingSkeleton";
+
+interface ActivityLog {
+  id: string;
+  timestamp: string;
+  user: string;
+  method: string;
+  activity_log: string;
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface UserData {
@@ -274,6 +286,39 @@ export default function SettingsPage() {
   const [dbTables, setDbTables] = useState<{ key: string; label: string }[]>([]);
   const [copiedTable, setCopiedTable] = useState<string | null>(null);
 
+  // ─── Recent Activity — dipindah dari Dashboard ke sini supaya hanya user
+  // dengan akses Settings yang bisa melihat (halaman ini sudah digate
+  // user_setting di atas). ────────────────────────────────────────────────
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [activityLoading, setActivityLoading] = useState(true);
+  const [activitySearch, setActivitySearch] = useState("");
+  const [activityPage, setActivityPage] = useState(1);
+  const activityPerPage = 10;
+
+  const fetchActivityLogs = async () => {
+    try {
+      const res = await fetch("/api/activity-log");
+      if (res.ok) setActivityLogs(await res.json());
+    } catch (e) { console.error(e); }
+    finally { setActivityLoading(false); }
+  };
+
+  const displayedActivityLogs = useMemo(() => {
+    if (!activitySearch.trim()) return activityLogs;
+    const q = activitySearch.toLowerCase();
+    return activityLogs.filter(
+      (log) =>
+        log.user?.toLowerCase().includes(q) ||
+        log.activity_log?.toLowerCase().includes(q) ||
+        log.method?.toLowerCase().includes(q)
+    );
+  }, [activityLogs, activitySearch]);
+
+  const activityIndexLast = activityPage * activityPerPage;
+  const activityIndexFirst = activityIndexLast - activityPerPage;
+  const activityCurrentItems = displayedActivityLogs.slice(activityIndexFirst, activityIndexLast);
+  const activityTotalPages = Math.ceil(displayedActivityLogs.length / activityPerPage);
+
   useEffect(() => {
     const userData = localStorage.getItem("user");
     if (!userData) { router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`); return; }
@@ -282,6 +327,7 @@ export default function SettingsPage() {
     setUser(parsedUser);
     fetchUsers();
     fetchJavelinStatus();
+    fetchActivityLogs();
     if (parsedUser.registration_request) {
       fetch("/api/admin/db-export?list=1")
         .then((r) => r.json())
@@ -457,6 +503,80 @@ export default function SettingsPage() {
           >
             {javelinStatus.hasCookies ? "Update" : "Set Cookie"}
           </Button>
+        </GlassCard>
+
+        {/* ── Recent Activity — dipindah dari Dashboard, cuma kelihatan di sini
+            (halaman Settings sudah digate user_setting). ───────────────── */}
+        <GlassCard padding="none" className="mb-4 overflow-hidden">
+          <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2.5">
+            <p className="text-xs font-semibold text-gray-700">Recent Activity</p>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={activitySearch}
+                onChange={(e) => { setActivitySearch(e.target.value); setActivityPage(1); }}
+                placeholder="Cari activity log..."
+                className="h-8 w-48 rounded-lg border border-gray-200 bg-white pl-8 pr-2 text-xs text-gray-700 placeholder:text-gray-400 outline-none transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/10"
+              />
+            </div>
+          </div>
+          <div className="p-4">
+            {activityLoading ? (
+              <TableSkeletonRows count={5} />
+            ) : displayedActivityLogs.length === 0 ? (
+              <EmptyState icon={Activity} message="Belum ada activity log" />
+            ) : (
+              <>
+                <ActivityTimeline logs={activityCurrentItems} />
+
+                {activityTotalPages > 1 && (
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4">
+                    <div className="text-xs text-gray-500">
+                      Showing {activityIndexFirst + 1} to {Math.min(activityIndexLast, displayedActivityLogs.length)} of {displayedActivityLogs.length} logs
+                    </div>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
+                        disabled={activityPage === 1}
+                        className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40"
+                      >
+                        Previous
+                      </button>
+                      {[...Array(activityTotalPages)].map((_, i) => {
+                        const page = i + 1;
+                        if (page === 1 || page === activityTotalPages || (page >= activityPage - 1 && page <= activityPage + 1)) {
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => setActivityPage(page)}
+                              className={`rounded-lg border px-3 py-1 text-xs font-medium transition-colors ${
+                                activityPage === page
+                                  ? "border-primary bg-primary text-white"
+                                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          );
+                        } else if (page === activityPage - 2 || page === activityPage + 2) {
+                          return <span key={page} className="px-1 text-xs text-gray-400">...</span>;
+                        }
+                        return null;
+                      })}
+                      <button
+                        onClick={() => setActivityPage((p) => Math.min(activityTotalPages, p + 1))}
+                        disabled={activityPage === activityTotalPages}
+                        className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </GlassCard>
 
         {/* ── Export Database ke Spreadsheet ─────────────────────────────── */}

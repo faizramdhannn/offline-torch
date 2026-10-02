@@ -349,7 +349,7 @@ export default function PrintBarcodeModal({ items, onClose }: Props) {
                       key={p.id}
                       onClick={() => { setSelectedPaper(p); setPreviewPage(1); }}
                       className={`rounded-lg border py-2 px-1 text-center transition-all ${
-                        active ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
+                        active ? "border-gray-800 bg-blue-50 text-blue-700" : "border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
                       }`}
                     >
                       <div className="text-sm font-semibold">{p.label}</div>
@@ -392,7 +392,7 @@ export default function PrintBarcodeModal({ items, onClose }: Props) {
                         className={`flex items-center gap-2 px-3 py-2 border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50 transition-colors ${sel ? "bg-blue-50" : ""}`}
                         onClick={() => (sel ? removeItem(item.sku) : addItem(item))}
                       >
-                        <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${sel ? "border-blue-500 bg-blue-500" : "border-gray-300 bg-white"}`}>
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${sel ? "border-gray-800 bg-gray-800" : "border-gray-300 bg-white"}`}>
                           {sel && (
                             <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -554,7 +554,7 @@ export default function PrintBarcodeModal({ items, onClose }: Props) {
           <button
             onClick={handleDownload}
             disabled={totalLabels === 0 || generating}
-            className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 px-5 py-2 bg-gray-800 hover:bg-gray-900 text-white text-sm font-medium rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {generating ? (
               <>
@@ -571,7 +571,7 @@ export default function PrintBarcodeModal({ items, onClose }: Props) {
                 </svg>
                 Download PDF
                 {totalLabels > 0 && (
-                  <span className="bg-blue-500 text-white text-[10px] rounded px-1.5 py-0.5">
+                  <span className="bg-gray-800 text-white text-[10px] rounded px-1.5 py-0.5">
                     {totalLabels} label · {totalPages} hal
                   </span>
                 )}

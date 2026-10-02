@@ -70,7 +70,7 @@ export function QuickAction() {
         >
           <Link
             href={action.href}
-            className="flex flex-col items-center gap-2 rounded-2xl border border-gray-200/80 bg-white px-3 py-4 text-center shadow-sm transition-shadow duration-200 hover:shadow-lg"
+            className="flex flex-col items-center gap-2 rounded-2xl border border-white/40 bg-white/50 px-3 py-4 text-center shadow-sm backdrop-blur-sm transition-shadow duration-200 hover:shadow-lg hover:bg-white/70"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
               <action.icon className="h-4.5 w-4.5 text-primary" />

@@ -294,7 +294,7 @@ export function ReportDashboard({ groupedByTaft }: ReportDashboardProps) {
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-3.5">
           <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mb-2">Masuk vs Off per toko</p>
           <div className="flex gap-3 mb-2">
-            <span className="flex items-center gap-1 text-[8px] text-gray-500"><span className="w-2 h-2 rounded-sm bg-blue-500" /> Masuk</span>
+            <span className="flex items-center gap-1 text-[8px] text-gray-500"><span className="w-2 h-2 rounded-sm bg-gray-800" /> Masuk</span>
             <span className="flex items-center gap-1 text-[8px] text-gray-500"><span className="w-2 h-2 rounded-sm bg-red-500" /> Off</span>
           </div>
           <div style={{ position: 'relative', height: '160px' }}>

@@ -827,7 +827,7 @@ export default function BundlingPage() {
                                 </button>
                                 <button
                                   onClick={() => handleOpenModal(item)}
-                                  className="px-1.5 py-0.5 bg-blue-500 text-white rounded text-[10px] font-medium hover:bg-blue-600 transition-colors"
+                                  className="px-1.5 py-0.5 bg-gray-800 text-white rounded text-[10px] font-medium hover:bg-gray-900 transition-colors"
                                 >
                                   Edit
                                 </button>

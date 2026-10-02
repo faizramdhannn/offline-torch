@@ -680,7 +680,7 @@ return (
                                 {(canEdit || user.request) && (
                                   <button
                                     onClick={() => openEdit(item)}
-                                    className="px-1.5 py-0.5 bg-blue-500 text-white rounded text-[10px] hover:bg-blue-600"
+                                    className="px-1.5 py-0.5 bg-gray-800 text-white rounded text-[10px] hover:bg-gray-900"
                                   >
                                     Edit
                                   </button>

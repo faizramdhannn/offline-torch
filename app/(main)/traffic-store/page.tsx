@@ -1388,7 +1388,7 @@ export default function TrafficStorePage() {
                                     <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#6b7280" }} angle={-35} textAnchor="end" interval={0} height={60} />
                                     <YAxis tick={{ fontSize: 10, fill: "#334155" }} axisLine={false} tickLine={false} />
                                     <Tooltip content={<DarkTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-                                    <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40}>
+                                    <Bar dataKey="value" fill="#0f766e" radius={[4, 4, 0, 0]} maxBarSize={40}>
                                       <LabelList dataKey="value" position="top" style={{ fontSize: 10, fill: "#374151" }} />
                                     </Bar>
                                   </BarChart>

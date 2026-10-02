@@ -127,7 +127,7 @@ export function CaptureTab({
               )}
               {storeDetail.close_hours && (
                 <div className="flex items-center gap-1.5">
-                  <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                  <div className="h-1.5 w-1.5 rounded-full bg-gray-800" />
                   <span className="text-[10px] text-gray-500">
                     Tutup: <span className="font-semibold text-gray-700">{storeDetail.close_hours}</span>
                   </span>
@@ -167,7 +167,7 @@ export function CaptureTab({
                 }`}
               >
                 <div className="mb-1 flex items-center gap-1.5">
-                  <div className={`h-2 w-2 rounded-full ${hasClose ? "bg-blue-500" : "bg-gray-300"}`} />
+                  <div className={`h-2 w-2 rounded-full ${hasClose ? "bg-gray-800" : "bg-gray-300"}`} />
                   <span className={`text-[10px] font-bold uppercase tracking-wide ${hasClose ? "text-blue-700" : "text-gray-400"}`}>
                     Close
                   </span>
@@ -248,7 +248,7 @@ export function CaptureTab({
                 disabled={!canClose}
                 className={`flex flex-col items-center gap-2 rounded-2xl py-5 text-sm font-bold transition-all ${
                   canClose
-                    ? "bg-blue-500 text-white shadow-lg shadow-blue-200 hover:bg-blue-600 active:scale-95"
+                    ? "bg-gray-800 text-white shadow-lg shadow-gray-300 hover:bg-gray-900 active:scale-95"
                     : "cursor-not-allowed bg-gray-100 text-gray-400"
                 }`}
               >

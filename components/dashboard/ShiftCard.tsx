@@ -43,7 +43,7 @@ export function ShiftCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: "easeOut", delay }}
       whileHover={{ y: -2 }}
-      className="min-w-[180px] flex-shrink-0 snap-start rounded-xl border border-gray-200/80 bg-white p-2.5 shadow-sm transition-shadow duration-200 hover:shadow-lg sm:min-w-0"
+      className="min-w-[180px] flex-shrink-0 snap-start rounded-xl border border-white/40 bg-white/50 p-2.5 shadow-sm backdrop-blur-sm transition-shadow duration-200 hover:shadow-lg sm:min-w-0"
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 overflow-hidden">

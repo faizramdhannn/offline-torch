@@ -120,7 +120,7 @@ function LoginPageContent() {
           align-items: center;
           justify-content: center;
           font-family: 'IBM Plex Sans', sans-serif;
-          background: #A4D8FF;
+          background: #F3F0E8;
           overflow: hidden;
           position: relative;
           padding: 1.5rem;
@@ -172,7 +172,7 @@ function LoginPageContent() {
         .sl-card-logo { width: 56px; height: 56px; object-fit: contain; margin-bottom: 0.6rem; filter: drop-shadow(0 2px 10px rgba(0,0,0,0.25)); }
         .sl-brand-name {
           font-family: 'IBM Plex Mono', monospace;
-          font-size: 0.7rem; font-weight: 500; color: #2563eb;
+          font-size: 0.7rem; font-weight: 500; color: #000000;
           letter-spacing: 0.14em; text-transform: uppercase;
         }
         html.dark .sl-brand-name { color: #A4D8FF; }
@@ -181,10 +181,10 @@ function LoginPageContent() {
           position: absolute; top: 0; right: 0;
           width: 30px; height: 30px; border-radius: 8px;
           display: flex; align-items: center; justify-content: center;
-          background: rgba(37,99,235,0.12); border: 1px solid rgba(37,99,235,0.2);
-          color: #2563eb; cursor: pointer; transition: background 0.15s;
+          background: rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.12);
+          color: #000000; cursor: pointer; transition: background 0.15s;
         }
-        .sl-theme-toggle:hover { background: rgba(37,99,235,0.2); }
+        .sl-theme-toggle:hover { background: rgba(0,0,0,0.12); }
         html.dark .sl-theme-toggle {
           background: rgba(164,216,255,0.14); border-color: rgba(164,216,255,0.25); color: #A4D8FF;
         }
@@ -321,7 +321,7 @@ function LoginPageContent() {
           -webkit-appearance: none;
         }
         .sl-input::placeholder { color: #374151; font-weight: 300; }
-        .sl-input:focus { border-color: #2563eb; background: rgba(255,255,255,0.12); }
+        .sl-input:focus { border-color: #000000; background: rgba(255,255,255,0.12); }
         .sl-input.pw { padding-right: 2.8rem; }
         html.dark .sl-input {
           background: rgba(255,255,255,0.015); border-color: rgba(255,255,255,0.08); color: #e0f2ff;
@@ -350,7 +350,7 @@ function LoginPageContent() {
 
         .sl-btn {
           width: 100%; padding: 0.75rem;
-          background: rgba(37,99,235,0.85); border: 1px solid rgba(255,255,255,0.35);
+          background: rgba(0,0,0,0.85); border: 1px solid rgba(255,255,255,0.35);
           backdrop-filter: blur(12px) saturate(180%);
           -webkit-backdrop-filter: blur(12px) saturate(180%);
           border-radius: 8px;
@@ -360,7 +360,7 @@ function LoginPageContent() {
           display: flex; align-items: center; justify-content: center; gap: 0.5rem;
           margin-top: 0.25rem;
         }
-        .sl-btn:hover:not(:disabled) { background: rgba(29,78,216,0.9); transform: translateY(-1px); }
+        .sl-btn:hover:not(:disabled) { background: rgba(0,0,0,0.95); transform: translateY(-1px); }
         .sl-btn:active:not(:disabled) { transform: translateY(0); }
         .sl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -387,11 +387,11 @@ function LoginPageContent() {
         .sl-switch-link { text-align: center; font-size: 0.8rem; color: #6b7280; }
         .sl-switch-link button {
           background: none; border: none; cursor: pointer;
-          color: #2563eb; font-weight: 500; font-size: 0.8rem;
-          border-bottom: 1px solid rgba(37,99,235,0.25);
+          color: #000000; font-weight: 500; font-size: 0.8rem;
+          border-bottom: 1px solid rgba(0,0,0,0.25);
           padding: 0; transition: color 0.15s, border-color 0.15s;
         }
-        .sl-switch-link button:hover { color: #1d4ed8; border-color: rgba(29,78,216,0.5); }
+        .sl-switch-link button:hover { color: #000000; border-color: rgba(0,0,0,0.5); }
         html.dark .sl-switch-link { color: rgba(164,216,255,0.65); }
         html.dark .sl-switch-link button { color: #A4D8FF; border-color: rgba(164,216,255,0.35); }
         html.dark .sl-switch-link button:hover { color: #c9e8ff; border-color: rgba(201,232,255,0.5); }

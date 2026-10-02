@@ -840,7 +840,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           animation: popIn 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
         }
 
-        /* ── Liquid Glass — tint dari warna app-shell (Icy Blue #A4D8FF /
+        /* ── Liquid Glass — tint dari warna app-shell (putih tulang #F3F0E8 /
            Gunmetal #35393C), bukan putih generik, supaya sidebar menyatu
            dengan background di belakangnya. ── */
         .glass-sidebar {
@@ -861,14 +861,14 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         .glass-sidebar > * { position: relative; z-index: 1; }
 
         .glass-fab {
-          background: linear-gradient(160deg, rgba(164,216,255,0.9) 0%, rgba(164,216,255,0.65) 100%);
+          background: linear-gradient(160deg, rgba(243,240,232,0.95) 0%, rgba(243,240,232,0.75) 100%);
           backdrop-filter: blur(18px) saturate(180%);
           -webkit-backdrop-filter: blur(18px) saturate(180%);
           border: 1px solid rgba(255,255,255,0.75);
           box-shadow: 0 4px 16px rgba(15,23,42,0.15);
         }
         .glass-panel {
-          background: linear-gradient(160deg, rgba(164,216,255,0.9) 0%, rgba(164,216,255,0.75) 100%);
+          background: linear-gradient(160deg, rgba(243,240,232,0.95) 0%, rgba(243,240,232,0.85) 100%);
           backdrop-filter: blur(24px) saturate(180%);
           -webkit-backdrop-filter: blur(24px) saturate(180%);
           border: 1px solid rgba(255,255,255,0.75) !important;

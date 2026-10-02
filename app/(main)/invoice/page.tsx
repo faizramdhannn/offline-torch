@@ -729,7 +729,7 @@ export default function InvoicePage() {
                               <button
                                 onClick={() => downloadWord(inv.invoice_id, inv.invoice_number)}
                                 disabled={generatingWord}
-                                className="px-2 py-1 bg-blue-600 text-white rounded text-[10px] hover:bg-blue-700 disabled:opacity-50"
+                                className="px-2 py-1 bg-gray-800 text-white rounded text-[10px] hover:bg-gray-900 disabled:opacity-50"
                               >
                                 {generatingWord ? "..." : "Word"}
                               </button>
@@ -1135,7 +1135,7 @@ export default function InvoicePage() {
                       size="sm"
                       icon={FileText}
                       loading={generatingWord}
-                      className="bg-blue-600 border-blue-600 hover:bg-blue-700"
+                      className="bg-gray-800 border-gray-800 hover:bg-gray-900"
                       onClick={() => downloadWord(selectedInvoice.invoice_id, selectedInvoice.invoice_number)}
                     >
                       Word

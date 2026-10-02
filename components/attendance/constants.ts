@@ -52,7 +52,7 @@ export const MONTH_SHORT_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','
 
 // Used by the Full Report tab's analytics dashboard (ReportDashboard / MiniBarChart)
 export const CHART_CFGS = [
-  { key: 'masuk'  as ChartKey, label: 'Terbanyak Masuk',  color: '#3b82f6', unit: 'hari',  textCls: 'text-blue-600',   bgCls: 'bg-blue-500'   },
+  { key: 'masuk'  as ChartKey, label: 'Terbanyak Masuk',  color: '#1f2937', unit: 'hari',  textCls: 'text-gray-800',   bgCls: 'bg-gray-800'   },
   { key: 'lembur' as ChartKey, label: 'Terbanyak Lembur', color: '#f97316', unit: 'jam',   textCls: 'text-orange-600', bgCls: 'bg-orange-500' },
   { key: 'cuti'   as ChartKey, label: 'Terbanyak Cuti',   color: '#ec4899', unit: 'hari',  textCls: 'text-pink-600',   bgCls: 'bg-pink-500'   },
   { key: 'off'    as ChartKey, label: 'Terbanyak OFF',    color: '#ef4444', unit: 'hari',  textCls: 'text-red-600',    bgCls: 'bg-red-500'    },

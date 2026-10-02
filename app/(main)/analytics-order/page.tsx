@@ -30,10 +30,10 @@ import {
 } from "@/lib/analyticsExport";
 
 const COLORS = [
-  "#3b82f6","#8b5cf6","#ec4899","#f59e0b","#10b981",
-  "#06b6d4","#ef4444","#84cc16","#f97316","#6366f1",
+  "#1f2937","#8b5cf6","#ec4899","#f59e0b","#10b981",
+  "#92400e","#ef4444","#84cc16","#f97316","#78716c",
   "#14b8a6","#e11d48","#a855f7","#22c55e","#fb923c",
-  "#0ea5e9","#d946ef","#facc15","#4ade80","#fb7185",
+  "#3f3f46","#d946ef","#facc15","#4ade80","#fb7185",
 ];
 
 function formatRupiah(val: number) {
@@ -1668,13 +1668,13 @@ useEffect(() => {
                       className={`px-5 py-3 text-xs font-medium whitespace-nowrap transition-colors border-b-2 ${
                         activeTab === tab.id
                           ? tab.id === "online"
-                            ? "border-blue-500 text-blue-600 bg-blue-50"
+                            ? "border-gray-800 text-gray-900 bg-gray-100"
                             : "border-primary text-primary bg-primary/5"
                           : "border-transparent text-gray-500 hover:text-gray-700"
                       }`}>
                       {tab.label}
                       {tab.id === "online" && onlineCountInRange > 0 && activeTab !== "online" && (
-                        <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 bg-blue-500 text-white rounded-full text-[9px] font-bold">
+                        <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 bg-gray-800 text-white rounded-full text-[9px] font-bold">
                           {onlineCountInRange > 99 ? "99+" : onlineCountInRange}
                         </span>
                       )}

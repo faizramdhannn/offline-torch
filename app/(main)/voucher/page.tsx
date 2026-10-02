@@ -362,7 +362,7 @@ return (
                             <div className="flex items-center gap-1.5">
                               <button
                                 onClick={() => copyToClipboard(voucher.voucher_name)}
-                                className="px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+                                className="px-2 py-1 bg-gray-800 text-white rounded text-xs hover:bg-gray-900"
                                 title="Copy voucher name"
                               >
                                 Copy

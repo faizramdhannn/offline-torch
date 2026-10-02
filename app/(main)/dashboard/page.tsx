@@ -1,7 +1,7 @@
 "use client";
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   UserCheck,
@@ -18,9 +18,8 @@ import { SectionCard } from "@/components/dashboard/SectionCard";
 import { ShiftCard } from "@/components/dashboard/ShiftCard";
 import { QuickAction } from "@/components/dashboard/QuickAction";
 import { StoreTable } from "@/components/dashboard/StoreTable";
-import { ActivityTimeline } from "@/components/dashboard/ActivityTimeline";
 import { EmptyState } from "@/components/dashboard/EmptyState";
-import { CardSkeletonRow, TableSkeletonRows } from "@/components/dashboard/LoadingSkeleton";
+import { CardSkeletonRow } from "@/components/dashboard/LoadingSkeleton";
 
 interface ActivityLog {
   id: string;
@@ -115,10 +114,10 @@ function truncateName(name: string, max = 12): string {
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [storeAddresses, setStoreAddresses] = useState<StoreAddress[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
+  // Daftar activity log lengkap sekarang di-manage di halaman Settings — di
+  // sini cuma dipakai untuk hitung KPI "Activity Today" di summary card.
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   useSessionGuard();
 
@@ -133,7 +132,6 @@ export default function DashboardPage() {
   const [todaySchedules, setTodaySchedules] = useState<{ store: string; tafts: { name: string; code: string }[] }[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(true);
 
-  const itemsPerPage = 10;
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -152,7 +150,6 @@ export default function DashboardPage() {
       const res = await fetch("/api/activity-log");
       if (res.ok) setActivityLogs(await res.json());
     } catch (e) { console.error(e); }
-    finally { setLoading(false); }
   };
 
   const fetchStoreAddresses = async () => {
@@ -245,7 +242,6 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
   };
 
   // ── UI-only state (does not touch business logic) ────────────────────
-  const [searchQuery, setSearchQuery] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefreshAll = async () => {
@@ -258,23 +254,6 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
     ]);
     setIsRefreshing(false);
   };
-
-  // Client-side display filter only — does not mutate activityLogs state.
-  const displayedLogs = useMemo(() => {
-    if (!searchQuery.trim()) return activityLogs;
-    const q = searchQuery.toLowerCase();
-    return activityLogs.filter(
-      (log) =>
-        log.user?.toLowerCase().includes(q) ||
-        log.activity_log?.toLowerCase().includes(q) ||
-        log.method?.toLowerCase().includes(q)
-    );
-  }, [activityLogs, searchQuery]);
-
-  const indexOfLastItem  = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems     = displayedLogs.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages       = Math.ceil(displayedLogs.length / itemsPerPage);
 
   // ── Derived KPI numbers for summary cards (display-only, reuses existing state) ──
   // Store yang statusnya Active di store_address (kosong = dianggap Active,
@@ -352,8 +331,6 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
           dateLabel={dateLabel}
           onRefresh={handleRefreshAll}
           isRefreshing={isRefreshing}
-          searchValue={searchQuery}
-          onSearchChange={setSearchQuery}
         />
 
         {/* ── Summary Cards ──────────────────────────────────────── */}
@@ -455,64 +432,6 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
             />
           </SectionCard>
         </div>
-
-        {/* ── Activity Log (Timeline) ────────────────────────────── */}
-        <SectionCard title="Recent Activity">
-          {loading ? (
-            <TableSkeletonRows count={5} />
-          ) : displayedLogs.length === 0 ? (
-            <EmptyState icon={Activity} message="Belum ada activity log" />
-          ) : (
-            <>
-              <ActivityTimeline logs={currentItems} />
-
-              {totalPages > 1 && (
-                <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4">
-                  <div className="text-xs text-gray-500">
-                    Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, displayedLogs.length)} of {displayedLogs.length} logs
-                  </div>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                      className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40"
-                    >
-                      Previous
-                    </button>
-                    {[...Array(totalPages)].map((_, i) => {
-                      const page = i + 1;
-                      if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
-                        return (
-                          <button
-                            key={page}
-                            onClick={() => setCurrentPage(page)}
-                            className={`rounded-lg border px-3 py-1 text-xs font-medium transition-colors ${
-                              currentPage === page
-                                ? "border-primary bg-primary text-white"
-                                : "border-gray-200 text-gray-600 hover:bg-gray-50"
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        );
-                      } else if (page === currentPage - 2 || page === currentPage + 2) {
-                        return <span key={page} className="px-1 text-xs text-gray-400">...</span>;
-                      }
-                      return null;
-                    })}
-                    <button
-                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                      className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-40"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </SectionCard>
 
       </div>
     </div>

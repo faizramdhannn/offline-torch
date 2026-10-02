@@ -96,7 +96,7 @@ function NotesCell({
         if (value !== (item.notes || "")) onSave(item.uuid, value);
       }}
       placeholder="Tulis catatan..."
-      className="w-full min-w-[140px] rounded border border-transparent px-1.5 py-1 text-[11px] hover:border-gray-200 focus:border-gray-300 focus:outline-none focus:ring-1 focus:ring-primary"
+      className="w-full min-w-[100px] rounded border border-transparent px-1.5 py-1 text-[10.5px] hover:border-gray-200 focus:border-gray-300 focus:outline-none focus:ring-1 focus:ring-primary"
     />
   );
 }
@@ -450,31 +450,31 @@ export default function JastiperPage() {
               ) : (
                 <>
                   <div className={tableWrapClassGlass}>
-                    <table className="w-full text-[11px]">
+                    <table className="w-full text-[10.5px]">
                       <thead className={theadClassGlass}>
                         <tr>
-                          <SortableTh label="Nama" active={sortKey === "jastiper_name"} dir={sortDir} onClick={() => toggleSort("jastiper_name")} className="px-2 py-1.5 font-semibold text-gray-700" />
-                          <th className="px-2 py-1.5 text-center font-semibold text-gray-700">Sosial Media</th>
-                          <th className="px-2 py-1.5 text-center font-semibold text-gray-700">Username</th>
-                          <th className="px-2 py-1.5 text-center font-semibold text-gray-700">No HP</th>
-                          <SortableTh label="Toko" active={sortKey === "jastiper_store"} dir={sortDir} onClick={() => toggleSort("jastiper_store")} className="px-2 py-1.5 text-center font-semibold text-gray-700" />
-                          <th className="px-2 py-1.5 text-center font-semibold text-gray-700">Kode</th>
-                          <SortableTh label="Respond" active={sortKey === "jastiper_respond"} dir={sortDir} onClick={() => toggleSort("jastiper_respond")} className="px-2 py-1.5 text-center font-semibold text-gray-700" />
-                          <th className="px-2 py-1.5 text-center font-semibold text-gray-700">Status</th>
-                          <SortableTh label="Tanggal Jadi Jastiper" active={sortKey === "date_exist"} dir={sortDir} onClick={() => toggleSort("date_exist")} className="px-2 py-1.5 text-center font-semibold text-gray-700" />
-                          <SortableTh label="Total Order" active={sortKey === "total_order"} dir={sortDir} onClick={() => toggleSort("total_order")} className="px-2 py-1.5 text-center font-semibold text-gray-700" />
-                          <SortableTh label="Total Value" active={sortKey === "total_value"} dir={sortDir} onClick={() => toggleSort("total_value")} className="px-2 py-1.5 text-center font-semibold text-gray-700" />
-                          <th className="px-2 py-1.5 text-left font-semibold text-gray-700">Notes</th>
-                          <th className="px-2 py-1.5 text-center font-semibold text-gray-700">Aksi</th>
+                          <SortableTh label="Nama" active={sortKey === "jastiper_name"} dir={sortDir} onClick={() => toggleSort("jastiper_name")} className="whitespace-nowrap px-1.5 py-1 font-semibold text-gray-700" />
+                          <th className="whitespace-nowrap px-1.5 py-1 text-center font-semibold text-gray-700">Sosmed</th>
+                          <th className="whitespace-nowrap px-1.5 py-1 text-center font-semibold text-gray-700">Username</th>
+                          <th className="whitespace-nowrap px-1.5 py-1 text-center font-semibold text-gray-700">No HP</th>
+                          <SortableTh label="Toko" active={sortKey === "jastiper_store"} dir={sortDir} onClick={() => toggleSort("jastiper_store")} className="whitespace-nowrap px-1.5 py-1 text-center font-semibold text-gray-700" />
+                          <th className="whitespace-nowrap px-1.5 py-1 text-center font-semibold text-gray-700">Kode</th>
+                          <SortableTh label="Respond" active={sortKey === "jastiper_respond"} dir={sortDir} onClick={() => toggleSort("jastiper_respond")} className="whitespace-nowrap px-1.5 py-1 text-center font-semibold text-gray-700" />
+                          <th className="whitespace-nowrap px-1.5 py-1 text-center font-semibold text-gray-700">Status</th>
+                          <SortableTh label="Tgl Jadi" active={sortKey === "date_exist"} dir={sortDir} onClick={() => toggleSort("date_exist")} className="whitespace-nowrap px-1.5 py-1 text-center font-semibold text-gray-700" />
+                          <SortableTh label="Order" active={sortKey === "total_order"} dir={sortDir} onClick={() => toggleSort("total_order")} className="whitespace-nowrap px-1.5 py-1 text-center font-semibold text-gray-700" />
+                          <SortableTh label="Value" active={sortKey === "total_value"} dir={sortDir} onClick={() => toggleSort("total_value")} className="whitespace-nowrap px-1.5 py-1 text-center font-semibold text-gray-700" />
+                          <th className="whitespace-nowrap px-1.5 py-1 text-left font-semibold text-gray-700">Notes</th>
+                          <th className="whitespace-nowrap px-1.5 py-1 text-center font-semibold text-gray-700">Aksi</th>
                         </tr>
                       </thead>
                       <tbody>
                         {currentItems.map((item) => (
                           <tr key={item.uuid} className="border-b hover:bg-gray-50">
-                            <td className="px-2 py-1 font-medium">
+                            <td className="px-1.5 py-0.5 font-medium">
                               <CopyableText value={item.jastiper_name} label="nama" />
                             </td>
-                            <td className="px-2 py-1 text-center">
+                            <td className="px-1.5 py-0.5 text-center">
                               {item.social_media ? (
                                 <span className="inline-flex items-center justify-center">
                                   <SocialMediaIcon platform={item.social_media} size={14} />
@@ -483,23 +483,23 @@ export default function JastiperPage() {
                                 "-"
                               )}
                             </td>
-                            <td className="px-2 py-1 text-center">
+                            <td className="px-1.5 py-0.5 text-center">
                               <CopyableText
                                 value={item.social_media_username}
                                 label="username"
-                                className="mx-auto max-w-[150px] justify-center"
+                                className="mx-auto max-w-[110px] justify-center"
                               />
                             </td>
-                            <td className="px-2 py-1 text-center">
+                            <td className="px-1.5 py-0.5 text-center whitespace-nowrap">
                               <CopyableText value={item.jastiper_phone_number} label="no HP" className="justify-center" />
                             </td>
-                            <td className="px-2 py-1 text-center">{item.jastiper_store}</td>
-                            <td className="px-2 py-1 text-center font-mono text-[10px] text-gray-500">
+                            <td className="px-1.5 py-0.5 text-center whitespace-nowrap">{item.jastiper_store}</td>
+                            <td className="px-1.5 py-0.5 text-center font-mono text-[10px] text-gray-500 whitespace-nowrap">
                               <CopyableText value={item.jastiper_code} label="kode" className="justify-center" />
                             </td>
-                            <td className="px-2 py-1 text-center">
+                            <td className="px-1.5 py-0.5 text-center">
                               <span
-                                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                className={`inline-block whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
                                   item.jastiper_respond === "Canceled"
                                     ? "bg-red-100 text-red-700"
                                     : item.jastiper_respond === "Joined Group"
@@ -514,22 +514,22 @@ export default function JastiperPage() {
                                 {item.jastiper_respond || "-"}
                               </span>
                             </td>
-                            <td className="px-2 py-1 text-center">
+                            <td className="px-1.5 py-0.5 text-center">
                               <span
-                                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                className={`inline-block whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
                                   item.jastiper_status === "Inactive" ? "bg-gray-200 text-gray-600" : "bg-green-100 text-green-700"
                                 }`}
                               >
                                 {item.jastiper_status || "-"}
                               </span>
                             </td>
-                            <td className="px-2 py-1 text-center">{item.date_exist || "-"}</td>
-                            <td className="px-2 py-1 text-center">{item.total_order}</td>
-                            <td className="px-2 py-1 text-center font-medium">{item.total_value_formatted}</td>
-                            <td className="px-1 py-1">
+                            <td className="px-1.5 py-0.5 text-center whitespace-nowrap">{item.date_exist || "-"}</td>
+                            <td className="px-1.5 py-0.5 text-center">{item.total_order}</td>
+                            <td className="px-1.5 py-0.5 text-center font-medium whitespace-nowrap">{item.total_value_formatted}</td>
+                            <td className="px-1 py-0.5">
                               <NotesCell item={item} onSave={handleNotesSave} />
                             </td>
-                            <td className="px-2 py-1 text-center">
+                            <td className="px-1.5 py-0.5 text-center">
                               <button onClick={() => openEdit(item)} className="rounded p-1.5 text-gray-500 hover:bg-gray-100" title="Edit">
                                 <Pencil className="h-3.5 w-3.5" />
                               </button>

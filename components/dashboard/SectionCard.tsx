@@ -33,12 +33,9 @@ export function SectionCard({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
-      className={cn(
-        "rounded-2xl border border-gray-200/80 bg-white shadow-sm",
-        className
-      )}
+      className={cn("glass-card rounded-2xl", className)}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/30 px-5 py-4">
         <div className="flex items-center gap-2.5">
           <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
           {subtitle && (

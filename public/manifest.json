@@ -4,8 +4,8 @@
   "description": "Stock Management System",
   "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#A4D8FF",
-  "theme_color": "#A4D8FF",
+  "background_color": "#F3F0E8",
+  "theme_color": "#F3F0E8",
   "orientation": "portrait-primary",
   "icons": [
     {

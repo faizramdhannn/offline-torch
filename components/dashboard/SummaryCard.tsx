@@ -63,7 +63,7 @@ export function SummaryCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: "easeOut", delay }}
       whileHover={{ y: -2 }}
-      className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-lg"
+      className="glass-card rounded-2xl p-4 transition-shadow duration-200 hover:shadow-lg"
     >
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-gray-500">{label}</span>

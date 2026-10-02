@@ -159,8 +159,8 @@ function SpreadsheetCard({ entry, isDark }: { entry: SpreadsheetEntry; isDark: b
         display: "flex", flexDirection: "column", alignItems: "center",
         padding: "16px 12px 12px", borderRadius: 10,
         background: isDark ? hovered ? "#243447" : "#1e293b" : hovered ? "#f0f7ff" : "white",
-        border: `1px solid ${isDark ? hovered ? "#3b82f6" : "rgba(255,255,255,0.08)" : hovered ? "#3b82f6" : "#e2e8f0"}`,
-        boxShadow: hovered ? "0 4px 16px rgba(59,130,246,0.2)" : isDark ? "0 1px 4px rgba(0,0,0,0.3)" : "0 1px 4px rgba(0,0,0,0.06)",
+        border: `1px solid ${isDark ? hovered ? "#3b82f6" : "rgba(255,255,255,0.08)" : hovered ? "#000000" : "#e2e8f0"}`,
+        boxShadow: hovered ? (isDark ? "0 4px 16px rgba(59,130,246,0.2)" : "0 4px 16px rgba(0,0,0,0.12)") : isDark ? "0 1px 4px rgba(0,0,0,0.3)" : "0 1px 4px rgba(0,0,0,0.06)",
         transition: "all 0.15s ease", gap: 10, userSelect: "none",
       }}
     >
@@ -211,7 +211,7 @@ function SpreadsheetListItem({ entry, isDark, index }: { entry: SpreadsheetEntry
         display: "grid", gridTemplateColumns: "auto 1fr 1fr auto auto",
         alignItems: "center", gap: 12, padding: "9px 14px", borderRadius: 8,
         background: isDark ? hovered ? "#243447" : index % 2 === 0 ? "#1e293b" : "transparent" : hovered ? "#f0f7ff" : index % 2 === 0 ? "#f8fafc" : "white",
-        border: `1px solid ${isDark ? hovered ? "#3b82f6" : "transparent" : hovered ? "#3b82f6" : "transparent"}`,
+        border: `1px solid ${isDark ? hovered ? "#3b82f6" : "transparent" : hovered ? "#000000" : "transparent"}`,
         transition: "all 0.12s ease", userSelect: "none",
       }}
     >
@@ -229,7 +229,7 @@ function SpreadsheetListItem({ entry, isDark, index }: { entry: SpreadsheetEntry
           {entry.month} {entry.year}
         </p>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-          stroke={hovered ? "#3b82f6" : isDark ? "#475569" : "#cbd5e1"}
+          stroke={hovered ? (isDark ? "#3b82f6" : "#000000") : isDark ? "#475569" : "#cbd5e1"}
           strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
           style={{ flexShrink: 0, transition: "stroke 0.12s" }}>
           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
@@ -312,10 +312,10 @@ function SpreadsheetListSection({
 
   const iconBtn = (active: boolean): React.CSSProperties => ({
     padding: "5px 8px",
-    border: `1px solid ${active ? "#3b82f6" : isDark ? "#334155" : "#e2e8f0"}`,
+    border: `1px solid ${active ? (isDark ? "#3b82f6" : "#000000") : isDark ? "#334155" : "#e2e8f0"}`,
     borderRadius: 6,
-    background: active ? (isDark ? "#1e3a5c" : "#eff6ff") : "transparent",
-    color: active ? "#3b82f6" : isDark ? "#64748b" : "#94a3b8",
+    background: active ? (isDark ? "#1e3a5c" : "#eeece6") : "transparent",
+    color: active ? (isDark ? "#3b82f6" : "#000000") : isDark ? "#64748b" : "#94a3b8",
     cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.12s",
   });
 
@@ -404,7 +404,7 @@ function SpreadsheetListSection({
 }
 
 // ─── Donut Progress Card ───────────────────────────────────────────────────────
-function GaugeChart({ pct, value, label, color = "#0ea5e9", targetValue, actualValue, gaugeTrack = "#e2e8f0", labelColor = "#1e3a5f", valueColor: valueTxtColor = "#64748b" }: {
+function GaugeChart({ pct, value, label, color = "#0f766e", targetValue, actualValue, gaugeTrack = "#e2e8f0", labelColor = "#1e3a5f", valueColor: valueTxtColor = "#64748b" }: {
   pct: number; value: string; label: string; color?: string;
   targetValue?: string; actualValue?: string; gaugeTrack?: string; labelColor?: string; valueColor?: string;
 }) {
@@ -581,7 +581,7 @@ function StatCard({ label, value, sub, css }: { label: string; value: string; su
 type MetricKey = "sales" | "orders" | "qty" | "upt" | "scr";
 
 const METRIC_CONFIG: Record<MetricKey, { label: string; color: string; isRp: boolean; isPct: boolean; decimals: number }> = {
-  sales:  { label: "Sales",  color: "#0ea5e9", isRp: true,  isPct: false, decimals: 0 },
+  sales:  { label: "Sales",  color: "#0f766e", isRp: true,  isPct: false, decimals: 0 },
   orders: { label: "Orders", color: "#f97316", isRp: false, isPct: false, decimals: 0 },
   qty:    { label: "Qty",    color: "#10b981", isRp: false, isPct: false, decimals: 0 },
   upt:    { label: "UPT",   color: "#a855f7", isRp: false, isPct: false, decimals: 2 },
@@ -686,7 +686,7 @@ function MetricTrendChart({
           <AreaChart data={merged} margin={{ top: 8, right: 8, left: 0, bottom: 28 }}>
             <defs>
               <linearGradient id="gNet" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.35} /><stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
+                <stop offset="5%" stopColor="#0f766e" stopOpacity={0.35} /><stop offset="95%" stopColor="#0f766e" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="gGross" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#a855f7" stopOpacity={0.2} /><stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
@@ -707,7 +707,7 @@ function MetricTrendChart({
               <>
                 <Area type="monotone" dataKey="target" name="Target" stroke="#eab308" strokeWidth={1.5} fill="url(#gTarget)" dot={false} strokeDasharray="4 2" baseValue={0} />
                 <Area type="monotone" dataKey="gross"  name="Gross"  stroke="#a855f7" strokeWidth={1.5} fill="url(#gGross)"  dot={false} baseValue={0} />
-                <Area type="monotone" dataKey="sales"  name="Net"    stroke="#0ea5e9" strokeWidth={2.5} fill="url(#gNet)"    dot={{ r: 3, fill: "#0ea5e9", strokeWidth: 0 }} activeDot={{ r: 5 }} baseValue={0} />
+                <Area type="monotone" dataKey="sales"  name="Net"    stroke="#0f766e" strokeWidth={2.5} fill="url(#gNet)"    dot={{ r: 3, fill: "#0f766e", strokeWidth: 0 }} activeDot={{ r: 5 }} baseValue={0} />
               </>
             ) : (
               <Area
@@ -733,7 +733,7 @@ function MetricTrendChart({
         <div style={{ display: "flex", gap: 14, justifyContent: "center", marginTop: 8, fontSize: 10, color: css.textSub }}>
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 2, background: "#eab308", display: "inline-block", borderTop: "2px dashed #eab308" }} />Target</span>
           <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "#a855f7", display: "inline-block" }} />Gross</span>
-          <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "#0ea5e9", display: "inline-block" }} />Net</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: "#0f766e", display: "inline-block" }} />Net</span>
         </div>
       )}
     </div>
@@ -957,7 +957,7 @@ export default function SalesPage() {
     pageBg:      DM ? "#0f1724" : "#eef2f7",
     cardBg:      DM ? "#1e293b" : "white",
     cardShadow:  DM ? "0 1px 4px rgba(0,0,0,0.4)" : "0 1px 4px rgba(0,0,0,0.07)",
-    textHeading: DM ? "#e2e8f0" : "#1e3a5c",
+    textHeading: DM ? "#e2e8f0" : "#000000",
     textSub:     DM ? "#94a3b8" : "#64748b",
     textValue:   DM ? "#f1f5f9" : "#1e293b",
     textMuted:   DM ? "#64748b" : "#94a3b8",
@@ -972,7 +972,7 @@ export default function SalesPage() {
     cellBgVal:   DM ? "#243447" : "#e8f4f8",
     cellBgEmpty: DM ? "#111827" : "rgba(0,0,0,0.25)",
     tabActiveBg: DM ? "#1e293b" : "white",
-    tabActiveColor: DM ? "#e2e8f0" : "#1e3a5c",
+    tabActiveColor: DM ? "#e2e8f0" : "#000000",
     tabInactiveColor: DM ? "#64748b" : "#94a3b8",
   };
 
@@ -981,7 +981,7 @@ export default function SalesPage() {
     color: active ? css.tabActiveColor : css.tabInactiveColor,
     background: active ? css.tabActiveBg : "transparent",
     border: "none", borderRadius: "8px 8px 0 0", cursor: "pointer", transition: "all 0.15s",
-    borderBottom: active ? `2px solid #3b82f6` : "2px solid transparent", letterSpacing: "-0.01em",
+    borderBottom: active ? `2px solid ${DM ? "#3b82f6" : "#000000"}` : "2px solid transparent", letterSpacing: "-0.01em",
   });
 
   return (
@@ -996,7 +996,7 @@ export default function SalesPage() {
           </div>
           <Button
             onClick={fetchData}
-            style={{ padding: "4px 12px", background: "#1e3a5c", color: "white", border: "none", borderRadius: 6, fontSize: 11, cursor: "pointer" }}
+            style={{ padding: "4px 12px", background: DM ? "#1e3a5c" : "#000000", color: "white", border: "none", borderRadius: 6, fontSize: 11, cursor: "pointer" }}
           >
             Refresh
           </Button>
@@ -1052,9 +1052,9 @@ export default function SalesPage() {
                     {/* Gauges */}
                     <div style={{ background: css.cardBg, borderRadius: 10, boxShadow: css.cardShadow, padding: "12px 12px 4px", overflow: "hidden", transition: "background 0.2s" }}>
                       <div style={{ display: "flex", alignItems: "stretch", gap: 0 }}>
-                        <GaugeChart pct={stats.salesPct} value={fmtRp(stats.totalSales)} label="Net Sales MTD vs Target MTD" color="#0ea5e9" actualValue={fmtRpExact(stats.totalSales)} targetValue={fmtRpExact(stats.totalTarget)} gaugeTrack={css.gaugeTrack} labelColor={css.textHeading} valueColor={css.textMuted} />
+                        <GaugeChart pct={stats.salesPct} value={fmtRp(stats.totalSales)} label="Net Sales MTD vs Target MTD" color="#0f766e" actualValue={fmtRpExact(stats.totalSales)} targetValue={fmtRpExact(stats.totalTarget)} gaugeTrack={css.gaugeTrack} labelColor={css.textHeading} valueColor={css.textMuted} />
                         <div style={{ width: 1, background: css.dividerLine, margin: "8px 0" }} />
-                        <GaugeChart pct={stats.forecastPct} value={fmtRp(Math.round(stats.forecast))} label="Est Net Sales vs Target MTD" color="#0ea5e9" actualValue={fmtRpExact(Math.round(stats.forecast))} targetValue={fmtRpExact(stats.totalTarget)} gaugeTrack={css.gaugeTrack} labelColor={css.textHeading} valueColor={css.textMuted} />
+                        <GaugeChart pct={stats.forecastPct} value={fmtRp(Math.round(stats.forecast))} label="Est Net Sales vs Target MTD" color="#0f766e" actualValue={fmtRpExact(Math.round(stats.forecast))} targetValue={fmtRpExact(stats.totalTarget)} gaugeTrack={css.gaugeTrack} labelColor={css.textHeading} valueColor={css.textMuted} />
                       </div>
                     </div>
 

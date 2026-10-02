@@ -8,7 +8,7 @@
  * semantically-coded status colors (P/S/F/MF/etc.) on a different
  * charting library — those are intentionally left untouched.
  */
-export const CHART_PALETTE = ["#0d334d", "#2563eb", "#0ea5e9", "#22c55e", "#f59e0b", "#ef4444", "#a855f7", "#64748b"];
+export const CHART_PALETTE = ["#1f2937", "#be123c", "#0f766e", "#22c55e", "#f59e0b", "#ef4444", "#a855f7", "#64748b"];
 
 export const chartTooltipStyle: Record<string, string | number> = {
   fontSize: 11,
