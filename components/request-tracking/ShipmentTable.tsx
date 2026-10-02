@@ -102,6 +102,8 @@ export function ShipmentTable({
               const waLink = item.link_tracking ? buildWhatsappLink(item) : null;
               const isProcessed = item.has_processed === "TRUE";
               const canMutate = canEdit && !canUpload && item.request_by === currentUserName && status === "pending";
+              // User dengan akses upload/all (tracking_edit) boleh hapus data apa pun, semua status.
+              const canDelete = canMutate || canUpload;
 
               return (
                 <tr
@@ -216,22 +218,22 @@ export function ShipmentTable({
                         </a>
                       )}
                       {canMutate && (
-                        <>
-                          <button
-                            onClick={() => onEdit(item)}
-                            title="Edit"
-                            className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-yellow-50 text-yellow-600 transition-colors hover:bg-yellow-100"
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </button>
-                          <button
-                            onClick={() => onDelete(item)}
-                            title="Hapus"
-                            className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-red-50 text-red-600 transition-colors hover:bg-red-100"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </>
+                        <button
+                          onClick={() => onEdit(item)}
+                          title="Edit"
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-yellow-50 text-yellow-600 transition-colors hover:bg-yellow-100"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => onDelete(item)}
+                          title="Hapus"
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-red-50 text-red-600 transition-colors hover:bg-red-100"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
                       )}
                     </div>
                   </td>
@@ -249,6 +251,8 @@ export function ShipmentTable({
           const waLink = item.link_tracking ? buildWhatsappLink(item) : null;
           const isProcessed = item.has_processed === "TRUE";
           const canMutate = canEdit && !canUpload && item.request_by === currentUserName && status === "pending";
+              // User dengan akses upload/all (tracking_edit) boleh hapus data apa pun, semua status.
+              const canDelete = canMutate || canUpload;
 
           return (
             <div key={item.id} onClick={() => onRowClick(item)} className="cursor-pointer p-4 transition-colors active:bg-gray-50">
@@ -313,14 +317,14 @@ export function ShipmentTable({
                     </a>
                   )}
                   {canMutate && (
-                    <>
-                      <button onClick={() => onEdit(item)} className="rounded-lg bg-yellow-50 p-1.5 text-yellow-600">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button onClick={() => onDelete(item)} className="rounded-lg bg-red-50 p-1.5 text-red-600">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </>
+                    <button onClick={() => onEdit(item)} className="rounded-lg bg-yellow-50 p-1.5 text-yellow-600">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button onClick={() => onDelete(item)} className="rounded-lg bg-red-50 p-1.5 text-red-600">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   )}
                 </div>
               </div>
