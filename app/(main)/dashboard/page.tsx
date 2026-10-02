@@ -374,8 +374,8 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
           />
         </div>
 
-        {/* ── Today's Shift ──────────────────────────────────────── */}
-        <div className="mb-6">
+        {/* ── Today's Shift — full-width bento row ─────────────────── */}
+        <div className="mb-4">
           <SectionCard
             title="Jadwal Shift Hari Ini"
             subtitle={`(${todayLabel})`}
@@ -415,17 +415,17 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
           </SectionCard>
         </div>
 
-        {/* ── Quick Action ───────────────────────────────────────── */}
-        <div className="mb-6">
-          <SectionCard title="Quick Action" icon={Zap} accent="orange" noPadding>
-            <div className="p-4">
-              <QuickAction />
-            </div>
-          </SectionCard>
-        </div>
+        {/* ── Quick Action + Store Location — bento row (1/3 + 2/3) ── */}
+        <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-1">
+            <SectionCard title="Quick Action" icon={Zap} accent="orange" noPadding className="h-full">
+              <div className="p-4">
+                <QuickAction />
+              </div>
+            </SectionCard>
+          </div>
 
-        {/* ── Store Location ─────────────────────────────────────── */}
-        <div className="mb-6">
+          <div className="lg:col-span-2">
           <SectionCard title="Store Location" icon={StoreIcon} accent="purple">
             <StoreTable
               stores={storeAddresses.filter((s) => !s.status || s.status.trim().toLowerCase() === "active")}
@@ -434,6 +434,7 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
               onRefresh={fetchStoreAddresses}
             />
           </SectionCard>
+          </div>
         </div>
 
       </div>

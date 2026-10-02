@@ -798,11 +798,14 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         }
         .menu-btn:hover::before { background: rgba(13,51,77,0.06); }
         .menu-btn:hover { color: #111827; }
-        .menu-btn.active::before { background: rgba(13,51,77,0.1); }
-        .menu-btn.active {
-          color: #111827;
-          border-right: 2px solid rgba(13,51,77,0.8);
+        .menu-btn.active::before {
+          background: linear-gradient(135deg, #35393C 0%, #1f4e63 55%, #0d7a8f 100%);
         }
+        .menu-btn.active {
+          color: #ffffff;
+          border-right: none;
+        }
+        .menu-btn.active svg { color: #ffffff; }
 
         @keyframes jellyIn {
           0%   { transform: scaleY(0) scaleX(0.85); opacity: 0; transform-origin: top; }
@@ -908,8 +911,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           box-shadow: 0 8px 24px rgba(0,0,0,0.45);
         }
         html.dark .menu-btn:hover::before { background: rgba(255,255,255,0.08); }
-        html.dark .menu-btn.active::before { background: rgba(255,255,255,0.14); }
-        html.dark .menu-btn.active { border-right: 2px solid rgba(255,255,255,0.7); }
         html.dark .bg-black\/5 { background-color: rgba(255,255,255,0.08) !important; }
 
         /* Sidebar text: white regardless of the app-wide gray-scale dark
@@ -961,7 +962,10 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
         `}
       >
         {/* Header */}
-        <div className={`border-b border-black/10 ${isCollapsed ? "p-2" : "p-3"} flex items-center justify-between`}>
+        <div
+          className={`relative overflow-hidden border-b border-black/10 ${isCollapsed ? "p-2" : "p-3"} flex items-center justify-between`}
+          style={{ background: "linear-gradient(135deg, rgba(53,57,60,0.06) 0%, rgba(13,122,143,0.08) 100%)" }}
+        >
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
               <Image
@@ -971,7 +975,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
                 height={60}
                 className="object-contain mx-auto"
               />
-              <p className="text-[10px] text-gray-400 mt-1 text-center truncate">
+              <p className="mx-auto mt-1.5 w-fit max-w-full truncate rounded-full bg-black/5 px-2 py-0.5 text-center text-[10px] text-gray-500">
                 {userName}
               </p>
             </div>

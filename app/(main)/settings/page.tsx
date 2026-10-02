@@ -464,18 +464,28 @@ export default function SettingsPage() {
   return (
     <div className="flex-1 overflow-auto page-bg">
       <div className="p-4">
-        <div className="mb-5 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100">
-            <SlidersHorizontal className="h-5 w-5 text-gray-700" strokeWidth={2.25} />
-          </span>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Settings</h1>
-            <p className="text-xs text-gray-400">Konfigurasi aplikasi, user, dan integrasi</p>
+        <div
+          className="relative mb-5 overflow-hidden rounded-3xl px-6 py-6"
+          style={{ background: "linear-gradient(135deg, #35393C 0%, #1f4e63 45%, #0d7a8f 100%)" }}
+        >
+          <div
+            className="pointer-events-none absolute -right-14 -top-16 h-52 w-52 rounded-full opacity-40 blur-3xl"
+            style={{ background: "radial-gradient(circle, #A4D8FF 0%, transparent 70%)" }}
+          />
+          <div className="relative flex items-center gap-3">
+            <span className="flex h-11 w-11 flex-none items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm ring-1 ring-white/25">
+              <SlidersHorizontal className="h-5 w-5 text-white" strokeWidth={2.25} />
+            </span>
+            <div>
+              <h1 className="text-xl font-bold text-white">Settings</h1>
+              <p className="text-xs text-white/70">Konfigurasi aplikasi, user, dan integrasi</p>
+            </div>
           </div>
         </div>
 
-        {/* ── Javelin Card ──────────────────────────────────────────────── */}
-        <GlassCard padding="none" className="glass-card-elevated mb-4 flex items-center justify-between px-4 py-2.5 gap-4">
+        {/* ── Javelin + Export Database — bento row ───────────────────────── */}
+        <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <GlassCard padding="none" className="glass-card-elevated flex items-center justify-between px-4 py-2.5 gap-4">
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-orange-50">
               <Rss className="h-3.5 w-3.5 text-orange-600" strokeWidth={2.25} />
@@ -517,6 +527,42 @@ export default function SettingsPage() {
             {javelinStatus.hasCookies ? "Update" : "Set Cookie"}
           </Button>
         </GlassCard>
+
+        {/* ── Export Database ke Spreadsheet ─────────────────────────────── */}
+        {/* Hanya untuk user dengan registration_request (page ini sendiri
+            sudah digate user_setting) — dua permission ini yang paling dekat
+            dengan "akses users, setting" yang diminta untuk fitur ini. */}
+        {!!user.registration_request && dbTables.length > 0 && (
+          <GlassCard padding="none" className="glass-card-elevated px-4 py-3">
+            <div className="mb-0.5 flex items-center gap-2.5">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50">
+                <Database className="h-3.5 w-3.5 text-purple-600" strokeWidth={2.25} />
+              </span>
+              <p className="text-xs font-semibold text-gray-700">Export Database ke Spreadsheet</p>
+            </div>
+            <p className="mb-2.5 ml-9 text-[11px] text-gray-400">
+              Tabel-tabel ini tersimpan di database (bukan Google Sheets). Klik "Copy" lalu tempel
+              formulanya di sel Google Sheets — hasilnya otomatis jadi tabel.
+            </p>
+            <div className="flex flex-col gap-1.5">
+              {dbTables.map((t) => (
+                <div
+                  key={t.key}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2"
+                >
+                  <span className="text-[11px] font-medium text-gray-600">{t.label}</span>
+                  <button
+                    onClick={() => copyImportFormula(t.key)}
+                    className="shrink-0 rounded bg-primary px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-primary/90"
+                  >
+                    {copiedTable === t.key ? "Tersalin!" : "Copy Formula"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </GlassCard>
+        )}
+        </div>
 
         {/* ── Recent Activity — dipindah dari Dashboard, cuma kelihatan di sini
             (halaman Settings sudah digate user_setting). ───────────────── */}
@@ -596,41 +642,6 @@ export default function SettingsPage() {
             )}
           </div>
         </GlassCard>
-
-        {/* ── Export Database ke Spreadsheet ─────────────────────────────── */}
-        {/* Hanya untuk user dengan registration_request (page ini sendiri
-            sudah digate user_setting) — dua permission ini yang paling dekat
-            dengan "akses users, setting" yang diminta untuk fitur ini. */}
-        {!!user.registration_request && dbTables.length > 0 && (
-          <GlassCard padding="none" className="glass-card-elevated mb-4 px-4 py-3">
-            <div className="mb-0.5 flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50">
-                <Database className="h-3.5 w-3.5 text-purple-600" strokeWidth={2.25} />
-              </span>
-              <p className="text-xs font-semibold text-gray-700">Export Database ke Spreadsheet</p>
-            </div>
-            <p className="mb-2.5 ml-9 text-[11px] text-gray-400">
-              Tabel-tabel ini tersimpan di database (bukan Google Sheets). Klik "Copy" lalu tempel
-              formulanya di sel Google Sheets — hasilnya otomatis jadi tabel.
-            </p>
-            <div className="flex flex-col gap-1.5">
-              {dbTables.map((t) => (
-                <div
-                  key={t.key}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2"
-                >
-                  <span className="text-[11px] font-medium text-gray-600">{t.label}</span>
-                  <button
-                    onClick={() => copyImportFormula(t.key)}
-                    className="shrink-0 rounded bg-primary px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-primary/90"
-                  >
-                    {copiedTable === t.key ? "Tersalin!" : "Copy Formula"}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </GlassCard>
-        )}
 
         {/* ── User Management ───────────────────────────────────────────── */}
         <GlassCard padding="none" className="glass-card-elevated overflow-hidden">
