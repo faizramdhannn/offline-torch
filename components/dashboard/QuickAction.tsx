@@ -10,6 +10,21 @@ import {
   Wallet,
   Package,
   Boxes,
+  Archive,
+  Camera,
+  Map,
+  ClipboardCheck,
+  ListChecks,
+  ClipboardList,
+  LineChart,
+  UserPlus,
+  FileText,
+  PackageMinus,
+  Percent,
+  BarChart3,
+  DollarSign,
+  Share2,
+  Send,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -32,14 +47,29 @@ interface QuickActionItem {
 // only links somewhere real — when the user actually has access to it.
 const ACTIONS: QuickActionItem[] = [
   { label: "Attendance", href: "/attendance", icon: UserCheck, permissions: ["attendance"] },
+  { label: "Capture Attendance", href: "/capture-attendance", icon: Camera, permissions: ["attendance_store"] },
   { label: "Cancel Order", href: "/request-store", icon: PackageSearch, permissions: ["request", "edit_request"] },
   { label: "Shipment", href: "/request-tracking", icon: Truck, permissions: ["request_tracking", "tracking_edit"] },
+  { label: "Invoice", href: "/invoice", icon: FileText, permissions: ["invoice"] },
+  { label: "Material Issue", href: "/material-issue", icon: PackageMinus, permissions: ["material_issue"] },
+  { label: "Employee Discount", href: "/employee-discount", icon: Percent, permissions: ["employee_discount", "employee_discount_approval"] },
   { label: "Customer", href: "/customer", icon: Users, permissions: ["customer"] },
+  { label: "Affiliate", href: "/affiliate", icon: Share2, permissions: ["affiliate_view"] },
+  { label: "Jastiper", href: "/jastiper", icon: Send, permissions: ["jastiper"] },
   { label: "Order Report", href: "/order-report", icon: TrendingUp, permissions: ["order_report"] },
+  { label: "Analytics Order", href: "/analytics-order", icon: BarChart3, permissions: ["analytics_order"] },
+  { label: "Sales", href: "/sales", icon: DollarSign, permissions: ["sales_view", "sales_view_all"] },
   { label: "Voucher", href: "/voucher", icon: Boxes, permissions: ["voucher"] },
   { label: "Petty Cash", href: "/petty-cash", icon: Wallet, permissions: ["petty_cash"] },
   { label: "Stock", href: "/stock", icon: Package, permissions: ["stock"] },
+  { label: "Stock Opname", href: "/stock-opname", icon: ClipboardList, permissions: ["stock_opname"] },
   { label: "Bundling", href: "/bundling", icon: Package, permissions: ["bundling"] },
+  { label: "Asset", href: "/asset", icon: Archive, permissions: ["asset_store"] },
+  { label: "Canvasing", href: "/canvasing", icon: Map, permissions: ["canvasing"] },
+  { label: "Daily Job", href: "/daily-job/checklist", icon: ClipboardCheck, permissions: ["daily_checklist"] },
+  { label: "Step ERP", href: "/step-erp", icon: ListChecks, permissions: ["step_erp"] },
+  { label: "Survey Store", href: "/traffic-store", icon: LineChart, permissions: ["traffic_store"] },
+  { label: "Registration", href: "/registration", icon: UserPlus, permissions: ["registration_request"] },
 ];
 
 export function QuickAction() {
@@ -58,7 +88,11 @@ export function QuickAction() {
   }
 
   return (
-    <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-8">
+    // Grid cuma 3 kolom tetap (bukan viewport-based md:grid-cols-8) karena
+    // sejak layout bento, kartu ini cuma ~1/3 lebar halaman di layar besar —
+    // breakpoint berbasis viewport sebelumnya maksa 8 kolom di ruang sempit,
+    // bikin tile-nya bertumpukan.
+    <div className="grid grid-cols-3 gap-3">
       {visibleActions.map((action, i) => (
         <motion.div
           key={action.label}
