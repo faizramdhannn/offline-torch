@@ -10,6 +10,7 @@ import {
   Activity,
   CircleAlert,
   Clock3,
+  Zap,
 } from "lucide-react";
 
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -378,6 +379,8 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
           <SectionCard
             title="Jadwal Shift Hari Ini"
             subtitle={`(${todayLabel})`}
+            icon={Clock3}
+            accent="blue"
             badge={
               scheduleLoading && (
                 <span className="flex items-center gap-1 text-xs text-gray-400">
@@ -414,7 +417,7 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
 
         {/* ── Quick Action ───────────────────────────────────────── */}
         <div className="mb-6">
-          <SectionCard title="Quick Action" noPadding>
+          <SectionCard title="Quick Action" icon={Zap} accent="orange" noPadding>
             <div className="p-4">
               <QuickAction />
             </div>
@@ -423,7 +426,7 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
 
         {/* ── Store Location ─────────────────────────────────────── */}
         <div className="mb-6">
-          <SectionCard title="Store Location">
+          <SectionCard title="Store Location" icon={StoreIcon} accent="purple">
             <StoreTable
               stores={storeAddresses.filter((s) => !s.status || s.status.trim().toLowerCase() === "active")}
               onCopy={handleCopy}

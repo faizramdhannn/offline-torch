@@ -3,7 +3,7 @@
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Activity, Search } from "lucide-react";
+import { Activity, Search, SlidersHorizontal, Rss, Database, Users as UsersIcon } from "lucide-react";
 import Popup from "@/components/Popup";
 import { Button } from "@/components/shared/Button";
 import { GlassCard } from "@/components/shared/GlassCard";
@@ -464,11 +464,23 @@ export default function SettingsPage() {
   return (
     <div className="flex-1 overflow-auto page-bg">
       <div className="p-4">
-        <h1 className="text-xl font-bold text-primary mb-4">Settings</h1>
+        <div className="mb-5 flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100">
+            <SlidersHorizontal className="h-5 w-5 text-gray-700" strokeWidth={2.25} />
+          </span>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Settings</h1>
+            <p className="text-xs text-gray-400">Konfigurasi aplikasi, user, dan integrasi</p>
+          </div>
+        </div>
 
         {/* ── Javelin Card ──────────────────────────────────────────────── */}
-        <GlassCard padding="none" className="mb-4 flex items-center justify-between px-4 py-2.5 gap-4">
-          <div className="min-w-0">
+        <GlassCard padding="none" className="glass-card-elevated mb-4 flex items-center justify-between px-4 py-2.5 gap-4">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-orange-50">
+              <Rss className="h-3.5 w-3.5 text-orange-600" strokeWidth={2.25} />
+            </span>
+            <div className="min-w-0">
             <p className="text-xs font-semibold text-gray-700">Javelin Configuration</p>
             {loadingJavelin ? (
               <p className="text-[11px] text-gray-400">Loading...</p>
@@ -496,6 +508,7 @@ export default function SettingsPage() {
                 </div>
               </div>
             )}
+            </div>
           </div>
           <Button
             size="sm"
@@ -507,9 +520,14 @@ export default function SettingsPage() {
 
         {/* ── Recent Activity — dipindah dari Dashboard, cuma kelihatan di sini
             (halaman Settings sudah digate user_setting). ───────────────── */}
-        <GlassCard padding="none" className="mb-4 overflow-hidden">
-          <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2.5">
-            <p className="text-xs font-semibold text-gray-700">Recent Activity</p>
+        <GlassCard padding="none" className="glass-card-elevated mb-4 overflow-hidden">
+          <div className="flex items-center justify-between gap-3 border-b border-white/40 px-4 py-2.5">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50">
+                <Activity className="h-3.5 w-3.5 text-blue-600" strokeWidth={2.25} />
+              </span>
+              <p className="text-xs font-semibold text-gray-700">Recent Activity</p>
+            </div>
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
               <input
@@ -584,9 +602,14 @@ export default function SettingsPage() {
             sudah digate user_setting) — dua permission ini yang paling dekat
             dengan "akses users, setting" yang diminta untuk fitur ini. */}
         {!!user.registration_request && dbTables.length > 0 && (
-          <GlassCard padding="none" className="mb-4 px-4 py-3">
-            <p className="mb-0.5 text-xs font-semibold text-gray-700">Export Database ke Spreadsheet</p>
-            <p className="mb-2.5 text-[11px] text-gray-400">
+          <GlassCard padding="none" className="glass-card-elevated mb-4 px-4 py-3">
+            <div className="mb-0.5 flex items-center gap-2.5">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50">
+                <Database className="h-3.5 w-3.5 text-purple-600" strokeWidth={2.25} />
+              </span>
+              <p className="text-xs font-semibold text-gray-700">Export Database ke Spreadsheet</p>
+            </div>
+            <p className="mb-2.5 ml-9 text-[11px] text-gray-400">
               Tabel-tabel ini tersimpan di database (bukan Google Sheets). Klik "Copy" lalu tempel
               formulanya di sel Google Sheets — hasilnya otomatis jadi tabel.
             </p>
@@ -610,12 +633,17 @@ export default function SettingsPage() {
         )}
 
         {/* ── User Management ───────────────────────────────────────────── */}
-        <GlassCard padding="none" className="overflow-hidden">
+        <GlassCard padding="none" className="glass-card-elevated overflow-hidden">
           {/* Table header bar */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 bg-gray-50">
-            <div>
-              <p className="text-xs font-semibold text-gray-700">User Management</p>
-              <p className="text-[11px] text-gray-400">Klik checkbox untuk mengubah akses · Simpan untuk menyimpan perubahan</p>
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/40">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-green-50">
+                <UsersIcon className="h-3.5 w-3.5 text-green-600" strokeWidth={2.25} />
+              </span>
+              <div>
+                <p className="text-xs font-semibold text-gray-700">User Management</p>
+                <p className="text-[11px] text-gray-400">Klik checkbox untuk mengubah akses · Simpan untuk menyimpan perubahan</p>
+              </div>
             </div>
             <div className="relative">
               <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
