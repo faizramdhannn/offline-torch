@@ -92,7 +92,7 @@ export function QuickAction() {
     // sejak layout bento, kartu ini cuma ~1/3 lebar halaman di layar besar —
     // breakpoint berbasis viewport sebelumnya maksa 8 kolom di ruang sempit,
     // bikin tile-nya bertumpukan.
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-4 gap-2">
       {visibleActions.map((action, i) => (
         <motion.div
           key={action.label}
@@ -104,12 +104,12 @@ export function QuickAction() {
         >
           <Link
             href={action.href}
-            className="flex flex-col items-center gap-2 rounded-2xl border border-white/40 bg-white/50 px-3 py-4 text-center shadow-sm backdrop-blur-sm transition-shadow duration-200 hover:shadow-lg hover:bg-white/70"
+            className="flex flex-col items-center gap-1 rounded-xl border border-white/40 bg-white/50 px-1.5 py-2.5 text-center shadow-sm backdrop-blur-sm transition-shadow duration-200 hover:shadow-lg hover:bg-white/70"
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-              <action.icon className="h-4.5 w-4.5 text-primary" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+              <action.icon className="h-3.5 w-3.5 text-primary" />
             </div>
-            <span className="text-[11px] font-medium text-gray-600">
+            <span className="text-[9.5px] font-medium leading-tight text-gray-600">
               {action.label}
             </span>
           </Link>
