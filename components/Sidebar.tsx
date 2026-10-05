@@ -1044,7 +1044,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           {checkPermission(menuItems[0]) && <MenuButton item={menuItems[0]} />}
 
           {/* QR Code, Asset, Attendance, Capture Attendance, Bundling, Canvasing */}
-          {menuItems.slice(1, 7).map((item) =>
+          {menuItems.slice(1, 8).map((item) =>
             checkPermission(item) ? <MenuButton key={item.path} item={item} /> : null
           )}
 
@@ -1100,7 +1100,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           )}
 
           {/* Daily Job, Petty Cash, Step ERP, Stock, Stock Opname, Survey Store, Voucher, Registration, Settings */}
-          {menuItems.slice(7).map((item) =>
+          {menuItems.slice(8).map((item) =>
             checkPermission(item) ? <MenuButton key={item.path} item={item} /> : null
           )}
 
