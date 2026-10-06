@@ -1,3 +1,4 @@
+import { actorName } from '@/lib/authz';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow } from '@/lib/sheets';
 import { notifyUser, notifyUsersWithPermission } from '@/lib/notifications';
@@ -71,12 +72,12 @@ export async function POST(request: NextRequest) {
       items,
       tax_percent = 0,
       use_signature = false,
-      created_by,
       doc_type = 'invoice',
       manual_invoice_number = null,
       signature_store = '',
       signature_pic = '',
     } = body;
+    const created_by = actorName(request);
 
     if (!customer_name || !invoice_date || !items?.length) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });

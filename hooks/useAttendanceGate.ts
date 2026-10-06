@@ -24,7 +24,7 @@ const EXEMPT_PATHS = ["/login", "/capture-attendance"];
 // CACHE_TTL_MS so rapid navigation reuses the same answer instead of
 // re-fetching; invalidated early when leaving /capture-attendance (the user
 // likely just checked in).
-const CACHE_TTL_MS = 60_000;
+const CACHE_TTL_MS = 300_000;
 let cache: { userKey: string; showGate: boolean; storeName: string; ts: number } | null = null;
 
 /**

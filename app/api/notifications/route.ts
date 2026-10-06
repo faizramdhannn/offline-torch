@@ -1,3 +1,4 @@
+import { actorName } from '@/lib/authz';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData } from '@/lib/sheets';
 import { createNotification } from '@/lib/notifications';
@@ -85,7 +86,8 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, userName } = body;
+    const { id } = body;
+    const userName = actorName(request);
     if (!id || !userName) {
       return NextResponse.json({ error: 'Missing id/userName' }, { status: 400 });
     }

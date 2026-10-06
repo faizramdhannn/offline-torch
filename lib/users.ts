@@ -1,5 +1,4 @@
 import { sql } from "./neon";
-import { getSheetData } from "./sheets";
 
 // Kolom permission di sheet `users` (urutan = header sheet). Nilainya disimpan
 // sebagai 'TRUE'/'FALSE' supaya semua pemanggil lama (u.stock === 'TRUE') tetap jalan.
@@ -65,6 +64,8 @@ export function ensureUsersSchema(): Promise<void> {
       const count = await sql`SELECT COUNT(*)::int AS n FROM app_users`;
       if (count[0].n === 0) {
         // Migrasi satu kali dari sheet `users`.
+        // Import dinamis: jangan tarik googleapis (besar) ke setiap route/proxy yang memakai lib ini.
+        const { getSheetData } = await import("./sheets");
         const rows = await getSheetData("users", { skipCache: true });
         for (const u of rows as any[]) {
           if (!u.user_name) continue;
@@ -135,7 +136,7 @@ export async function updateUserPermissions(id: string, changes: Record<string, 
   return res.length > 0;
 }
 
-export async function createUser(u: { id: string; name: string; user_name: string; password: string }, permissions: Record<string, boolean>, role: Role = "store") {
+export async function createUser(u: { id: string; name: string; user_name: string; password: string }, permissions: Record<string, boolean>, role: Role = "store"): Promise<boolean> {
   await ensureUsersSchema();
   const perms: Record<string, string> = {};
   for (const k of PERMISSION_KEYS) perms[k] = permissions?.[k] ? "TRUE" : "FALSE";
@@ -144,6 +145,14 @@ export async function createUser(u: { id: string; name: string; user_name: strin
     VALUES (${u.id}, ${u.name}, ${u.user_name}, ${u.password}, ${JSON.stringify(perms)}::jsonb, ${role})
     ON CONFLICT (user_name) DO NOTHING
   `;
+  return (await getUserByUserName(u.user_name))?.id === u.id;
+}
+
+// Cek nama pengguna sudah dipakai (tanpa membedakan huruf besar/kecil).
+export async function userNameTaken(userName: string): Promise<boolean> {
+  await ensureUsersSchema();
+  const r = await sql`SELECT 1 FROM app_users WHERE lower(user_name) = lower(${userName}) LIMIT 1`;
+  return r.length > 0;
 }
 
 export async function touchLastActivity(userName: string, ts: string) {

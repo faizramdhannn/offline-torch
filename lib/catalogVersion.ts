@@ -17,6 +17,7 @@ function ensureSchema(): Promise<void> {
           updated_by TEXT NOT NULL DEFAULT ''
         )
       `;
+      await sql`ALTER TABLE catalog_state ADD COLUMN IF NOT EXISTS blob_url TEXT NOT NULL DEFAULT ''`;
     })().catch((e) => {
       schemaReady = null;
       throw e;
@@ -34,12 +35,31 @@ export async function getCatalogVersion(key: string): Promise<string> {
   return again[0].version as string;
 }
 
+// Versi baru = PDF lama tidak berlaku lagi (blob_url dikosongkan sampai PDF baru diunggah).
 export async function bumpCatalogVersion(key: string, by: string): Promise<string> {
   await ensureSchema();
   const version = String(Date.now());
   await sql`
     INSERT INTO catalog_state (key, version, updated_by) VALUES (${key}, ${version}, ${by})
-    ON CONFLICT (key) DO UPDATE SET version = ${version}, updated_at = now(), updated_by = ${by}
+    ON CONFLICT (key) DO UPDATE SET version = ${version}, blob_url = '', updated_at = now(), updated_by = ${by}
+  `;
+  return version;
+}
+
+export async function getCatalogState(key: string): Promise<{ version: string; blob_url: string }> {
+  await ensureSchema();
+  await getCatalogVersion(key); // memastikan baris ada
+  const r = await sql`SELECT version, blob_url FROM catalog_state WHERE key = ${key}`;
+  return { version: r[0].version as string, blob_url: (r[0].blob_url as string) || "" };
+}
+
+// Versi + URL Blob dalam satu langkah (PDF sudah jadi) — dipakai unggahan Super Admin dan cron.
+export async function publishCatalogBlob(key: string, by: string, blobUrl: string): Promise<string> {
+  await ensureSchema();
+  const version = String(Date.now());
+  await sql`
+    INSERT INTO catalog_state (key, version, blob_url, updated_by) VALUES (${key}, ${version}, ${blobUrl}, ${by})
+    ON CONFLICT (key) DO UPDATE SET version = ${version}, blob_url = ${blobUrl}, updated_at = now(), updated_by = ${by}
   `;
   return version;
 }

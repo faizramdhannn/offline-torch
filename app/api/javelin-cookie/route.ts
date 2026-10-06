@@ -1,3 +1,4 @@
+import { actorName } from '@/lib/authz';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, updateSheetRow, appendSheetData } from '@/lib/sheets';
 
@@ -6,7 +7,8 @@ const SHEET_NAME = 'system_config';
 // Save or retrieve manual cookie
 export async function POST(request: NextRequest) {
   try {
-    const { cookie, username } = await request.json();
+    const { cookie } = await request.json();
+    const username = actorName(request);
 
     if (!cookie) {
       return NextResponse.json(

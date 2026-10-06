@@ -84,7 +84,7 @@ export default function StockDetailPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/stock?type=result_stock");
+      const response = await fetch(`/api/stock?type=result_stock&sku=${encodeURIComponent(sku)}`);
       const result = await response.json();
       const found = (Array.isArray(result) ? result : []).find(
         (r: any) => String(r.sku || r.SKU) === sku

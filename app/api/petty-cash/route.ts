@@ -1,3 +1,4 @@
+import { actorName, sessionUser } from '@/lib/authz';
 import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
@@ -137,11 +138,11 @@ export async function POST(request: NextRequest) {
     const description = formData.get('description') as string;
     const category = formData.get('category') as string;
     const value = formData.get('value') as string;
-    const store = formData.get('store') as string;
+    const store = actorName(request); // toko = akun pelaku (bukan dari form)
     const ket = formData.get('ket') as string || '';
     const transfer = formData.get('transfer') === 'true';
     const file = formData.get('file') as File | null;
-    const username = formData.get('username') as string;
+    const username = actorName(request);
 
     const id = Date.now().toString().slice(-8);
 
@@ -226,13 +227,20 @@ export async function PUT(request: NextRequest) {
     const ket = formData.get('ket') as string || '';
     const transfer = formData.get('transfer') === 'true';
     const file = formData.get('file') as File | null;
-    const username = formData.get('username') as string;
+    const username = actorName(request);
 
     const pettyCashData = await getSheetData('petty_cash', { skipCache: true });
     const entryIndex = pettyCashData.findIndex((item: any) => item.id === id);
 
     if (entryIndex === -1) {
       return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
+    }
+    // Hanya pemilik entri (toko yang sama) atau admin petty cash yang boleh mengubah.
+    {
+      const me = await sessionUser(request);
+      if (pettyCashData[entryIndex].store !== username && me?.petty_cash_export !== 'TRUE') {
+        return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 });
+      }
     }
 
     const entry = pettyCashData[entryIndex];
@@ -336,7 +344,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    const deletedBy = searchParams.get('deletedBy') || 'unknown';
+    const deletedBy = actorName(request) || 'unknown';
 
     if (!id) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
@@ -344,6 +352,13 @@ export async function DELETE(request: NextRequest) {
 
     const pettyCashData = await getSheetData('petty_cash', { skipCache: true });
     const entryIndex = pettyCashData.findIndex((item: any) => item.id === id);
+
+    if (entryIndex !== -1) {
+      const me = await sessionUser(request);
+      if (pettyCashData[entryIndex].store !== deletedBy && me?.petty_cash_export !== 'TRUE') {
+        return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 });
+      }
+    }
 
     if (entryIndex === -1) {
       return NextResponse.json({ error: 'Entry not found' }, { status: 404 });

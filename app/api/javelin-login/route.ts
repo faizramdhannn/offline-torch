@@ -1,3 +1,4 @@
+import { actorName } from '@/lib/authz';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, updateSheetRow, appendSheetData } from '@/lib/sheets';
 
@@ -40,7 +41,8 @@ export async function GET(request: NextRequest) {
 // Save credentials for future auto-refresh
 export async function POST(request: NextRequest) {
   try {
-    const { username, password, updatedBy } = await request.json();
+    const { username, password } = await request.json();
+    const updatedBy = actorName(request);
 
     if (!username || !password) {
       return NextResponse.json(

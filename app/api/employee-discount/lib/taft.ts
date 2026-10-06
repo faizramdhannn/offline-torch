@@ -24,7 +24,7 @@ const STORE_NAME_MAP: Record<string, string> = {
 // exceeded for quota metric 'Read requests'" errors seen in production.
 // Cache + single-flight dedup here, mirroring the pattern already used by
 // lib/sheets.ts for everything else.
-const MASTER_TRAFFIC_CACHE_TTL_MS = 60_000;
+const MASTER_TRAFFIC_CACHE_TTL_MS = 300_000;
 let masterTrafficCache: { data: any[]; expiresAt: number } | null = null;
 let masterTrafficInFlight: Promise<any[]> | null = null;
 

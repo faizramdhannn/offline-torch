@@ -8,7 +8,7 @@ import { getSheetData, withCache } from '@/lib/sheets';
 // — ketiganya baca sheet & range yang identik (master_dropdown di
 // SPREADSHEET_MATERIAL_ISSUE), jadi berbagi satu hasil cache.
 async function getMasterDropdown() {
-  return withCache('daily_job_master_dropdown', 120_000, async () => {
+  return withCache('daily_job_master_dropdown', 600_000, async () => {
     const auth = new google.auth.GoogleAuth({
       credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],

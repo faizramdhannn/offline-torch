@@ -36,7 +36,7 @@ export default function OrderReportDetailPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/order-report");
+      const response = await fetch(`/api/order-report?sales_order=${encodeURIComponent(salesOrder)}`);
       const result = await response.json();
       const list: OrderReport[] = Array.isArray(result) ? result : result.data || [];
       const found = list.find((r) => r.sales_order === salesOrder);

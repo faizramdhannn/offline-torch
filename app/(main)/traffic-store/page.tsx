@@ -2,7 +2,7 @@
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useSortableTable } from "@/hooks/useSortableTable";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Popup from "@/components/Popup";
 import * as XLSX from "xlsx";
@@ -393,6 +393,15 @@ export default function TrafficStorePage() {
     fetchAll();
   }, []);
 
+  // Rentang tanggal berubah → ambil ulang dari server (data dibatasi per rentang).
+  const dateFetchInit = useRef(true);
+  useEffect(() => {
+    if (dateFetchInit.current) { dateFetchInit.current = false; return; }
+    const t = setTimeout(() => { fetchAll(); }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterDateFrom, filterDateTo]);
+
   // Sinkronkan filter aktif ke URL query params supaya kalau user buka detail
   // lalu klik Back, filter yang tadi aktif tidak hilang (dan link-nya bisa
   // di-share/bookmark dengan filter tertentu).
@@ -414,11 +423,20 @@ export default function TrafficStorePage() {
     setPopupMsg(msg); setPopupType(type); setShowPopup(true);
   };
 
+  // Server hanya mengirim rentang tanggal (default 30 hari terakhir) — data lama = pilih tanggal.
+  const dataQuery = (() => {
+    const q = new URLSearchParams();
+    if (filterDateFrom) q.set("from", filterDateFrom);
+    if (filterDateTo) q.set("to", filterDateTo);
+    const qs = q.toString();
+    return qs ? `?${qs}` : "";
+  })();
+
   const fetchAll = async () => {
     try {
       setLoading(true);
       const [dataRes, masterRes] = await Promise.all([
-        fetch("/api/traffic-store"),
+        fetch(`/api/traffic-store${dataQuery}`),
         fetch("/api/traffic-store?type=master"),
       ]);
       const dataJson = await dataRes.json();
@@ -1102,6 +1120,11 @@ export default function TrafficStorePage() {
         )}
 
         <div className="mt-4 space-y-4">
+          {!filterDateFrom && !filterDateTo && (
+            <p className="rounded-xl bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+              Menampilkan data <b>30 hari terakhir</b>. Pilih rentang tanggal di filter untuk melihat data yang lebih lama.
+            </p>
+          )}
           {/* ── Shared filter bar ── */}
           <FilterBar
             isStoreUser={isStoreUser}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { withCache, invalidateCache } from '@/lib/sheets';
 
 const SPREADSHEET_PETTY_CASH = process.env.SPREADSHEET_PETTY_CASH || '';
 
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
 
-    const historyData = await getHistorySheetData();
+    const historyData = await withCache('pc_history_data', 60_000, getHistorySheetData);
 
     let filtered = historyData.filter((item) => item.history_id);
 
@@ -96,6 +97,7 @@ export async function GET(request: NextRequest) {
 // POST - log a history entry
 // Body: { action, petty_cash_id, action_by, snapshot, notes }
 export async function POST(request: NextRequest) {
+  invalidateCache('pc_history_data');
   try {
     const body = await request.json();
     const { action, petty_cash_id, action_by, snapshot, notes } = body;
@@ -139,6 +141,7 @@ export async function POST(request: NextRequest) {
 // PUT - restore a deleted entry back to petty_cash sheet
 // Body: { history_id, restore_by }
 export async function PUT(request: NextRequest) {
+  invalidateCache('pc_history_data');
   try {
     const body = await request.json();
     const { history_id, restore_by } = body;

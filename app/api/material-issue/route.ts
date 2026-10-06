@@ -1,3 +1,5 @@
+import { actorName } from '@/lib/authz';
+import { jsonWithEtag } from '@/lib/etag';
 import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, updateMultipleSheetRows, deleteSheetRows } from '@/lib/sheets';
@@ -109,7 +111,7 @@ export async function GET(request: NextRequest) {
       return tB - tA;
     });
 
-    return NextResponse.json(sorted);
+    return jsonWithEtag(request, sorted);
   } catch (error) {
     console.error('GET material_issue error:', error);
     return NextResponse.json({ error: 'Failed to fetch data' }, { status: 500 });
@@ -193,7 +195,8 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, item_sku, update_by, mode, ...fields } = body;
+    const { id, item_sku, mode, ...fields } = body;
+    const update_by = actorName(request);
 
     if (!id) {
       return NextResponse.json({ error: 'Missing id' }, { status: 400 });

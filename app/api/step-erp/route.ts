@@ -1,3 +1,4 @@
+import { actorName } from '@/lib/authz';
 import { NextRequest, NextResponse } from "next/server";
 import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from "@/lib/sheets";
 import { getStepErpType, isValidStepErpType, STEP_ERP_STORES } from "@/lib/stepErpConfig";
@@ -47,7 +48,8 @@ export async function GET(request: NextRequest) {
 // POST /api/step-erp — create a new entry (store + erp_number, all steps start unchecked)
 export async function POST(request: NextRequest) {
   try {
-    const { type, store, erp_number, created_by } = await request.json();
+    const { type, store, erp_number } = await request.json();
+    const created_by = actorName(request);
 
     if (!isValidStepErpType(type)) {
       return NextResponse.json({ error: "Invalid or missing type" }, { status: 400 });
@@ -92,7 +94,8 @@ export async function POST(request: NextRequest) {
 // PUT /api/step-erp — update an entry: store/erp_number and/or any subset of steps
 export async function PUT(request: NextRequest) {
   try {
-    const { type, id, store, erp_number, steps, updated_by } = await request.json();
+    const { type, id, store, erp_number, steps } = await request.json();
+    const updated_by = actorName(request);
 
     if (!isValidStepErpType(type)) {
       return NextResponse.json({ error: "Invalid or missing type" }, { status: 400 });

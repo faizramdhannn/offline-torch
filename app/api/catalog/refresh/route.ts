@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sessionUser } from "@/lib/authz";
+import { audit } from "@/lib/audit";
 import { bumpCatalogVersion, getCatalogMeta, CATALOG_KEYS } from "@/lib/catalogVersion";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Katalog tidak dikenal" }, { status: 400 });
     }
     const version = await bumpCatalogVersion(key, user.user_name);
+    audit(request, "UPDATE", `Refresh katalog ${key}`, "catalog", key);
     return NextResponse.json({ success: true, version });
   } catch (e) {
     console.error("catalog refresh", e);

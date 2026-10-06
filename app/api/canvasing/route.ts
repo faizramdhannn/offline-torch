@@ -1,3 +1,5 @@
+import { actorName } from '@/lib/authz';
+import { jsonWithEtag } from '@/lib/etag';
 import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
@@ -27,14 +29,14 @@ export async function GET(request: NextRequest) {
       const filteredData = data.filter((item: any) => 
         item.store.toLowerCase() === username.toLowerCase()
       );
-      return NextResponse.json({
+      return jsonWithEtag(request, {
         isOwner: true,
         storeName: username,
         data: filteredData,
       });
     } else {
       // User doesn't own a store - show all data (admin view)
-      return NextResponse.json({
+      return jsonWithEtag(request, {
         isOwner: false,
         data: data,
       });
@@ -60,7 +62,7 @@ export async function POST(request: NextRequest) {
     const visit_at = formData.get('visit_at') as string;
     const result_status = formData.get('result_status') as string;
     const notes = formData.get('notes') as string;
-    const username = formData.get('username') as string;
+    const username = actorName(request);
     
     // Handle multiple files
     const files: File[] = [];

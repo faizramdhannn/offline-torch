@@ -1,3 +1,4 @@
+import { sessionUser } from "@/lib/authz";
 import { NextRequest, NextResponse } from "next/server";
 import { sql, ensureAnnouncementSchema } from "@/lib/neon";
 import { uploadToGoogleDrive } from "@/lib/drive";
@@ -34,8 +35,9 @@ export async function PUT(request: NextRequest) {
   try {
     await ensureAnnouncementSchema();
     const formData = await request.formData();
-    const userId = formData.get("userId") as string;
-    const username = (formData.get("username") as string) || "";
+    const me = await sessionUser(request);
+    const userId = me?.id || "";
+    const username = me?.user_name || "";
     const message = (formData.get("message") as string) || "";
     const active = formData.get("active") === "true";
     const linkText = (formData.get("linkText") as string) || "";

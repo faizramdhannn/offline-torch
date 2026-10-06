@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserByUserName, getUsersData, adminUpdateUser, countSuperAdmins } from "@/lib/users";
+import { getUserByUserName, getUsersData, adminUpdateUser, countSuperAdmins, createUser, userNameTaken } from "@/lib/users";
+import bcrypt from "bcryptjs";
+import { audit } from "@/lib/audit";
 import { getRole, applyRoleToUser } from "@/lib/roles";
 import { sessionUser } from "@/lib/authz";
 
@@ -66,6 +68,12 @@ export async function PUT(request: NextRequest) {
       role,
       remove_photo: body.remove_photo === true,
     });
+    const changes: string[] = [];
+    if (role && role !== target.role) changes.push(`role ${target.role} → ${role}`);
+    if (active !== undefined) changes.push(active ? "diaktifkan" : "dinonaktifkan");
+    if (changes.length === 0) changes.push("profil diubah");
+    audit(request, "UPDATE", `${target.user_name}: ${changes.join(", ")}`, "user", target.user_name);
+
     // Role berubah → permission user mengikuti role barunya (kecuali dimatikan).
     if (role && role !== target.role && body.apply_role_perms !== false) {
       await applyRoleToUser(role, target.user_name);
@@ -74,5 +82,38 @@ export async function PUT(request: NextRequest) {
   } catch (e) {
     console.error("profiles PUT", e);
     return NextResponse.json({ error: "Gagal menyimpan" }, { status: 500 });
+  }
+}
+
+// Super Admin: buat user baru langsung (tanpa lewat registrasi).
+export async function POST(request: NextRequest) {
+  try {
+    const actor = await requireSuperAdmin(request);
+    if (!actor) return NextResponse.json({ error: "Hanya Super Admin" }, { status: 403 });
+    const body = await request.json();
+    const name = String(body.name || "").trim();
+    const userName = String(body.user_name || "").trim();
+    const password = String(body.password || "");
+    if (!name) return NextResponse.json({ error: "Nama wajib diisi" }, { status: 400 });
+    if (!/^[A-Za-z0-9 ._-]{3,30}$/.test(userName)) {
+      return NextResponse.json({ error: "Username 3–30 karakter (huruf, angka, spasi, titik, strip, garis bawah)" }, { status: 400 });
+    }
+    if (password.length < 6) return NextResponse.json({ error: "Password minimal 6 karakter" }, { status: 400 });
+    if (await userNameTaken(userName)) return NextResponse.json({ error: "Username sudah dipakai" }, { status: 409 });
+    const role = await getRole(String(body.role || "store"));
+    if (!role) return NextResponse.json({ error: "Role tidak valid" }, { status: 400 });
+
+    const perms = Object.fromEntries(Object.entries(role.perms).map(([k, v]) => [k, v === "TRUE"]));
+    const ok = await createUser(
+      { id: Date.now().toString(), name, user_name: userName, password: await bcrypt.hash(password, 10) },
+      perms,
+      role.key
+    );
+    if (!ok) return NextResponse.json({ error: "Gagal membuat user" }, { status: 500 });
+    audit(request, "CREATE", `Membuat user ${userName} (role ${role.name})`, "user", userName);
+    return NextResponse.json({ success: true });
+  } catch (e) {
+    console.error("profiles POST", e);
+    return NextResponse.json({ error: "Gagal membuat user" }, { status: 500 });
   }
 }

@@ -51,26 +51,43 @@ export default function CatalogPage() {
     fetch("/api/catalog/refresh").then((r) => r.json()).then(setMeta).catch(() => {});
   useEffect(() => { loadMeta(); }, []);
 
+  const [progress, setProgress] = useState("");
   const refreshCatalog = async (entry: CatalogEntry) => {
     if (!user) return;
     setRefreshing(entry.key);
     setNotice("");
+    setProgress("");
     try {
+      // 1) Utama: PDF dibuat di BROWSER ini lalu diunggah ke Blob (tanpa CPU Vercel).
+      try {
+        const { buildCatalogPdfInBrowser, uploadCatalogPdf } = await import("@/lib/catalogPdfClient");
+        const pdf = await buildCatalogPdfInBrowser(entry.key, setProgress);
+        setProgress("Mengunggah PDF…");
+        await uploadCatalogPdf(entry.key, pdf);
+        setNotice(`${entry.name} diperbarui dari sheet.`);
+        loadMeta();
+        return;
+      } catch (e: any) {
+        console.warn("Pembuatan PDF di browser gagal, memakai cara server:", e);
+        setProgress("Memakai pembuatan di server…");
+      }
+
+      // 2) Cadangan: naikkan versi, PDF dibuat server (lebih berat, tapi tetap jalan).
       const res = await fetch("/api/catalog/refresh", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: user.user_name, key: entry.key }),
+        body: JSON.stringify({ key: entry.key }),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "Gagal refresh");
-      // hangatkan CDN dengan versi baru supaya pengunjung publik langsung cepat
       await fetch(`${entry.path}/pdf?v=${j.version}`, { cache: "no-store" }).then((r) => r.arrayBuffer()).catch(() => {});
-      setNotice(`${entry.name} diperbarui dari sheet.`);
+      setNotice(`${entry.name} diperbarui dari sheet (via server).`);
       loadMeta();
     } catch (e: any) {
       setNotice(e.message || "Gagal refresh");
     } finally {
       setRefreshing(null);
+      setProgress("");
     }
   };
 
@@ -146,7 +163,7 @@ export default function CatalogPage() {
           </div>
         </div>
 
-        {notice && <p className="mb-3 rounded-xl bg-gray-100 px-4 py-2 text-xs text-gray-700">{notice}</p>}
+        {(notice || progress) && <p className="mb-3 rounded-xl bg-gray-100 px-4 py-2 text-xs text-gray-700">{progress || notice}</p>}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {CATALOGS.map((entry) => (
             <GlassCard key={entry.key} padding="md" className="glass-card-elevated flex flex-col gap-3">

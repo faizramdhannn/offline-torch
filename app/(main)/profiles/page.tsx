@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, UserCog, X, Save, Loader2, Plus, Trash2, ShieldCheck, LogOut } from "lucide-react";
+import { Search, UserCog, X, Save, Loader2, Plus, Trash2, ShieldCheck, LogOut, UserPlus, KeyRound, Archive } from "lucide-react";
 import { PERM_GROUPS } from "@/lib/permGroups";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 
@@ -35,6 +35,48 @@ export default function ProfilesPage() {
   const [roles, setRoles] = useState<RoleRow[]>([]);
   const [roleEdit, setRoleEdit] = useState<(RoleRow & { isNew?: boolean }) | null>(null);
   const [notice, setNotice] = useState("");
+
+  // ── Buat user ──
+  const [showCreate, setShowCreate] = useState(false);
+  const [newUser, setNewUser] = useState({ name: "", user_name: "", password: "", role: "store" });
+  const createUserSubmit = async () => {
+    setSaving(true); setErr("");
+    try {
+      const res = await fetch("/api/profiles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newUser) });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || "Gagal membuat user");
+      setShowCreate(false);
+      setNewUser({ name: "", user_name: "", password: "", role: "store" });
+      setNotice(`User ${newUser.user_name} dibuat. Berikan username dan password-nya kepada yang bersangkutan.`);
+      await load(actor);
+    } catch (e: any) { setErr(e.message); } finally { setSaving(false); }
+  };
+
+  // ── Reset password ──
+  const [resetResult, setResetResult] = useState("");
+  const resetPassword = async (target: { user_name: string; name: string }) => {
+    if (!confirm(`Reset password ${target.name}? Semua sesinya akan di-logout.`)) return;
+    const res = await fetch("/api/profiles/password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_name: target.user_name }) });
+    const j = await res.json();
+    if (!res.ok) { setErr(j.error || "Gagal reset password"); return; }
+    setResetResult(`Password baru untuk ${target.user_name}: ${j.password}`);
+  };
+
+  // ── Cadangan (snapshot user & role) ──
+  const [showBackup, setShowBackup] = useState(false);
+  const [snaps, setSnaps] = useState<{ id: string; taken_at: string; reason: string; taken_by: string; user_count: number }[]>([]);
+  const loadSnaps = async () => {
+    const res = await fetch("/api/profiles/backup");
+    if (res.ok) setSnaps(await res.json());
+  };
+  const backupAction = async (body: any) => {
+    if (body.action === "restore" && !confirm(`Pulihkan user & role dari snapshot #${body.id}? Snapshot "sebelum pemulihan" dibuat otomatis.`)) return;
+    const res = await fetch("/api/profiles/backup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const j = await res.json();
+    setNotice(res.ok ? (body.action === "restore" ? `Dipulihkan: ${j.users} user, ${j.roles} role${j.skipped ? ` (${j.skipped} dilewati)` : ""}.` : `Snapshot #${j.id} dibuat.`) : j.error || "Gagal");
+    await loadSnaps();
+    if (body.action === "restore") await load(actor);
+  };
 
   const forceLogout = async (target?: { user_name: string; name: string }) => {
     const msg = target
@@ -150,6 +192,12 @@ export default function ProfilesPage() {
           <h1 className="text-xl font-bold text-gray-900">User Profiles & Roles</h1>
           <p className="text-xs text-gray-400">Kelola profil dan role semua user (khusus Super Admin)</p>
         </div>
+        <button onClick={() => { setErr(""); setShowCreate(true); }} className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-sm font-medium text-white">
+          <UserPlus className="h-4 w-4" /> Buat user
+        </button>
+        <button onClick={() => { setShowBackup(true); loadSnaps(); }} className="inline-flex items-center gap-1.5 rounded-xl bg-black/5 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-black/10">
+          <Archive className="h-4 w-4" /> Cadangan
+        </button>
         <button onClick={() => forceLogout()} className="inline-flex items-center gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100">
           <LogOut className="h-4 w-4" /> Logout semua (kecuali Super Admin)
         </button>
@@ -194,7 +242,7 @@ export default function ProfilesPage() {
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {shown.map((r) => (
-            <button key={r.id} onClick={() => { setErr(""); setEdit(r); }} className="glass-card-elevated flex items-start gap-3 rounded-2xl p-4 text-left transition-shadow hover:shadow-lg">
+            <button key={r.id} onClick={() => { setErr(""); setResetResult(""); setEdit(r); }} className="glass-card-elevated flex items-start gap-3 rounded-2xl p-4 text-left transition-shadow hover:shadow-lg">
               <div className="flex h-12 w-12 flex-none items-center justify-center overflow-hidden rounded-full bg-black/5 text-base font-semibold text-gray-700">
                 {r.photo_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -252,6 +300,10 @@ export default function ProfilesPage() {
                 <span>Akun aktif <span className="text-[11px] text-gray-400">(nonaktif = tidak bisa login, sesi dicabut)</span></span>
                 <input type="checkbox" className="h-4 w-4 accent-primary" checked={edit.active} disabled={edit.role === "super_admin" || edit.user_name === actor} onChange={(e) => setEdit({ ...edit, active: e.target.checked })} />
               </label>
+              <button type="button" onClick={() => resetPassword(edit)} className="inline-flex items-center gap-1.5 text-xs text-gray-700 hover:underline">
+                <KeyRound className="h-3.5 w-3.5" /> Reset password
+              </button>
+              {resetResult && <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-mono text-amber-900 select-all">{resetResult}</p>}
               {edit.role !== "super_admin" && (
                 <button type="button" onClick={() => forceLogout(edit)} className="inline-flex items-center gap-1.5 text-xs text-red-600 hover:underline">
                   <LogOut className="h-3.5 w-3.5" /> Paksa logout user ini
@@ -262,6 +314,66 @@ export default function ProfilesPage() {
               <button onClick={save} disabled={saving} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Simpan
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowCreate(false)}>
+          <div className="glass-card w-full max-w-md rounded-2xl p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-bold text-gray-900">Buat user baru</h2>
+              <button onClick={() => setShowCreate(false)} className="rounded p-1 text-gray-400 hover:bg-gray-100"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="space-y-3">
+              <label className="block text-xs font-medium text-gray-600">Nama
+                <input className={field} value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} />
+              </label>
+              <label className="block text-xs font-medium text-gray-600">Username
+                <input className={field} value={newUser.user_name} onChange={(e) => setNewUser({ ...newUser, user_name: e.target.value })} />
+              </label>
+              <label className="block text-xs font-medium text-gray-600">Password awal (min. 6 karakter)
+                <input type="text" className={field} value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
+              </label>
+              <label className="block text-xs font-medium text-gray-600">Role (permission mengikuti role)
+                <select className={field} value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}>
+                  {roles.map((r) => <option key={r.key} value={r.key}>{r.name}</option>)}
+                </select>
+              </label>
+              {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{err}</p>}
+              <button onClick={createUserSubmit} disabled={saving} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />} Buat user
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBackup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowBackup(false)}>
+          <div className="glass-card max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-2xl p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-bold text-gray-900">Cadangan user & role</h2>
+              <button onClick={() => setShowBackup(false)} className="rounded p-1 text-gray-400 hover:bg-gray-100"><X className="h-4 w-4" /></button>
+            </div>
+            <p className="mb-3 text-xs text-gray-500">Snapshot otomatis tiap hari dan sebelum "terapkan role". Memulihkan tidak menghapus user yang dibuat setelah snapshot.</p>
+            <button onClick={() => backupAction({ action: "create" })} className="mb-3 inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-xs font-medium text-white">
+              <Archive className="h-3.5 w-3.5" /> Buat snapshot sekarang
+            </button>
+            <div className="divide-y divide-gray-100 rounded-xl border border-gray-200">
+              {snaps.map((sn) => (
+                <div key={sn.id} className="flex items-center gap-2 px-3 py-2 text-xs">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-gray-800">#{sn.id} · {new Date(sn.taken_at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
+                    <p className="truncate text-gray-500">{sn.reason} · {sn.user_count} user · {sn.taken_by}</p>
+                  </div>
+                  <a href={`/api/profiles/backup?id=${sn.id}`} className="rounded-lg bg-black/5 px-2 py-1 text-gray-700 hover:bg-black/10">Unduh</a>
+                  <button onClick={() => backupAction({ action: "restore", id: sn.id })} className="rounded-lg bg-amber-100 px-2 py-1 text-amber-800 hover:bg-amber-200">Pulihkan</button>
+                </div>
+              ))}
+              {snaps.length === 0 && <p className="px-3 py-4 text-center text-xs text-gray-400">Belum ada snapshot</p>}
             </div>
           </div>
         </div>

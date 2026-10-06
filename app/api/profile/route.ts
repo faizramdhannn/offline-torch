@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getUserByUserName, updateUserProfile } from "@/lib/users";
 import { sessionUserName } from "@/lib/authz";
-import { getStoreAddressList } from "@/lib/storeAddress";
-import { uploadToGoogleDrive } from "@/lib/drive";
 import { shrinkImageBuffer } from "@/lib/shrinkImage";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +15,8 @@ async function profileOf(userName: string) {
   let fromStore = false;
   if (!phone || !address) {
     try {
+      // Import dinamis: googleapis baru dimuat bila memang perlu mencocokkan data toko.
+      const { getStoreAddressList } = await import("@/lib/storeAddress");
       const stores = await getStoreAddressList();
       const key = (s: string) => s.trim().toLowerCase();
       const hit = stores.find((s) => key(s.store_location) === key(u.user_name) || key(s.store_location) === key(u.name));
@@ -84,6 +84,7 @@ export async function PUT(request: NextRequest) {
     if (file && file.size > 0) {
       const raw = Buffer.from(await file.arrayBuffer());
       const small = await shrinkImageBuffer(raw, file.type || "image/jpeg", 512, 80);
+      const { uploadToGoogleDrive } = await import("@/lib/drive");
       const url = await uploadToGoogleDrive(small.buffer, `profile_${userName}_${Date.now()}`, small.mimeType, "profile_photos", true);
       photo_url = url.replace(/sz=w\d+/, "sz=w256");
     }

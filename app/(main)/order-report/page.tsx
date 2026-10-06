@@ -141,9 +141,26 @@ export default function OrderReportPage() {
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }, [dateFrom, dateTo, statusFilter, warehouseFilter, channelNameFilter, searchQuery, pathname, router]);
 
+  // Server mengirim rentang tanggal saja (default 60 hari terakhir); pilih tanggal untuk data lebih lama.
+  const dateQuery = (() => {
+    const q = new URLSearchParams();
+    if (dateFrom) q.set("from", dateFrom);
+    if (dateTo) q.set("to", dateTo);
+    const qs = q.toString();
+    return qs ? `?${qs}` : "";
+  })();
+
+  const dateFetchInit = useRef(true);
+  useEffect(() => {
+    if (dateFetchInit.current) { dateFetchInit.current = false; return; }
+    const t = setTimeout(() => { fetchData(); }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFrom, dateTo]);
+
   const fetchData = async () => {
     try {
-      const response = await fetch("/api/order-report");
+      const response = await fetch(`/api/order-report${dateQuery}`);
       const result = await response.json();
       setData(result);
       setFilteredData(result);
@@ -492,6 +509,11 @@ export default function OrderReportPage() {
         <div className="flex-1 overflow-auto">
           <div className="p-6">
             <h1 className="text-2xl font-bold text-primary mb-6">Order Report</h1>
+            {!dateFrom && !dateTo && (
+              <p className="mb-4 rounded-xl bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+                Menampilkan data <b>60 hari terakhir</b>. Pilih rentang tanggal untuk melihat data yang lebih lama.
+              </p>
+            )}
 
             <GlassCard padding="md" className="mb-4">
               {/* Row 1: Date From, Date To, Warehouse, Status, Channel Name, Search */}

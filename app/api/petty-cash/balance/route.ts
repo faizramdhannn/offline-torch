@@ -1,5 +1,7 @@
+import { actorName } from '@/lib/authz';
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { withCache, invalidateCache } from '@/lib/sheets';
 import { deleteSheetRows } from '@/lib/sheets';
 
 const SPREADSHEET_BALANCE = process.env.SPREADSHEET_BALANCE || '';
@@ -72,10 +74,10 @@ export async function GET(request: NextRequest) {
     const dateTo = searchParams.get('dateTo');
 
     // Fetch balance entries
-    const balanceData = await getBalanceSheetData();
+    const balanceData = await withCache('pc_balance_data', 60_000, getBalanceSheetData);
 
     // Fetch petty cash data for paid/unpaid
-    const pettyCashData = await getPettyCashSheetData();
+    const pettyCashData = await withCache('pc_main_data', 60_000, getPettyCashSheetData);
 
     // Parse dates helper
     const months: { [key: string]: number } = {
@@ -166,8 +168,10 @@ if (dateTo) {
 }
 
 export async function POST(request: NextRequest) {
+  invalidateCache('pc_balance_data'); invalidateCache('pc_main_data');
   try {
-    const { type_balance, value, notes, update_by } = await request.json();
+    const { type_balance, value, notes } = await request.json();
+    const update_by = actorName(request);
 
     const credentials = getGoogleCredentials();
     const auth = new google.auth.GoogleAuth({
@@ -201,8 +205,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  invalidateCache('pc_balance_data'); invalidateCache('pc_main_data');
   try {
-    const { id, type_balance, value, notes, update_by } = await request.json();
+    const { id, type_balance, value, notes } = await request.json();
+    const update_by = actorName(request);
 
     const credentials = getGoogleCredentials();
     const auth = new google.auth.GoogleAuth({
@@ -256,6 +262,7 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  invalidateCache('pc_balance_data'); invalidateCache('pc_main_data');
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

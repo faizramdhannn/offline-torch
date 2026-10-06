@@ -62,7 +62,11 @@ function LoginPageContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
-      if (!response.ok) throw new Error("Invalid credentials");
+      if (!response.ok) {
+        const j = await response.json().catch(() => ({}));
+        // 429 (terlalu banyak percobaan) & 403 (akun nonaktif) membawa pesan khusus dari server.
+        throw new Error(response.status === 429 || response.status === 403 ? j.error : "Invalid credentials");
+      }
       const user = await response.json();
       user._loginAt = Date.now();
       user._auth = 2; // sesi dengan cookie server
@@ -79,8 +83,9 @@ function LoginPageContent() {
       const destination = next && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
       setPhase("success");
       setTimeout(() => router.push(destination), 400);
-    } catch {
-      setError("Username or password is incorrect");
+    } catch (e: any) {
+      const m = String(e?.message || "");
+      setError(m && m !== "Invalid credentials" ? m : "Username or password is incorrect");
       setPhase("idle");
     }
   };

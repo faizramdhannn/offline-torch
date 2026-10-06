@@ -64,10 +64,28 @@ export default function TopBar() {
 
   const canEditAnnouncement = user && String(user.id) === ANNOUNCEMENT_EDITOR_ID;
 
-  const loadAnnouncement = () => {
+  // Pengumuman jarang berubah: simpan 5 menit di sessionStorage supaya tidak memanggil server
+  // di setiap refresh/halaman baru (hemat invocation Vercel). `force` dipakai setelah menyimpan.
+  const loadAnnouncement = (force = false) => {
+    const apply = (data: any) => {
+      setAnnouncement({
+        message: data.message || "",
+        active: !!data.active,
+        image_url: data.image_url || "",
+        link_text: data.link_text || "",
+      });
+      setLoaded(true);
+    };
+    if (!force) {
+      try {
+        const hit = JSON.parse(sessionStorage.getItem("announcement_cache") || "null");
+        if (hit && Date.now() - hit.ts < 5 * 60 * 1000) return apply(hit.data);
+      } catch {}
+    }
     fetch("/api/announcement")
       .then((r) => r.json())
       .then((data) => {
+        try { sessionStorage.setItem("announcement_cache", JSON.stringify({ ts: Date.now(), data })); } catch {}
         setAnnouncement({
           message: data.message || "",
           active: !!data.active,
@@ -135,6 +153,7 @@ export default function TopBar() {
           image_url: data.image_url ?? announcement.image_url,
           link_text: draftLinkText,
         });
+        try { sessionStorage.removeItem("announcement_cache"); } catch {}
         setEditing(false);
       }
     } finally {

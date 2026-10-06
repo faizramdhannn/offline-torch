@@ -13,6 +13,11 @@ export function sessionUserName(request: NextRequest | Request): string | null {
   return sessionInfo(request)?.user ?? null;
 }
 
+// Identitas pelaku tulis (created_by / update_by / username) selalu dari sesi, bukan dari body/query.
+export function actorName(request: NextRequest | Request): string {
+  return sessionUserName(request) || "";
+}
+
 export async function sessionUser(request: NextRequest | Request): Promise<UserRow | null> {
   const name = sessionUserName(request);
   return name ? getUserByUserName(name) : null;
@@ -77,6 +82,8 @@ export const RULES: Rule[] = [
   need("/api/javelin-login", ["user_setting"]),
   need("/api/test-env", ["user_setting"]),
   need("/api/catalog/refresh", ["user_setting"], ["POST"]),
+  need("/api/catalog/data", ["user_setting"]),
+  need("/api/catalog/upload", ["user_setting"], ["POST"]),
   need("/api/roles", []),
   need("/api/auth/me", []),
   need("/api/profiles", []),

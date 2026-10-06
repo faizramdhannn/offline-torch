@@ -1,3 +1,5 @@
+import { actorName, sessionUser } from '@/lib/authz';
+import { jsonWithEtag } from '@/lib/etag';
 import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, updateMultipleSheetRows, deleteSheetRows } from '@/lib/sheets';
@@ -94,7 +96,7 @@ export async function GET(request: NextRequest) {
       return tB - tA;
     });
 
-    return NextResponse.json(sorted);
+    return jsonWithEtag(request, sorted);
   } catch (error) {
     console.error('GET request_discount error:', error);
     return NextResponse.json({ error: 'Failed to fetch data' }, { status: 500 });
@@ -177,7 +179,16 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, update_by, mode, ...fields } = body;
+    const { id, mode, ...fields } = body;
+    const update_by = actorName(request);
+
+    // Approve/reject hanya untuk approver (sebelumnya hanya disembunyikan di UI).
+    if (mode === 'approve') {
+      const me = await sessionUser(request);
+      if (!me || me.employee_discount_approval !== 'TRUE') {
+        return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 });
+      }
+    }
 
     if (!id) {
       return NextResponse.json({ error: 'Missing id' }, { status: 400 });

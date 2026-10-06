@@ -1,3 +1,5 @@
+import { actorName } from '@/lib/authz';
+import { jsonWithEtag } from '@/lib/etag';
 import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
@@ -108,14 +110,14 @@ export async function GET(request: NextRequest) {
       return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
     });
 
-    if (isTrackingEdit) return NextResponse.json(sorted);
+    if (isTrackingEdit) return jsonWithEtag(request, sorted);
 
     const userFiltered = sorted.filter(
   (row: any) =>
     row.request_by === username ||
     (userName && row.sender === userName),
 );
-    return NextResponse.json(userFiltered);
+    return jsonWithEtag(request, userFiltered);
   } catch (error) {
     console.error('Error fetching request tracking:', error);
     return NextResponse.json({ error: 'Failed to fetch requests' }, { status: 500 });
@@ -182,7 +184,7 @@ export async function PUT(request: NextRequest) {
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       id = formData.get('id') as string;
-      update_by = formData.get('update_by') as string;
+      update_by = actorName(request);
       date = formData.get('date') as string | undefined;
       assigned_to = formData.get('assigned_to') as string | undefined;
       expedition = formData.get('expedition') as string | undefined;

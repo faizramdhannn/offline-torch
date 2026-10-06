@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUsersData, updateUserPermissions, PERMISSION_KEYS } from "@/lib/users";
 import { listRoles } from "@/lib/roles";
+import { audit } from "@/lib/audit";
 
 export async function GET() {
   try {
@@ -30,6 +31,7 @@ export async function PUT(request: NextRequest) {
     const { id, permissions } = await request.json();
     const ok = await updateUserPermissions(String(id), permissions || {});
     if (!ok) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    audit(request, "UPDATE", `Mengubah permission user ${id}: ${Object.entries(permissions || {}).map(([k, v]) => `${v ? "+" : "-"}${k}`).join(", ")}`, "user", String(id));
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error updating user:", error);

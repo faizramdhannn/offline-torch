@@ -1,3 +1,5 @@
+import { actorName } from '@/lib/authz';
+import { jsonWithEtag } from '@/lib/etag';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow } from '@/lib/sheets';
 
@@ -20,7 +22,7 @@ export async function GET(request: NextRequest) {
       result = result.filter((r: any) => r.date_range === dateRange);
     }
 
-    return NextResponse.json(result);
+    return jsonWithEtag(request, result);
   } catch (error) {
     console.error('Error fetching schedule:', error);
     return NextResponse.json({ error: 'Failed to fetch schedule' }, { status: 500 });
@@ -30,7 +32,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { date_range, taft_name, store_name, monday, tuesday, wednesday, thursday, friday, saturday, sunday, created_by } = body;
+    const { date_range, taft_name, store_name, monday, tuesday, wednesday, thursday, friday, saturday, sunday } = body;
+    const created_by = actorName(request);
 
     if (!date_range || !taft_name || !store_name) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });

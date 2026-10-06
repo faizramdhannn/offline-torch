@@ -118,7 +118,7 @@ export default function DashboardPage() {
   const [storeAddresses, setStoreAddresses] = useState<StoreAddress[]>([]);
   // Daftar activity log lengkap sekarang di-manage di halaman Settings — di
   // sini cuma dipakai untuk hitung KPI "Activity Today" di summary card.
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [todayActivityCount, setTodayActivityCount] = useState(0);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   useSessionGuard();
 
@@ -148,8 +148,8 @@ export default function DashboardPage() {
 
   const fetchActivityLogs = async () => {
     try {
-      const res = await fetch("/api/activity-log");
-      if (res.ok) setActivityLogs(await res.json());
+      const res = await fetch("/api/activity-log?summary=today");
+      if (res.ok) setTodayActivityCount((await res.json()).today || 0);
     } catch (e) { console.error(e); }
   };
 
@@ -279,35 +279,6 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
   ).length;
   const totalStoreCount = activeStoreCount;
   const totalTaftToday = todayReport.reduce((sum, store) => sum + store.tafts.length, 0);
-  // Hitung log hari ini — coba semua format timestamp yang mungkin
-  const todayStr = todayISO();
-  const MONTHS_ID: { [key: string]: number } = {
-    Jan: 0, Feb: 1, Mar: 2, Apr: 3, Mei: 4, Jun: 5,
-    Jul: 6, Agu: 7, Sep: 8, Okt: 9, Nov: 10, Des: 11,
-  };
-  const todayActivityCount = activityLogs.filter((log) => {
-    if (!log.timestamp) return false;
-    const ts = log.timestamp.trim();
-    // Format: "2025-01-15T..." atau "2025-01-15 ..."
-    if (ts.startsWith(todayStr) || ts.includes(todayStr)) return true;
-    // Format dd/mm/yyyy
-    const now = new Date();
-    const ddmmyyyy = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
-    if (ts.startsWith(ddmmyyyy)) return true;
-    // Format "08 Jul 2026, 14:23:11" (dari lib/sheets locale id-ID)
-    const idMatch = ts.match(/^(\d{2})\s+([A-Za-z]{3})\s+(\d{4})/);
-    if (idMatch) {
-      const [, day, monShort, year] = idMatch;
-      const monIdx = MONTHS_ID[monShort];
-      if (monIdx !== undefined &&
-          Number(day) === now.getDate() &&
-          monIdx === now.getMonth() &&
-          Number(year) === now.getFullYear()) {
-        return true;
-      }
-    }
-    return false;
-  }).length;
   const pendingShiftCount = todaySchedules.reduce(
     (sum, s) => sum + s.tafts.filter((t) => !t.code).length,
     0

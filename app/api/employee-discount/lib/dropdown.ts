@@ -11,7 +11,7 @@ import { getSheetData, withCache } from '@/lib/sheets';
 // identik, jadi dua fitur ini berbagi satu hasil cache alih-alih masing-
 // masing nembak Sheets API sendiri.
 async function getMasterDropdown() {
-  return withCache('daily_job_master_dropdown', 120_000, async () => {
+  return withCache('daily_job_master_dropdown', 600_000, async () => {
     const auth = new google.auth.GoogleAuth({
       credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}'),
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],

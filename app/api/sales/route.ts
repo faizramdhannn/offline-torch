@@ -1,5 +1,7 @@
+import { jsonWithEtag } from '@/lib/etag';
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
+import { withCache } from '@/lib/sheets';
 
 const SPREADSHEET_SALES = process.env.SPREADSHEET_SALES || '';
 
@@ -13,7 +15,7 @@ function getGoogleCredentials() {
   }
 }
 
-async function getSalesSheetData(sheetName: string): Promise<Record<string, any>[]> {
+async function fetchSalesSheet(sheetName: string): Promise<Record<string, any>[]> {
   const credentials = getGoogleCredentials();
   const auth = new google.auth.GoogleAuth({
     credentials,
@@ -38,6 +40,10 @@ async function getSalesSheetData(sheetName: string): Promise<Record<string, any>
     });
 }
 
+// Sheet sales besar (A:ZZ) dan jarang berubah: cache 5 menit supaya tidak dibaca penuh tiap request.
+const getSalesSheetData = (sheetName: string) =>
+  withCache(`sales_${sheetName}`, 300_000, () => fetchSalesSheet(sheetName));
+
 // Safe wrapper — returns [] instead of throwing if sheet doesn't exist yet
 async function safeGetSheet(sheetName: string): Promise<Record<string, any>[]> {
   try {
@@ -55,13 +61,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'all';
 
-    if (type === 'daily_sales')      return NextResponse.json(await getSalesSheetData('daily_sales'));
-    if (type === 'target_sales')     return NextResponse.json(await getSalesSheetData('target_sales'));
-    if (type === 'channel_traffic')  return NextResponse.json(await getSalesSheetData('channel_traffic'));
-    if (type === 'spreadsheet_sales')return NextResponse.json(await getSalesSheetData('spreadsheet_sales'));
-    if (type === 'gross_sales')      return NextResponse.json(await safeGetSheet('gross_sales'));
-    if (type === 'daily_order')      return NextResponse.json(await safeGetSheet('daily_order'));
-    if (type === 'quantity_order')   return NextResponse.json(await safeGetSheet('quantity_order'));
+    if (type === 'daily_sales')      return jsonWithEtag(request, await getSalesSheetData('daily_sales'));
+    if (type === 'target_sales')     return jsonWithEtag(request, await getSalesSheetData('target_sales'));
+    if (type === 'channel_traffic')  return jsonWithEtag(request, await getSalesSheetData('channel_traffic'));
+    if (type === 'spreadsheet_sales')return jsonWithEtag(request, await getSalesSheetData('spreadsheet_sales'));
+    if (type === 'gross_sales')      return jsonWithEtag(request, await safeGetSheet('gross_sales'));
+    if (type === 'daily_order')      return jsonWithEtag(request, await safeGetSheet('daily_order'));
+    if (type === 'quantity_order')   return jsonWithEtag(request, await safeGetSheet('quantity_order'));
 
     // type === 'all' — fetch all 7 in parallel
     // Core sheets use getSalesSheetData (hard fail if missing)
@@ -84,7 +90,7 @@ export async function GET(request: NextRequest) {
       safeGetSheet('quantity_order'),
     ]);
 
-    return NextResponse.json({
+    return jsonWithEtag(request, {
       dailySales,
       targetSales,
       channelTraffic,

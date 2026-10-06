@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { withCache } from '@/lib/sheets';
+import { withCache, invalidateCache } from '@/lib/sheets';
+import { jsonWithEtag } from '@/lib/etag';
 
 const SPREADSHEET_TRAFFIC = process.env.SPREADSHEET_TRAFFIC || '';
 
@@ -85,6 +86,7 @@ async function appendTrafficRow(sheetName: string, row: any[], extraRow?: any[])
     });
   }
 
+  invalidateCache('traffic_source_data');
   return rowIndex;
 }
 
@@ -118,6 +120,7 @@ async function updateTrafficRow(sheetName: string, rowIndex: number, row: any[],
       requestBody: { values: [extraRow] },
     });
   }
+  invalidateCache('traffic_source_data');
 }
 
 // Deletes a row entirely (shift-up), same semantics as lib/sheets.ts's
@@ -148,6 +151,7 @@ async function deleteTrafficRow(sheetName: string, rowIndex: number) {
       }],
     },
   });
+  invalidateCache('traffic_source_data');
 }
 
 // GET: fetch traffic_source data + master_traffic dropdowns
@@ -160,12 +164,13 @@ export async function GET(request: NextRequest) {
       // master_traffic is dropdown-only data here (rarely written, read on
       // every Traffic Store page load) — cache it instead of hitting Sheets
       // API directly every time.
-      const master = await withCache('traffic_store_master_traffic', 60_000, () => getTrafficSheetData('master_traffic'));
+      const master = await withCache('traffic_store_master_traffic', 300_000, () => getTrafficSheetData('master_traffic'));
       return NextResponse.json(master.map(({ __rowIndex, ...rest }: any) => rest));
     }
 
     // Fetch traffic data
-    const data = await getTrafficSheetData('traffic_source');
+    // Cache 60 dtk (sheet besar, dibaca penuh tiap GET); ditulis ulang → di-invalidate di fungsi tulis.
+    const data = [...(await withCache('traffic_source_data', 60_000, () => getTrafficSheetData('traffic_source')))];
 
     // Sort newest first by date (fallback to created_at if date is missing)
     const sorted = data.sort((a: any, b: any) => {
@@ -174,10 +179,25 @@ export async function GET(request: NextRequest) {
       return bTime - aTime;
     });
 
-    // __rowIndex is an internal detail for locating rows on edit/delete — don't leak it to the client.
-    const publicData = sorted.map(({ __rowIndex, ...rest }: any) => rest);
+    // Sheet ini 16 rb+ baris (>10 MB) dan terus bertambah — kirim hanya rentang tanggal yang diminta.
+    // Tanpa ?from/?to: 30 hari terakhir. Hanya ?to: 30 hari sebelum tanggal itu.
+    const isoDay = (d: Date) => new Date(d.getTime() + 7 * 3600 * 1000).toISOString().slice(0, 10); // WIB
+    const dayOf = (r: any) => String(r.date || r.created_at || '').slice(0, 10);
+    const toParam = /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get('to') || '') ? searchParams.get('to')! : '';
+    let fromParam = /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get('from') || '') ? searchParams.get('from')! : '';
+    if (!fromParam) {
+      const end = toParam ? new Date(toParam + 'T00:00:00Z') : new Date();
+      fromParam = isoDay(new Date(end.getTime() - 30 * 24 * 3600 * 1000));
+    }
+    const windowed = sorted.filter((r: any) => {
+      const d = dayOf(r);
+      return d >= fromParam && (!toParam || d <= toParam);
+    });
 
-    return NextResponse.json(publicData);
+    // __rowIndex is an internal detail for locating rows on edit/delete — don't leak it to the client.
+    const publicData = windowed.map(({ __rowIndex, ...rest }: any) => rest);
+
+    return jsonWithEtag(request, publicData);
   } catch (error) {
     console.error('Error fetching traffic store:', error);
     return NextResponse.json({ error: 'Failed to fetch traffic data' }, { status: 500 });

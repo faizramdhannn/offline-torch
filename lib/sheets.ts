@@ -398,6 +398,10 @@ export async function getSheetData(
 const _genericCache = new Map<string, { data: any; expiresAt: number }>();
 const _genericInFlight = new Map<string, Promise<any>>();
 
+export function invalidateCache(key: string) {
+  _genericCache.delete(key);
+}
+
 export async function withCache<T>(key: string, ttlMs: number, fetcher: () => Promise<T>): Promise<T> {
   const cached = _genericCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.data;

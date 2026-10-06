@@ -1,3 +1,4 @@
+import { actorName } from '@/lib/authz';
 import { NextRequest, NextResponse } from "next/server";
 import Papa from "papaparse";
 import { sql, ensureJastiperSchema } from "@/lib/neon";
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
-    const created_by = (formData.get("created_by") as string) || "";
+    const created_by = actorName(request);
     if (!file) {
       return NextResponse.json({ error: "File wajib diupload" }, { status: 400 });
     }

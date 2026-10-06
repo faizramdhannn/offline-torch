@@ -1,3 +1,4 @@
+import { actorName } from '@/lib/authz';
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadToGoogleDrive } from '@/lib/drive';
 
@@ -9,7 +10,7 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
-    const userName = (formData.get('userName') as string) || '';
+    const userName = actorName(request);
 
     if (!file) {
       return NextResponse.json({ error: 'Missing file' }, { status: 400 });

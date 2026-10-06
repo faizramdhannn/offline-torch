@@ -1,3 +1,4 @@
+import { actorName } from '@/lib/authz';
 import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from "next/server";
 import { sql, ensureJastiperSchema } from "@/lib/neon";
@@ -157,7 +158,7 @@ export async function POST(request: NextRequest) {
     const notes = (body.notes || "").trim();
     const social_media = (body.social_media || "").trim();
     const social_media_username = (body.social_media_username || "").trim();
-    const created_by = (body.created_by || "").trim();
+    const created_by = actorName(request);
     const date_exist = (body.date_exist || "").trim() || null;
 
     if (!jastiper_name || !jastiper_store) {
@@ -236,7 +237,7 @@ export async function PUT(request: NextRequest) {
     const notes = (body.notes || "").trim();
     const social_media = (body.social_media || "").trim();
     const social_media_username = (body.social_media_username || "").trim();
-    const update_by = (body.update_by || "").trim();
+    const update_by = actorName(request);
     const date_exist = (body.date_exist || "").trim() || null;
 
     const jastiper_phone_number = normalizePhone(rawPhone);
@@ -302,7 +303,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "uuid wajib diisi" }, { status: 400 });
     }
     const notes = (body.notes || "").trim();
-    const update_by = (body.update_by || "").trim();
+    const update_by = actorName(request);
 
     await sql`
       UPDATE jastiper_master SET

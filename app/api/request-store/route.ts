@@ -1,3 +1,5 @@
+import { actorName } from '@/lib/authz';
+import { jsonWithEtag } from '@/lib/etag';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
 import { uploadToGoogleDrive } from '@/lib/drive';
@@ -10,7 +12,7 @@ export async function GET(request: NextRequest) {
     const sorted = filtered.sort((a: any, b: any) => {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
-    return NextResponse.json(sorted);
+    return jsonWithEtag(request, sorted);
   } catch (error) {
     console.error('Error fetching request store:', error);
     return NextResponse.json({ error: 'Failed to fetch requests' }, { status: 500 });
@@ -60,6 +62,7 @@ export async function POST(request: NextRequest) {
       image_url = body.image_url || '';
     }
 
+    created_by = actorName(request);
     if (!date || !requester || !assigned_to || !reason_request || !created_by) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
@@ -150,6 +153,7 @@ export async function PUT(request: NextRequest) {
       sales_invoice = body.sales_invoice;
       image_url = body.image_url;
     }
+    update_by = actorName(request);
 
     const data = await getSheetData('request_store', { skipCache: true });
     const idx = data.findIndex((row: any) => row.id === id);

@@ -1,3 +1,4 @@
+import { actorName } from '@/lib/authz';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, updateSheetRow, appendSheetData } from '@/lib/sheets';
 
@@ -49,7 +50,8 @@ function invalidateConfigCache() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, subscription } = await request.json();
+    const { subscription } = await request.json();
+    const username = actorName(request);
     if (!username || !subscription) {
       return NextResponse.json({ error: 'Username and subscription required' }, { status: 400 });
     }

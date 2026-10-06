@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getCatalogVersion } from "@/lib/catalogVersion";
+import { getCatalogState } from "@/lib/catalogVersion";
 
 // Halaman publik (tanpa login) Online Catalog: preview PDF + tombol Download.
 export const metadata: Metadata = {
@@ -10,8 +10,10 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function OnlineCatalogPage() {
-  const v = await getCatalogVersion("online");
-  const pdf = `/online-catalog/pdf?v=${v}`;
+  const state = await getCatalogState("online");
+  // PDF sudah di Blob (dibuat di browser Super Admin / cron) → langsung ke sana, tanpa function Vercel.
+  const pdf = state.blob_url || `/online-catalog/pdf?v=${state.version}`;
+  const sep = pdf.includes("?") ? "&" : "?";
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f3f0e8" }}>
       <header
@@ -36,7 +38,7 @@ export default async function OnlineCatalogPage() {
             Buka PDF
           </a>
           <a
-            href={`${pdf}&download=1`}
+            href={`${pdf}${sep}download=1`}
             style={{ padding: "8px 14px", borderRadius: 8, background: "#fff", color: "#0b7a8f", fontSize: 13, fontWeight: 700, textDecoration: "none" }}
           >
             Download PDF

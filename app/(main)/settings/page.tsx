@@ -176,34 +176,35 @@ export default function SettingsPage() {
   // dengan akses Settings yang bisa melihat (halaman ini sudah digate
   // user_setting di atas). ────────────────────────────────────────────────
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [activityTotal, setActivityTotal] = useState(0);
   const [activityLoading, setActivityLoading] = useState(true);
   const [activitySearch, setActivitySearch] = useState("");
   const [activityPage, setActivityPage] = useState(1);
   const activityPerPage = 10;
 
-  const fetchActivityLogs = async () => {
+  // Pencarian + paginasi di server (log bisa ribuan baris).
+  const fetchActivityLogs = async (page = activityPage, q = activitySearch) => {
     try {
-      const res = await fetch("/api/activity-log");
-      if (res.ok) setActivityLogs(await res.json());
+      const res = await fetch(`/api/activity-log?page=${page}&per=${activityPerPage}&q=${encodeURIComponent(q.trim())}`);
+      if (res.ok) {
+        const j = await res.json();
+        setActivityLogs(j.rows || []);
+        setActivityTotal(j.total || 0);
+      }
     } catch (e) { console.error(e); }
     finally { setActivityLoading(false); }
   };
 
-  const displayedActivityLogs = useMemo(() => {
-    if (!activitySearch.trim()) return activityLogs;
-    const q = activitySearch.toLowerCase();
-    return activityLogs.filter(
-      (log) =>
-        log.user?.toLowerCase().includes(q) ||
-        log.activity_log?.toLowerCase().includes(q) ||
-        log.method?.toLowerCase().includes(q)
-    );
-  }, [activityLogs, activitySearch]);
+  useEffect(() => {
+    const t = setTimeout(() => fetchActivityLogs(activityPage, activitySearch), activitySearch ? 300 : 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activityPage, activitySearch]);
 
   const activityIndexLast = activityPage * activityPerPage;
   const activityIndexFirst = activityIndexLast - activityPerPage;
-  const activityCurrentItems = displayedActivityLogs.slice(activityIndexFirst, activityIndexLast);
-  const activityTotalPages = Math.ceil(displayedActivityLogs.length / activityPerPage);
+  const activityCurrentItems = activityLogs;
+  const activityTotalPages = Math.ceil(activityTotal / activityPerPage);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -213,7 +214,6 @@ export default function SettingsPage() {
     setUser(parsedUser);
     fetchUsers();
     fetchJavelinStatus();
-    fetchActivityLogs();
     if (parsedUser.registration_request) {
       fetch("/api/admin/db-export?list=1")
         .then((r) => r.json())
@@ -322,7 +322,7 @@ export default function SettingsPage() {
         body: JSON.stringify({ id: userId, permissions: changes }),
       });
       if (res.ok) {
-        await logActivity("PUT", `Updated permissions for: ${userName}`, userId);
+        // Log perubahan permission dicatat server (app/api/users PUT), tidak lagi dari browser.
         setPendingChanges((prev) => { const n = { ...prev }; delete n[userId]; return n; });
         showMessage(`Izin ${userName} diperbarui`, "success");
       } else { showMessage("Gagal menyimpan", "error"); }
@@ -474,7 +474,7 @@ export default function SettingsPage() {
           <div className="p-4">
             {activityLoading ? (
               <TableSkeletonRows count={5} />
-            ) : displayedActivityLogs.length === 0 ? (
+            ) : activityTotal === 0 ? (
               <EmptyState icon={Activity} message="Belum ada activity log" />
             ) : (
               <>
@@ -483,7 +483,7 @@ export default function SettingsPage() {
                 {activityTotalPages > 1 && (
                   <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-4">
                     <div className="text-xs text-gray-500">
-                      Showing {activityIndexFirst + 1} to {Math.min(activityIndexLast, displayedActivityLogs.length)} of {displayedActivityLogs.length} logs
+                      Showing {activityIndexFirst + 1} to {Math.min(activityIndexLast, activityTotal)} of {activityTotal} logs
                     </div>
                     <div className="flex gap-1">
                       <button

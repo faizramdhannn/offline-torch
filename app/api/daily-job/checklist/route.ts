@@ -1,3 +1,4 @@
+import { jsonWithEtag } from '@/lib/etag';
 import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
@@ -82,7 +83,7 @@ export async function GET(request: NextRequest) {
 
     // scope=all — semua taft, semua tanggal (dipakai oleh report/route.ts).
     if (scope === 'all') {
-      return NextResponse.json(rows);
+      return jsonWithEtag(request, rows);
     }
 
     if (!userName) {
@@ -122,7 +123,7 @@ export async function GET(request: NextRequest) {
     // ?all=true — seluruh riwayat checklist taft ini (bukan hanya hari ini).
     if (all) {
       const sorted = [...mine].sort((a: any, b: any) => parseCreatedAtForSort(b.created_at) - parseCreatedAtForSort(a.created_at));
-      return NextResponse.json(sorted);
+      return jsonWithEtag(request, sorted);
     }
 
     // Default — cari baris "hari ini" (Asia/Jakarta) untuk taft ini.

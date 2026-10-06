@@ -1,3 +1,4 @@
+import { actorName } from '@/lib/authz';
 import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from 'next/server';
 import { sql, ensureCustomerSchema } from '@/lib/neon';
@@ -393,7 +394,7 @@ export async function PUT(request: NextRequest) {
     const formData = await request.formData();
     const storeNameField = formData.get('storeName') as string;
     const phoneNumber = formData.get('phoneNumber') as string;
-    const username = formData.get('username') as string;
+    const username = actorName(request);
     const followup = formData.get('followup') === 'true';
     const result = formData.get('result') as string;
     const ket = formData.get('ket') as string;

@@ -1,5 +1,8 @@
 {
-  "crons": [{ "path": "/api/cron/catalog-refresh", "schedule": "0 3 * * *" }],
+  "crons": [
+    { "path": "/api/cron/catalog-refresh", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/users-backup", "schedule": "30 20 * * *" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

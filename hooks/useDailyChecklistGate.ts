@@ -20,7 +20,7 @@ const EXEMPT_PATHS = ["/login", "/capture-attendance", "/daily-job/checklist"];
 // result in module scope for CACHE_TTL_MS so rapid navigation reuses the same
 // answer instead of re-fetching; it's invalidated early when the user leaves
 // /daily-job/checklist (they likely just submitted today's row).
-const CACHE_TTL_MS = 60_000;
+const CACHE_TTL_MS = 300_000;
 let cache: { userKey: string; filled: boolean; ts: number } | null = null;
 
 /**
