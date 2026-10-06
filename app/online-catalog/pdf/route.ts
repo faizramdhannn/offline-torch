@@ -286,18 +286,31 @@ function drawCards(doc: jsPDF, items: Product[], y: number) {
 export async function GET(request: Request) {
   const download = new URL(request.url).searchParams.get("download") === "1";
   try {
-    const data = (await getSheetData("online_catalog")) as any[];
+    const toProducts = (data: any[]): Product[] =>
+      data
+        .filter((r) => (r.artikel || "").trim() && parseNum(r.stock) > 0)
+        .map((r) => ({
+          artikel: String(r.artikel).trim(),
+          group: onlineGroupOf(r.category, r.artikel),
+          colors: parseColors(r.color),
+          image_url: String(r.image_url || "").trim(),
+          price: String(r.price || ""),
+        }))
+        .sort((a, b) => onlineGroupIndex(a.group) - onlineGroupIndex(b.group));
 
-    const products: Product[] = data
-      .filter((r) => (r.artikel || "").trim() && parseNum(r.stock) > 0)
-      .map((r) => ({
-        artikel: String(r.artikel).trim(),
-        group: onlineGroupOf(r.category, r.artikel),
-        colors: parseColors(r.color),
-        image_url: String(r.image_url || "").trim(),
-        price: String(r.price || ""),
-      }))
-      .sort((a, b) => onlineGroupIndex(a.group) - onlineGroupIndex(b.group));
+    let products = toProducts((await getSheetData("online_catalog")) as any[]);
+    // Hasil kosong (biasanya sheet gagal terbaca sesaat) jangan sampai jadi PDF
+    // sampul-doang yang ke-cache CDN berjam-jam — coba ulang tanpa cache, kalau
+    // tetap kosong balas 503 no-store.
+    if (products.length === 0) {
+      products = toProducts((await getSheetData("online_catalog", { skipCache: true })) as any[]);
+    }
+    if (products.length === 0) {
+      return new NextResponse("Katalog belum bisa dimuat, coba lagi sebentar.", {
+        status: 503,
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
 
     const [logo, icon] = await Promise.all([loadLogo(TORCH_LOGO_URL), loadLogo(TORCH_ICON_LOGO_URL), preloadImages(products)]).then((r) => [r[0], r[1]] as [string | null, string | null]);
 
@@ -344,7 +357,7 @@ export async function GET(request: Request) {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `${download ? "attachment" : "inline"}; filename="Torch_Online_Catalog.pdf"`,
-        "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=86400",
+        "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=600",
       },
     });
   } catch (error) {
