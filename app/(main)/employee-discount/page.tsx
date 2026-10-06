@@ -1,5 +1,6 @@
 "use client";
 
+import { visiblePoll } from "@/lib/poll";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -13,6 +14,7 @@ import { Plus, Pencil, Trash2, Check, X, Mail, Camera, Upload, Image as ImageIco
 import { GlassCard } from "@/components/shared/GlassCard";
 import { FilterBar } from "@/components/shared/FilterBar";
 import { tableWrapClassGlass, theadClassGlass } from "@/components/shared/tableStyles";
+import { compressImageFile } from "@/lib/compressImage";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface EDItem {
@@ -221,7 +223,7 @@ function PhotoUploadSection({
     onUploadStart();
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", await compressImageFile(file));
       fd.append("userName", userName);
       const res = await fetch("/api/employee-discount/upload", { method: "POST", body: fd });
       if (!res.ok) throw new Error();
@@ -364,8 +366,7 @@ export default function EmployeeDiscountPage() {
     fetchMasterItems();
     fetchDropdowns();
     fetchTaftOptions();
-    const interval = setInterval(fetchData, 30_000);
-    return () => clearInterval(interval);
+    return visiblePoll(fetchData, 120_000);
   }, [user]);
 
   useEffect(() => {

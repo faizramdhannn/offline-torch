@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Pencil, Check, X, Megaphone, ImagePlus, Trash2 } from "lucide-react";
 import { useUser } from "@/context/UserContext";
 import { useTheme } from "@/context/ThemeContext";
 import NotificationBell from "@/components/NotificationBell";
+import { compressImageFile } from "@/lib/compressImage";
 
 // Hanya user dengan id ini yang boleh mengedit announcement bar — dicek juga
 // di server (app/api/announcement/route.ts PUT), ini cuma untuk sembunyikan
@@ -29,8 +31,23 @@ const EMPTY_ANNOUNCEMENT: Announcement = { message: "", active: false, image_url
  * di-scroll (sticky, bukan ikut scroll bersama konten).
  */
 export default function TopBar() {
-  const { user, logout } = useUser();
+  const { user, setUser, logout } = useUser();
   const { isDark, toggleTheme } = useTheme();
+
+  // Sesi lama belum punya data profil di localStorage — ambil sekali.
+  useEffect(() => {
+    if (!user?.user_name || user.photo_url !== undefined) return;
+    fetch(`/api/profile?username=${encodeURIComponent(user.user_name)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((p) => {
+        if (!p) return;
+        const next = { ...user, name: p.name, email: p.email, phone: p.phone, address: p.address, photo_url: p.photo_url || "" };
+        try { localStorage.setItem("user", JSON.stringify(next)); } catch {}
+        setUser(next);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.user_name]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [announcement, setAnnouncement] = useState<Announcement>(EMPTY_ANNOUNCEMENT);
@@ -107,7 +124,7 @@ export default function TopBar() {
       formData.set("active", String(draftActive));
       formData.set("linkText", draftLinkText);
       formData.set("removeImage", String(draftRemoveImage));
-      if (draftImageFile) formData.set("image", draftImageFile);
+      if (draftImageFile) formData.set("image", await compressImageFile(draftImageFile));
 
       const response = await fetch("/api/announcement", { method: "PUT", body: formData });
       if (response.ok) {
@@ -277,6 +294,23 @@ export default function TopBar() {
             </svg>
             Logout
           </button>
+
+          <Link
+            href="/profile"
+            title="Profil saya"
+            className="flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full bg-black/5 text-xs font-semibold text-gray-700 ring-1 ring-black/10 transition-all hover:ring-2 hover:ring-primary"
+          >
+            {user?.photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`/api/drive-image?url=${encodeURIComponent(user.photo_url)}&sz=w128`}
+                alt={user.user_name}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              (user?.name || user?.user_name || "?").charAt(0).toUpperCase()
+            )}
+          </Link>
         </div>
       </div>
     </div>

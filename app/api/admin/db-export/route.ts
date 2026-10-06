@@ -1,3 +1,4 @@
+import { getUsersData } from "@/lib/users";
 import { NextRequest, NextResponse } from "next/server";
 import { sql, ensureCustomerSchema, ensureJastiperSchema, ensureAnnouncementSchema } from "@/lib/neon";
 import { getSheetData } from "@/lib/sheets";
@@ -130,7 +131,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const users = await getSheetData("users");
+    const users = await getUsersData();
     const user = (users as any[]).find((u) => u.user_name === username);
     const hasAccess = !!user && user.registration_request === "TRUE" && user.user_setting === "TRUE";
     if (!hasAccess) {

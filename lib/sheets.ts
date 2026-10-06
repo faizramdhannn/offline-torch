@@ -92,6 +92,7 @@ const SPREADSHEET_MAP: Record<string, string> = {
   pasaraya_product: process.env.SPREADSHEET_CATALOG || "",
   clearance_product_2: process.env.SPREADSHEET_CATALOG || "",
   online_catalog: process.env.SPREADSHEET_CATALOG || "",
+  clearance_catalog: process.env.SPREADSHEET_CATALOG || "",
   // ✅ Step ERP — satu spreadsheet, satu tab per type (lihat lib/stepErpConfig.ts)
   material_request_store: process.env.SPREADSHEET_STEP_ERP || "",
   stock_entry_store: process.env.SPREADSHEET_STEP_ERP || "",
@@ -122,6 +123,7 @@ const SHEET_RANGE: Record<string, string> = {
   qr_code: "A1:E",             // uuid, name, url, created_at, update_at
   qr_code_analytic: "A1:L",    // id, qr_uuid, scanned_at, ip_address, country, city, region, device_type, os, browser, user_agent, referrer
   clearance_product_2: "A1:M", // id, sku, item_name, artikel, category, stock_lembong, stock_margonda, stock_cirebon, stock_karawang, image_url, price, price_promo, stock_all
+  clearance_catalog: "A1:G", // sama dengan online_catalog
   online_catalog: "A1:G", // id, artikel, category, color, stock, image_url, price
   result_stock: "A1:M",       // ~36 kolom — sheet stok besar, batasi (L = tier_product, M = tier_phase)
   pca_stock: "A1:M",           // ~26 kolom (L = tier_product, M = tier_phase)
@@ -271,7 +273,7 @@ async function withRetry<T>(
 // Cache ini per-instance (hilang saat cold start baru), tapi cukup efektif
 // menahan request berulang dalam jangka pendek — termasuk saat beberapa
 // user/tab membuka sheet yang sama hampir bersamaan.
-const CACHE_TTL_MS = 120_000; // 2 menit
+const CACHE_TTL_MS = 300_000; // 5 menit (tulis ke sheet otomatis invalidate cache)
 
 // ✅ Sheet-sheet heavy di SPREADSHEET_STOCK dapat TTL lebih panjang
 // karena data stok tidak berubah detik-ke-detik, dan spreadsheet ini

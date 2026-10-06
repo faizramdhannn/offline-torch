@@ -1,5 +1,6 @@
 "use client";
 
+import { visiblePoll } from "@/lib/poll";
 import { usePushNotification } from "@/hooks/usePushNotification";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
@@ -131,8 +132,8 @@ export default function RequestStorePage() {
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 20_000);
-    return () => { isMounted = false; clearInterval(interval); };
+    const stopPoll = visiblePoll(fetchData, 90_000);
+    return () => { isMounted = false; stopPoll(); };
   }, [user]);
 
   // ─── Helpers ──────────────────────────────────────────────────────────────

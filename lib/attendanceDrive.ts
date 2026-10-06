@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { Readable } from 'stream';
+import { shrinkImageBuffer } from './shrinkImage';
 
 const ATTENDANCE_FOLDER_ID = process.env.DRIVE_ATTENDANCE_FOLDER_ID || '';
 
@@ -90,7 +91,8 @@ export async function uploadAttendanceSelfie(
   const auth = getGoogleAuth();
   const drive = google.drive({ version: 'v3', auth });
 
-  const { buffer, mimeType } = dataUrlToBuffer(dataUrl);
+  const raw = dataUrlToBuffer(dataUrl);
+  const { buffer, mimeType } = await shrinkImageBuffer(raw.buffer, raw.mimeType, 960, 70);
 
   // Determine extension
   let ext = '.jpg';

@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import { shrinkImageBuffer } from './shrinkImage';
 
 const PARENT_FOLDER_ID = process.env.DRIVE_PARENT_FOLDER_ID || '';
 const CUSTOMER_FOLDER_ID = process.env.DRIVE_CUSTOMER_FOLDER_ID || '';
@@ -80,9 +81,9 @@ async function getUserFolder(username: string, drive: any, parentFolderId: strin
 }
 
 export async function uploadToGoogleDrive(
-  fileBuffer: Buffer,
+  originalBuffer: Buffer,
   fileName: string,
-  mimeType: string,
+  originalMimeType: string,
   username: string,
   // Opt-in only (default false) — existing callers (customer followup proof,
   // employee discount photos, etc.) rely on the private webViewLink and must
@@ -93,6 +94,7 @@ export async function uploadToGoogleDrive(
   makePublicImage = false
 ): Promise<string> {
   try {
+    const { buffer: fileBuffer, mimeType } = await shrinkImageBuffer(originalBuffer, originalMimeType);
     const credentials = getGoogleCredentials();
     
     const auth = new google.auth.GoogleAuth({

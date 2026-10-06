@@ -1,3 +1,4 @@
+import { getUsersData } from '@/lib/users';
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { getSheetData, withCache } from '@/lib/sheets';
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
   try {
     const [dropdownData, usersData] = await Promise.all([
       getMasterDropdownFromStore(),
-      getSheetData('users'),
+      getUsersData(),
     ]);
 
     // Map id → { username, name }

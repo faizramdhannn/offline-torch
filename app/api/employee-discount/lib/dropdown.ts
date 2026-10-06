@@ -1,3 +1,4 @@
+import { getUsersData } from '@/lib/users';
 import { google } from 'googleapis';
 import { getSheetData, withCache } from '@/lib/sheets';
 
@@ -37,7 +38,7 @@ async function getMasterDropdown() {
 export async function getEmployeeDiscountDropdown() {
   const [rows, users] = await Promise.all([
     getMasterDropdown(),
-    getSheetData('users'),
+    getUsersData(),
   ]);
 
   const discount_code = [...new Set(

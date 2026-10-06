@@ -1,3 +1,4 @@
+import { getUsersData } from '@/lib/users';
 import { getSheetData, appendSheetData } from '@/lib/sheets';
 
 // Sheet `notifications` (A-J): id, scope, target_user, type, title, message,
@@ -58,7 +59,7 @@ export async function notifyUsersWithPermission(
   input: Omit<CreateNotificationInput, 'scope' | 'targetUser'>
 ) {
   try {
-    const users = await getSheetData('users');
+    const users = await getUsersData();
     const targets = users.filter((u: any) => u[permissionKey] === 'TRUE' && u.user_name);
     if (targets.length === 0) return;
 

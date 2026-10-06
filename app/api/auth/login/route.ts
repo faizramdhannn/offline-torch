@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSheetData, updateSheetCellByMatch } from '@/lib/sheets';
+import { getUserByUserName, touchLastActivity } from '@/lib/users';
 import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
   try {
     const { username, password } = await request.json();
-    const users = await getSheetData('users');
-    const user = users.find((u: any) => u.user_name === username);
+    const user = await getUserByUserName(username);
 
     if (!user) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
@@ -29,13 +28,17 @@ export async function POST(request: NextRequest) {
       hour12: false,
       timeZone: 'Asia/Jakarta',
     });
-    updateSheetCellByMatch('users', 'user_name', user.user_name, 'last_activity', loginTimestamp).catch((err) => {
+    touchLastActivity(user.user_name, loginTimestamp).catch((err) => {
       console.error('Failed to update last_activity:', err);
     });
 
     return NextResponse.json({
       id: user.id,
       name: user.name,
+      email: user.email,
+      phone: user.phone,
+      address: user.address,
+      photo_url: user.photo_url,
       user_name: user.user_name,
       dashboard: user.dashboard === 'TRUE',
       order_report: user.order_report === 'TRUE',

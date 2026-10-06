@@ -1,5 +1,6 @@
 "use client";
 
+import { compressImageFile } from "@/lib/compressImage";
 import { useEffect, useRef, useState } from "react";
 import { CustomerBadge } from "@/types";
 
@@ -13,7 +14,8 @@ interface BadgeManagerModalProps {
   onChanged: () => void;
 }
 
-function fileToDataUrl(file: File): Promise<string> {
+async function fileToDataUrl(raw: File): Promise<string> {
+  const file = await compressImageFile(raw, 256, 0.85, 0);
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);

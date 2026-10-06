@@ -18,6 +18,7 @@ import { CopyButton } from "@/components/request-tracking/DomainBadges";
 import { CheckCircle2, Circle, MessageCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { idbGet, idbSet, isCacheFresh } from "@/lib/idbCache";
 import * as XLSX from "xlsx";
+import { compressImageFile } from "@/lib/compressImage";
 
 function formatRupiah(v: number) {
   return "Rp" + Math.round(v).toLocaleString("id-ID");
@@ -436,7 +437,7 @@ export default function CustomerPage() {
       formData.append("ket", followupKet);
 
       if (selectedFile) {
-        formData.append("file", selectedFile);
+        formData.append("file", await compressImageFile(selectedFile));
       }
 
       formData.append("rowIndex", (selectedRowIndex + 2).toString());

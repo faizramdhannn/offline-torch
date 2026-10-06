@@ -29,6 +29,12 @@ const CATALOGS: CatalogEntry[] = [
     description: "Katalog A4: Backpack, Sling Bag, Waist Bag, Travel Pouch, Accessories — hanya produk yang ready.",
     path: "/online-catalog",
   },
+  {
+    key: "clearance",
+    name: "Clearance Catalog",
+    description: "Katalog A4 produk clearance dengan pilihan warna — hanya produk yang masih ada stock.",
+    path: "/clearance-catalog",
+  },
 ];
 
 export default function CatalogPage() {

@@ -1,5 +1,6 @@
 "use client";
 
+import { visiblePoll } from "@/lib/poll";
 import { usePushNotification } from "@/hooks/usePushNotification";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -27,6 +28,7 @@ import { useSortableTable } from "@/hooks/useSortableTable";
 import { DropZone } from "@/components/request-tracking/DropZone";
 import { ExpeditionBadge, CopyButton, TypeReasonBadge } from "@/components/request-tracking/DomainBadges";
 import { FieldLabel, FieldHint, inputClass, FormDivider } from "@/components/request-tracking/FormField";
+import { compressImageFile } from "@/lib/compressImage";
 
 interface TrackingItem {
   id: string;
@@ -202,8 +204,7 @@ export default function RequestTrackingPage() {
   useEffect(() => {
     if (!user) return;
     fetchData();
-    const interval = setInterval(fetchData, 30_000);
-    return () => clearInterval(interval);
+    return visiblePoll(fetchData, 120_000);
   }, [user]);
 
   useEffect(() => {
@@ -485,7 +486,7 @@ export default function RequestTrackingPage() {
       const fd = new FormData();
       fd.append("id", selectedItem.id);
       fd.append("update_by", user.user_name);
-      fd.append("file", uploadFile);
+      fd.append("file", await compressImageFile(uploadFile, 2000, 0.8));
       const res = await fetch("/api/request-tracking", { method: "PUT", body: fd });
       if (res.ok) {
         const result = await res.json();

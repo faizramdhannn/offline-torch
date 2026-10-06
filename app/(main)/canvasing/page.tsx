@@ -19,6 +19,7 @@ import { Toolbar } from "@/components/canvasing/Toolbar";
 import { CanvasingTable } from "@/components/canvasing/CanvasingTable";
 import { Pagination } from "@/components/canvasing/Pagination";
 import { DetailPopup } from "@/components/canvasing/DetailPopup";
+import { compressImageFile } from "@/lib/compressImage";
 import { EntryModal, EntryFormData } from "@/components/canvasing/EntryModal";
 import { ReportView, buildReportData } from "@/components/canvasing/ReportView";
 import { EmptyState } from "@/components/canvasing/EmptyState";
@@ -333,9 +334,9 @@ export default function CanvasingPage() {
       form.append("result_status", formData.result_status);
       form.append("notes", formData.notes);
       form.append("username", user.user_name);
-      formData.files.forEach((file, index) =>
-        form.append(`file_${index}`, file)
-      );
+      for (let index = 0; index < formData.files.length; index++) {
+        form.append(`file_${index}`, await compressImageFile(formData.files[index]));
+      }
       const method = editingEntry ? "PUT" : "POST";
       const response = await fetch("/api/canvasing", { method, body: form });
       if (response.ok) {

@@ -14,6 +14,7 @@ import {
   DetailLoading,
   DetailNotFound,
 } from "@/components/shared/DetailShell";
+import { compressImageFile } from "@/lib/compressImage";
 
 interface TrackingItem {
   id: string;
@@ -90,7 +91,7 @@ export default function RequestTrackingDetailPage() {
       const fd = new FormData();
       fd.append("id", item.id);
       fd.append("update_by", user.user_name);
-      fd.append("file", uploadFile);
+      fd.append("file", await compressImageFile(uploadFile, 2000, 0.8));
       const res = await fetch("/api/request-tracking", { method: "PUT", body: fd });
       if (res.ok) {
         const result = await res.json();

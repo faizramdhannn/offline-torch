@@ -1,5 +1,6 @@
 "use client";
 
+import { visiblePoll } from "@/lib/poll";
 import { useEffect, useRef, useState } from "react";
 import { Bell, X, Plus } from "lucide-react";
 
@@ -102,8 +103,7 @@ export default function NotificationBell({ userName, canAddCustom, isCollapsed }
     // Interval dinaikkan dari 30s -> 90s: notifikasi tidak butuh real-time
     // sedetail itu, dan ini memotong jumlah request ~3x untuk setiap user
     // yang sedang aktif di aplikasi.
-    const interval = setInterval(() => fetchNotifications(), 90_000);
-    return () => clearInterval(interval);
+    return visiblePoll(() => fetchNotifications(), 180_000);
   }, [userName]);
 
   // Munculkan bubble "Ada notifikasi yang belum dibaca" sekali ketika ada unread

@@ -38,6 +38,7 @@ import { SnapshotModal } from "@/components/petty-cash/SnapshotModal";
 import { EntryFormModal, type PettyCashFormData } from "@/components/petty-cash/EntryFormModal";
 import { BalanceFormModal, type BalanceFormData } from "@/components/petty-cash/BalanceFormModal";
 import { InfoModal } from "@/components/petty-cash/InfoModal";
+import { compressImageFile } from "@/lib/compressImage";
 
 interface PettyCash {
   id: string;
@@ -474,7 +475,7 @@ export default function PettyCashPage() {
       form.append("ket", formData.ket);
       form.append("transfer", formData.transfer.toString());
       form.append("username", user.user_name);
-      if (formData.file) form.append("file", formData.file);
+      if (formData.file) form.append("file", await compressImageFile(formData.file));
       const response = await fetch("/api/petty-cash", { method: "POST", body: form });
       if (response.ok) {
         const created = await response.json().catch(() => null);
@@ -508,7 +509,7 @@ export default function PettyCashPage() {
       form.append("ket", formData.ket);
       form.append("transfer", formData.transfer.toString());
       form.append("username", user.user_name);
-      if (formData.file) form.append("file", formData.file);
+      if (formData.file) form.append("file", await compressImageFile(formData.file));
       const response = await fetch("/api/petty-cash", { method: "PUT", body: form });
       if (response.ok) {
         await logActivity("PUT", `Updated petty cash entry ID: ${selectedEntry.id}`, String(selectedEntry.id));

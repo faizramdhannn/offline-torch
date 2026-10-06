@@ -3,11 +3,11 @@ import { generateCatalogResponse } from "@/lib/onlineCatalogPdf";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
-// Sheet: online_catalog (id, artikel, category, color, stock, image_url, price).
+// Sheet: clearance_catalog (kolom sama dengan online_catalog).
 export function GET(request: Request) {
   return generateCatalogResponse(request, {
-    sheet: "online_catalog",
-    title: "Online Catalog",
-    filename: "Torch_Online_Catalog.pdf",
+    sheet: "clearance_catalog",
+    title: "Clearance Catalog",
+    filename: "Torch_Clearance_Catalog.pdf",
   });
 }

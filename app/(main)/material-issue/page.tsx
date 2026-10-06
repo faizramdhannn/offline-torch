@@ -1,5 +1,6 @@
 "use client";
 
+import { visiblePoll } from "@/lib/poll";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -716,8 +717,7 @@ export default function MaterialIssuePage() {
     fetchData();
     fetchMasterItems();
     fetchDropdowns();
-    const interval = setInterval(fetchData, 30_000);
-    return () => clearInterval(interval);
+    return visiblePoll(fetchData, 120_000);
   }, [user]);
 
   useEffect(() => {

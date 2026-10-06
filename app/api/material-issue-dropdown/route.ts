@@ -1,3 +1,4 @@
+import { getUsersData } from '@/lib/users';
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { getSheetData, withCache } from '@/lib/sheets';
@@ -35,7 +36,7 @@ export async function GET() {
   try {
     const [rows, users] = await Promise.all([
       getMasterDropdown(),
-      getSheetData('users'),
+      getUsersData(),
     ]);
 
     const request_by = [...new Set(
