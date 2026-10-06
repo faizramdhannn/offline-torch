@@ -12,6 +12,7 @@ interface Profile {
   phone: string;
   address: string;
   photo_url: string;
+  role: string;
   prefilled_from_store: boolean;
 }
 
@@ -77,7 +78,7 @@ export default function ProfilePage() {
       setPhotoPreview("");
       setRemovePhoto(false);
       setPw({ current: "", next: "", confirm: "" });
-      const next = { ...user, name: p.name, email: p.email, phone: p.phone, address: p.address, photo_url: p.photo_url || "" };
+      const next = { ...user, name: p.name, email: p.email, phone: p.phone, address: p.address, photo_url: p.photo_url || "", role: p.role, is_super_admin: p.role === "super_admin" };
       try { localStorage.setItem("user", JSON.stringify(next)); } catch {}
       setUser(next);
       setMsg({ type: "ok", text: "Profil tersimpan" });
@@ -120,7 +121,10 @@ export default function ProfilePage() {
           </div>
           <div className="min-w-0">
             <h1 className="truncate text-xl font-semibold" style={{ color: "#fff" }}>{form.name || user?.user_name}</h1>
-            <p className="text-sm" style={{ color: "rgba(255,255,255,.75)" }}>@{user?.user_name}</p>
+            <p className="text-sm" style={{ color: "rgba(255,255,255,.75)" }}>
+              @{user?.user_name}
+              {profile?.role && ` · ${({ super_admin: "Super Admin", admin: "Admin", store: "Store" } as Record<string, string>)[profile.role] || profile.role}`}
+            </p>
             {(profile?.photo_url || photoFile) && !removePhoto && (
               <button
                 type="button"

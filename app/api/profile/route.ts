@@ -35,6 +35,7 @@ async function profileOf(userName: string) {
     phone,
     address,
     photo_url: u.photo_url,
+    role: u.role,
     prefilled_from_store: fromStore,
     last_activity: u.last_activity,
   };

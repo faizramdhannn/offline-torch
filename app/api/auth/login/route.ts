@@ -39,6 +39,8 @@ export async function POST(request: NextRequest) {
       phone: user.phone,
       address: user.address,
       photo_url: user.photo_url,
+      role: user.role,
+      is_super_admin: user.role === 'super_admin',
       user_name: user.user_name,
       dashboard: user.dashboard === 'TRUE',
       order_report: user.order_report === 'TRUE',

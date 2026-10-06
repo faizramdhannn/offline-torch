@@ -36,12 +36,12 @@ export default function TopBar() {
 
   // Sesi lama belum punya data profil di localStorage — ambil sekali.
   useEffect(() => {
-    if (!user?.user_name || user.photo_url !== undefined) return;
+    if (!user?.user_name || user.photo_url !== undefined && user.role !== undefined) return;
     fetch(`/api/profile?username=${encodeURIComponent(user.user_name)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((p) => {
         if (!p) return;
-        const next = { ...user, name: p.name, email: p.email, phone: p.phone, address: p.address, photo_url: p.photo_url || "" };
+        const next = { ...user, name: p.name, email: p.email, phone: p.phone, address: p.address, photo_url: p.photo_url || "", role: p.role, is_super_admin: p.role === "super_admin" };
         try { localStorage.setItem("user", JSON.stringify(next)); } catch {}
         setUser(next);
       })
