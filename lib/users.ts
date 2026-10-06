@@ -33,6 +33,8 @@ export interface UserRow {
   address: string;
   photo_url: string;
   role: Role;
+  active: string; // 'TRUE' | 'FALSE'
+  sessions_valid_after: string; // epoch ms; sesi yang diterbitkan sebelumnya dianggap tidak sah
   [permission: string]: string;
 }
 
@@ -58,6 +60,8 @@ export function ensureUsersSchema(): Promise<void> {
         )
       `;
       await sql`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT ''`;
+      await sql`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true`;
+      await sql`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS sessions_valid_after BIGINT NOT NULL DEFAULT 0`;
       const count = await sql`SELECT COUNT(*)::int AS n FROM app_users`;
       if (count[0].n === 0) {
         // Migrasi satu kali dari sheet `users`.
@@ -98,6 +102,8 @@ function toUser(r: any): UserRow {
     address: r.address,
     photo_url: r.photo_url,
     role: r.role || "store",
+    active: r.active === false ? "FALSE" : "TRUE",
+    sessions_valid_after: String(r.sessions_valid_after ?? 0),
   };
   for (const k of PERMISSION_KEYS) out[k] = r.perms?.[k] === "TRUE" ? "TRUE" : "FALSE";
   return out;
@@ -172,7 +178,7 @@ export async function updateUserProfile(userName: string, p: ProfilePatch) {
 // Dipakai Super Admin untuk mengatur profil + role user lain.
 export async function adminUpdateUser(
   userName: string,
-  p: { name?: string; email?: string; phone?: string; address?: string; role?: Role; remove_photo?: boolean }
+  p: { name?: string; email?: string; phone?: string; address?: string; role?: Role; remove_photo?: boolean; active?: boolean }
 ) {
   await ensureUsersSchema();
   await sql`
@@ -182,6 +188,8 @@ export async function adminUpdateUser(
       phone = COALESCE(${p.phone ?? null}, phone),
       address = COALESCE(${p.address ?? null}, address),
       role = COALESCE(${p.role ?? null}, role),
+      active = COALESCE(${p.active ?? null}, active),
+      sessions_valid_after = CASE WHEN ${p.active === false} THEN ${Date.now()} ELSE sessions_valid_after END,
       photo_url = CASE WHEN ${p.remove_photo === true} THEN '' ELSE photo_url END,
       updated_at = now()
     WHERE user_name = ${userName}
@@ -192,4 +200,14 @@ export async function countSuperAdmins(): Promise<number> {
   await ensureUsersSchema();
   const r = await sql`SELECT COUNT(*)::int AS n FROM app_users WHERE role = 'super_admin'`;
   return r[0].n;
+}
+
+// Paksa logout: semua sesi yang terbit sebelum sekarang jadi tidak sah.
+export async function invalidateSessions(opts: { userName?: string; exceptRole?: string }): Promise<number> {
+  await ensureUsersSchema();
+  const now = Date.now();
+  const res = opts.userName
+    ? await sql`UPDATE app_users SET sessions_valid_after = ${now} WHERE user_name = ${opts.userName} RETURNING id`
+    : await sql`UPDATE app_users SET sessions_valid_after = ${now} WHERE role <> ${opts.exceptRole ?? ""} RETURNING id`;
+  return res.length;
 }

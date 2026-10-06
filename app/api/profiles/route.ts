@@ -1,23 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserByUserName, getUsersData, adminUpdateUser, countSuperAdmins } from "@/lib/users";
 import { getRole, applyRoleToUser } from "@/lib/roles";
+import { sessionUser } from "@/lib/authz";
 
 export const dynamic = "force-dynamic";
 
-// Soft-auth seperti route lain: `actor` dikirim klien, tapi role-nya diperiksa dari database.
-async function requireSuperAdmin(actor: string | null) {
-  const u = actor ? await getUserByUserName(actor) : null;
+// Identitas dari cookie sesi; role diperiksa dari database.
+async function requireSuperAdmin(request: NextRequest) {
+  const u = await sessionUser(request);
   return u && u.role === "super_admin" ? u : null;
 }
 
 export async function GET(request: NextRequest) {
-  const actor = await requireSuperAdmin(request.nextUrl.searchParams.get("actor"));
+  const actor = await requireSuperAdmin(request);
   if (!actor) return NextResponse.json({ error: "Hanya Super Admin" }, { status: 403 });
   const users = await getUsersData();
   return NextResponse.json(
     users.map((u) => ({
       id: u.id, name: u.name, user_name: u.user_name, role: u.role, email: u.email,
       phone: u.phone, address: u.address, photo_url: u.photo_url, last_activity: u.last_activity,
+      active: u.active !== "FALSE",
     }))
   );
 }
@@ -25,7 +27,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const actor = await requireSuperAdmin(body.actor);
+    const actor = await requireSuperAdmin(request);
     if (!actor) return NextResponse.json({ error: "Hanya Super Admin" }, { status: 403 });
 
     const target = await getUserByUserName(String(body.user_name || ""));
@@ -47,7 +49,16 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    let active: boolean | undefined;
+    if (typeof body.active === "boolean") {
+      active = body.active;
+      if (!active && (target.role === "super_admin" || target.user_name === actor.user_name)) {
+        return NextResponse.json({ error: "Super Admin dan akun sendiri tidak bisa dinonaktifkan" }, { status: 400 });
+      }
+    }
+
     await adminUpdateUser(target.user_name, {
+      active,
       name: typeof body.name === "string" ? body.name.trim() || undefined : undefined,
       email,
       phone: typeof body.phone === "string" ? body.phone.trim() : undefined,

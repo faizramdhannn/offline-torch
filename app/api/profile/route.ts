@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getUserByUserName, updateUserProfile } from "@/lib/users";
+import { sessionUserName } from "@/lib/authz";
 import { getStoreAddressList } from "@/lib/storeAddress";
 import { uploadToGoogleDrive } from "@/lib/drive";
 import { shrinkImageBuffer } from "@/lib/shrinkImage";
@@ -8,7 +9,7 @@ import { shrinkImageBuffer } from "@/lib/shrinkImage";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-// Soft-auth seperti route lain: username dikirim klien.
+// Hanya boleh membaca/mengubah profil sendiri (identitas dari cookie sesi).
 async function profileOf(userName: string) {
   const u = await getUserByUserName(userName);
   if (!u) return null;
@@ -43,8 +44,8 @@ async function profileOf(userName: string) {
 
 export async function GET(request: NextRequest) {
   try {
-    const userName = request.nextUrl.searchParams.get("username") || "";
-    if (!userName) return NextResponse.json({ error: "username wajib diisi" }, { status: 400 });
+    const userName = sessionUserName(request) || "";
+    if (!userName) return NextResponse.json({ error: "Sesi tidak valid" }, { status: 401 });
     const p = await profileOf(userName);
     if (!p) return NextResponse.json({ error: "User tidak ditemukan" }, { status: 404 });
     return NextResponse.json(p);
@@ -57,8 +58,8 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const form = await request.formData();
-    const userName = String(form.get("username") || "");
-    if (!userName) return NextResponse.json({ error: "username wajib diisi" }, { status: 400 });
+    const userName = sessionUserName(request) || "";
+    if (!userName) return NextResponse.json({ error: "Sesi tidak valid" }, { status: 401 });
     const existing = await getUserByUserName(userName);
     if (!existing) return NextResponse.json({ error: "User tidak ditemukan" }, { status: 404 });
 

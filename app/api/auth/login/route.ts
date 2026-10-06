@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserByUserName, touchLastActivity } from '@/lib/users';
 import bcrypt from 'bcryptjs';
+import { createSessionToken, SESSION_COOKIE, SESSION_MAX_AGE_S } from '@/lib/session';
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,6 +10,10 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
+    if (user.active === 'FALSE') {
+      return NextResponse.json({ error: 'Akun nonaktif' }, { status: 403 });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -32,7 +37,7 @@ export async function POST(request: NextRequest) {
       console.error('Failed to update last_activity:', err);
     });
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       id: user.id,
       name: user.name,
       email: user.email,
@@ -102,6 +107,14 @@ export async function POST(request: NextRequest) {
       affiliate_view: user.affiliate_view === 'TRUE',
       jastiper: user.jastiper === 'TRUE',
     });
+    res.cookies.set(SESSION_COOKIE, createSessionToken(user.user_name), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: SESSION_MAX_AGE_S,
+    });
+    return res;
   } catch (error) {
     return NextResponse.json({ error: 'Authentication failed' }, { status: 500 });
   }

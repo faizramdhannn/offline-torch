@@ -34,6 +34,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     localStorage.removeItem("user");
     setUserState(null);
     router.push("/login");

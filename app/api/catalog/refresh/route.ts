@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserByUserName } from "@/lib/users";
+import { sessionUser } from "@/lib/authz";
 import { bumpCatalogVersion, getCatalogMeta, CATALOG_KEYS } from "@/lib/catalogVersion";
 
 export const dynamic = "force-dynamic";
@@ -8,11 +8,11 @@ export async function GET() {
   return NextResponse.json(await getCatalogMeta());
 }
 
-// Refresh manual — hanya user dengan akses setting (soft-auth seperti route lain).
+// Refresh manual — hanya user dengan akses setting (identitas dari cookie sesi).
 export async function POST(request: NextRequest) {
   try {
-    const { username, key } = await request.json();
-    const user = username ? await getUserByUserName(String(username)) : null;
+    const { key } = await request.json();
+    const user = await sessionUser(request);
     if (!user || user.user_setting !== "TRUE") {
       return NextResponse.json({ error: "Akses ditolak: butuh akses setting" }, { status: 403 });
     }

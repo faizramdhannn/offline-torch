@@ -65,6 +65,7 @@ function LoginPageContent() {
       if (!response.ok) throw new Error("Invalid credentials");
       const user = await response.json();
       user._loginAt = Date.now();
+      user._auth = 2; // sesi dengan cookie server
       localStorage.setItem("user", JSON.stringify(user));
       // Ditangkap sekali oleh (main)/layout.tsx untuk memicu animasi masuk
       // (sidebar dari kiri, konten dari kanan), lalu dihapus di sana.

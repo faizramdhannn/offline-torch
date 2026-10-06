@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, UserCog, X, Save, Loader2, Plus, Trash2, ShieldCheck } from "lucide-react";
+import { Search, UserCog, X, Save, Loader2, Plus, Trash2, ShieldCheck, LogOut } from "lucide-react";
 import { PERM_GROUPS } from "@/lib/permGroups";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 
@@ -10,7 +10,7 @@ type Role = string;
 interface RoleRow { key: string; name: string; perms: Record<string, string>; is_system: boolean; user_count: number }
 interface Row {
   id: string; name: string; user_name: string; role: Role; email: string;
-  phone: string; address: string; photo_url: string; last_activity: string;
+  phone: string; address: string; photo_url: string; last_activity: string; active: boolean;
 }
 
 const ROLE_STYLE: Record<string, string> = {
@@ -35,6 +35,20 @@ export default function ProfilesPage() {
   const [roles, setRoles] = useState<RoleRow[]>([]);
   const [roleEdit, setRoleEdit] = useState<(RoleRow & { isNew?: boolean }) | null>(null);
   const [notice, setNotice] = useState("");
+
+  const forceLogout = async (target?: { user_name: string; name: string }) => {
+    const msg = target
+      ? `Paksa logout ${target.name}?`
+      : "Paksa logout SEMUA akun kecuali Super Admin? Mereka harus login ulang.";
+    if (!confirm(msg)) return;
+    const res = await fetch("/api/profiles/logout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(target ? { user_name: target.user_name } : { all: true }),
+    });
+    const j = await res.json();
+    setNotice(res.ok ? (target ? `${target.name} di-logout.` : `${j.count} akun di-logout.`) : j.error || "Gagal");
+  };
   const roleName = (k: string) => roles.find((r) => r.key === k)?.name || k;
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
@@ -136,6 +150,9 @@ export default function ProfilesPage() {
           <h1 className="text-xl font-bold text-gray-900">User Profiles & Roles</h1>
           <p className="text-xs text-gray-400">Kelola profil dan role semua user (khusus Super Admin)</p>
         </div>
+        <button onClick={() => forceLogout()} className="inline-flex items-center gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100">
+          <LogOut className="h-4 w-4" /> Logout semua (kecuali Super Admin)
+        </button>
         <div className="relative">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari nama, email, telepon..." className="w-64 rounded-xl border border-gray-200 bg-white/70 py-2 pl-9 pr-3 text-sm text-gray-900 outline-none focus:border-primary" />
@@ -190,6 +207,7 @@ export default function ProfilesPage() {
                 <div className="flex items-center gap-2">
                   <p className="truncate text-sm font-semibold text-gray-900">{r.name}</p>
                   <span className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-semibold ${roleStyle(r.role)}`}>{roleName(r.role)}</span>
+                  {!r.active && <span className="flex-none rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-semibold text-gray-600">Nonaktif</span>}
                 </div>
                 <p className="text-[11px] text-gray-400">@{r.user_name}</p>
                 <p className="mt-1 truncate text-xs text-gray-600">{r.email || <span className="italic text-gray-300">Email belum diisi</span>}</p>
@@ -230,6 +248,15 @@ export default function ProfilesPage() {
               <label className="block text-xs font-medium text-gray-600">Alamat
                 <textarea rows={3} className={field} value={edit.address} onChange={(e) => setEdit({ ...edit, address: e.target.value })} />
               </label>
+              <label className="flex items-center justify-between rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-800">
+                <span>Akun aktif <span className="text-[11px] text-gray-400">(nonaktif = tidak bisa login, sesi dicabut)</span></span>
+                <input type="checkbox" className="h-4 w-4 accent-primary" checked={edit.active} disabled={edit.role === "super_admin" || edit.user_name === actor} onChange={(e) => setEdit({ ...edit, active: e.target.checked })} />
+              </label>
+              {edit.role !== "super_admin" && (
+                <button type="button" onClick={() => forceLogout(edit)} className="inline-flex items-center gap-1.5 text-xs text-red-600 hover:underline">
+                  <LogOut className="h-3.5 w-3.5" /> Paksa logout user ini
+                </button>
+              )}
               <p className="text-[11px] text-gray-400">Login terakhir: {edit.last_activity || "Belum pernah"}</p>
               {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{err}</p>}
               <button onClick={save} disabled={saving} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
