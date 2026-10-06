@@ -9,6 +9,8 @@ export function GET(request: Request) {
     key: "clearance",
     sheet: "clearance_catalog",
     title: "Clearance Catalog",
+    showStock: true,
+    note: "S&K Berlaku",
     filename: "Torch_Clearance_Catalog.pdf",
   });
 }

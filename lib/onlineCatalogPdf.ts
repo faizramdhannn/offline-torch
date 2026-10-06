@@ -34,6 +34,7 @@ type Product = {
   colors: { name: string; hex: string }[];
   image_url: string;
   price: string;
+  stock: number;
   img?: { dataUrl: string; w: number; h: number } | null;
 };
 
@@ -159,7 +160,7 @@ function drawCover(doc: jsPDF, icon: string | null, title: string) {
   });
 }
 
-function drawPageChrome(doc: jsPDF, logo: string | null, pageNo: number, title: string) {
+function drawPageChrome(doc: jsPDF, logo: string | null, pageNo: number, title: string, note?: string) {
   doc.setFillColor(255, 255, 255);
   doc.rect(0, 0, PAGE_W, PAGE_H, "F");
   // strip warna grup di paling atas
@@ -185,6 +186,12 @@ function drawPageChrome(doc: jsPDF, logo: string | null, pageNo: number, title: 
   doc.setFontSize(7);
   doc.setTextColor(140, 140, 140);
   doc.text(String(pageNo), PAGE_W / 2, PAGE_H - 5, { align: "center" });
+  if (note) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(185, 28, 28);
+    doc.text(note, MARGIN, PAGE_H - 5, { align: "left" });
+  }
 }
 
 function drawBanner(doc: jsPDF, group: string, y: number) {
@@ -217,7 +224,7 @@ async function preloadImages(products: Product[], concurrency = 16) {
   await Promise.all(Array.from({ length: Math.min(concurrency, products.length) }, worker));
 }
 
-function drawCards(doc: jsPDF, items: Product[], y: number) {
+function drawCards(doc: jsPDF, items: Product[], y: number, showStock: boolean) {
   const images = items.map((p) => p.img || null);
   const [br, bg, bb] = hexToRgb(BRAND);
   items.forEach((p, i) => {
@@ -233,6 +240,17 @@ function drawCards(doc: jsPDF, items: Product[], y: number) {
     doc.roundedRect(x, y, w, h, 2.5, 2.5, "FD");
     doc.setFillColor(ar, ag, ab);
     doc.roundedRect(x + 0.1, y + 0.1, w - 0.2, 1.4, 0.7, 0.7, "F");
+
+    if (showStock) {
+      const label = `Stock: ${p.stock}`;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      const tw = doc.getTextWidth(label) + 4;
+      doc.setFillColor(ar, ag, ab);
+      doc.roundedRect(x + w - tw - 1.5, y + 2.6, tw, 4.2, 2, 2, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.text(label, x + w - tw / 2 - 1.5, y + 5.6, { align: "center" });
+    }
 
     const cx = x + w / 2;
     const img = images[i];
@@ -286,6 +304,8 @@ export interface CatalogConfig {
   sheet: string;
   title: string;
   filename: string;
+  showStock?: boolean;
+  note?: string;
 }
 
 export async function generateCatalogResponse(request: Request, cfg: CatalogConfig) {
@@ -308,6 +328,7 @@ export async function generateCatalogResponse(request: Request, cfg: CatalogConf
           colors: parseColors(r.color),
           image_url: String(r.image_url || "").trim(),
           price: String(r.price || ""),
+          stock: parseNum(r.stock),
         }))
         .sort((a, b) => onlineGroupIndex(a.group) - onlineGroupIndex(b.group));
 
@@ -352,14 +373,14 @@ export async function generateCatalogResponse(request: Request, cfg: CatalogConf
     for (const pageRows of paginate(rows)) {
       doc.addPage("a4", "portrait");
       pageNo += 1;
-      drawPageChrome(doc, logo, pageNo, cfg.title);
+      drawPageChrome(doc, logo, pageNo, cfg.title, cfg.note);
       let y = CONTENT_TOP;
       for (const row of pageRows) {
         if (row.type === "banner") {
           drawBanner(doc, row.group, y);
           y += BANNER_SLOT;
         } else {
-          drawCards(doc, row.items, y);
+          drawCards(doc, row.items, y, !!cfg.showStock);
           y += CELL_H;
         }
       }

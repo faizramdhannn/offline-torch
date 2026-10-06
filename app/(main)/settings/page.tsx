@@ -26,6 +26,10 @@ interface UserData {
   id: string;
   name: string;
   user_name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  photo_url?: string;
   dashboard: string;
   order_report: string;
   stock: string;
@@ -259,6 +263,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [users, setUsers] = useState<UserData[]>([]);
+  const [profileUser, setProfileUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [pendingChanges, setPendingChanges] = useState<Record<string, Partial<Record<PermKey, boolean>>>>({});
@@ -761,7 +766,14 @@ export default function SettingsPage() {
                             ${hasPending ? "bg-amber-50" : idx % 2 === 0 ? "bg-white" : "row-stripe-solid"}`}
                           style={{ minWidth: 120 }}
                         >
-                          {u.name}
+                          <button
+                            type="button"
+                            onClick={() => setProfileUser(u)}
+                            title="Lihat profil"
+                            className="text-left font-semibold text-gray-800 underline-offset-2 hover:text-primary hover:underline"
+                          >
+                            {u.name}
+                          </button>
                         </td>
                         {/* Sticky: Username */}
                         <td
@@ -880,6 +892,44 @@ export default function SettingsPage() {
             </div>
           )}
         </GlassCard>
+
+        {/* ── Profil user ── */}
+        {profileUser && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setProfileUser(null)}>
+            <div className="glass-card w-full max-w-sm overflow-hidden rounded-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex flex-col items-center gap-2 px-5 py-6 text-white" style={{ background: "linear-gradient(135deg, #35393C 0%, #1f4e63 45%, #0d7a8f 100%)" }}>
+                <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-white/15 text-2xl font-semibold ring-2 ring-white/40">
+                  {profileUser.photo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={`/api/drive-image?url=${encodeURIComponent(profileUser.photo_url)}&sz=w256`} alt={profileUser.name} className="h-full w-full object-cover" />
+                  ) : (
+                    (profileUser.name || profileUser.user_name).charAt(0).toUpperCase()
+                  )}
+                </div>
+                <p className="text-base font-semibold" style={{ color: "#fff" }}>{profileUser.name}</p>
+                <p className="text-xs" style={{ color: "rgba(255,255,255,.75)" }}>@{profileUser.user_name}</p>
+              </div>
+              <dl className="space-y-3 px-5 py-4 text-sm">
+                {[
+                  ["Email", profileUser.email],
+                  ["No. telepon", profileUser.phone],
+                  ["Alamat", profileUser.address],
+                  ["Login terakhir", profileUser.last_activity],
+                ].map(([label, val]) => (
+                  <div key={label}>
+                    <dt className="text-[11px] font-medium text-gray-400">{label}</dt>
+                    <dd className="text-gray-800">{val || <span className="italic text-gray-300">Belum diisi</span>}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="border-t border-gray-100 px-5 py-3 text-right">
+                <button onClick={() => setProfileUser(null)} className="rounded-lg bg-black/5 px-4 py-1.5 text-xs font-medium text-gray-700 hover:bg-black/10">
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Javelin Modal ──────────────────────────────────────────────── */}
         {showJavelinModal && (
