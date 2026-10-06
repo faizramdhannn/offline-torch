@@ -1,3 +1,4 @@
+import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, updateMultipleSheetRows, deleteSheetRows } from '@/lib/sheets';
 import { getEmployeeDiscountDropdown } from './lib/dropdown';
@@ -54,7 +55,7 @@ function buildRow(existing: any, fields: any, update_by: string | undefined, now
 //  - `resource=taft`         → { userStore, taftsForStore } untuk field taft_by
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const searchParams = scopedParams(request);
     const resource = searchParams.get('resource');
 
     if (resource === 'dropdown') {

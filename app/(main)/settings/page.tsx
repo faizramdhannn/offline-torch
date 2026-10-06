@@ -27,6 +27,9 @@ interface UserData {
   id: string;
   name: string;
   user_name: string;
+  role?: string;
+  role_name?: string;
+  deviations?: string[];
   email?: string;
   phone?: string;
   address?: string;
@@ -585,6 +588,13 @@ export default function SettingsPage() {
                     >
                       <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Last Login</span>
                     </th>
+                    <th
+                      className="border-r-2 border-gray-300 bg-white px-2 py-1 text-left align-bottom whitespace-nowrap"
+                      rowSpan={2}
+                      style={{ minWidth: 90 }}
+                    >
+                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Role</span>
+                    </th>
 
                     {/* Group headers */}
                     {PERM_GROUPS.map((g, gi) => (
@@ -667,6 +677,19 @@ export default function SettingsPage() {
                             <span className="text-[10px] text-gray-600">{u.last_activity}</span>
                           ) : (
                             <span className="text-[10px] italic text-gray-300">Belum pernah</span>
+                          )}
+                        </td>
+
+                        {/* Role + penanda menyimpang dari template role */}
+                        <td className="px-2 py-1 border-r-2 border-gray-300 whitespace-nowrap" style={{ minWidth: 90 }}>
+                          <span className="text-[10px] font-semibold text-gray-700">{u.role_name || u.role}</span>
+                          {u.deviations && u.deviations.length > 0 && (
+                            <span
+                              className="ml-1 cursor-help text-[10px] text-amber-600"
+                              title={`Berbeda dari role ${u.role_name || u.role}:\n${u.deviations.join("\n")}`}
+                            >
+                              ⚠ {u.deviations.length}
+                            </span>
                           )}
                         </td>
 

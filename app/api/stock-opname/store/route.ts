@@ -1,9 +1,10 @@
+import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData } from '@/lib/sheets';
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const searchParams = scopedParams(request);
     const username = searchParams.get('username') || '';
     const hasReportAccess = searchParams.get('hasReportAccess') === 'true';
 

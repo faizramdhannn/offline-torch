@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { matchRule, sessionInfo, isTrue } from "@/lib/authz";
+import { matchRule, sessionInfo, isTrue, SCOPED_HEADER } from "@/lib/authz";
 import { getUserByUserName, type UserRow } from "@/lib/users";
 
 // Penegakan akses di server — aturan ada di RULES (lib/authz.ts).
@@ -15,7 +15,11 @@ async function cachedUser(name: string) {
 
 export async function proxy(request: NextRequest) {
   const rule = matchRule(request.nextUrl.pathname, request.method);
-  if (rule.public) return NextResponse.next();
+  // Header ini hanya boleh diisi proxy (klien tidak boleh memalsukan).
+  const fwd = new Headers(request.headers);
+  fwd.delete(SCOPED_HEADER);
+  const pass = () => NextResponse.next({ request: { headers: fwd } });
+  if (rule.public) return pass();
 
   const info = sessionInfo(request);
   if (!info) {
@@ -29,7 +33,27 @@ export async function proxy(request: NextRequest) {
   if (rule.any.length > 0 && !rule.any.some((k) => isTrue(user[k]))) {
     return NextResponse.json({ error: "Akses ditolak" }, { status: 403 });
   }
-  return NextResponse.next();
+  // Ikat identitas & hak data ke sesi (hanya GET).
+  if (rule.scope && request.method === "GET") {
+    const url = request.nextUrl.clone();
+    const q = url.searchParams;
+    const sc = rule.scope;
+    let changed = false;
+    const set = (k: string, v: string) => {
+      if (q.get(k) !== v) { q.set(k, v); changed = true; }
+    };
+    for (const k of sc.identity || []) if (q.has(k)) set(k, user.user_name);
+    for (const k of sc.name || []) if (q.has(k)) set(k, user.name);
+    for (const p of sc.privileged || []) {
+      const want = p.value ?? "true";
+      if (q.get(p.param) === want && !p.any.some((f) => isTrue(user[f]))) set(p.param, "false");
+    }
+    if (sc.store && q.has(sc.store.param) && !sc.store.bypass.some((f) => isTrue(user[f]))) {
+      set(sc.store.param, user.user_name);
+    }
+    if (changed) fwd.set(SCOPED_HEADER, url.search);
+  }
+  return pass();
 }
 
 export const config = { matcher: ["/api/:path*"] };

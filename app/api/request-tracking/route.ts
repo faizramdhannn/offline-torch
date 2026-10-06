@@ -1,3 +1,4 @@
+import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
 import { uploadToGoogleDrive } from '@/lib/drive';
@@ -96,7 +97,7 @@ async function sendTelegramNotification(sender: string, trackingNumber: string):
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const searchParams = scopedParams(request);
     const username = searchParams.get('username');
     const userName = searchParams.get('userName') ?? '';
     const isTrackingEdit = searchParams.get('isTrackingEdit') === 'true';

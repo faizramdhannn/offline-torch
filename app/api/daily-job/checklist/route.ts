@@ -1,3 +1,4 @@
+import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
 import { getEmployeeDiscountTaft } from '@/app/api/employee-discount/lib/taft';
@@ -71,7 +72,7 @@ function buildRow(existing: any, fields: any, now: string): any[] {
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const searchParams = scopedParams(request);
     const userName = (searchParams.get('userName') || '').trim();
     const name = (searchParams.get('name') || '').trim();
     const all = searchParams.get('all') === 'true';

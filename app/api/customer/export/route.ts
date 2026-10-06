@@ -1,3 +1,4 @@
+import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from 'next/server';
 import { sql, ensureCustomerSchema } from '@/lib/neon';
 
@@ -5,7 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     await ensureCustomerSchema();
 
-    const { searchParams } = new URL(request.url);
+    const searchParams = scopedParams(request);
     const from = searchParams.get('from');
     const to = searchParams.get('to');
 

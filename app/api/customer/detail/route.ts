@@ -1,3 +1,4 @@
+import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from 'next/server';
 import { sql, ensureCustomerSchema } from '@/lib/neon';
 
@@ -9,7 +10,7 @@ export async function GET(request: NextRequest) {
   try {
     await ensureCustomerSchema();
 
-    const { searchParams } = new URL(request.url);
+    const searchParams = scopedParams(request);
     const phone = searchParams.get('phone');
     if (!phone) {
       return NextResponse.json({ error: 'phone is required' }, { status: 400 });

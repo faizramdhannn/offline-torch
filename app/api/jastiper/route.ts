@@ -1,3 +1,4 @@
+import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from "next/server";
 import { sql, ensureJastiperSchema } from "@/lib/neon";
 import { normalizePhone, generateJastiperCode, resolveCodeCollision, toTitleCase } from "@/lib/jastiper";
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
   try {
     await ensureJastiperSchema();
 
-    const { searchParams } = new URL(request.url);
+    const searchParams = scopedParams(request);
     const username = searchParams.get("username");
     if (!username) {
       return NextResponse.json({ error: "Username is required" }, { status: 400 });

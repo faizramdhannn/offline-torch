@@ -1,3 +1,4 @@
+import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow } from '@/lib/sheets';
 import { uploadAttendanceSelfie } from '@/lib/attendanceDrive';
@@ -63,7 +64,7 @@ function validateCoordinates(
 // ─── GET ──────────────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const searchParams = scopedParams(request);
     const storeName = searchParams.get('store_name');
     const date = searchParams.get('date');
     const isAll = searchParams.get('all') === 'true';
