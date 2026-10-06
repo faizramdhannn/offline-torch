@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import jsPDF from "jspdf";
 import sharp from "sharp";
+import { getCatalogVersion } from "@/lib/catalogVersion";
 import { getSheetData } from "@/lib/sheets";
 import { ONLINE_GROUPS, onlineGroupOf, onlineGroupIndex, parseColors } from "@/lib/onlineCatalogMap";
 
@@ -281,13 +282,22 @@ function drawCards(doc: jsPDF, items: Product[], y: number) {
 }
 
 export interface CatalogConfig {
+  key: string;
   sheet: string;
   title: string;
   filename: string;
 }
 
 export async function generateCatalogResponse(request: Request, cfg: CatalogConfig) {
-  const download = new URL(request.url).searchParams.get("download") === "1";
+  const reqUrl = new URL(request.url);
+  const download = reqUrl.searchParams.get("download") === "1";
+  // Hanya versi terbaru yang dilayani (dan di-cache lama); link lama/tanpa ?v=
+  // diarahkan ke versi sekarang.
+  const current = await getCatalogVersion(cfg.key);
+  if (reqUrl.searchParams.get("v") !== current) {
+    reqUrl.searchParams.set("v", current);
+    return NextResponse.redirect(reqUrl, { status: 307, headers: { "Cache-Control": "no-store" } });
+  }
   try {
     const toProducts = (data: any[]): Product[] =>
       data
@@ -360,7 +370,7 @@ export async function generateCatalogResponse(request: Request, cfg: CatalogConf
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${cfg.filename}"`,
-        "Cache-Control": "public, s-maxage=21600, stale-while-revalidate=3600",
+        "Cache-Control": "public, s-maxage=31536000, max-age=3600",
       },
     });
   } catch (error) {

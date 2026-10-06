@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { QRCodeCanvas } from "qrcode.react";
-import { BookOpen, Download, ExternalLink, QrCode, X } from "lucide-react";
+import { BookOpen, Download, ExternalLink, QrCode, RefreshCw, X } from "lucide-react";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { Button } from "@/components/shared/Button";
 import { GlassCard } from "@/components/shared/GlassCard";
@@ -43,6 +43,36 @@ export default function CatalogPage() {
   const [user, setUser] = useState<any>(null);
   const [qrEntry, setQrEntry] = useState<CatalogEntry | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [refreshing, setRefreshing] = useState<string | null>(null);
+  const [meta, setMeta] = useState<Record<string, { updated_at: string; updated_by: string }>>({});
+  const [notice, setNotice] = useState("");
+
+  const loadMeta = () =>
+    fetch("/api/catalog/refresh").then((r) => r.json()).then(setMeta).catch(() => {});
+  useEffect(() => { loadMeta(); }, []);
+
+  const refreshCatalog = async (entry: CatalogEntry) => {
+    if (!user) return;
+    setRefreshing(entry.key);
+    setNotice("");
+    try {
+      const res = await fetch("/api/catalog/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: user.user_name, key: entry.key }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || "Gagal refresh");
+      // hangatkan CDN dengan versi baru supaya pengunjung publik langsung cepat
+      await fetch(`${entry.path}/pdf?v=${j.version}`, { cache: "no-store" }).then((r) => r.arrayBuffer()).catch(() => {});
+      setNotice(`${entry.name} diperbarui dari sheet.`);
+      loadMeta();
+    } catch (e: any) {
+      setNotice(e.message || "Gagal refresh");
+    } finally {
+      setRefreshing(null);
+    }
+  };
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -116,6 +146,7 @@ export default function CatalogPage() {
           </div>
         </div>
 
+        {notice && <p className="mb-3 rounded-xl bg-gray-100 px-4 py-2 text-xs text-gray-700">{notice}</p>}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {CATALOGS.map((entry) => (
             <GlassCard key={entry.key} padding="md" className="glass-card-elevated flex flex-col gap-3">
@@ -142,6 +173,19 @@ export default function CatalogPage() {
                   QR Code
                 </Button>
               </div>
+              {user?.user_setting && (
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] text-gray-400">
+                    Update otomatis 10:00 WIB
+                    {meta[entry.key]?.updated_at
+                      ? ` · terakhir ${new Date(meta[entry.key].updated_at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`
+                      : ""}
+                  </p>
+                  <Button variant="outline" size="sm" icon={RefreshCw} loading={refreshing === entry.key} onClick={() => refreshCatalog(entry)}>
+                    Refresh
+                  </Button>
+                </div>
+              )}
             </GlassCard>
           ))}
         </div>

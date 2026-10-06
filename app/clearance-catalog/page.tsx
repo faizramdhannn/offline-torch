@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getCatalogVersion } from "@/lib/catalogVersion";
 
 // Halaman publik (tanpa login) Online Catalog: preview PDF + tombol Download.
 export const metadata: Metadata = {
@@ -6,7 +7,11 @@ export const metadata: Metadata = {
   description: "Katalog clearance Torch (A4)",
 };
 
-export default function ClearanceCatalogPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ClearanceCatalogPage() {
+  const v = await getCatalogVersion("clearance");
+  const pdf = `/clearance-catalog/pdf?v=${v}`;
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f3f0e8" }}>
       <header
@@ -23,7 +28,7 @@ export default function ClearanceCatalogPage() {
         <strong style={{ fontSize: 15 }}>Torch Clearance Catalog</strong>
         <div style={{ display: "flex", gap: 8 }}>
           <a
-            href="/clearance-catalog/pdf"
+            href={pdf}
             target="_blank"
             rel="noopener noreferrer"
             style={{ padding: "8px 14px", borderRadius: 8, background: "rgba(255,255,255,0.18)", color: "#fff", fontSize: 13, textDecoration: "none" }}
@@ -31,7 +36,7 @@ export default function ClearanceCatalogPage() {
             Buka PDF
           </a>
           <a
-            href="/clearance-catalog/pdf?download=1"
+            href={`${pdf}&download=1`}
             style={{ padding: "8px 14px", borderRadius: 8, background: "#fff", color: "#0b7a8f", fontSize: 13, fontWeight: 700, textDecoration: "none" }}
           >
             Download PDF
@@ -39,7 +44,7 @@ export default function ClearanceCatalogPage() {
         </div>
       </header>
       <iframe
-        src="/clearance-catalog/pdf"
+        src={pdf}
         title="Torch Clearance Catalog"
         style={{ flex: 1, width: "100%", border: "none", minHeight: "calc(100vh - 56px)" }}
       />

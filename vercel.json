@@ -1,4 +1,5 @@
 {
+  "crons": [{ "path": "/api/cron/catalog-refresh", "schedule": "0 3 * * *" }],
   "headers": [
     {
       "source": "/(.*)",
