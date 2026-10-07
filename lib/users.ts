@@ -1,4 +1,4 @@
-import { sql } from "./neon";
+import { sql, ensureOnce } from "./neon";
 
 // Kolom permission di sheet `users` (urutan = header sheet). Nilainya disimpan
 // sebagai 'TRUE'/'FALSE' supaya semua pemanggil lama (u.stock === 'TRUE') tetap jalan.
@@ -41,7 +41,7 @@ let schemaReady: Promise<void> | null = null;
 
 export function ensureUsersSchema(): Promise<void> {
   if (!schemaReady) {
-    schemaReady = (async () => {
+    schemaReady = ensureOnce("users", "v3", async () => {
       await sql`
         CREATE TABLE IF NOT EXISTS app_users (
           id TEXT PRIMARY KEY,
@@ -83,7 +83,7 @@ export function ensureUsersSchema(): Promise<void> {
       await sql`UPDATE app_users SET role = 'super_admin' WHERE role = '' AND user_name = 'faizramdhann'`;
       await sql`UPDATE app_users SET role = 'admin' WHERE role = '' AND perms->>'user_setting' = 'TRUE'`;
       await sql`UPDATE app_users SET role = 'store' WHERE role = ''`;
-    })().catch((e) => {
+    }).catch((e) => {
       schemaReady = null;
       throw e;
     });

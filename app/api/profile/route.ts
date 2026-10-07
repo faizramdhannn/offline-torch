@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getUserByUserName, updateUserProfile } from "@/lib/users";
 import { sessionUserName } from "@/lib/authz";
+import { normalizePhone, hasPostalCode } from "@/lib/profileRules";
 import { shrinkImageBuffer } from "@/lib/shrinkImage";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,8 @@ export const maxDuration = 30;
 async function profileOf(userName: string) {
   const u = await getUserByUserName(userName);
   if (!u) return null;
-  let { phone, address } = u;
+  let phone = normalizePhone(u.phone);
+  let address = u.address;
   let fromStore = false;
   if (!phone || !address) {
     try {
@@ -21,7 +23,7 @@ async function profileOf(userName: string) {
       const key = (s: string) => s.trim().toLowerCase();
       const hit = stores.find((s) => key(s.store_location) === key(u.user_name) || key(s.store_location) === key(u.name));
       if (hit) {
-        if (!phone && hit.phone_number) { phone = hit.phone_number; fromStore = true; }
+        if (!phone && hit.phone_number) { phone = normalizePhone(hit.phone_number); fromStore = true; }
         if (!address && hit.address) { address = hit.address; fromStore = true; }
       }
     } catch {
@@ -69,6 +71,17 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Format email tidak valid" }, { status: 400 });
     }
 
+    // Telepon disimpan seragam berawalan 62; alamat (bila diisi) wajib memuat kode pos.
+    const phoneRaw = str("phone");
+    const phone = phoneRaw === undefined ? undefined : normalizePhone(phoneRaw);
+    if (phone && !/^62\d{9,13}$/.test(phone)) {
+      return NextResponse.json({ error: "No. telepon tidak valid (contoh: 081234567890)" }, { status: 400 });
+    }
+    const addressIn = str("address");
+    if (addressIn && !hasPostalCode(addressIn)) {
+      return NextResponse.json({ error: "Alamat harus mencantumkan kode pos (5 digit)" }, { status: 400 });
+    }
+
     let password: string | undefined;
     const newPassword = str("new_password");
     if (newPassword) {
@@ -92,7 +105,7 @@ export async function PUT(request: NextRequest) {
     await updateUserProfile(userName, {
       name: str("name") || undefined,
       email,
-      phone: str("phone"),
+      phone,
       address: str("address"),
       photo_url,
       password,

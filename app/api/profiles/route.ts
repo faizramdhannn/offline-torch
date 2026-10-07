@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserByUserName, getUsersData, adminUpdateUser, countSuperAdmins, createUser, userNameTaken } from "@/lib/users";
 import bcrypt from "bcryptjs";
+import { normalizePhone } from "@/lib/profileRules";
 import { audit } from "@/lib/audit";
 import { getRole, applyRoleToUser } from "@/lib/roles";
 import { sessionUser } from "@/lib/authz";
@@ -63,7 +64,7 @@ export async function PUT(request: NextRequest) {
       active,
       name: typeof body.name === "string" ? body.name.trim() || undefined : undefined,
       email,
-      phone: typeof body.phone === "string" ? body.phone.trim() : undefined,
+      phone: typeof body.phone === "string" ? normalizePhone(body.phone) : undefined,
       address: typeof body.address === "string" ? body.address.trim() : undefined,
       role,
       remove_photo: body.remove_photo === true,

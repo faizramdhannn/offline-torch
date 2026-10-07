@@ -28,7 +28,21 @@ export interface ProfileLike {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_RE = /^\+?[0-9][0-9\s-]{7,17}$/;
+
+// Nomor telepon selalu disimpan sebagai angka berawalan 62 (tanpa +, spasi, strip).
+// 0812… → 62812…, +62 812… → 62812…, 812… → 62812….
+export function normalizePhone(raw: string | null | undefined): string {
+  const d = String(raw || "").replace(/\D/g, "");
+  if (!d) return "";
+  if (d.startsWith("62")) return d;
+  if (d.startsWith("0")) return "62" + d.slice(1);
+  if (d.startsWith("8")) return "62" + d;
+  return d;
+}
+const PHONE_RE = /^62\d{9,13}$/;
+
+// Kode pos Indonesia = 5 digit yang berdiri sendiri (bukan bagian dari angka lebih panjang).
+export const hasPostalCode = (address: string) => /(?<!\d)\d{5}(?!\d)/.test(String(address || ""));
 
 // Pesan error per field yang belum benar (kosong = lengkap).
 export function profileProblems(p: ProfileLike, hasNewPhoto = false): Partial<Record<ProfileField, string>> {
@@ -41,16 +55,23 @@ export function profileProblems(p: ProfileLike, hasNewPhoto = false): Partial<Re
       else if (!EMAIL_RE.test(v)) out.email = "Format email tidak valid";
     }
     if (f === "phone") {
-      const v = String(p.phone || "").trim();
-      if (!v) out.phone = "No. telepon wajib diisi";
-      else if (!PHONE_RE.test(v)) out.phone = "No. telepon tidak valid (hanya angka, 9–15 digit)";
+      const raw = String(p.phone || "").trim();
+      const v = normalizePhone(raw);
+      if (!raw) out.phone = "No. telepon wajib diisi";
+      else if (!PHONE_RE.test(v)) out.phone = "No. telepon tidak valid (contoh: 081234567890 atau 6281234567890)";
     }
     if (f === "address") {
       const v = String(p.address || "").trim();
       if (!v) out.address = "Alamat wajib diisi";
       else if (v.length < 10) out.address = "Alamat terlalu pendek (min. 10 karakter)";
+      else if (!hasPostalCode(v)) out.address = "Alamat harus mencantumkan kode pos (5 digit)";
     }
     if (f === "photo" && !hasNewPhoto && !String(p.photo_url || "").trim()) out.photo = "Foto profil wajib diunggah";
+  }
+  // Alamat tidak wajib untuk role lain, tapi bila diisi tetap harus memuat kode pos.
+  const addr = String(p.address || "").trim();
+  if (!requiredProfileFields(p.role).includes("address") && addr && !hasPostalCode(addr)) {
+    out.address = "Alamat harus mencantumkan kode pos (5 digit)";
   }
   return out;
 }

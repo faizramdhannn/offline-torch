@@ -6,11 +6,30 @@ if (!process.env.DATABASE_URL) {
 
 export const sql = neon(process.env.DATABASE_URL);
 
+// Skema database dijalankan SEKALI per versi, bukan di setiap cold start: dulu tiap instance baru
+// menjalankan 5–15 perintah DDL (CREATE/ALTER ... IF NOT EXISTS) sebelum melayani request pertama.
+// Sekarang cukup 1 query baca versi. WAJIB menaikkan `version` kalau isi DDL di `fn` diubah.
+export async function ensureOnce(name: string, version: string, fn: () => Promise<void>): Promise<void> {
+  let current: string | undefined;
+  try {
+    const r = await sql`SELECT version FROM schema_version WHERE name = ${name}`;
+    current = r[0]?.version as string | undefined;
+  } catch {
+    await sql`CREATE TABLE IF NOT EXISTS schema_version (name TEXT PRIMARY KEY, version TEXT NOT NULL)`;
+  }
+  if (current === version) return;
+  await fn();
+  await sql`
+    INSERT INTO schema_version (name, version) VALUES (${name}, ${version})
+    ON CONFLICT (name) DO UPDATE SET version = ${version}
+  `;
+}
+
 let schemaReady: Promise<void> | null = null;
 
 export function ensureCustomerSchema(): Promise<void> {
   if (!schemaReady) {
-    schemaReady = (async () => {
+    schemaReady = ensureOnce('customer', 'v1', async () => {
       await sql`
         CREATE TABLE IF NOT EXISTS shopify_orders (
           id BIGSERIAL PRIMARY KEY,
@@ -105,7 +124,7 @@ export function ensureCustomerSchema(): Promise<void> {
           ('bulk_order', 'Bulk Order', 'bulk', 4)
         ON CONFLICT (badge_key) DO NOTHING
       `;
-    })();
+    });
   }
   return schemaReady;
 }
@@ -114,7 +133,7 @@ let jastiperSchemaReady: Promise<void> | null = null;
 
 export function ensureJastiperSchema(): Promise<void> {
   if (!jastiperSchemaReady) {
-    jastiperSchemaReady = (async () => {
+    jastiperSchemaReady = ensureOnce('jastiper', 'v1', async () => {
       await sql`
         CREATE TABLE IF NOT EXISTS jastiper_master (
           uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -164,7 +183,7 @@ export function ensureJastiperSchema(): Promise<void> {
         ON jastiper_master(jastiper_store, jastiper_code)
         WHERE jastiper_code <> ''
       `;
-    })();
+    });
   }
   return jastiperSchemaReady;
 }
@@ -173,7 +192,7 @@ let announcementSchemaReady: Promise<void> | null = null;
 
 export function ensureAnnouncementSchema(): Promise<void> {
   if (!announcementSchemaReady) {
-    announcementSchemaReady = (async () => {
+    announcementSchemaReady = ensureOnce('announcement', 'v1', async () => {
       await sql`
         CREATE TABLE IF NOT EXISTS app_announcement (
           id INT PRIMARY KEY DEFAULT 1,
@@ -196,7 +215,7 @@ export function ensureAnnouncementSchema(): Promise<void> {
       // butuh ALTER supaya tetap ada.
       await sql`ALTER TABLE app_announcement ADD COLUMN IF NOT EXISTS image_url TEXT NOT NULL DEFAULT ''`;
       await sql`ALTER TABLE app_announcement ADD COLUMN IF NOT EXISTS link_text TEXT NOT NULL DEFAULT ''`;
-    })();
+    });
   }
   return announcementSchemaReady;
 }

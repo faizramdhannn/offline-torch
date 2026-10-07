@@ -1,4 +1,4 @@
-import { sql } from "./neon";
+import { sql, ensureOnce } from "./neon";
 
 // Pembatas percobaan login (anti tebak password): per username dan per IP.
 const WINDOW_MS = 15 * 60 * 1000;
@@ -9,7 +9,7 @@ const IP_MAX = 40;
 let schemaReady: Promise<void> | null = null;
 function ensureSchema(): Promise<void> {
   if (!schemaReady) {
-    schemaReady = (async () => {
+    schemaReady = ensureOnce("login_guard", "v1", async () => {
       await sql`
         CREATE TABLE IF NOT EXISTS login_attempts (
           key TEXT PRIMARY KEY,
@@ -18,7 +18,7 @@ function ensureSchema(): Promise<void> {
           locked_until BIGINT NOT NULL DEFAULT 0
         )
       `;
-    })().catch((e) => {
+    }).catch((e) => {
       schemaReady = null;
       throw e;
     });

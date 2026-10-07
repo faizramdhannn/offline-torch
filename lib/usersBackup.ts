@@ -1,4 +1,4 @@
-import { sql } from "./neon";
+import { sql, ensureOnce } from "./neon";
 import { ensureUsersSchema } from "./users";
 import { ensureRolesSchema } from "./roles";
 
@@ -9,7 +9,7 @@ const KEEP = 60;
 let schemaReady: Promise<void> | null = null;
 function ensureSchema(): Promise<void> {
   if (!schemaReady) {
-    schemaReady = (async () => {
+    schemaReady = ensureOnce("users_backup", "v1", async () => {
       await ensureUsersSchema();
       await ensureRolesSchema();
       await sql`
@@ -22,7 +22,7 @@ function ensureSchema(): Promise<void> {
           data JSONB NOT NULL
         )
       `;
-    })().catch((e) => {
+    }).catch((e) => {
       schemaReady = null;
       throw e;
     });

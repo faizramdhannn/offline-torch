@@ -90,6 +90,7 @@ function ProfileInner() {
       if (!res.ok) throw new Error(j.error || "Gagal menyimpan");
       const p: Profile = j.profile;
       setProfile(p);
+      setForm((f) => ({ ...f, name: p.name || f.name, phone: p.phone || f.phone, address: p.address || f.address }));
       setPhotoFile(null);
       setPhotoPreview("");
       setRemovePhoto(false);
@@ -192,12 +193,12 @@ function ProfileInner() {
         </label>
         <label className="block text-xs font-medium text-gray-600">
           <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" /> No. telepon{star("phone")}</span>
-          <input inputMode="tel" className={`${field} mt-1 ${bad("phone") ? "!border-red-400" : ""}`} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <input inputMode="tel" placeholder="081234567890 (disimpan sebagai 62…)" className={`${field} mt-1 ${bad("phone") ? "!border-red-400" : ""}`} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           {errText("phone")}
         </label>
         <label className="block text-xs font-medium text-gray-600">
           <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" /> Alamat{star("address")}</span>
-          <textarea rows={3} className={`${field} mt-1 ${bad("address") ? "!border-red-400" : ""}`} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+          <textarea rows={3} placeholder="Jalan, kelurahan, kecamatan, kota, provinsi, KODE POS" className={`${field} mt-1 ${bad("address") ? "!border-red-400" : ""}`} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           {errText("address")}
         </label>
       </div>

@@ -1,4 +1,4 @@
-import { sql } from "./neon";
+import { sql, ensureOnce } from "./neon";
 import { ensureUsersSchema, PERMISSION_KEYS } from "./users";
 
 export interface RoleRow {
@@ -13,7 +13,7 @@ let schemaReady: Promise<void> | null = null;
 
 export function ensureRolesSchema(): Promise<void> {
   if (!schemaReady) {
-    schemaReady = (async () => {
+    schemaReady = ensureOnce("roles", "v2", async () => {
       await ensureUsersSchema();
       await sql`
         CREATE TABLE IF NOT EXISTS app_roles (
@@ -44,7 +44,7 @@ export function ensureRolesSchema(): Promise<void> {
       const guest: Record<string, string> = {};
       for (const k of PERMISSION_KEYS) guest[k] = k === "dashboard" ? "TRUE" : "FALSE";
       await sql`INSERT INTO app_roles (key, name, perms, is_system) VALUES ('guest', 'Guest', ${JSON.stringify(guest)}::jsonb, true) ON CONFLICT DO NOTHING`;
-    })().catch((e) => {
+    }).catch((e) => {
       schemaReady = null;
       throw e;
     });

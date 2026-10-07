@@ -1,4 +1,4 @@
-import { sql } from "./neon";
+import { sql, ensureOnce } from "./neon";
 
 // Versi katalog = bagian dari URL PDF (?v=...). CDN meng-cache tiap versi
 // permanen; "refresh" cukup menaikkan versi, jadi PDF dibuat ulang tepat satu kali.
@@ -8,7 +8,7 @@ export type CatalogKey = (typeof CATALOG_KEYS)[number];
 let schemaReady: Promise<void> | null = null;
 function ensureSchema(): Promise<void> {
   if (!schemaReady) {
-    schemaReady = (async () => {
+    schemaReady = ensureOnce("catalog_state", "v2", async () => {
       await sql`
         CREATE TABLE IF NOT EXISTS catalog_state (
           key TEXT PRIMARY KEY,
@@ -18,7 +18,7 @@ function ensureSchema(): Promise<void> {
         )
       `;
       await sql`ALTER TABLE catalog_state ADD COLUMN IF NOT EXISTS blob_url TEXT NOT NULL DEFAULT ''`;
-    })().catch((e) => {
+    }).catch((e) => {
       schemaReady = null;
       throw e;
     });

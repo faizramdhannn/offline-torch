@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/neon";
 import { ensureUsersSchema } from "@/lib/users";
 import { jsonWithEtag } from "@/lib/etag";
+import { normalizePhone } from "@/lib/profileRules";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
       return {
         id: r.id as string,
         store_location: r.name as string,
-        phone_number: (r.phone || fb?.phone_number || "") as string,
+        phone_number: normalizePhone(r.phone || fb?.phone_number || ""),
         address: (r.address || fb?.address || "") as string,
         status: "Active",
         role: r.role as string,
