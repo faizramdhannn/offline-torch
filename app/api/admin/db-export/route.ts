@@ -2,6 +2,7 @@ import { getUsersData } from "@/lib/users";
 import { NextRequest, NextResponse } from "next/server";
 import { sql, ensureCustomerSchema, ensureJastiperSchema, ensureAnnouncementSchema } from "@/lib/neon";
 import { getSheetData } from "@/lib/sheets";
+import { ensureActivityLogSchema } from "@/lib/activityLog";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Export tabel-tabel Neon Postgres (data yang TIDAK ada di Google Sheets)
@@ -27,6 +28,16 @@ interface TableConfig {
 }
 
 const TABLES: Record<string, TableConfig> = {
+  activity_log: {
+    label: "Activity Log",
+    ensureSchema: ensureActivityLogSchema,
+    query: () =>
+      sql`
+        SELECT id, ts_text AS timestamp, user_name AS "user", method, activity_log, entity_type, entity_id
+        FROM app_activity_log
+        ORDER BY seq DESC, pk DESC
+      ` as Promise<Record<string, unknown>[]>,
+  },
   jastiper_master: {
     label: "Jastiper (Master)",
     ensureSchema: ensureJastiperSchema,

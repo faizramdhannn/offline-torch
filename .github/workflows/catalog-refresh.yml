@@ -1,0 +1,43 @@
+# Membuat ulang PDF Online Catalog & Clearance Catalog tiap hari di GitHub (bukan di Vercel),
+# lalu mengunggahnya ke Vercel Blob. Hemat CPU Vercel Hobby. Bisa juga dijalankan manual (tab Actions → Run workflow).
+#
+# Secrets yang dibutuhkan (Settings → Secrets and variables → Actions):
+#   GOOGLE_CREDENTIALS, SPREADSHEET_CATALOG, DATABASE_URL, BLOB_READ_WRITE_TOKEN
+name: Refresh katalog PDF
+
+on:
+  schedule:
+    - cron: "30 2 * * *" # 02:30 UTC = 09:30 WIB (cron Vercel 03:00 UTC jadi cadangan)
+  workflow_dispatch:
+    inputs:
+      catalog:
+        description: "Kosongkan untuk semua, atau isi: online / clearance"
+        required: false
+        default: ""
+
+concurrency:
+  group: catalog-refresh
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Pasang dependensi
+        run: npm ci
+
+      - name: Buat & unggah PDF
+        run: npx tsx scripts/generate-catalogs.ts ${{ github.event.inputs.catalog }}
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          SPREADSHEET_CATALOG: ${{ secrets.SPREADSHEET_CATALOG }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}

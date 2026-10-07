@@ -1,51 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSheetData, appendSheetData } from '@/lib/sheets';
+import { countToday, listPage, listByEntity, listRecent, insertActivity } from '@/lib/activityLog';
 
 export async function GET(request: NextRequest) {
   try {
-    const data = await getSheetData('activity_log');
-
     const { searchParams } = new URL(request.url);
     const entityType = searchParams.get('entity_type');
     const entityId = searchParams.get('entity_id');
 
-    // Ringkasan untuk dashboard: id log = Date.now() (ms), jadi "hari ini (WIB)" cukup dihitung dari id.
+    // Ringkasan untuk dashboard: jumlah log hari ini (WIB).
     if (searchParams.get('summary') === 'today') {
-      const wibNow = new Date(Date.now() + 7 * 3600 * 1000);
-      const startOfDay = Date.UTC(wibNow.getUTCFullYear(), wibNow.getUTCMonth(), wibNow.getUTCDate()) - 7 * 3600 * 1000;
-      const today = data.filter((log: any) => (parseInt(log.id) || 0) >= startOfDay).length;
-      return NextResponse.json({ today });
+      return NextResponse.json({ today: await countToday() });
     }
 
     // Daftar berhalaman untuk Settings: ?page=&per=&q= → { rows, total }
     if (searchParams.has('page')) {
-      const q = (searchParams.get('q') || '').toLowerCase().trim();
       const per = Math.min(100, Math.max(1, parseInt(searchParams.get('per') || '10') || 10));
       const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1);
-      const all = data
-        .filter((log: any) =>
-          !q ||
-          String(log.user || '').toLowerCase().includes(q) ||
-          String(log.activity_log || '').toLowerCase().includes(q) ||
-          String(log.method || '').toLowerCase().includes(q)
-        )
-        .sort((a: any, b: any) => (parseInt(b.id) || 0) - (parseInt(a.id) || 0));
-      return NextResponse.json({ rows: all.slice((page - 1) * per, page * per), total: all.length });
+      return NextResponse.json(await listPage(page, per, (searchParams.get('q') || '').trim()));
     }
 
-    const filteredData = entityType
-      ? data.filter((log: any) =>
-          log.entity_type === entityType && log.entity_id === entityId
-        )
-      : data;
+    // Riwayat satu entitas (komponen ActivityHistory).
+    if (entityType) {
+      return NextResponse.json(await listByEntity(entityType, entityId || ''));
+    }
 
-    const sortedData = filteredData.sort((a: any, b: any) => {
-      const idA = parseInt(a.id) || 0;
-      const idB = parseInt(b.id) || 0;
-      return idB - idA;
-    });
-
-    return NextResponse.json(sortedData);
+    // Tanpa parameter: 500 log terbaru (dulu seluruh sheet).
+    return NextResponse.json(await listRecent(500));
   } catch (error) {
     console.error('Error fetching activity log:', error);
     return NextResponse.json(
@@ -72,33 +52,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const id = Date.now().toString();
-    const timestamp = new Date().toLocaleString('id-ID', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-      timeZone: 'Asia/Jakarta'
-    });
-
-    const newLog = [
-      id,
-      timestamp,
+    // Riwayat disimpan permanen (tidak ada pembersihan otomatis).
+    const id = await insertActivity({
       user,
       method,
-      activityLog,
-      entityType || '',
-      entityId != null ? String(entityId) : ''
-    ];
-
-    await appendSheetData('activity_log', [newLog]);
-
-    // Auto-cleanup (dulu menghapus log > 30 hari) SENGAJA dimatikan — user
-    // minta semua riwayat aktivitas disimpan permanen, baik yang lama
-    // (sudah ada di spreadsheet) maupun yang baru.
+      activity_log: activityLog,
+      entity_type: entityType || '',
+      entity_id: entityId != null ? String(entityId) : '',
+    });
 
     return NextResponse.json({ success: true, id });
   } catch (error) {
