@@ -4,11 +4,15 @@ export async function shrinkImageBuffer(
   buffer: Buffer,
   mimeType: string,
   maxDimension = 1600,
-  quality = 75
+  quality = 75,
+  // Foto yang sudah kecil (mis. sudah dikompres di browser) tidak diproses ulang: hemat CPU dan
+  // menghindari kompresi JPEG ganda yang menurunkan kualitas.
+  skipBelowBytes = 300 * 1024
 ): Promise<{ buffer: Buffer; mimeType: string }> {
   if (!mimeType.startsWith('image/') || mimeType.includes('svg') || mimeType.includes('gif')) {
     return { buffer, mimeType };
   }
+  if (buffer.length <= skipBelowBytes) return { buffer, mimeType };
   try {
     // Import dinamis: sharp (native) hanya dimuat saat benar-benar ada gambar yang diproses.
     const sharp = (await import('sharp')).default;
