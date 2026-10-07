@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { google } from '@/lib/google';
 
 interface JavelinAuthResponse {
   p_user_id: string;

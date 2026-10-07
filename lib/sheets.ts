@@ -1,4 +1,4 @@
-import { google } from "googleapis";
+import { google } from '@/lib/google';
 
 const SPREADSHEET_MAP: Record<string, string> = {
   users: process.env.SPREADSHEET_USERS || "",

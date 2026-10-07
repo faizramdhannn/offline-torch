@@ -12,7 +12,7 @@ import {
   BorderStyle,
   HeadingLevel,
 } from "docx";
-import { google } from "googleapis";
+import { google } from "@/lib/google";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

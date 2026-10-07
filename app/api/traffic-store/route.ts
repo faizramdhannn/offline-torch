@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { google } from '@/lib/google';
 import { withCache, invalidateCache } from '@/lib/sheets';
 import { jsonWithEtag } from '@/lib/etag';
 

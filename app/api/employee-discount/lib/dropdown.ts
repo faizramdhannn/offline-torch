@@ -1,5 +1,5 @@
 import { getUsersData } from '@/lib/users';
-import { google } from 'googleapis';
+import { google } from '@/lib/google';
 import { getSheetData, withCache } from '@/lib/sheets';
 
 // Sama seperti master-issue-dropdown: baca tab master_dropdown di spreadsheet

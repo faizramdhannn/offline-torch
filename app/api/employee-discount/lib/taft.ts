@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { google } from '@/lib/google';
 
 // Sama seperti resolusi taft_name di Traffic Store (app/(main)/traffic-store/page.tsx,
 // userStore & taftsForStore) tapi dilakukan di server: cocokkan user_name login

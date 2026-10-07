@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { google } from '@/lib/google';
 import { withCache } from './sheets';
 
 // store_address hidup di spreadsheet TERPISAH (SPREADSHEET_STORE) dari sheet

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Document, Packer, Paragraph, TextRun, ImageRun, Table, TableRow, TableCell, AlignmentType, WidthType, BorderStyle, HeadingLevel, ShadingType } from 'docx';
-import { google } from 'googleapis';
+import { google } from '@/lib/google';
 
 function getGoogleCredentials() {
   const credsEnv = process.env.GOOGLE_CREDENTIALS;

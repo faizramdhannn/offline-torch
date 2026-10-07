@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { google } from '@/lib/google';
 import { withCache } from '@/lib/sheets';
 
 // Sama persis pola app/api/employee-discount/lib/dropdown.ts: baca tab

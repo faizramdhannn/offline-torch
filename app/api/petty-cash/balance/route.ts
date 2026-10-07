@@ -1,6 +1,6 @@
 import { actorName } from '@/lib/authz';
 import { NextRequest, NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { google } from '@/lib/google';
 import { withCache, invalidateCache } from '@/lib/sheets';
 import { deleteSheetRows } from '@/lib/sheets';
 

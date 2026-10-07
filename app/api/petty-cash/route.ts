@@ -3,7 +3,7 @@ import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
 import { uploadToGoogleDrive } from '@/lib/drive';
-import { google } from 'googleapis';
+import { google } from '@/lib/google';
 
 function getGoogleCredentials() {
   const credsEnv = process.env.GOOGLE_CREDENTIALS;

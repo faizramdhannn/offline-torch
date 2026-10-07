@@ -1,6 +1,6 @@
 import { getUsersData } from '@/lib/users';
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { google } from '@/lib/google';
 import { getSheetData, withCache } from '@/lib/sheets';
 
 // Cache key ('daily_job_master_dropdown') sengaja SAMA dengan

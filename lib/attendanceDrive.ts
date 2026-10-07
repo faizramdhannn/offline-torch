@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { google } from '@/lib/google';
 import { Readable } from 'stream';
 import { shrinkImageBuffer } from './shrinkImage';
 

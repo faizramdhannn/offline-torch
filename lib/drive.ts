@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { google } from '@/lib/google';
 import { shrinkImageBuffer } from './shrinkImage';
 
 const PARENT_FOLDER_ID = process.env.DRIVE_PARENT_FOLDER_ID || '';

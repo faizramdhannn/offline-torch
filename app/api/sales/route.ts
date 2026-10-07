@@ -1,6 +1,6 @@
 import { jsonWithEtag } from '@/lib/etag';
 import { NextRequest, NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { google } from '@/lib/google';
 import { withCache } from '@/lib/sheets';
 
 const SPREADSHEET_SALES = process.env.SPREADSHEET_SALES || '';

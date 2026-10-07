@@ -1,6 +1,6 @@
 import { getUsersData } from '@/lib/users';
 import { NextRequest, NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { google } from '@/lib/google';
 import { getSheetData, withCache } from '@/lib/sheets';
 
 async function getMasterDropdownFromStore() {
