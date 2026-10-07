@@ -11,6 +11,7 @@ import { useAttendanceGate } from "@/hooks/useAttendanceGate";
 import DailyChecklistGateModal from "@/components/DailyChecklistGateModal";
 import { useDailyChecklistGate } from "@/hooks/useDailyChecklistGate";
 import { isProfileComplete } from "@/lib/profileRules";
+import UpdateToast from "@/components/UpdateToast";
 
 function MainLayoutInner({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
@@ -81,6 +82,8 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
         <TopBar />
         {children}
       </main>
+
+      <UpdateToast />
 
       {/* Attendance gate — only shown when user hasn't checked in yet */}
       {!profileIncomplete && showGate && storeName && (

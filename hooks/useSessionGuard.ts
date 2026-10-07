@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext";
+import { notifyIfNewBuild } from "@/lib/buildInfo";
 
 // Pengecekan ke server dibatasi (hemat invocation/CPU Vercel): paling sering 1x per 5 menit,
 // walau hook ini dipasang di banyak halaman dan dipanggil tiap pindah halaman.
@@ -76,7 +77,8 @@ export function useSessionGuard() {
           }
           if (!r.ok) return;
           // Segarkan permission/role dari server (mis. role diganti Super Admin).
-          const { user: fresh } = await r.json();
+          const { user: fresh, build } = await r.json();
+          notifyIfNewBuild(build); // ada deployment baru → tampilkan notifikasi "Muat ulang"
           const raw = localStorage.getItem("user");
           if (!fresh || !raw) return;
           const cur = JSON.parse(raw);
