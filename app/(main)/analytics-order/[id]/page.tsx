@@ -66,9 +66,8 @@ export default function AnalyticsOrderDetailPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // No date filter — search the widest range so the order can be found
-      // regardless of which dates the list page currently has filtered.
-      const res = await fetch(`/api/shopify-analytics?from=&to=`);
+      // Ambil hanya order ini (bukan seluruh order).
+      const res = await fetch(`/api/shopify-analytics?order=${encodeURIComponent(orderName)}`);
       const data = await res.json();
       const rows: Row[] = Array.isArray(data) ? data : [];
       setOrderRows(rows.filter((r) => r.Name === orderName));

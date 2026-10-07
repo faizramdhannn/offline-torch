@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { Camera, Mail, MapPin, Phone, Save, Trash2, KeyRound, Loader2 } from "lucide-react";
 import { useUser } from "@/context/UserContext";
 import { compressImageFile } from "@/lib/compressImage";
+import { useRouter, useSearchParams } from "next/navigation";
+import { profileProblems, requiredProfileFields, PROFILE_FIELD_LABEL, type ProfileField } from "@/lib/profileRules";
 
 interface Profile {
   name: string;
@@ -18,8 +20,12 @@ interface Profile {
 
 const avatarSrc = (url: string) => `/api/drive-image?url=${encodeURIComponent(url)}&sz=w256`;
 
-export default function ProfilePage() {
+function ProfileInner() {
   const { user, setUser } = useUser();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const forced = searchParams.get("required") === "1";
+  const [problems, setProblems] = useState<Partial<Record<ProfileField, string>>>({});
   const [profile, setProfile] = useState<Profile | null>(null);
   const [form, setForm] = useState({ name: "", email: "", phone: "", address: "" });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -54,6 +60,16 @@ export default function ProfilePage() {
       setMsg({ type: "err", text: "Konfirmasi password baru tidak sama" });
       return;
     }
+    // Validasi kelengkapan sesuai role (Store & Merchant wajib alamat; semua wajib email, telepon, foto).
+    const found = profileProblems(
+      { role: profile?.role || user.role, name: form.name, email: form.email, phone: form.phone, address: form.address, photo_url: removePhoto ? "" : profile?.photo_url },
+      !!photoFile && !removePhoto
+    );
+    setProblems(found);
+    if (Object.keys(found).length > 0) {
+      setMsg({ type: "err", text: "Lengkapi data yang ditandai merah terlebih dahulu" });
+      return;
+    }
     setSaving(true);
     setMsg(null);
     try {
@@ -81,7 +97,9 @@ export default function ProfilePage() {
       const next = { ...user, name: p.name, email: p.email, phone: p.phone, address: p.address, photo_url: p.photo_url || "", role: p.role, is_super_admin: p.role === "super_admin" };
       try { localStorage.setItem("user", JSON.stringify(next)); } catch {}
       setUser(next);
+      setProblems({});
       setMsg({ type: "ok", text: "Profil tersimpan" });
+      if (forced) setTimeout(() => router.replace("/dashboard"), 700);
     } catch (e: any) {
       setMsg({ type: "err", text: e.message || "Gagal menyimpan" });
     } finally {
@@ -89,12 +107,28 @@ export default function ProfilePage() {
     }
   };
 
+  const roleNow = profile?.role || user?.role;
+  const required = requiredProfileFields(roleNow);
+  const star = (f: ProfileField) => (required.includes(f) ? <span className="text-red-500"> *</span> : null);
+  const bad = (f: ProfileField) => !!problems[f];
+  const errText = (f: ProfileField) => (problems[f] ? <span className="mt-1 block text-[11px] font-normal text-red-600">{problems[f]}</span> : null);
+
   const shownPhoto = removePhoto ? "" : photoPreview || (profile?.photo_url ? avatarSrc(profile.photo_url) : "");
   const initial = (form.name || user?.user_name || "?").charAt(0).toUpperCase();
   const field = "w-full rounded-xl border border-gray-200 bg-white/70 px-3 py-2 text-sm text-gray-900 outline-none focus:border-primary";
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 p-4 sm:p-6">
+      {(forced || Object.keys(problems).length > 0) && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">Lengkapi profil Anda terlebih dahulu</p>
+          <p className="mt-0.5 text-xs">
+            Kolom bertanda <span className="text-red-500">*</span> wajib diisi:{" "}
+            {required.map((f) => PROFILE_FIELD_LABEL[f]).join(", ")}.
+            {!required.includes("address") && " Alamat tidak wajib untuk akun Anda."}
+          </p>
+        </div>
+      )}
       <div
         className="rounded-3xl px-6 py-6 text-white"
         style={{ background: "linear-gradient(135deg, #35393C 0%, #1f4e63 45%, #0d7a8f 100%)" }}
@@ -125,6 +159,8 @@ export default function ProfilePage() {
               @{user?.user_name}
               {profile?.role && ` · ${({ super_admin: "Super Admin", admin: "Admin", store: "Store" } as Record<string, string>)[profile.role] || profile.role}`}
             </p>
+            {problems.photo && <p className="mt-1 rounded bg-red-500/90 px-2 py-0.5 text-[11px] text-white">{problems.photo}</p>}
+            {!shownPhoto && !problems.photo && required.includes("photo") && <p className="mt-1 text-[11px]" style={{ color: "rgba(255,255,255,.85)" }}>Foto profil wajib (klik ikon kamera)</p>}
             {(profile?.photo_url || photoFile) && !removePhoto && (
               <button
                 type="button"
@@ -145,20 +181,24 @@ export default function ProfilePage() {
           <p className="text-xs text-gray-500">Telepon/alamat diisi otomatis dari data toko. Simpan untuk menjadikannya data profil Anda.</p>
         )}
         <label className="block text-xs font-medium text-gray-600">
-          Nama
-          <input className={`${field} mt-1`} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          Nama{star("name")}
+          <input className={`${field} mt-1 ${bad("name") ? "!border-red-400" : ""}`} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          {errText("name")}
         </label>
         <label className="block text-xs font-medium text-gray-600">
-          <span className="inline-flex items-center gap-1"><Mail className="h-3 w-3" /> Email</span>
-          <input type="email" className={`${field} mt-1`} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <span className="inline-flex items-center gap-1"><Mail className="h-3 w-3" /> Email{star("email")}</span>
+          <input type="email" className={`${field} mt-1 ${bad("email") ? "!border-red-400" : ""}`} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          {errText("email")}
         </label>
         <label className="block text-xs font-medium text-gray-600">
-          <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" /> No. telepon</span>
-          <input inputMode="tel" className={`${field} mt-1`} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" /> No. telepon{star("phone")}</span>
+          <input inputMode="tel" className={`${field} mt-1 ${bad("phone") ? "!border-red-400" : ""}`} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          {errText("phone")}
         </label>
         <label className="block text-xs font-medium text-gray-600">
-          <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" /> Alamat</span>
-          <textarea rows={3} className={`${field} mt-1`} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+          <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" /> Alamat{star("address")}</span>
+          <textarea rows={3} className={`${field} mt-1 ${bad("address") ? "!border-red-400" : ""}`} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+          {errText("address")}
         </label>
       </div>
 
@@ -185,5 +225,14 @@ export default function ProfilePage() {
         Simpan
       </button>
     </div>
+  );
+}
+
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={null}>
+      <ProfileInner />
+    </Suspense>
   );
 }

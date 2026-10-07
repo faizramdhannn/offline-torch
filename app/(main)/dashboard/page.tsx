@@ -36,6 +36,9 @@ interface StoreAddress {
   phone_number: string;
   address: string;
   status: string; // 'Active' | 'Draft' | 'Archived' — kosong dianggap Active
+  role?: string; // 'store' | 'merchant' (dari profil user)
+  email?: string;
+  photo_url?: string;
 }
 
 interface TaftEntry {
@@ -155,7 +158,7 @@ export default function DashboardPage() {
 
   const fetchStoreAddresses = async () => {
     try {
-      const res = await fetch("/api/store-address");
+      const res = await fetch("/api/store-directory");
       if (res.ok) setStoreAddresses(await res.json());
     } catch (e) { console.error(e); }
   };

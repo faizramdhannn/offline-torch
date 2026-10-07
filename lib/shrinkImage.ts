@@ -23,3 +23,22 @@ export async function shrinkImageBuffer(
     return { buffer, mimeType };
   }
 }
+
+// Logo badge disimpan sebagai data URL di database dan ikut di SETIAP respons daftar badge —
+// harus kecil. Perkecil ke 128px (PNG, transparansi dipertahankan). Selain data URL gambar dibiarkan.
+export async function shrinkLogoDataUrl(dataUrl: string | null | undefined): Promise<string | null> {
+  if (!dataUrl || !dataUrl.startsWith('data:image/')) return dataUrl ?? null;
+  if (dataUrl.length < 20_000) return dataUrl;
+  try {
+    const sharp = (await import('sharp')).default;
+    const buf = Buffer.from(dataUrl.split(',')[1] || '', 'base64');
+    const out = await sharp(buf)
+      .resize({ width: 128, height: 128, fit: 'inside', withoutEnlargement: true })
+      .png({ compressionLevel: 9, palette: true })
+      .toBuffer();
+    const small = `data:image/png;base64,${out.toString('base64')}`;
+    return small.length < dataUrl.length ? small : dataUrl;
+  } catch {
+    return dataUrl;
+  }
+}

@@ -12,6 +12,35 @@ interface StoreAddress {
   phone_number: string;
   address: string;
   status: string;
+  role?: string;
+  email?: string;
+  photo_url?: string;
+}
+
+// Foto profil dimuat sebagai thumbnail kecil lewat drive-image (di-cache CDN 7 hari) dan hanya saat
+// terlihat (lazy) — daftar store tetap ringan walau semua akun punya foto.
+function StoreAvatar({ name, photo }: { name: string; photo?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!photo || failed) {
+    return (
+      <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-[11px] font-semibold text-gray-500">
+        {(name || "?").replace(/^torch\s+/i, "").charAt(0).toUpperCase()}
+      </span>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`/api/drive-image?url=${encodeURIComponent(photo)}&sz=w64`}
+      alt=""
+      width={28}
+      height={28}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+      className="h-7 w-7 flex-shrink-0 rounded-full object-cover"
+    />
+  );
 }
 
 interface StoreTableProps {
@@ -98,10 +127,13 @@ export function StoreTable({
                 >
                   <td className="px-2 py-1">
                     <div className="flex items-center gap-2">
-                      <MapPinned className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+                      <StoreAvatar name={store.store_location} photo={store.photo_url} />
                       <div>
-                        <div className="font-medium text-gray-800">
+                        <div className="flex items-center gap-1.5 font-medium text-gray-800">
                           {store.store_location}
+                          {store.role === "merchant" && (
+                            <span className="rounded-full bg-sky-100 px-1.5 py-px text-[9px] font-semibold text-sky-700">Merchant</span>
+                          )}
                         </div>
                         <div className="mt-0.5 line-clamp-1 text-[11px] text-gray-400">
                           {store.address}

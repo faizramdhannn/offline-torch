@@ -14,10 +14,29 @@ export async function GET(request: NextRequest) {
     await ensureCustomerSchema();
 
     const { searchParams } = new URL(request.url);
-    const from = searchParams.get('from');
-    const to = searchParams.get('to');
+    const from = searchParams.get('from') || null;
+    const to = searchParams.get('to') || null;
+    const orderName = searchParams.get('order');
 
-    const orders = from || to
+    // ?order=NAMA → hanya satu order (halaman detail).
+    const orders = orderName
+      ? await sql`
+          SELECT
+            sales_order,
+            raw->>'Created at' AS created_at_raw,
+            raw->>'Paid at' AS paid_at,
+            raw->>'Financial Status' AS financial_status,
+            raw->>'Subtotal' AS subtotal,
+            raw->>'Notes' AS notes,
+            raw->>'Discount Code' AS discount_code,
+            raw->>'Discount Amount' AS discount_amount,
+            raw->>'Employee' AS employee,
+            raw->>'Location' AS location,
+            line_items
+          FROM shopify_orders
+          WHERE sales_order = ${orderName}
+        `
+      : from || to
       ? await sql`
           SELECT
             sales_order,

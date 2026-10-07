@@ -45,6 +45,9 @@ export function ensureCustomerSchema(): Promise<void> {
         )
       `;
       await sql`CREATE INDEX IF NOT EXISTS idx_shopify_orders_phone ON shopify_orders(phone)`;
+      // Pencarian Notes ILIKE '%kode%' (kontribusi Jastiper) tanpa ini = scan 90 rb baris per jastiper (3,8 dtk → 0,08 dtk).
+      await sql`CREATE EXTENSION IF NOT EXISTS pg_trgm`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_shopify_orders_notes_trgm ON shopify_orders USING gin (notes gin_trgm_ops)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_shopify_orders_store ON shopify_orders(store_name)`;
 
       await sql`

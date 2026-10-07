@@ -10,6 +10,7 @@ import AttendanceGateModal from "@/components/AttendanceGateModal";
 import { useAttendanceGate } from "@/hooks/useAttendanceGate";
 import DailyChecklistGateModal from "@/components/DailyChecklistGateModal";
 import { useDailyChecklistGate } from "@/hooks/useDailyChecklistGate";
+import { isProfileComplete } from "@/lib/profileRules";
 
 function MainLayoutInner({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
@@ -36,6 +37,18 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
       return () => clearTimeout(t);
     }
   }, []);
+
+  // Profil belum lengkap → wajib dilengkapi dulu (halaman lain diarahkan ke /profile).
+  // Data lama di browser yang belum punya field profil (undefined) menunggu penyegaran dari server.
+  const profileKnown = !!user && user.role !== undefined && user.email !== undefined;
+  const profileIncomplete = profileKnown && !isProfileComplete(user);
+  useEffect(() => {
+    if (mounted && profileIncomplete && pathname !== "/profile") {
+      // Redirect keras: banyak halaman memanggil router.replace sendiri saat mount (sinkron filter ke URL)
+      // sehingga redirect lunak bisa tertimpa.
+      window.location.replace("/profile?required=1");
+    }
+  }, [mounted, profileIncomplete, pathname, router]);
 
   useEffect(() => {
     if (mounted && !user) {
@@ -70,7 +83,7 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Attendance gate — only shown when user hasn't checked in yet */}
-      {showGate && storeName && (
+      {!profileIncomplete && showGate && storeName && (
         <AttendanceGateModal storeName={storeName} onDismiss={dismissGate} />
       )}
 
@@ -79,7 +92,7 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
           ever showing this, otherwise a faster daily-job-checklist fetch can
           flash this gate before attendance status is confirmed — showing the
           two gates in the wrong order. */}
-      {attendanceChecked && !showGate && showChecklistGate && (
+      {!profileIncomplete && attendanceChecked && !showGate && showChecklistGate && (
         <DailyChecklistGateModal onDismiss={dismissChecklistGate} />
       )}
     </div>

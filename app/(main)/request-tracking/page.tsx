@@ -276,7 +276,7 @@ export default function RequestTrackingPage() {
 
   const fetchStoreAddresses = async () => {
     try {
-      const res = await fetch("/api/store-address");
+      const res = await fetch("/api/store-directory");
       if (res.ok) setStoreAddresses(await res.json());
     } catch {}
   };

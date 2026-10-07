@@ -1,3 +1,4 @@
+import { shrinkLogoDataUrl } from "@/lib/shrinkImage";
 import { NextRequest, NextResponse } from 'next/server';
 import { sql, ensureCustomerSchema } from '@/lib/neon';
 
@@ -20,7 +21,8 @@ export async function POST(request: NextRequest) {
   try {
     await ensureCustomerSchema();
     const body = await request.json();
-    const { badge_key, label, logo_url, sku_list } = body;
+    const { badge_key, label, sku_list } = body;
+    const logo_url = await shrinkLogoDataUrl(body.logo_url);
 
     if (!badge_key || !label) {
       return NextResponse.json({ error: 'badge_key dan label wajib diisi' }, { status: 400 });
@@ -51,7 +53,8 @@ export async function PUT(request: NextRequest) {
   try {
     await ensureCustomerSchema();
     const body = await request.json();
-    const { id, label, logo_url, remove_logo, sku_list } = body;
+    const { id, label, remove_logo, sku_list } = body;
+    const logo_url = await shrinkLogoDataUrl(body.logo_url);
 
     if (!id) {
       return NextResponse.json({ error: 'id wajib diisi' }, { status: 400 });

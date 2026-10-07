@@ -832,45 +832,43 @@ const fetchTrafficMap = async () => {
   finally { setTrafficMapLoading(false); }
 };
 
-const ANALYTICS_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 1 hari
-const ANALYTICS_ALL_CACHE_KEY = "analytics_data:ALL";
+// Data diambil PER RENTANG TANGGAL (dulu seluruh order, 45 MB per muat). Rentang yang sudah lewat
+// di-cache 1 hari di IndexedDB; rentang yang menyentuh hari ini hanya 10 menit.
+const ANALYTICS_PAST_TTL_MS = 24 * 60 * 60 * 1000;
+const ANALYTICS_LIVE_TTL_MS = 10 * 60 * 1000;
 
-// Seluruh order (tanpa filter tanggal) di-fetch/cache SEKALI di sini —
-// ganti rentang tanggal tidak lagi memicu request baru ke server sama
-// sekali, cukup filter ulang array yang sudah ada di browser (lihat
-// useEffect di bawah yang menurunkan `rows`/`stores` dari `allRows`).
+// `allRows` = baris untuk rentang yang sedang dipilih (nama lama dipertahankan agar sisa halaman tidak berubah).
 const [allRows, setAllRows] = useState<Row[]>([]);
 
-const fetchAllFromServerAndCache = useCallback(async (silent: boolean) => {
-  try {
-    if (!silent) setLoading(true);
-    const res = await fetch(`/api/shopify-analytics`);
-    const data = await res.json();
-    setAllRows(Array.isArray(data) ? data : []);
-    await idbSet(ANALYTICS_ALL_CACHE_KEY, data);
-  } catch {
-    if (!silent) showMessage("Failed to fetch analytics data", "error");
-  } finally {
-    if (!silent) setLoading(false);
-  }
-}, []);
-
-// Cache di IndexedDB (seluruh data, tidak per rentang tanggal) supaya buka
-// menu ini lagi tidak query ulang ke Neon selama masih segar — sama seperti
-// menu Customer.
 const fetchData = useCallback(async (forceRefresh?: boolean) => {
+  const key = `analytics_data:${dateFrom}:${dateTo}`;
+  const ttl = dateTo && dateTo < getTodayStr() ? ANALYTICS_PAST_TTL_MS : ANALYTICS_LIVE_TTL_MS;
+
   if (!forceRefresh) {
-    const cached = await idbGet<Row[]>(ANALYTICS_ALL_CACHE_KEY);
-    if (isCacheFresh(cached, ANALYTICS_CACHE_TTL_MS)) {
+    const cached = await idbGet<Row[]>(key);
+    if (isCacheFresh(cached, ttl)) {
       setAllRows(cached!.value);
       setLoading(false);
-      fetchAllFromServerAndCache(true);
       return;
     }
   }
 
-  await fetchAllFromServerAndCache(false);
-}, [fetchAllFromServerAndCache]);
+  try {
+    setLoading(true);
+    const q = new URLSearchParams();
+    if (dateFrom) q.set("from", dateFrom);
+    if (dateTo) q.set("to", dateTo);
+    const res = await fetch(`/api/shopify-analytics?${q.toString()}`);
+    const data = await res.json();
+    setAllRows(Array.isArray(data) ? data : []);
+    if (Array.isArray(data)) await idbSet(key, data);
+  } catch {
+    showMessage("Failed to fetch analytics data", "error");
+  } finally {
+    setLoading(false);
+  }
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [dateFrom, dateTo]);
 
 useEffect(() => {
   const userData = localStorage.getItem("user");
@@ -882,7 +880,9 @@ useEffect(() => {
 }, []);
 
 useEffect(() => {
-  if (user) fetchData();
+  if (!user) return;
+  const t = setTimeout(() => fetchData(), 300); // debounce saat tanggal diubah
+  return () => clearTimeout(t);
 }, [user, fetchData]);
 
 // Turunkan `rows`/`stores` (dipakai semua chart/tabel di bawah, tidak
