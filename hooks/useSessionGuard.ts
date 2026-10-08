@@ -77,12 +77,12 @@ export function useSessionGuard() {
           }
           if (!r.ok) return;
           // Segarkan permission/role dari server (mis. role diganti Super Admin).
-          const { user: fresh, build } = await r.json();
+          const { user: fresh, build, pending } = await r.json();
           notifyIfNewBuild(build); // ada deployment baru → tampilkan notifikasi "Muat ulang"
           const raw = localStorage.getItem("user");
           if (!fresh || !raw) return;
           const cur = JSON.parse(raw);
-          const next = { ...cur, ...fresh };
+          const next = { ...cur, ...fresh, pending: pending || {} };
           if (JSON.stringify(next) !== JSON.stringify(cur)) {
             localStorage.setItem("user", JSON.stringify(next));
             setUserRef.current(next);

@@ -52,6 +52,7 @@ interface SidebarProps {
     daily_checklist_all?: boolean;
     affiliate_view?: boolean;
     jastiper?: boolean;
+    pending?: { cancel_order?: number; material_issue?: number; employee_discount?: number; shipment?: number };
   };
 }
 
@@ -70,6 +71,24 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
   const [generatingClearanceCatalog, setGeneratingClearanceCatalog] = useState(false);
   const [generatingPasarayaCatalog, setGeneratingPasarayaCatalog] = useState(false);
   const [showClearance2Picker, setShowClearance2Picker] = useState(false);
+
+  // Angka permintaan menunggu: dasar dari /api/auth/me (permissions.pending, tiap 5 menit);
+  // setelah user mengubah status, disegarkan sekali lewat /api/pending.
+  const [pendingLive, setPendingLive] = useState<NonNullable<SidebarProps["permissions"]["pending"]> | null>(null);
+  useEffect(() => {
+    setPendingLive(null); // data dasar lebih baru → buang hasil penyegaran lama
+  }, [permissions?.pending]);
+  useEffect(() => {
+    const refresh = () => {
+      fetch("/api/pending", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => { if (j?.pending) setPendingLive(j.pending); })
+        .catch(() => {});
+    };
+    window.addEventListener("pending:refresh", refresh);
+    return () => window.removeEventListener("pending:refresh", refresh);
+  }, []);
+  const pending = pendingLive ?? permissions?.pending ?? {};
 
   const initialGroup = (() => {
     if (
@@ -594,15 +613,21 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     items: { path: string; label: string; icon: ReactNode; show: boolean; badge?: number }[];
   }) => {
     const isActive = items.some((i) => i.show && pathname === i.path);
+    const groupBadge = items.reduce((n, i) => n + (i.show && typeof i.badge === "number" ? i.badge : 0), 0);
     return (
       <div className="relative group">
         <button
           title={label}
-          className={`menu-btn w-full flex items-center justify-center px-0 py-2 transition-colors ${isActive ? "active text-gray-900" : "text-gray-500"}`}
+          className={`menu-btn relative w-full flex items-center justify-center px-0 py-2 transition-colors ${isActive ? "active text-gray-900" : "text-gray-500"}`}
         >
           <span className={`shrink-0 ${isActive ? "opacity-100" : "opacity-70"}`}>
             {groupIcon}
           </span>
+          {groupBadge > 0 && (
+            <span className="absolute right-1.5 top-0.5 min-w-[14px] h-[14px] px-[3px] rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center leading-none">
+              {groupBadge > 99 ? "99+" : groupBadge}
+            </span>
+          )}
         </button>
         <div
           className="absolute left-full top-0 ml-1.5 z-50 hidden group-hover:block submenu-pop"
@@ -625,7 +650,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
                     <span className="truncate min-w-0 flex-1 text-left">{sub.label}</span>
                     {typeof sub.badge === "number" && sub.badge > 0 && (
                       <span className="ml-1 min-w-[15px] h-[15px] px-[3px] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none shrink-0">
-                        {sub.badge > 9 ? "9+" : sub.badge}
+                        {sub.badge > 99 ? "99+" : sub.badge}
                       </span>
                     )}
                   </button>
@@ -654,6 +679,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
   }) => {
     const prevOpenRef = useRef(open);
     const justOpened = open && !prevOpenRef.current;
+    const groupBadge = items.reduce((n, i) => n + (i.show && typeof i.badge === "number" ? i.badge : 0), 0);
     useEffect(() => {
       prevOpenRef.current = open;
     });
@@ -670,6 +696,11 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           <span className="text-[11px] tracking-wide truncate font-normal flex-1 text-left">
             {label}
           </span>
+          {!open && groupBadge > 0 && (
+            <span className="min-w-[15px] h-[15px] px-[3px] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none shrink-0">
+              {groupBadge > 99 ? "99+" : groupBadge}
+            </span>
+          )}
           <span className="flex items-center gap-1 shrink-0">
             {isActive && <span className="w-1 h-1 rounded-full bg-[#0d334d]/70" />}
             <svg
@@ -698,7 +729,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
                       <span className="truncate min-w-0 flex-1 text-left">{sub.label}</span>
                       {typeof sub.badge === "number" && sub.badge > 0 && (
                         <span className="min-w-[15px] h-[15px] px-[3px] rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none shrink-0">
-                          {sub.badge > 9 ? "9+" : sub.badge}
+                          {sub.badge > 99 ? "99+" : sub.badge}
                         </span>
                       )}
                       {pathname === sub.path && (
@@ -778,11 +809,11 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
   ];
 
   const requestItems = [
-    { path: "/request-store", label: "Cancel Order", icon: cancelOrderIcon, show: hasRequestAccess },
+    { path: "/request-store", label: "Cancel Order", icon: cancelOrderIcon, show: hasRequestAccess, badge: pending.cancel_order },
     { path: "/invoice", label: "Invoice", icon: invoiceIcon, show: hasInvoiceAccess },
-    { path: "/material-issue", label: "Material Issue", icon: materialIssueIcon, show: hasMaterialIssueAccess },
-    { path: "/employee-discount", label: "Employee Discount", icon: employeeDiscountIcon, show: hasEmployeeDiscountAccess },
-    { path: "/request-tracking", label: "Shipment", icon: shipmentIcon, show: hasTrackingAccess },
+    { path: "/material-issue", label: "Material Issue", icon: materialIssueIcon, show: hasMaterialIssueAccess, badge: pending.material_issue },
+    { path: "/employee-discount", label: "Employee Discount", icon: employeeDiscountIcon, show: hasEmployeeDiscountAccess, badge: pending.employee_discount },
+    { path: "/request-tracking", label: "Shipment", icon: shipmentIcon, show: hasTrackingAccess, badge: pending.shipment },
   ];
 
   const orderItems = [

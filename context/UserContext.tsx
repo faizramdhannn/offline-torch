@@ -36,8 +36,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (w.__fetch401Patched) return;
     w.__fetch401Patched = true;
     const original = window.fetch.bind(window);
+    // Setelah user mengubah data di 4 menu "request", segarkan angka pending di sidebar (digabung 1,2 detik).
+    const PENDING_APIS = ["/api/request-store", "/api/request-tracking", "/api/material-issue", "/api/employee-discount"];
+    let pendingTimer: ReturnType<typeof setTimeout> | null = null;
     window.fetch = async (...args: Parameters<typeof fetch>) => {
       const res = await original(...args);
+      try {
+        const init = args[1];
+        const input0 = args[0];
+        const method = String(init?.method || (input0 instanceof Request ? input0.method : "GET")).toUpperCase();
+        if (res.ok && method !== "GET") {
+          const u = typeof input0 === "string" ? input0 : input0 instanceof URL ? input0.pathname : (input0 as Request).url;
+          const pth = u.startsWith("http") ? new URL(u).pathname : u;
+          if (PENDING_APIS.some((a) => pth.startsWith(a))) {
+            if (pendingTimer) clearTimeout(pendingTimer);
+            pendingTimer = setTimeout(() => window.dispatchEvent(new Event("pending:refresh")), 1200);
+          }
+        }
+      } catch {}
       if (res.status === 401) {
         const input = args[0];
         const url = typeof input === "string" ? input : input instanceof URL ? input.pathname : (input as Request).url;
