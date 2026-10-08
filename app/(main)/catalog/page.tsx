@@ -193,7 +193,7 @@ export default function CatalogPage() {
               {user?.user_setting && (
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-[10px] text-gray-400">
-                    Update otomatis 10:00 WIB
+                    Diperbarui otomatis tiap hari
                     {meta[entry.key]?.updated_at
                       ? ` · terakhir ${new Date(meta[entry.key].updated_at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`
                       : ""}

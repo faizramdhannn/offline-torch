@@ -10,5 +10,6 @@ export const CATALOG_CONFIGS: Record<string, CatalogConfig> = {
     filename: "Torch_Clearance_Catalog.pdf",
     showStock: true,
     note: "S&K Berlaku",
+    promoPercent: 50, // harga di sheet = harga normal (dicoret); harga promo = 50% dari harga normal
   },
 };

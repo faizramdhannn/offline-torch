@@ -72,6 +72,7 @@ export default function RequestStorePage() {
   const [filterDateFrom, setFilterDateFrom] = useState(searchParams.get("from") ?? "");
   const [filterDateTo, setFilterDateTo] = useState(searchParams.get("to") ?? "");
   const [filterDoc, setFilterDoc] = useState(searchParams.get("doc") ?? "");
+  const [filterStatus, setFilterStatus] = useState(searchParams.get("status") ?? "");
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
 
   const itemsPerPage = 25;
@@ -370,6 +371,11 @@ export default function RequestStorePage() {
       result = result.filter((d) => d.date <= filterDateTo);
     }
 
+    // Filter by status (Pending / Completed / ...)
+    if (filterStatus) {
+      result = result.filter((d) => (d.status || "") === filterStatus);
+    }
+
     // Filter by SO / DN / SI (case-insensitive)
     if (filterDoc.trim()) {
       const q = filterDoc.trim().toLowerCase();
@@ -389,18 +395,22 @@ export default function RequestStorePage() {
     if (filterDateFrom) params.set("from", filterDateFrom);
     if (filterDateTo) params.set("to", filterDateTo);
     if (filterDoc) params.set("doc", filterDoc);
+    if (filterStatus) params.set("status", filterStatus);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [filterDateFrom, filterDateTo, filterDoc, pathname, router]);
+  }, [filterDateFrom, filterDateTo, filterDoc, filterStatus, pathname, router]);
 
   const handleClearFilters = () => {
     setFilterDateFrom("");
     setFilterDateTo("");
     setFilterDoc("");
+    setFilterStatus("");
     setCurrentPage(1);
   };
 
-  const hasActiveFilter = filterDateFrom || filterDateTo || filterDoc.trim();
+  const hasActiveFilter = filterDateFrom || filterDateTo || filterDoc.trim() || filterStatus;
+  // Pilihan status diambil dari data (Pending, Completed, dst.) supaya status baru otomatis ikut.
+  const statusOptions = Array.from(new Set(["Pending", "Completed", ...data.map((d) => d.status).filter(Boolean)]));
 
   const { sorted: sortedData, sortKey, sortDir, toggleSort } = useSortableTable(filteredData, "date");
 
@@ -512,6 +522,17 @@ return (
               />
               <SearchShortcutHint label={shortcutLabel} />
             </div>
+
+            <select
+              value={filterStatus}
+              onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
+              className="px-1.5 py-1 border border-gray-300 rounded text-[11px] bg-white focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="">Semua status</option>
+              {statusOptions.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
 
             {hasActiveFilter && (
               <>

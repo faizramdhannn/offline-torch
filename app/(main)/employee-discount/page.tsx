@@ -308,6 +308,7 @@ export default function EmployeeDiscountPage() {
   // Filter state dipulihkan dari URL query params supaya kalau user buka
   // detail request lalu klik Back, filter yang tadi aktif tidak hilang.
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
+  const [filterStatus, setFilterStatus] = useState(searchParams.get("status") ?? "");
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">(
     (searchParams.get("sort") as "newest" | "oldest") ?? "newest",
@@ -371,15 +372,16 @@ export default function EmployeeDiscountPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [sortOrder, search]);
+  }, [sortOrder, search, filterStatus]);
 
   useEffect(() => {
     const params = new URLSearchParams();
     if (search) params.set("q", search);
     if (sortOrder !== "newest") params.set("sort", sortOrder);
+    if (filterStatus) params.set("status", filterStatus);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [search, sortOrder, pathname, router]);
+  }, [search, sortOrder, filterStatus, pathname, router]);
 
   const fetchData = async () => {
     try {
@@ -636,7 +638,11 @@ export default function EmployeeDiscountPage() {
   };
 
   // ── Filter / sort / paginate ─────────────────────────────────────────────────
+  // Pilihan status dari data (Need Approval, Approved, Rejected, ...).
+  const statusOptions = Array.from(new Set(["Need Approval", "Approved", "Rejected", ...data.map((d) => d.status_request || "Need Approval")]));
+
   const filtered = data.filter((r) => {
+    if (filterStatus && (r.status_request || "Need Approval") !== filterStatus) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -701,6 +707,24 @@ export default function EmployeeDiscountPage() {
           <option value="newest">Terbaru</option>
           <option value="oldest">Terlama</option>
         </select>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="border border-gray-200 rounded-lg px-2 py-1 text-[11px]"
+        >
+          <option value="">Semua status</option>
+          {statusOptions.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        {filterStatus && (
+          <button
+            onClick={() => setFilterStatus("")}
+            className="px-2 py-1 bg-gray-100 text-gray-500 border border-gray-200 rounded text-[11px] hover:bg-gray-200"
+          >
+            Reset
+          </button>
+        )}
       </FilterBar>
 
       <GlassCard padding="none" className="overflow-hidden">

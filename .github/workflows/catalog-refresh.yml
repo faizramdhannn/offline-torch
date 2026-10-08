@@ -6,8 +6,14 @@
 name: Refresh katalog PDF
 
 on:
+  # GitHub TIDAK menjamin ketepatan jadwal (bisa tertunda dari beberapa menit sampai berjam-jam saat antrean padat),
+  # jadi targetnya dimajukan: jadwal utama 08:47 WIB dan jadwal kedua 09:27 WIB. Kalau yang pertama sudah sukses,
+  # yang kedua otomatis dilewati (lihat scripts/generate-catalogs.ts). Menit "tidak bulat" sengaja dipilih
+  # supaya tidak berebut antrean dengan jadwal-jadwal di menit 00/30.
+  # Cron Vercel (03:00 UTC) tetap jadi cadangan terakhir.
   schedule:
-    - cron: "30 2 * * *" # 02:30 UTC = 09:30 WIB (cron Vercel 03:00 UTC jadi cadangan)
+    - cron: "47 1 * * *" # 01:47 UTC = 08:47 WIB
+    - cron: "27 2 * * *" # 02:27 UTC = 09:27 WIB
   workflow_dispatch:
     inputs:
       catalog:

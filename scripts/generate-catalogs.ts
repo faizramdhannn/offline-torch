@@ -11,6 +11,7 @@
 import fs from "fs";
 import { CATALOG_CONFIGS } from "../lib/catalogs";
 import { generateCatalogBuffer } from "../lib/onlineCatalogPdf";
+import { getCatalogMeta } from "../lib/catalogVersion";
 
 async function main() {
   const dry = process.env.DRY_RUN === "1";
@@ -18,10 +19,23 @@ async function main() {
   const keys = Object.keys(CATALOG_CONFIGS).filter((k) => !only || k === only);
   if (keys.length === 0) throw new Error(`Katalog tidak dikenal: ${only}`);
 
+  // Jadwal kedua di hari yang sama tidak perlu membuat ulang bila yang pertama baru sukses
+  // (hanya untuk run terjadwal; run manual / dry run selalu jalan).
+  const freshHours = Number(process.env.SKIP_IF_FRESH_HOURS || 5);
+  const meta = !dry && process.env.GITHUB_EVENT_NAME === "schedule" ? await getCatalogMeta() : null;
+
   let failed = 0;
   for (const key of keys) {
     const t0 = Date.now();
     try {
+      const m = meta?.[key];
+      if (m && m.updated_by === "github-actions") {
+        const ageH = (Date.now() - Date.parse(m.updated_at.replace(" ", "T").replace(/\+00$/, "Z"))) / 3600_000;
+        if (ageH < freshHours) {
+          console.log(`↷ ${key}: dilewati — sudah diperbarui GitHub Actions ${ageH.toFixed(1)} jam lalu`);
+          continue;
+        }
+      }
       const buffer = await generateCatalogBuffer(CATALOG_CONFIGS[key]);
       if (!buffer) {
         // Sheet kosong / gagal terbaca: JANGAN menimpa PDF yang sudah tayang.

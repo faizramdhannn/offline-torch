@@ -644,16 +644,18 @@ export default function InvoicePage() {
             >
               <option value="all">Semua Status</option>
               <option value="draft">Draft</option>
-              <option value="submitted">Submitted</option>
+              <option value="submitted">Need Approval</option>
+              <option value="approved">Approved</option>
             </select>
         </FilterBar>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           {[
             { label: "Total Invoice", value: invoices.length, color: "text-primary" },
             { label: "Draft", value: invoices.filter(i => i.status === "draft").length, color: "text-gray-600" },
-            { label: "Submitted", value: invoices.filter(i => i.status === "submitted").length, color: "text-blue-600" },
+            { label: "Need Approval", value: invoices.filter(i => i.status === "submitted").length, color: "text-amber-600" },
+            { label: "Approved", value: invoices.filter(i => i.status === "approved").length, color: "text-green-600" },
           ].map(stat => (
             <GlassCard key={stat.label} padding="md">
               <p className="text-xs text-gray-500">{stat.label}</p>

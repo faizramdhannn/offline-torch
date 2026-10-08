@@ -175,7 +175,9 @@ function drawBanner(doc: jsPDF, group: string, y: number) {
 
 // Unduh semua gambar paralel (pool 16) di awal — sebelumnya per-baris
 
-function drawCards(doc: jsPDF, items: Product[], y: number, showStock: boolean) {
+function drawCards(doc: jsPDF, items: Product[], y: number, showStock: boolean, promoPercent = 0) {
+  const promo = promoPercent > 0;
+  const up = promo ? 3 : 0; // di mode promo, konten naik 3 mm untuk memberi ruang dua baris harga
   const images = items.map((p) => p.img || null);
   const [br, bg, bb] = hexToRgb(BRAND);
   items.forEach((p, i) => {
@@ -205,7 +207,7 @@ function drawCards(doc: jsPDF, items: Product[], y: number, showStock: boolean) 
 
     const cx = x + w / 2;
     const img = images[i];
-    const box = 32;
+    const box = promo ? 29 : 32;
     if (img) {
       const ratio = img.w / img.h || 1;
       const dw = ratio >= 1 ? box : box * ratio;
@@ -217,7 +219,7 @@ function drawCards(doc: jsPDF, items: Product[], y: number, showStock: boolean) 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
     const lines = (doc.splitTextToSize(p.artikel || "-", w - 5) as string[]).slice(0, 2);
-    lines.forEach((ln, j) => doc.text(ln, cx, y + 38 + j * 3.2, { align: "center" }));
+    lines.forEach((ln, j) => doc.text(ln, cx, y + 38 - up + j * 3.2, { align: "center" }));
 
     // pilihan warna: titik berwarna + nama
     if (p.colors.length) {
@@ -230,18 +232,37 @@ function drawCards(doc: jsPDF, items: Product[], y: number, showStock: boolean) 
         doc.setFillColor(cr, cg, cb);
         doc.setDrawColor(190, 190, 190);
         doc.setLineWidth(0.2);
-        doc.circle(startX + k * step, y + 44.6, r, "FD");
+        doc.circle(startX + k * step, y + 44.6 - up, r, "FD");
       }
       doc.setFont("helvetica", "normal");
       doc.setFontSize(5.8);
       doc.setTextColor(110, 110, 110);
       const names = p.colors.map((c) => c.name).join(", ");
       const nameLine = (doc.splitTextToSize(names, w - 4) as string[])[0];
-      doc.text(nameLine, cx, y + 48, { align: "center" });
+      doc.text(nameLine, cx, y + 48 - up, { align: "center" });
     }
 
     const price = formatRupiah(p.price);
-    if (price) {
+    if (price && promo) {
+      // Harga normal dicoret (kecil, abu-abu) + harga promo (besar, merah) = harga normal dikurangi promoPercent%.
+      const normal = parseNum(p.price);
+      const promoPrice = `Rp. ${Math.round(normal * (1 - promoPercent / 100)).toLocaleString("id-ID")}`;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.2);
+      doc.setTextColor(130, 130, 130);
+      const ny = y + h - 6.3;
+      doc.text(price, cx, ny, { align: "center" });
+      const nw = doc.getTextWidth(price);
+      doc.setDrawColor(130, 130, 130);
+      doc.setLineWidth(0.3);
+      doc.line(cx - nw / 2 - 0.4, ny - 0.85, cx + nw / 2 + 0.4, ny - 0.85);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12.5);
+      doc.setTextColor(220, 38, 38);
+      doc.text(promoPrice, cx, y + h - 1.6, { align: "center" });
+    } else if (price) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
       doc.setTextColor(br, bg, bb);
@@ -257,6 +278,8 @@ export interface CatalogConfig {
   filename: string;
   showStock?: boolean;
   note?: string;
+  /** Persen diskon: harga di sheet = harga normal (dicoret), harga promo = normal × (1 − persen/100) tampil lebih besar. */
+  promoPercent?: number;
 }
 
 // Baris sheet → produk siap cetak (stock 0 dibuang, urut per grup).
@@ -307,7 +330,7 @@ export function renderCatalog(doc: jsPDF, products: Product[], logo: string | nu
         drawBanner(doc, row.group, y);
         y += BANNER_SLOT;
       } else {
-        drawCards(doc, row.items, y, !!cfg.showStock);
+        drawCards(doc, row.items, y, !!cfg.showStock, cfg.promoPercent || 0);
         y += CELL_H;
       }
     }

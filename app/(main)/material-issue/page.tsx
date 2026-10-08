@@ -652,6 +652,10 @@ export default function MaterialIssuePage() {
     (searchParams.get("sort") as "newest" | "oldest") ?? "newest",
   );
   const [filterStore, setFilterStore] = useState(searchParams.get("store") ?? "");
+  // Filter status: persetujuan request, persetujuan issue, dan sudah/belum diproses.
+  const [filterReqStatus, setFilterReqStatus] = useState(searchParams.get("rs") ?? "");
+  const [filterIssueStatus, setFilterIssueStatus] = useState(searchParams.get("is") ?? "");
+  const [filterProcessed, setFilterProcessed] = useState(searchParams.get("proc") ?? "");
   const [dateFrom, setDateFrom] = useState(searchParams.get("from") ?? "");
   const [dateTo, setDateTo] = useState(searchParams.get("to") ?? "");
   const [currentPage, setCurrentPage] = useState(1);
@@ -722,18 +726,21 @@ export default function MaterialIssuePage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [sortOrder, filterStore, dateFrom, dateTo]);
+  }, [sortOrder, filterStore, dateFrom, dateTo, filterReqStatus, filterIssueStatus, filterProcessed]);
 
   useEffect(() => {
     const params = new URLSearchParams();
     if (search) params.set("q", search);
     if (sortOrder !== "newest") params.set("sort", sortOrder);
     if (filterStore) params.set("store", filterStore);
+    if (filterReqStatus) params.set("rs", filterReqStatus);
+    if (filterIssueStatus) params.set("is", filterIssueStatus);
+    if (filterProcessed) params.set("proc", filterProcessed);
     if (dateFrom) params.set("from", dateFrom);
     if (dateTo) params.set("to", dateTo);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [search, sortOrder, filterStore, dateFrom, dateTo, pathname, router]);
+  }, [search, sortOrder, filterStore, filterReqStatus, filterIssueStatus, filterProcessed, dateFrom, dateTo, pathname, router]);
 
   const fetchData = async () => {
     try {
@@ -1107,6 +1114,15 @@ export default function MaterialIssuePage() {
     if (filterStore) {
       rows = rows.filter((d) => d.name === filterStore);
     }
+    if (filterReqStatus) {
+      rows = rows.filter((d) => (d.status_request || "Need Approval") === filterReqStatus);
+    }
+    if (filterIssueStatus) {
+      rows = rows.filter((d) => (d.status_issue || "Need Approval") === filterIssueStatus);
+    }
+    if (filterProcessed) {
+      rows = rows.filter((d) => (d.has_processed === "TRUE") === (filterProcessed === "yes"));
+    }
     if (dateFrom) {
       const fromTime = parseDateInput(dateFrom);
       rows = rows.filter((d) => parseCreatedAt(d.created_at) >= fromTime);
@@ -1141,11 +1157,14 @@ export default function MaterialIssuePage() {
   const indexOfFirst = (currentPage - 1) * itemsPerPage;
   const currentItems = groupedRows.slice(indexOfFirst, indexOfFirst + itemsPerPage);
   const hasSearch = search.trim().length > 0;
-  const hasActiveFilter = hasSearch || !!filterStore || !!dateFrom || !!dateTo;
+  const hasActiveFilter = hasSearch || !!filterStore || !!dateFrom || !!dateTo || !!filterReqStatus || !!filterIssueStatus || !!filterProcessed;
 
   const resetFilters = () => {
     setSearch("");
     setFilterStore("");
+    setFilterReqStatus("");
+    setFilterIssueStatus("");
+    setFilterProcessed("");
     setDateFrom("");
     setDateTo("");
     setSortOrder("newest");
@@ -1213,6 +1232,38 @@ export default function MaterialIssuePage() {
             placeholder="Semua store"
             className="w-40"
           />
+
+          {/* Filter status */}
+          <select
+            value={filterReqStatus}
+            onChange={(e) => setFilterReqStatus(e.target.value)}
+            title="Status request"
+            className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary bg-white"
+          >
+            <option value="">Request: semua</option>
+            <option value="Need Approval">Request: Need Approval</option>
+            <option value="Approved">Request: Approved</option>
+          </select>
+          <select
+            value={filterIssueStatus}
+            onChange={(e) => setFilterIssueStatus(e.target.value)}
+            title="Status issue"
+            className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary bg-white"
+          >
+            <option value="">Issue: semua</option>
+            <option value="Need Approval">Issue: Need Approval</option>
+            <option value="Approved">Issue: Approved</option>
+          </select>
+          <select
+            value={filterProcessed}
+            onChange={(e) => setFilterProcessed(e.target.value)}
+            title="Status diproses"
+            className="px-2 py-1 border border-gray-300 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary bg-white"
+          >
+            <option value="">Proses: semua</option>
+            <option value="no">Belum diproses</option>
+            <option value="yes">Sudah diproses</option>
+          </select>
 
           {/* Filter tanggal dari - ke */}
           <div className="flex items-center gap-1">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, UserCog, X, Save, Loader2, Plus, Trash2, ShieldCheck, LogOut, UserPlus, KeyRound, Archive } from "lucide-react";
 import { PERM_GROUPS } from "@/lib/permGroups";
@@ -154,12 +154,16 @@ export default function ProfilesPage() {
 
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase();
-    return rows.filter(
+    const list = rows.filter(
       (r) =>
         (roleFilter === "all" || r.role === roleFilter) &&
         (!t || [r.name, r.user_name, r.email, r.phone, r.address].some((v) => (v || "").toLowerCase().includes(t)))
     );
+    // Akun aktif di atas, nonaktif paling bawah (urutan di dalam masing-masing kelompok tetap).
+    return [...list.filter((r) => r.active), ...list.filter((r) => !r.active)];
   }, [rows, q, roleFilter]);
+  const firstInactiveId = shown.find((r) => !r.active)?.id;
+  const inactiveCount = shown.filter((r) => !r.active).length;
 
   const save = async () => {
     if (!edit) return;
@@ -242,7 +246,15 @@ export default function ProfilesPage() {
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {shown.map((r) => (
-            <button key={r.id} onClick={() => { setErr(""); setResetResult(""); setEdit(r); }} className="glass-card-elevated flex items-start gap-3 rounded-2xl p-4 text-left transition-shadow hover:shadow-lg">
+            <Fragment key={r.id}>
+              {r.id === firstInactiveId && (
+                <div className="col-span-full mt-2 flex items-center gap-3 text-xs font-semibold text-gray-500">
+                  <span className="h-px flex-1 bg-gray-200" />
+                  Akun nonaktif ({inactiveCount})
+                  <span className="h-px flex-1 bg-gray-200" />
+                </div>
+              )}
+            <button onClick={() => { setErr(""); setResetResult(""); setEdit(r); }} className={`glass-card-elevated flex items-start gap-3 rounded-2xl p-4 text-left transition-shadow hover:shadow-lg ${r.active ? "" : "opacity-60"}`}>
               <div className="flex h-12 w-12 flex-none items-center justify-center overflow-hidden rounded-full bg-black/5 text-base font-semibold text-gray-700">
                 {r.photo_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -262,6 +274,7 @@ export default function ProfilesPage() {
                 <p className="truncate text-xs text-gray-600">{r.phone || <span className="italic text-gray-300">Telepon belum diisi</span>}</p>
               </div>
             </button>
+            </Fragment>
           ))}
           {shown.length === 0 && <p className="col-span-full py-10 text-center text-sm text-gray-400">Tidak ada user</p>}
         </div>
