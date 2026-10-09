@@ -69,6 +69,7 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
     let lastActive: number | undefined;
     let tick: ReturnType<typeof setInterval> | null = null;
     let blockTimer: ReturnType<typeof setTimeout> | null = null;
+    let watchdog: ReturnType<typeof setInterval> | null = null;
 
     const report = () => {
       if (!player || !ready) return;
@@ -164,21 +165,25 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
       apply();
     };
 
+    let duckTimer: ReturnType<typeof setTimeout> | null = null;
     const off = onDeviceCommand(async ({ type, payload }) => {
+      // Pengumuman: redam musik selama tampil, lalu kembalikan (tanpa panggilan ke server)
+      if (type === "announce") {
+        try { player?.setVolume(Math.min(want.volume, 15)); } catch {}
+        if (duckTimer) clearTimeout(duckTimer);
+        duckTimer = setTimeout(() => { try { player?.setVolume(want.volume); } catch {} }, (Number(payload.seconds) || 30) * 1000);
+        return;
+      }
       if (type !== "music") return;
       const a = payload.action;
       if (a === "refresh") { loadedId = null; await load(); return; }
-      if (a === "load" && payload.playlist) {
+      if ((a === "load" || a === "preset") && payload.playlist) {
         const p = payload.playlist as Playlist;
-        playlists.set(Number(p.id), { ...p, id: Number(p.id), name: playlists.get(Number(p.id))?.name });
+        playlists.set(Number(p.id), { ...p, id: Number(p.id) });
         want = { ...want, playlist: playlists.get(Number(p.id))!, playing: true };
+        if (a === "preset") want = { ...want, volume: Number(payload.volume), shuffle: payload.shuffle !== false, muted: false };
         loadedId = null;
         apply();
-        // nama playlist untuk tampilan dashboard
-        fetch("/api/music/state", { cache: "no-store" }).then((r) => r.json()).then((d) => {
-          const f = (d.playlists || []).find((x: any) => Number(x.id) === Number(p.id));
-          if (f && want.playlist?.id === Number(p.id)) { want.playlist.name = f.name; report(); }
-        }).catch(() => {});
       } else if (a === "play") { want = { ...want, playing: true }; apply(); }
       else if (a === "pause") { want = { ...want, playing: false }; apply(); }
       else if (a === "volume") { want = { ...want, volume: Number(payload.volume) }; apply(); }
@@ -238,12 +243,31 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
       });
       (player as any).__wrap = wrap;
       tick = setInterval(checkSchedule, 30_000);
+      // Pemulihan mandiri (tanpa server): musik seharusnya berbunyi tapi macet/berhenti → coba lagi,
+      // lalu muat ulang playlist bila masih macet.
+      let stuckSince = 0;
+      let tries = 0;
+      watchdog = setInterval(() => {
+        if (!ready || !want.playing || !want.playlist) { stuckSince = 0; tries = 0; return; }
+        const st = player.getPlayerState?.();
+        if (st === 1 || st === 3) { stuckSince = 0; tries = 0; return; }
+        if (!stuckSince) { stuckSince = Date.now(); return; }
+        if (Date.now() - stuckSince < 45_000) return;
+        stuckSince = Date.now();
+        tries++;
+        try {
+          if (tries === 1) player.playVideo();
+          else { loadedId = null; apply(); }
+        } catch {}
+      }, 15_000);
     })();
 
     return () => {
       cancelled = true;
       off();
       if (tick) clearInterval(tick);
+      if (watchdog) clearInterval(watchdog);
+      if (duckTimer) clearTimeout(duckTimer);
       if (blockTimer) clearTimeout(blockTimer);
       clearInterval(wakeTimer);
       document.removeEventListener("visibilitychange", syncWake);

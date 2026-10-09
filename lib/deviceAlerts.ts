@@ -1,5 +1,6 @@
 import { sql } from "./neon";
 import { notifyUsersWithPermission } from "./notifications";
+import { sendTelegram } from "./telegram";
 
 // Peringatan perangkat → notifikasi dalam aplikasi untuk pemegang akses Settings.
 // Dipicu oleh webhook Ably dan saat dashboard dibuka (tanpa cron/polling).
@@ -20,10 +21,12 @@ export async function checkDeviceAlerts(): Promise<void> {
       RETURNING store_name, user_name, label
     `;
     for (const d of off as any[]) {
+      const msg = `${d.label || "Tablet"} ${d.store_name || d.user_name} offline lebih dari 10 menit.`;
+      await sendTelegram(`Tablet toko offline: ${msg}`);
       await notifyUsersWithPermission("user_setting", {
         type: "device_offline",
         title: "Tablet toko offline",
-        message: `${d.label || "Tablet"} ${d.store_name || d.user_name} offline lebih dari 10 menit.`,
+        message: msg,
         sourceFeature: "store_monitor",
       }).catch((e) => console.error("alert offline", e));
     }
@@ -36,10 +39,12 @@ export async function checkDeviceAlerts(): Promise<void> {
     RETURNING store_name, user_name, label, kind, battery
   `;
   for (const d of low as any[]) {
+    const msg = `${d.label || (d.kind === "tablet" ? "Tablet" : "PC")} ${d.store_name || d.user_name} tersisa ${d.battery}% dan tidak mengisi.`;
+    await sendTelegram(`Baterai rendah: ${msg}`);
     await notifyUsersWithPermission("user_setting", {
       type: "device_battery",
       title: "Baterai perangkat toko rendah",
-      message: `${d.label || (d.kind === "tablet" ? "Tablet" : "PC")} ${d.store_name || d.user_name} tersisa ${d.battery}% dan tidak mengisi.`,
+      message: msg,
       sourceFeature: "store_monitor",
     }).catch((e) => console.error("alert battery", e));
   }

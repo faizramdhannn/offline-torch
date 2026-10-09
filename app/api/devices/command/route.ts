@@ -7,7 +7,7 @@ import { DEVICE_ID_RE, ensureDevicesSchema } from "@/lib/devices";
 
 export const dynamic = "force-dynamic";
 
-const MUSIC_ACTIONS = ["load", "play", "pause", "volume", "mute", "shuffle", "next", "prev"];
+const MUSIC_ACTIONS = ["load", "play", "pause", "volume", "mute", "shuffle", "preset", "next", "prev"];
 
 // Kirim perintah ke perangkat toko lewat Ably. Izin (user_setting) ditegakkan proxy; tercatat di activity log.
 // target: { all } | { user_names: [...] } | { deviceId }
@@ -61,11 +61,29 @@ export async function POST(request: NextRequest) {
       stores = (await sql`SELECT user_name FROM store_devices WHERE device_id = ${target.deviceId as string}`).map((r: any) => r.user_name);
     }
     const by = actorName(request);
-    if (action === "load") {
+    if (action === "preset") {
+      // Satu perintah = playlist + volume + acak sekaligus (hemat panggilan dibanding tiga perintah terpisah)
       const id = Number(p.playlist_id);
-      const pl = await sql`SELECT id, yt_list, yt_video FROM music_playlists WHERE id = ${id}`;
+      const pl = await sql`SELECT id, name, yt_list, yt_video FROM music_playlists WHERE id = ${id}`;
       if (!pl.length) return NextResponse.json({ error: "Playlist tidak ditemukan" }, { status: 404 });
-      payload.playlist = { id: pl[0].id, list: pl[0].yt_list, video: pl[0].yt_video };
+      const v = Math.min(100, Math.max(0, Math.round(Number(p.volume))));
+      if (!Number.isFinite(v)) return NextResponse.json({ error: "Volume tidak valid" }, { status: 400 });
+      const shuffle = p.shuffle !== false;
+      payload.playlist = { id: pl[0].id, name: pl[0].name, list: pl[0].yt_list, video: pl[0].yt_video };
+      payload.volume = v;
+      payload.shuffle = shuffle;
+      for (const u of stores) {
+        await sql`
+          INSERT INTO store_music (user_name, playlist_id, volume, muted, playing, shuffle, updated_by)
+          VALUES (${u}, ${id}, ${v}, false, true, ${shuffle}, ${by})
+          ON CONFLICT (user_name) DO UPDATE SET playlist_id = ${id}, volume = ${v}, muted = false, playing = true,
+            shuffle = ${shuffle}, updated_by = ${by}, updated_at = now()`;
+      }
+    } else if (action === "load") {
+      const id = Number(p.playlist_id);
+      const pl = await sql`SELECT id, name, yt_list, yt_video FROM music_playlists WHERE id = ${id}`;
+      if (!pl.length) return NextResponse.json({ error: "Playlist tidak ditemukan" }, { status: 404 });
+      payload.playlist = { id: pl[0].id, name: pl[0].name, list: pl[0].yt_list, video: pl[0].yt_video };
       for (const u of stores) {
         await sql`
           INSERT INTO store_music (user_name, playlist_id, playing, updated_by) VALUES (${u}, ${id}, true, ${by})

@@ -10,6 +10,9 @@ export const dynamic = "force-dynamic";
 // Update presence biasa (pindah halaman) tidak menyentuh database kecuali baterai berubah.
 const ACTIONS: Record<string, string> = { "1": "present", "2": "enter", "3": "leave", "4": "update", present: "present", enter: "enter", leave: "leave", update: "update" };
 
+// Baterai terakhir per perangkat (memori instance): update presence tanpa perubahan baterai tidak menyentuh database.
+const lastBattery = new Map<string, string>();
+
 export async function POST(request: NextRequest) {
   const secret = process.env.REALTIME_WEBHOOK_SECRET;
   if (!secret || new URL(request.url).searchParams.get("s") !== secret) {
@@ -36,6 +39,9 @@ export async function POST(request: NextRequest) {
       const bat = typeof e.data.battery === "number" ? Math.round(e.data.battery) : null;
       const chg = typeof e.data.charging === "boolean" ? e.data.charging : null;
       if (e.action === "update") {
+        const sig = `${bat}|${chg}`;
+        if (lastBattery.get(e.clientId) === sig) continue;
+        lastBattery.set(e.clientId, sig);
         await sql`
           UPDATE store_devices SET battery = ${bat}, charging = ${chg}
           WHERE device_id = ${e.clientId} AND (battery IS DISTINCT FROM ${bat} OR charging IS DISTINCT FROM ${chg})

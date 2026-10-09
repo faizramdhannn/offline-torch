@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/context/UserContext";
 import EventLog from "@/components/store-monitor/EventLog";
 import PlaylistManager from "@/components/store-monitor/PlaylistManager";
+import PresetManager from "@/components/store-monitor/PresetManager";
+import { useLocalList, type Group, type Preset } from "@/components/store-monitor/localLists";
 import ScheduleEditor from "@/components/store-monitor/ScheduleEditor";
 import { BatteryIcon, BoltIcon, CalendarIcon, ClockIcon, MegaphoneIcon, MusicIcon, MuteIcon, NextIcon, PauseIcon, PencilIcon, PlayIcon, PowerIcon, PrevIcon, RefreshIcon, ShuffleIcon, VolumeIcon } from "@/components/store-monitor/icons";
 import { ago, type Device, type Live, type Playlist, type Rule, type StoreMusic } from "@/components/store-monitor/types";
@@ -26,6 +28,9 @@ export default function StoreMonitorPage() {
   const [editing, setEditing] = useState<{ title: string; users: string[] } | null>(null);
   const [historyFor, setHistoryFor] = useState<Device | null>(null);
   const [toast, setToast] = useState("");
+  const [presets, setPresets] = useLocalList<Preset>("torch_monitor_presets");
+  const [groups, setGroups] = useLocalList<Group>("torch_monitor_groups");
+  const [managing, setManaging] = useState(false);
   const knownRef = useRef<Set<string>>(new Set());
 
   const loadAll = useCallback(async () => {
@@ -165,6 +170,7 @@ export default function StoreMonitorPage() {
             </span>
           </p>
         </div>
+        <a href="/panduan-tablet" className="text-xs text-gray-500 underline-offset-2 hover:underline">Panduan setup tablet</a>
         <div className="flex gap-1 rounded-lg bg-gray-100 p-1 text-xs">
           {([["devices", "Perangkat"], ["playlists", "Playlist"], ["history", "Riwayat"]] as const).map(([k, l]) => (
             <button key={k} onClick={() => setTab(k)} className={`rounded-md px-3 py-1 ${tab === k ? "bg-white font-medium text-gray-800 shadow-sm" : "text-gray-500"}`}>{l}</button>
@@ -186,6 +192,16 @@ export default function StoreMonitorPage() {
           <div className="sticky top-0 z-10 mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white/95 p-2.5 backdrop-blur">
             <span className="text-[11px] font-medium text-gray-500">Target: {scopeLabel}</span>
             {selected.size > 0 && <button className={btn} onClick={() => setSelected(new Set())}>Batal pilih</button>}
+            <span className="mx-1 h-4 w-px bg-gray-200" />
+            <select defaultValue="" onChange={(e) => { const g = groups.find((x) => x.name === e.target.value); if (g) setSelected(new Set(g.users.filter((u) => stores.some((s) => s.user_name === u)))); e.target.value = ""; }} className={btn}>
+              <option value="">Grup…</option>
+              {groups.map((g) => <option key={g.name} value={g.name}>{g.name} ({g.users.length})</option>)}
+            </select>
+            <select defaultValue="" disabled={!live_} onChange={(e) => { const p = presets.find((x) => x.name === e.target.value); if (p && confirm(`Terapkan preset "${p.name}" ke ${scopeLabel}?`)) send("music", scopeTarget(), { action: "preset", playlist_id: p.playlist_id, volume: p.volume, shuffle: p.shuffle }); e.target.value = ""; }} className={btn}>
+              <option value="">Preset…</option>
+              {presets.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+            </select>
+            <button className={btn} onClick={() => setManaging(true)}>Kelola preset & grup</button>
             <span className="mx-1 h-4 w-px bg-gray-200" />
             <select defaultValue="" onChange={(e) => { if (e.target.value) send("music", scopeTarget(), { action: "load", playlist_id: Number(e.target.value) }); e.target.value = ""; }} disabled={!live_} className={btn}>
               <option value="">Ganti playlist…</option>
@@ -308,6 +324,9 @@ export default function StoreMonitorPage() {
         </>
       )}
 
+      {managing && (
+        <PresetManager presets={presets} groups={groups} playlists={playlists} selected={[...selected]} onPresets={setPresets} onGroups={setGroups} onClose={() => setManaging(false)} />
+      )}
       {editing && (
         <ScheduleEditor
           title={editing.title}

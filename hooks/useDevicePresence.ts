@@ -74,6 +74,8 @@ export function useDevicePresence(user: Me | null | undefined) {
     let client: any = null;
     let channel: any = null;
     let battery: any = null;
+    let lastSent = 0;
+    let pendingTimer: ReturnType<typeof setTimeout> | null = null;
 
     const snapshot = () => ({
       kind: getDeviceKind(),
@@ -150,9 +152,19 @@ export function useDevicePresence(user: Me | null | undefined) {
           battery?.addEventListener("levelchange", () => updateRef.current?.());
           battery?.addEventListener("chargingchange", () => updateRef.current?.());
         } catch {}
-        updateRef.current = () => channel?.presence.update(snapshot()).catch(() => {});
-        pushUpdate = () => updateRef.current?.();
-        updateRef.current();
+        // Setiap update presence = 1 panggilan webhook ke Vercel. Perubahan halaman/baterai/tab dibatasi
+        // paling sering sekali per 30 detik; perubahan musik (jarang) langsung dikirim.
+        const send = () => {
+          lastSent = Date.now();
+          channel?.presence.update(snapshot()).catch(() => {});
+        };
+        updateRef.current = () => {
+          const wait = 30_000 - (Date.now() - lastSent);
+          if (wait <= 0) send();
+          else if (!pendingTimer) pendingTimer = setTimeout(() => { pendingTimer = null; send(); }, wait);
+        };
+        pushUpdate = send;
+        send();
       } catch {
         // tanpa realtime pun aplikasi tetap jalan normal
       }
@@ -172,6 +184,7 @@ export function useDevicePresence(user: Me | null | undefined) {
       window.removeEventListener("pagehide", onHide);
       updateRef.current = null;
       pushUpdate = null;
+      if (pendingTimer) clearTimeout(pendingTimer);
       try {
         client?.close();
       } catch {}
