@@ -84,6 +84,11 @@ export const RULES: Rule[] = [
   need("/api/catalog/refresh", ["user_setting"], ["POST"]),
   need("/api/catalog/data", ["user_setting"]),
   need("/api/catalog/upload", ["user_setting"], ["POST"]),
+  need("/api/devices", ["user_setting"]),
+  need("/api/devices/register", [], ["POST"]),
+  need("/api/music", ["user_setting"]),
+  need("/api/music/state", [], ["GET"]),
+  pub("/api/realtime/webhook", ["POST"]), // diamankan secret di query (REALTIME_WEBHOOK_SECRET)
   need("/api/roles", []),
   need("/api/auth/me", []),
   need("/api/profiles", []),

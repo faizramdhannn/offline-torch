@@ -122,6 +122,55 @@ function HpjCell({
   return <td className="px-2 py-1">{item.hpj}</td>;
 }
 
+// Salin SKU untuk kartu mobile (di layar sentuh tidak ada hover, jadi tombolnya selalu tampak).
+function SkuCopy({ sku }: { sku: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(sku).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+      aria-label="Salin SKU"
+      className="inline-flex items-center gap-1 rounded px-1 py-0.5 font-mono text-[11px] text-gray-500 active:bg-gray-100"
+    >
+      <span className="break-all">{sku}</span>
+      {copied ? <Check className="h-3 w-3 flex-none text-green-500" /> : <Copy className="h-3 w-3 flex-none text-gray-400" />}
+    </button>
+  );
+}
+
+// Harga jual untuk kartu mobile: bila ada diskon, harga normal dicoret + badge % + harga diskon.
+function HpjInline({
+  item,
+  parseDiscount,
+  parseHarga,
+  formatRupiah,
+}: {
+  item: StockItem;
+  parseDiscount: (v: string | undefined | null) => number;
+  parseHarga: (v: string | undefined | null) => number;
+  formatRupiah: (v: number) => string;
+}) {
+  if (!item.hpj) return <span className="text-gray-300">-</span>;
+  const pct = parseDiscount(item.discount);
+  const hpjVal = parseHarga(item.hpj);
+  const diskon = pct > 0 && hpjVal > 0 ? Math.round(hpjVal * (1 - pct / 100)) : 0;
+  if (pct > 0 && diskon > 0) {
+    return (
+      <span className="inline-flex flex-wrap items-center gap-1">
+        <span className="text-[10px] text-gray-400 line-through">{item.hpj}</span>
+        <span className="rounded bg-red-500 px-1 text-[9px] font-bold text-white">-{pct}%</span>
+        <span className="text-[13px] font-bold text-gray-900">{formatRupiah(diskon)}</span>
+      </span>
+    );
+  }
+  return <span className="text-[13px] font-bold text-gray-900">{item.hpj}</span>;
+}
+
 function parseStockNum(v: string | undefined | null): number | null {
   if (v === undefined || v === null || v === "") return null;
   const n = parseInt(String(v).replace(/[^0-9-]/g, ""), 10);
@@ -261,7 +310,9 @@ export function StockTable({
     (showHpj ? 1 : 0);
 
   return (
-    <div className="overflow-x-auto">
+    <>
+    {/* ── Desktop / tablet lebar: tabel ─────────────────────────────── */}
+    <div className="hidden overflow-x-auto lg:block">
       <table className="w-full min-w-[480px] text-[11px]">
         <thead className="sticky top-0 z-10 bg-gray-50">
           <tr className="border-b border-gray-100">
@@ -443,5 +494,132 @@ export function StockTable({
         </tbody>
       </table>
     </div>
+
+    {/* ── Mobile / tablet sempit: daftar kartu (tanpa geser kiri-kanan) ── */}
+    <div className="divide-y divide-gray-100 lg:hidden">
+      {items.map((item, index) => {
+        const rowKey = `m-${item.sku}-${item.warehouse ?? ""}-${index}`;
+        const isExpanded = expandedKey === rowKey;
+        const yesterdayStock = yesterdayStockMap[`${item.sku}::${item.warehouse ?? ""}`];
+        const thresholdVal = parseInt(String(item.threshold ?? "").replace(/[^0-9]/g, "")) || 0;
+        const stockVal = parseInt(String(item.stock ?? "").replace(/[^0-9-]/g, "")) || 0;
+        const belowThreshold = thresholdVal > 0 && stockVal <= thresholdVal;
+        const badges = (skuToBadges[item.sku] || []).filter((b) => b.logo_url);
+        return (
+          <div
+            key={rowKey}
+            onClick={() => { if (!hasTextSelection()) setExpandedKey(isExpanded ? null : rowKey); }}
+            className={cn("cursor-pointer p-3 transition-colors active:bg-gray-50", isExpanded && "bg-primary/5")}
+          >
+            <div className="flex items-start gap-3">
+              {item.link_url || item.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={item.link_url || item.image_url}
+                  alt={item.sku}
+                  loading="lazy"
+                  className="h-11 w-11 flex-none rounded-lg object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).src = NO_IMAGE_FALLBACK; }}
+                />
+              ) : (
+                <div className="flex h-11 w-11 flex-none items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+                  <ImageOff className="h-4 w-4" />
+                </div>
+              )}
+
+              <div className="min-w-0 flex-1">
+                <p className="line-clamp-2 text-[13px] font-semibold leading-snug text-gray-800">{toProperCase(item.item_name)}</p>
+                <div className="-ml-1 mt-0.5"><SkuCopy sku={item.sku} /></div>
+                {selectedView === "store" && item.warehouse && (
+                  <p className="truncate text-[11px] text-gray-400">{item.warehouse}</p>
+                )}
+              </div>
+
+              {showStockColumn && (
+                <div className="flex-none text-right">
+                  <div className="text-[9px] uppercase tracking-wide text-gray-400">Stock</div>
+                  <div className="text-lg font-bold leading-tight text-gray-900">{item.stock || "-"}</div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 pl-14">
+              {showHpj && (
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] uppercase tracking-wide text-gray-400">Harga</span>
+                  <HpjInline item={item} parseDiscount={parseDiscount} parseHarga={parseHarga} formatRupiah={formatRupiah} />
+                </div>
+              )}
+              {showHpt && item.hpt && (
+                <span className="text-[11px] text-gray-500"><span className="text-[9px] uppercase text-gray-400">HPT </span>{item.hpt}</span>
+              )}
+              {showHpp && item.hpp && (
+                <span className="text-[11px] text-gray-500"><span className="text-[9px] uppercase text-gray-400">HPP </span>{item.hpp}</span>
+              )}
+              {selectedView === "pca" && (
+                <span className="flex items-center gap-1 text-[11px] text-gray-500">
+                  <span className="text-[9px] uppercase tracking-wide text-gray-400">Threshold</span>
+                  <span className={cn("rounded px-1.5 py-0.5 font-semibold", belowThreshold ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700")}>
+                    {thresholdVal > 0 ? thresholdVal : "-"}
+                  </span>
+                </span>
+              )}
+              {badges.length > 0 && (
+                <span className="flex items-center gap-1">
+                  {badges.map((b) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={b.label} src={b.logo_url} alt={b.label} title={b.label} className="h-5 w-5 rounded-full object-cover ring-1 ring-gray-100" />
+                  ))}
+                </span>
+              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); onBarcodeClick(item); }}
+                aria-label="Lihat Barcode"
+                className="ml-auto inline-flex items-center justify-center rounded-lg bg-gray-100 p-1.5 text-gray-600 active:bg-gray-200"
+              >
+                <QrCode className="h-4 w-4" />
+              </button>
+            </div>
+
+            {isExpanded && (
+              <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg bg-white/70 p-2.5" onClick={(e) => e.stopPropagation()}>
+                {showStockColumn && (
+                  <>
+                    <div>
+                      <div className="text-[9px] uppercase tracking-wide text-gray-400">Stock Kemarin</div>
+                      <div className="text-sm font-semibold text-gray-800">{yesterdayStock ?? "-"}</div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] uppercase tracking-wide text-gray-400">Keterangan</div>
+                      <StockChangeBadge today={item.stock} yesterday={yesterdayStock} />
+                    </div>
+                  </>
+                )}
+                <div className="text-[11px] text-gray-500">
+                  {[item.category, item.grade, item.tier_product, item.tier_phase].filter(Boolean).map((v) => toProperCase(v)).join(" · ")}
+                </div>
+                <div className="ml-auto flex items-center gap-2">
+                  <button
+                    onClick={() => router.push(`/stock/${encodeURIComponent(item.sku)}`)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-50"
+                  >
+                    <Eye className="h-3.5 w-3.5" /> Detail
+                  </button>
+                  {canViewStoreBreakdown && onShowStoreBreakdown && (
+                    <button
+                      onClick={() => onShowStoreBreakdown(item)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-50"
+                    >
+                      <Store className="h-3.5 w-3.5" /> Store
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+    </>
   );
 }

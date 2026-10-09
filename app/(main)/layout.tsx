@@ -12,6 +12,9 @@ import DailyChecklistGateModal from "@/components/DailyChecklistGateModal";
 import { useDailyChecklistGate } from "@/hooks/useDailyChecklistGate";
 import { isProfileComplete } from "@/lib/profileRules";
 import UpdateToast from "@/components/UpdateToast";
+import { useDevicePresence } from "@/hooks/useDevicePresence";
+import { useStoreMusic } from "@/hooks/useStoreMusic";
+import DeviceAnnouncement from "@/components/DeviceAnnouncement";
 
 function MainLayoutInner({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
@@ -24,6 +27,8 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
   // tidak memicu animasi ini lagi.
   const [entering, setEntering] = useState(false);
 
+  useDevicePresence(user);
+  const music = useStoreMusic(user);
   const { showGate, storeName, dismissGate, checked: attendanceChecked } = useAttendanceGate();
   // Checklist gate is only shown once the attendance gate isn't currently
   // blocking (attendance gate takes priority — see composition below).
@@ -84,6 +89,15 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
       </main>
 
       <UpdateToast />
+      <DeviceAnnouncement />
+      {music.needTap && (
+        <button
+          onClick={music.start}
+          className="fixed bottom-4 right-4 z-[90] rounded-full bg-gray-900 px-4 py-2 text-xs font-medium text-white shadow-lg"
+        >
+          🎵 Ketuk untuk memulai musik
+        </button>
+      )}
 
       {/* Attendance gate — only shown when user hasn't checked in yet */}
       {!profileIncomplete && showGate && storeName && (

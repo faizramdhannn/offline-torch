@@ -14,6 +14,7 @@
     "@googleapis/sheets": "^14.0.0",
     "@neondatabase/serverless": "^0.10.4",
     "@vercel/blob": "^2.8.1",
+    "ably": "^2.29.0",
     "bcryptjs": "^2.4.3",
     "clsx": "^2.1.1",
     "docx": "^8.5.0",

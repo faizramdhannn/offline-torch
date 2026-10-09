@@ -67,6 +67,12 @@ describe("aturan akses /api", () => {
     expect(rule("/api/capture-attendance/capture").scope?.store).toMatchObject({ param: "store_name", bypass: ["attendance_store_all"] });
   });
 
+  it("perangkat toko: register cukup login, daftar & perintah butuh user_setting", () => {
+    expect(rule("/api/devices/register", "POST").any).toEqual([]);
+    expect(rule("/api/devices", "GET").any).toEqual(["user_setting"]);
+    expect(rule("/api/devices/command", "POST").any).toEqual(["user_setting"]);
+  });
+
   it("semua flag di RULES adalah permission yang valid (cegah salah ketik)", () => {
     const valid = new Set(PERMISSION_KEYS);
     for (const r of RULES) {
