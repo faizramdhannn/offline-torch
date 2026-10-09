@@ -8,7 +8,7 @@ export type DeviceKind = "tablet" | "pc";
 let schemaReady: Promise<void> | null = null;
 export function ensureDevicesSchema(): Promise<void> {
   if (!schemaReady) {
-    schemaReady = ensureOnce("devices", "v2", async () => {
+    schemaReady = ensureOnce("devices", "v3", async () => {
       await sql`
         CREATE TABLE IF NOT EXISTS store_devices (
           device_id TEXT PRIMARY KEY,
@@ -71,6 +71,8 @@ export function ensureDevicesSchema(): Promise<void> {
         )
       `;
       await sql`CREATE INDEX IF NOT EXISTS music_schedule_user_idx ON music_schedule (user_name)`;
+      await sql`ALTER TABLE store_music ADD COLUMN IF NOT EXISTS shuffle BOOLEAN NOT NULL DEFAULT true`;
+      await sql`ALTER TABLE music_schedule ADD COLUMN IF NOT EXISTS shuffle BOOLEAN NOT NULL DEFAULT true`;
     });
   }
   return schemaReady;

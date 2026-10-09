@@ -18,8 +18,8 @@ export interface Live {
   music?: { state?: string; title?: string; playlist?: string; volume?: number; muted?: boolean };
 }
 export interface Playlist { id: number; name: string; url: string }
-export interface StoreMusic { user_name: string; playlist_id: number | null; volume: number; muted: boolean; playing: boolean }
-export interface Rule { id?: number; user_name?: string; days: string; start_min: number; end_min: number; playlist_id: number | null; volume: number }
+export interface StoreMusic { user_name: string; playlist_id: number | null; volume: number; muted: boolean; playing: boolean; shuffle?: boolean }
+export interface Rule { id?: number; user_name?: string; days: string; start_min: number; end_min: number; playlist_id: number | null; volume: number; shuffle?: boolean }
 export interface DeviceEvent { device_id: string; event: string; detail: string; at: string; store_name?: string; kind?: string; label?: string }
 
 export const ago = (iso: string) => {

@@ -24,14 +24,15 @@ export async function PUT(request: NextRequest) {
       end_min: e,
       playlist_id: r.playlist_id ? Number(r.playlist_id) : null,
       volume: Math.min(100, Math.max(0, Math.round(Number(r.volume) || 50))),
+      shuffle: r.shuffle !== false,
     });
   }
   await ensureDevicesSchema();
   for (const u of users) {
     await sql`DELETE FROM music_schedule WHERE user_name = ${u}`;
     for (const r of clean) {
-      await sql`INSERT INTO music_schedule (user_name, days, start_min, end_min, playlist_id, volume)
-                VALUES (${u}, ${r.days}, ${r.start_min}, ${r.end_min}, ${r.playlist_id}, ${r.volume})`;
+      await sql`INSERT INTO music_schedule (user_name, days, start_min, end_min, playlist_id, volume, shuffle)
+                VALUES (${u}, ${r.days}, ${r.start_min}, ${r.end_min}, ${r.playlist_id}, ${r.volume}, ${r.shuffle})`;
     }
   }
   // tablet memuat ulang jadwalnya tanpa menunggu reload

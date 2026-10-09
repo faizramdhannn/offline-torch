@@ -48,6 +48,9 @@ export default function ScheduleEditor({
                   <option value="">— pilih playlist —</option>
                   {playlists.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
+                <label className="flex items-center gap-1 text-gray-500">
+                  <input type="checkbox" checked={r.shuffle !== false} onChange={(e) => upd(i, { shuffle: e.target.checked })} /> Acak
+                </label>
                 <label className="flex items-center gap-1 text-gray-500">Vol
                   <input type="number" min={0} max={100} value={r.volume} onChange={(e) => upd(i, { volume: Number(e.target.value) })} className="w-14 rounded border border-gray-200 px-1 py-1" />
                 </label>
@@ -56,7 +59,7 @@ export default function ScheduleEditor({
             </div>
           ))}
         </div>
-        <button type="button" onClick={() => setRules((rs) => [...rs, { days: "0,1,2,3,4,5,6", start_min: 600, end_min: 1260, playlist_id: playlists[0]?.id ?? null, volume: 40 }])}
+        <button type="button" onClick={() => setRules((rs) => [...rs, { days: "0,1,2,3,4,5,6", start_min: 600, end_min: 1260, playlist_id: playlists[0]?.id ?? null, volume: 40, shuffle: true }])}
           className="mt-3 rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-50">+ Tambah jadwal</button>
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-lg px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100">Batal</button>

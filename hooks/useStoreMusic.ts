@@ -8,7 +8,7 @@ import { activeRule, type ScheduleRule } from "@/lib/musicSchedule";
 // dikendalikan dari dashboard lewat perintah Ably + jadwal per jam (WIB). Layout (main) tidak ikut
 // di-unmount saat pindah halaman, jadi musik tidak terputus.
 interface Playlist { id: number; name?: string; list: string; video: string }
-interface Desired { playlist: Playlist | null; volume: number; muted: boolean; playing: boolean }
+interface Desired { playlist: Playlist | null; volume: number; muted: boolean; playing: boolean; shuffle: boolean }
 
 declare global {
   interface Window { YT?: any; onYouTubeIframeAPIReady?: () => void }
@@ -39,7 +39,9 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
     let cancelled = false;
     let player: any = null;
     let ready = false;
-    let want: Desired = { playlist: null, volume: 50, muted: false, playing: false };
+    let want: Desired = { playlist: null, volume: 50, muted: false, playing: false, shuffle: true };
+    // Setelah playlist dimuat: acak + mulai dari lagu acak (daftar lagu baru diketahui setelah YouTube memuatnya)
+    let startPending = false;
     let loadedId: number | null = null;
     let rules: ScheduleRule[] = [];
     let playlists = new Map<number, Playlist>();
@@ -51,7 +53,7 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
       if (!player || !ready) return;
       const st = player.getPlayerState?.();
       const name = st === 1 ? "playing" : st === 2 ? "paused" : st === 3 ? "buffering" : "idle";
-      setPresenceExtra({ music: { state: name, title: player.getVideoData?.()?.title || "", playlist: want.playlist?.name || "", volume: want.volume, muted: want.muted } });
+      setPresenceExtra({ music: { state: name, title: player.getVideoData?.()?.title || "", playlist: want.playlist?.name || "", volume: want.volume, muted: want.muted, shuffle: want.shuffle } });
     };
 
     const apply = () => {
@@ -65,7 +67,7 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
             loadedId = pl.id;
             if (pl.list) {
               player.loadPlaylist({ list: pl.list, listType: "playlist", index: 0 });
-              player.setShuffle(true);
+              startPending = true;
             } else player.loadPlaylist([pl.video]);
             player.setLoop(true);
           } else if (player.getPlayerState() !== 1) player.playVideo();
@@ -81,11 +83,27 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
       syncWake();
     };
 
+    // Dipanggil saat status pemutar berubah: begitu daftar lagu diketahui, terapkan acak & titik mulai acak.
+    const applyShuffleStart = () => {
+      if (!startPending || !player) return;
+      let ids: string[] = [];
+      try { ids = player.getPlaylist?.() || []; } catch {}
+      if (!ids.length) return;
+      startPending = false;
+      try {
+        if (want.shuffle) {
+          player.setShuffle(true);
+          player.playVideoAt(Math.floor(Math.random() * ids.length));
+        } else player.setShuffle(false);
+      } catch {}
+    };
+
     const fromRule = (r: ScheduleRule | null): Desired => ({
       playlist: r?.playlist_id ? playlists.get(r.playlist_id) || null : null,
       volume: r ? r.volume : want.volume,
       muted: false,
       playing: !!r && !!r.playlist_id,
+      shuffle: r ? r.shuffle !== false : want.shuffle,
     });
 
     const load = async () => {
@@ -101,6 +119,7 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
           volume: s?.volume ?? 50,
           muted: !!s?.muted,
           playing: s ? !!s.playing : false,
+          shuffle: s ? s.shuffle !== false : true,
         };
         const act = rules.length ? activeRule(rules) : null;
         if (!rules.length) want = manual;
@@ -143,6 +162,10 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
       else if (a === "pause") { want = { ...want, playing: false }; apply(); }
       else if (a === "volume") { want = { ...want, volume: Number(payload.volume) }; apply(); }
       else if (a === "mute") { want = { ...want, muted: !!payload.muted }; apply(); }
+      else if (a === "shuffle") {
+        want = { ...want, shuffle: payload.shuffle !== false };
+        try { player.setShuffle(want.shuffle); } catch {}
+      }
       else if (a === "next") { try { player.nextVideo(); } catch {} }
       else if (a === "prev") { try { player.previousVideo(); } catch {} }
     });
@@ -186,7 +209,7 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
         playerVars: { autoplay: 1, controls: 0, playsinline: 1, rel: 0 },
         events: {
           onReady: () => { ready = true; load(); },
-          onStateChange: () => { report(); if (player.getPlayerState() === 1) setNeedTap(false); },
+          onStateChange: () => { applyShuffleStart(); report(); if (player.getPlayerState() === 1) setNeedTap(false); },
           onAutoplayBlocked: () => setNeedTap(true),
           // video tidak boleh disematkan / tidak ada → lompat ke lagu berikutnya
           onError: () => { try { player.nextVideo(); } catch {} },

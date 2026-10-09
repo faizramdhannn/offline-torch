@@ -1,6 +1,6 @@
 // Murni (tanpa database) supaya aman dipakai di browser.
 // Aturan jadwal aktif sekarang (zona WIB). days = "0,1,..." (0=Minggu).
-export interface ScheduleRule { id: number; days: string; start_min: number; end_min: number; playlist_id: number | null; volume: number }
+export interface ScheduleRule { id: number; days: string; start_min: number; end_min: number; playlist_id: number | null; volume: number; shuffle?: boolean }
 export function wibNow(d = new Date()): { day: number; min: number; dayStartMs: number } {
   const p = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Jakarta", weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(d);
   const get = (t: string) => p.find((x) => x.type === t)?.value || "0";

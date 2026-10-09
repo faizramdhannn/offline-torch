@@ -19,3 +19,4 @@ export const BoltIcon = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)} fill=
 export const PencilIcon = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)} {...stroke}><path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" /></svg>);
 export const ClockIcon = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)} {...stroke}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>);
 export const PowerIcon = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)} {...stroke}><path d="M12 3v9M6.4 6.4a8 8 0 1011.2 0" /></svg>);
+export const ShuffleIcon = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)} {...stroke}><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" /></svg>);

@@ -7,7 +7,7 @@ import { DEVICE_ID_RE, ensureDevicesSchema } from "@/lib/devices";
 
 export const dynamic = "force-dynamic";
 
-const MUSIC_ACTIONS = ["load", "play", "pause", "volume", "mute", "next", "prev"];
+const MUSIC_ACTIONS = ["load", "play", "pause", "volume", "mute", "shuffle", "next", "prev"];
 
 // Kirim perintah ke perangkat toko lewat Ably. Izin (user_setting) ditegakkan proxy; tercatat di activity log.
 // target: { all } | { user_names: [...] } | { deviceId }
@@ -86,6 +86,14 @@ export async function POST(request: NextRequest) {
         await sql`
           INSERT INTO store_music (user_name, volume, updated_by) VALUES (${u}, ${v}, ${by})
           ON CONFLICT (user_name) DO UPDATE SET volume = ${v}, updated_by = ${by}, updated_at = now()`;
+      }
+    } else if (action === "shuffle") {
+      const shuffle = p.shuffle !== false;
+      payload.shuffle = shuffle;
+      for (const u of stores) {
+        await sql`
+          INSERT INTO store_music (user_name, shuffle, updated_by) VALUES (${u}, ${shuffle}, ${by})
+          ON CONFLICT (user_name) DO UPDATE SET shuffle = ${shuffle}, updated_by = ${by}, updated_at = now()`;
       }
     } else if (action === "mute") {
       const muted = p.muted === true;

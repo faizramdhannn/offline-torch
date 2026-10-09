@@ -5,7 +5,7 @@ import { useUser } from "@/context/UserContext";
 import EventLog from "@/components/store-monitor/EventLog";
 import PlaylistManager from "@/components/store-monitor/PlaylistManager";
 import ScheduleEditor from "@/components/store-monitor/ScheduleEditor";
-import { BatteryIcon, BoltIcon, CalendarIcon, ClockIcon, MegaphoneIcon, MusicIcon, MuteIcon, NextIcon, PauseIcon, PencilIcon, PlayIcon, PowerIcon, PrevIcon, RefreshIcon, VolumeIcon } from "@/components/store-monitor/icons";
+import { BatteryIcon, BoltIcon, CalendarIcon, ClockIcon, MegaphoneIcon, MusicIcon, MuteIcon, NextIcon, PauseIcon, PencilIcon, PlayIcon, PowerIcon, PrevIcon, RefreshIcon, ShuffleIcon, VolumeIcon } from "@/components/store-monitor/icons";
 import { ago, type Device, type Live, type Playlist, type Rule, type StoreMusic } from "@/components/store-monitor/types";
 
 type Status = "connecting" | "live" | "off" | "unconfigured";
@@ -189,6 +189,8 @@ export default function StoreMonitorPage() {
             <button className={btn} disabled={!live_} onClick={() => send("music", scopeTarget(), { action: "pause" })}><PauseIcon /> Pause</button>
             <button className={btn} disabled={!live_} onClick={() => send("music", scopeTarget(), { action: "mute", muted: true })}><MuteIcon /> Mute</button>
             <button className={btn} disabled={!live_} onClick={() => send("music", scopeTarget(), { action: "mute", muted: false })}><VolumeIcon /> Unmute</button>
+            <button className={btn} disabled={!live_} onClick={() => send("music", scopeTarget(), { action: "shuffle", shuffle: true })}><ShuffleIcon /> Acak: nyala</button>
+            <button className={btn} disabled={!live_} onClick={() => send("music", scopeTarget(), { action: "shuffle", shuffle: false })}><ShuffleIcon /> Acak: mati</button>
             <button className={btn} disabled={!live_} onClick={() => doAnnounce(scopeTarget(), scopeLabel)}><MegaphoneIcon /> Pengumuman</button>
             <button className={btn} onClick={() => setEditing({ title: scopeLabel, users: selected.size ? [...selected] : stores.map((s) => s.user_name) })}><CalendarIcon /> Jadwal</button>
             <button className={btn} disabled={!live_} onClick={() => confirm(`Muat ulang perangkat ${scopeLabel}?`) && send("reload", scopeTarget())}><RefreshIcon /> Reload</button>
@@ -264,6 +266,12 @@ export default function StoreMonitorPage() {
                             {tl?.music?.state === "playing" ? <PauseIcon /> : <PlayIcon />}
                           </button>
                           <button className={btn} disabled={!live_} onClick={() => send("music", target, { action: "next" })}><NextIcon /></button>
+                          <button
+                            className={`${btn} ${m?.shuffle !== false ? "!border-gray-800 !text-gray-800" : ""}`}
+                            title={m?.shuffle !== false ? "Acak nyala (klik untuk mematikan)" : "Acak mati (klik untuk menyalakan)"}
+                            disabled={!live_}
+                            onClick={() => send("music", target, { action: "shuffle", shuffle: m?.shuffle === false })}
+                          ><ShuffleIcon /></button>
                           <button className={btn} disabled={!live_} onClick={() => send("music", target, { action: "mute", muted: !m?.muted })}>{m?.muted ? <MuteIcon /> : <VolumeIcon />}</button>
                         </div>
                         <input
