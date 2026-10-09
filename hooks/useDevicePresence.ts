@@ -102,6 +102,8 @@ export function useDevicePresence(user: Me | null | undefined) {
         });
         const d = await r.json().catch(() => ({}));
         if (d.revoked) { forceLogout(); return true; }
+        // perangkat sudah terdaftar → pemutar musik boleh memeriksa perannya (pemutar atau bukan)
+        handlers.forEach((h) => h({ type: "music", payload: { action: "role" } }));
       } catch {}
       return false;
     };

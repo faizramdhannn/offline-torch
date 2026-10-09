@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getDeviceKind, onDeviceCommand, setPresenceExtra } from "./useDevicePresence";
+import { getDeviceId, onDeviceCommand, setPresenceExtra } from "./useDevicePresence";
 import { activeRule, type ScheduleRule } from "@/lib/musicSchedule";
 
 // Pemutar musik toko (hanya TABLET akun Store/Merchant). YouTube IFrame API di elemen tersembunyi;
@@ -33,9 +33,30 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
   const [needTap, setNeedTap] = useState(false);
   const startRef = useRef<(() => void) | null>(null);
   const eligible = !!user && (user.role === "store" || user.role === "merchant");
+  // Hanya SATU perangkat per toko yang memutar musik: pilihan dari dashboard, default tablet.
+  const [isPlayer, setIsPlayer] = useState(false);
 
   useEffect(() => {
-    if (!eligible || getDeviceKind() !== "tablet") return;
+    if (!eligible) return;
+    let cancelled = false;
+    const check = async () => {
+      const id = getDeviceId();
+      if (!id) return;
+      try {
+        const r = await fetch(`/api/music/state?deviceId=${encodeURIComponent(id)}`, { cache: "no-store" });
+        if (!r.ok) return;
+        const d = await r.json();
+        if (!cancelled) setIsPlayer(!!d.player);
+      } catch {}
+    };
+    const off = onDeviceCommand(({ type, payload }) => {
+      if (type === "music" && payload.action === "role") check();
+    });
+    return () => { cancelled = true; off(); };
+  }, [eligible]);
+
+  useEffect(() => {
+    if (!eligible || !isPlayer) return;
     let cancelled = false;
     let player: any = null;
     let ready = false;
@@ -230,8 +251,9 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
       document.removeEventListener("pointerdown", unlock);
       startRef.current = null;
       try { player?.destroy?.(); (player as any)?.__wrap?.remove(); } catch {}
+      setPresenceExtra({ music: null });
     };
-  }, [eligible]);
+  }, [eligible, isPlayer]);
 
   const start = useCallback(() => startRef.current?.(), []);
   return { needTap, start };

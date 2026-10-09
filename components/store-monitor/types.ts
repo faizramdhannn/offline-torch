@@ -8,6 +8,7 @@ export interface Device {
   online: boolean;
   battery: number | null;
   charging: boolean | null;
+  music_player?: boolean | null;
 }
 export interface Live {
   kind?: string;

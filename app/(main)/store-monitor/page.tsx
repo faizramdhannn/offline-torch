@@ -128,6 +128,12 @@ export default function StoreMonitorPage() {
     await fetch("/api/devices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device_id: d.device_id, label }) });
     loadAll();
   };
+  const setPlayer = async (d: Device) => {
+    if (!confirm(`Jadikan ${d.label || (d.kind === "tablet" ? "Tablet" : "PC")} ${d.store_name} pemutar musik? Perangkat lain di toko ini berhenti memutar.`)) return;
+    const r = await fetch("/api/devices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device_id: d.device_id, music_player: true }) });
+    flash(r.ok ? "Pemutar musik diganti" : "Gagal");
+    setTimeout(loadAll, 800);
+  };
   const disconnect = async (d: Device) => {
     if (!confirm(`Putuskan ${d.label || d.kind} ${d.store_name}? Perangkat ini di-logout paksa; akun & perangkat lain tidak terpengaruh.`)) return;
     const r = await fetch("/api/devices", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device_id: d.device_id }) });
@@ -202,7 +208,10 @@ export default function StoreMonitorPage() {
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {stores.map((s) => {
                 const m = musicOf(s.user_name);
-                const tablet = s.devices.find((d) => d.kind === "tablet");
+                // pemutar musik toko: pilihan eksplisit menang; tanpa pilihan = tablet
+                const explicit = s.devices.find((d) => d.music_player === true);
+                const tablet = explicit || s.devices.find((d) => d.kind === "tablet");
+                const isPlayerDev = (d: Device) => (explicit ? d.device_id === explicit.device_id : !explicit && d.kind === "tablet");
                 const tl = tablet ? live[tablet.device_id] : undefined;
                 const target = { user_names: [s.user_name] };
                 const hasSchedule = schedule.some((r) => r.user_name === s.user_name);
@@ -236,6 +245,11 @@ export default function StoreMonitorPage() {
                               )}
                             </div>
                             <div className="flex shrink-0 gap-1 text-[11px] text-gray-400">
+                              <button
+                                onClick={() => !isPlayerDev(d) && setPlayer(d)}
+                                title={isPlayerDev(d) ? "Pemutar musik toko ini" : "Jadikan pemutar musik (perangkat lain di toko ini otomatis berhenti)"}
+                                className={isPlayerDev(d) ? "text-gray-800" : "hover:text-gray-700"}
+                              ><MusicIcon /></button>
                               <button onClick={() => rename(d)} title="Ubah nama" className="hover:text-gray-700"><PencilIcon /></button>
                               <button onClick={() => setHistoryFor(d)} title="Riwayat" className="hover:text-gray-700"><ClockIcon /></button>
                               {isSuper && <button onClick={() => disconnect(d)} title="Putuskan (logout paksa)" className="hover:text-red-500"><PowerIcon /></button>}
@@ -248,13 +262,13 @@ export default function StoreMonitorPage() {
                     {tablet && (
                       <div className="mt-3 rounded-lg bg-gray-50 p-2.5 text-xs">
                         <div className="mb-1.5 flex items-center justify-between">
-                          <span className="inline-flex items-center gap-1 font-medium text-gray-600"><MusicIcon /> Musik</span>
+                          <span className="inline-flex items-center gap-1 font-medium text-gray-600"><MusicIcon /> Musik<span className="font-normal text-gray-400">· di {tablet.label || (tablet.kind === "tablet" ? "Tablet" : "PC")}</span></span>
                           <button onClick={() => setEditing({ title: s.name, users: [s.user_name] })} className="text-[11px] text-gray-500 hover:underline">
                             {hasSchedule ? "Jadwal aktif" : "Atur jadwal"}
                           </button>
                         </div>
                         <p className="mb-1.5 truncate text-gray-500">
-                          {tl?.music?.title ? <span className="inline-flex items-center gap-1">{tl.music.state === "playing" ? <PlayIcon width={11} height={11} /> : <PauseIcon width={11} height={11} />}<span className="truncate">{tl.music.title}</span></span> : tl ? (m?.playing ? "Menunggu pemutaran…" : "Tidak memutar") : "Tablet offline"}
+                          {tl?.music?.title ? <span className="inline-flex items-center gap-1">{tl.music.state === "playing" ? <PlayIcon width={11} height={11} /> : <PauseIcon width={11} height={11} />}<span className="truncate">{tl.music.title}</span></span> : tl ? (m?.playing ? "Menunggu pemutaran…" : "Tidak memutar") : "Perangkat pemutar offline"}
                         </p>
                         <div className="flex flex-wrap items-center gap-1.5">
                           <select value={m?.playlist_id ?? ""} disabled={!live_} onChange={(e) => e.target.value && send("music", target, { action: "load", playlist_id: Number(e.target.value) })} className="min-w-0 flex-1 rounded-md border border-gray-200 bg-white px-1.5 py-1 text-[11px]">
