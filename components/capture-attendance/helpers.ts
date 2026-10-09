@@ -52,6 +52,11 @@ export async function getPublicIP(): Promise<string> {
   }
 }
 
+// Koordinat dari sheet bisa berformat lokal ("-6,300358147"); parseFloat biasa memotongnya jadi -6.
+export function parseCoord(v: unknown): number {
+  return parseFloat(String(v ?? "").trim().replace(",", "."));
+}
+
 export function buildMapsUrl(lat: number, lng: number): string {
   return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}&zoom=17`;
 }

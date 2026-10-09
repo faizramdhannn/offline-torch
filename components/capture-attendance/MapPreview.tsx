@@ -16,15 +16,12 @@ interface MapPreviewProps {
   className?: string;
 }
 
-// CARTO basemap tiles — free for reasonable production traffic, no API key
-// required, and (unlike tile.openstreetmap.org) explicitly allows being
-// embedded directly in apps. Dark mode uses CARTO's own dark_all tileset
-// instead of a CSS filter, so both themes render crisp, purpose-made tiles.
-const TILE_URL_LIGHT = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
-const TILE_URL_DARK = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-const TILE_SUBDOMAINS = ["a", "b", "c", "d"];
+// Tile OpenStreetMap standar: gratis, tanpa API key, boleh dipakai aplikasi dengan lalu lintas ringan
+// (peta hanya dimuat saat "Lihat Peta" ditekan). Basemap CARTO sebelumnya sekarang mewajibkan API key
+// (petak berisi tulisan "API KEY REQUIRED"). Mode gelap memakai filter CSS (.dark-map-preview di globals.css).
+const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noreferrer">CARTO</a>';
+  '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors';
 
 function isDarkMode() {
   if (typeof document === "undefined") return false;
@@ -32,10 +29,9 @@ function isDarkMode() {
 }
 
 /**
- * Inline, theme-aware map preview (Leaflet + CARTO basemap tiles). Renders in
- * place — never opens a new tab/window. Dark mode swaps to CARTO's dark_all
- * tileset (no CSS filter needed), toggled automatically whenever the app's
- * `html.dark` class changes.
+ * Inline, theme-aware map preview (Leaflet + OpenStreetMap tiles). Renders in
+ * place — never opens a new tab/window. Dark mode memakai filter CSS pada
+ * tile pane, mengikuti class `html.dark`.
  */
 export function MapPreview({ lat, lng, height = 180, accent = "#0d334d", mapsUrl, className = "" }: MapPreviewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -70,10 +66,7 @@ export function MapPreview({ lat, lng, height = 180, accent = "#0d334d", mapsUrl
       L.control.zoom({ position: "bottomright" }).addTo(map);
       L.control.attribution({ position: "bottomleft", prefix: false }).addAttribution(ATTRIBUTION).addTo(map);
 
-      const tileLayer = L.tileLayer(dark ? TILE_URL_DARK : TILE_URL_LIGHT, {
-        subdomains: TILE_SUBDOMAINS,
-        maxZoom: 19,
-      }).addTo(map);
+      const tileLayer = L.tileLayer(TILE_URL, { maxZoom: 19 }).addTo(map);
       tileLayerRef.current = tileLayer;
 
       const icon = L.divIcon({
@@ -106,27 +99,11 @@ export function MapPreview({ lat, lng, height = 180, accent = "#0d334d", mapsUrl
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lat, lng]);
 
-  // Swap tile source when theme changes, without re-creating the whole map
-  useEffect(() => {
-    if (!mapRef.current) return;
-    import("leaflet").then((mod) => {
-      const L = mod.default;
-      if (tileLayerRef.current) {
-        mapRef.current!.removeLayer(tileLayerRef.current);
-      }
-      const tileLayer = L.tileLayer(dark ? TILE_URL_DARK : TILE_URL_LIGHT, {
-        subdomains: TILE_SUBDOMAINS,
-        maxZoom: 19,
-      }).addTo(mapRef.current!);
-      tileLayerRef.current = tileLayer;
-    });
-  }, [dark]);
-
   const externalUrl = mapsUrl || `https://www.google.com/maps?q=${lat},${lng}`;
 
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border border-gray-200 bg-gray-100 ${className}`}
+      className={`relative overflow-hidden rounded-xl border border-gray-200 bg-gray-100 ${dark ? "dark-map-preview" : ""} ${className}`}
       style={{ height }}
     >
       <div ref={containerRef} className="h-full w-full" />

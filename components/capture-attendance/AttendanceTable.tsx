@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Check, X, MapPin } from "lucide-react";
 import { AttendanceRecord } from "./types";
-import { extractTime, isValidSelfie, toDriveProxyUrl } from "./helpers";
+import { extractTime, isValidSelfie, parseCoord, toDriveProxyUrl } from "./helpers";
 import { LazyImg, SelfiePlaceholderSm, SelfiePlaceholderMd } from "./LazyImg";
 import { MapPreview } from "./MapPreview";
 
@@ -286,8 +286,8 @@ export function AttendanceTable({ records, isAll }: { records: AttendanceRecord[
                         {(() => {
                           const which = mapOpenFor[rec.id];
                           if (!which) return null;
-                          const mLat = parseFloat(which === "open" ? rec.open_latitude : rec.close_latitude);
-                          const mLng = parseFloat(which === "open" ? rec.open_longitude : rec.close_longitude);
+                          const mLat = parseCoord(which === "open" ? rec.open_latitude : rec.close_latitude);
+                          const mLng = parseCoord(which === "open" ? rec.open_longitude : rec.close_longitude);
                           const mUrl = which === "open" ? rec.open_maps_url : rec.close_maps_url;
                           if (Number.isNaN(mLat) || Number.isNaN(mLng)) return null;
                           return (
