@@ -5,6 +5,7 @@ import { useUser } from "@/context/UserContext";
 import EventLog from "@/components/store-monitor/EventLog";
 import PlaylistManager from "@/components/store-monitor/PlaylistManager";
 import ScheduleEditor from "@/components/store-monitor/ScheduleEditor";
+import { BatteryIcon, BoltIcon, CalendarIcon, ClockIcon, MegaphoneIcon, MusicIcon, MuteIcon, NextIcon, PauseIcon, PencilIcon, PlayIcon, PowerIcon, PrevIcon, RefreshIcon, VolumeIcon } from "@/components/store-monitor/icons";
 import { ago, type Device, type Live, type Playlist, type Rule, type StoreMusic } from "@/components/store-monitor/types";
 
 type Status = "connecting" | "live" | "off" | "unconfigured";
@@ -144,7 +145,7 @@ export default function StoreMonitorPage() {
   if (!allowed) return <div className="p-6 text-sm text-gray-500">Anda tidak punya akses ke halaman ini.</div>;
 
   const onlineCount = devices.filter((d) => live[d.device_id]).length;
-  const btn = "rounded-md border border-gray-200 bg-white px-2.5 py-1 text-[11px] text-gray-600 hover:bg-gray-50 disabled:opacity-40";
+  const btn = "inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-[11px] text-gray-600 hover:bg-gray-50 disabled:opacity-40";
 
   return (
     <div className="p-4 md:p-6">
@@ -184,13 +185,13 @@ export default function StoreMonitorPage() {
               <option value="">Ganti playlist…</option>
               {playlists.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
-            <button className={btn} disabled={!live_} onClick={() => send("music", scopeTarget(), { action: "play" })}>▶ Play</button>
-            <button className={btn} disabled={!live_} onClick={() => send("music", scopeTarget(), { action: "pause" })}>⏸ Pause</button>
-            <button className={btn} disabled={!live_} onClick={() => send("music", scopeTarget(), { action: "mute", muted: true })}>🔇 Mute</button>
-            <button className={btn} disabled={!live_} onClick={() => send("music", scopeTarget(), { action: "mute", muted: false })}>🔊 Unmute</button>
-            <button className={btn} disabled={!live_} onClick={() => doAnnounce(scopeTarget(), scopeLabel)}>📢 Pengumuman</button>
-            <button className={btn} onClick={() => setEditing({ title: scopeLabel, users: selected.size ? [...selected] : stores.map((s) => s.user_name) })}>🗓 Jadwal</button>
-            <button className={btn} disabled={!live_} onClick={() => confirm(`Muat ulang perangkat ${scopeLabel}?`) && send("reload", scopeTarget())}>↻ Reload</button>
+            <button className={btn} disabled={!live_} onClick={() => send("music", scopeTarget(), { action: "play" })}><PlayIcon /> Play</button>
+            <button className={btn} disabled={!live_} onClick={() => send("music", scopeTarget(), { action: "pause" })}><PauseIcon /> Pause</button>
+            <button className={btn} disabled={!live_} onClick={() => send("music", scopeTarget(), { action: "mute", muted: true })}><MuteIcon /> Mute</button>
+            <button className={btn} disabled={!live_} onClick={() => send("music", scopeTarget(), { action: "mute", muted: false })}><VolumeIcon /> Unmute</button>
+            <button className={btn} disabled={!live_} onClick={() => doAnnounce(scopeTarget(), scopeLabel)}><MegaphoneIcon /> Pengumuman</button>
+            <button className={btn} onClick={() => setEditing({ title: scopeLabel, users: selected.size ? [...selected] : stores.map((s) => s.user_name) })}><CalendarIcon /> Jadwal</button>
+            <button className={btn} disabled={!live_} onClick={() => confirm(`Muat ulang perangkat ${scopeLabel}?`) && send("reload", scopeTarget())}><RefreshIcon /> Reload</button>
           </div>
 
           {stores.length === 0 ? (
@@ -208,7 +209,7 @@ export default function StoreMonitorPage() {
                     <div className="mb-3 flex items-center gap-2">
                       <input type="checkbox" checked={selected.has(s.user_name)} onChange={() => setSelected((p) => { const n = new Set(p); n.has(s.user_name) ? n.delete(s.user_name) : n.add(s.user_name); return n; })} />
                       <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-800">{s.name}</h2>
-                      <button className={btn} disabled={!live_} onClick={() => confirm(`Muat ulang ${s.name}?`) && send("reload", target)}>↻</button>
+                      <button className={btn} disabled={!live_} onClick={() => confirm(`Muat ulang ${s.name}?`) && send("reload", target)}><RefreshIcon /></button>
                     </div>
 
                     <div className="space-y-2">
@@ -220,18 +221,22 @@ export default function StoreMonitorPage() {
                             <div className="min-w-0 flex-1">
                               <p className="font-medium text-gray-700">{d.label || (d.kind === "tablet" ? "Tablet" : "PC")}{d.label && <span className="ml-1 font-normal text-gray-400">{d.kind === "tablet" ? "Tablet" : "PC"}</span>}</p>
                               {l ? (
-                                <p className="truncate text-gray-500">
-                                  {l.page || "-"}{l.visible === false ? " · tab di latar" : ""}
-                                  {typeof l.battery === "number" ? ` · 🔋${l.battery}%${l.charging ? "⚡" : ""}` : ""}
+                                <p className="flex items-center gap-1 truncate text-gray-500">
+                                  <span className="truncate">{l.page || "-"}{l.visible === false ? " · tab di latar" : ""}</span>
+                                  {typeof l.battery === "number" && (
+                                    <span className="inline-flex shrink-0 items-center gap-0.5">
+                                      · <BatteryIcon width={12} height={12} />{l.battery}%{l.charging ? <BoltIcon width={11} height={11} className="text-amber-500" /> : null}
+                                    </span>
+                                  )}
                                 </p>
                               ) : (
                                 <p className="text-gray-400">Offline · terakhir {ago(d.last_seen)}</p>
                               )}
                             </div>
                             <div className="flex shrink-0 gap-1 text-[11px] text-gray-400">
-                              <button onClick={() => rename(d)} title="Ubah nama" className="hover:text-gray-700">✎</button>
-                              <button onClick={() => setHistoryFor(d)} title="Riwayat" className="hover:text-gray-700">⏱</button>
-                              {isSuper && <button onClick={() => disconnect(d)} title="Putuskan (logout paksa)" className="hover:text-red-500">⏻</button>}
+                              <button onClick={() => rename(d)} title="Ubah nama" className="hover:text-gray-700"><PencilIcon /></button>
+                              <button onClick={() => setHistoryFor(d)} title="Riwayat" className="hover:text-gray-700"><ClockIcon /></button>
+                              {isSuper && <button onClick={() => disconnect(d)} title="Putuskan (logout paksa)" className="hover:text-red-500"><PowerIcon /></button>}
                             </div>
                           </div>
                         );
@@ -241,25 +246,25 @@ export default function StoreMonitorPage() {
                     {tablet && (
                       <div className="mt-3 rounded-lg bg-gray-50 p-2.5 text-xs">
                         <div className="mb-1.5 flex items-center justify-between">
-                          <span className="font-medium text-gray-600">🎵 Musik</span>
+                          <span className="inline-flex items-center gap-1 font-medium text-gray-600"><MusicIcon /> Musik</span>
                           <button onClick={() => setEditing({ title: s.name, users: [s.user_name] })} className="text-[11px] text-gray-500 hover:underline">
                             {hasSchedule ? "Jadwal aktif" : "Atur jadwal"}
                           </button>
                         </div>
                         <p className="mb-1.5 truncate text-gray-500">
-                          {tl?.music?.title ? `${tl.music.state === "playing" ? "▶" : "⏸"} ${tl.music.title}` : tl ? (m?.playing ? "Menunggu pemutaran…" : "Tidak memutar") : "Tablet offline"}
+                          {tl?.music?.title ? <span className="inline-flex items-center gap-1">{tl.music.state === "playing" ? <PlayIcon width={11} height={11} /> : <PauseIcon width={11} height={11} />}<span className="truncate">{tl.music.title}</span></span> : tl ? (m?.playing ? "Menunggu pemutaran…" : "Tidak memutar") : "Tablet offline"}
                         </p>
                         <div className="flex flex-wrap items-center gap-1.5">
                           <select value={m?.playlist_id ?? ""} disabled={!live_} onChange={(e) => e.target.value && send("music", target, { action: "load", playlist_id: Number(e.target.value) })} className="min-w-0 flex-1 rounded-md border border-gray-200 bg-white px-1.5 py-1 text-[11px]">
                             <option value="">— playlist —</option>
                             {playlists.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
-                          <button className={btn} disabled={!live_} onClick={() => send("music", target, { action: "prev" })}>⏮</button>
+                          <button className={btn} disabled={!live_} onClick={() => send("music", target, { action: "prev" })}><PrevIcon /></button>
                           <button className={btn} disabled={!live_} onClick={() => send("music", target, { action: m?.playing === false || tl?.music?.state !== "playing" ? "play" : "pause" })}>
-                            {tl?.music?.state === "playing" ? "⏸" : "▶"}
+                            {tl?.music?.state === "playing" ? <PauseIcon /> : <PlayIcon />}
                           </button>
-                          <button className={btn} disabled={!live_} onClick={() => send("music", target, { action: "next" })}>⏭</button>
-                          <button className={btn} disabled={!live_} onClick={() => send("music", target, { action: "mute", muted: !m?.muted })}>{m?.muted ? "🔇" : "🔊"}</button>
+                          <button className={btn} disabled={!live_} onClick={() => send("music", target, { action: "next" })}><NextIcon /></button>
+                          <button className={btn} disabled={!live_} onClick={() => send("music", target, { action: "mute", muted: !m?.muted })}>{m?.muted ? <MuteIcon /> : <VolumeIcon />}</button>
                         </div>
                         <input
                           key={`${s.user_name}-${m?.volume}`}
@@ -271,7 +276,7 @@ export default function StoreMonitorPage() {
                       </div>
                     )}
                     <div className="mt-2 text-right">
-                      <button className="text-[11px] text-gray-400 hover:underline" disabled={!live_} onClick={() => doAnnounce(target, s.name)}>📢 Pengumuman toko ini</button>
+                      <button className="text-[11px] text-gray-400 hover:underline" disabled={!live_} onClick={() => doAnnounce(target, s.name)}><span className="inline-flex items-center gap-1"><MegaphoneIcon width={12} height={12} /> Pengumuman toko ini</span></button>
                     </div>
                   </div>
                 );

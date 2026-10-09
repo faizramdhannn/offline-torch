@@ -78,6 +78,7 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
         }
         report();
       } catch {}
+      syncWake();
     };
 
     const fromRule = (r: ScheduleRule | null): Desired => ({
@@ -146,6 +147,25 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
       else if (a === "prev") { try { player.previousVideo(); } catch {} }
     });
 
+    // Tahan layar tetap menyala saat musik seharusnya berbunyi: layar mati/terkunci membuat browser
+    // menghentikan halaman (dan audionya). Wake Lock dilepas otomatis oleh browser saat tab disembunyikan,
+    // jadi diminta ulang tiap tab kembali terlihat.
+    let lock: any = null;
+    const syncWake = async () => {
+      try {
+        const wl = (navigator as any).wakeLock;
+        if (!wl) return;
+        if (want.playing && document.visibilityState === "visible") {
+          if (!lock || lock.released) lock = await wl.request("screen");
+        } else if (lock && !lock.released) {
+          await lock.release();
+          lock = null;
+        }
+      } catch {}
+    };
+    const wakeTimer = setInterval(syncWake, 15_000);
+    document.addEventListener("visibilitychange", syncWake);
+
     const unlock = () => {
       if (want.playing && player && ready && player.getPlayerState() !== 1) { try { player.playVideo(); } catch {} }
       setNeedTap(false);
@@ -181,6 +201,9 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
       off();
       if (tick) clearInterval(tick);
       if (blockTimer) clearTimeout(blockTimer);
+      clearInterval(wakeTimer);
+      document.removeEventListener("visibilitychange", syncWake);
+      try { lock?.release?.(); } catch {}
       document.removeEventListener("pointerdown", unlock);
       startRef.current = null;
       try { player?.destroy?.(); (player as any)?.__wrap?.remove(); } catch {}

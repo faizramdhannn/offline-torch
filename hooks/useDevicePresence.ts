@@ -133,7 +133,10 @@ export function useDevicePresence(user: Me | null | undefined) {
         channel.subscribe("command", (m: any) => {
           const d = m.data || {};
           const t = d.target || {};
-          const mine = t.all === true || t.deviceId === deviceId || t.user_name === userName;
+          const mine =
+            t.all === true ||
+            t.deviceId === deviceId ||
+            (Array.isArray(t.user_names) && t.user_names.includes(userName));
           if (!mine) return;
           if (d.type === "reload") window.location.reload();
           else if (d.type === "logout") forceLogout();
