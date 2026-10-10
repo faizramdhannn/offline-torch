@@ -334,10 +334,10 @@ export default function PrintBarcodeModal({ items, onClose }: Props) {
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto">
-          <div className="flex gap-0">
+          <div className="flex flex-col gap-0 md:flex-row">
 
             {/* Left panel */}
-            <div className="flex-1 px-6 py-5 border-r border-gray-100" style={{ minWidth: 0 }}>
+            <div className="flex-1 px-4 py-5 md:px-6 md:border-r border-gray-100 border-b md:border-b-0" style={{ minWidth: 0 }}>
 
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">1. Ukuran kertas</p>
               <div className="grid grid-cols-4 gap-2 mb-4">
@@ -460,7 +460,7 @@ export default function PrintBarcodeModal({ items, onClose }: Props) {
             </div>
 
             {/* Right panel — preview */}
-            <div className="px-6 py-5" style={{ width: 380, flexShrink: 0 }}>
+            <div className="w-full px-4 py-5 md:w-[380px] md:shrink-0 md:px-6">
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-3">3. Preview tata letak</p>
 
               <div className="border border-gray-200 rounded-lg bg-gray-50 flex items-center justify-center p-3 mb-3" style={{ minHeight: 200 }}>

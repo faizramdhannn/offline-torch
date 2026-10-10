@@ -408,3 +408,73 @@ html.dark .topbar-glass {
   -webkit-backdrop-filter: blur(18px) saturate(100%);
   border-bottom: 1px solid rgba(255,255,255,0.08);
 }
+
+
+/* ── Tabel → kartu di HP (diaktifkan oleh components/ResponsiveTables) ─────────────
+   Tanpa geser kiri-kanan: tiap baris menjadi kartu, tiap sel menampilkan labelnya di kiri. */
+@media (max-width: 767px) {
+  table[data-stack-on] { display: block; width: 100% !important; min-width: 0 !important; border: 0 !important; }
+  table[data-stack-on] thead { display: none; }
+  table[data-stack-on] tbody, table[data-stack-on] tfoot { display: block; }
+  table[data-stack-on] :is(tbody, tfoot) tr {
+    display: block;
+    margin: 0 0 0.75rem;
+    padding: 0.5rem 0.875rem;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border-color, #e5e7eb) !important;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+  table[data-stack-on] :is(tbody, tfoot) tr[data-stack-skip] { padding: 0.5rem; }
+  table[data-stack-on] :is(td, tbody th) {
+    display: block;
+    position: relative !important;
+    left: auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    min-height: 1.4rem;
+    padding: 0.3rem 0 0.3rem 42% !important;
+    border: 0 !important;
+    text-align: left !important;
+    white-space: normal !important;
+    word-break: break-word;
+    background: transparent !important;
+  }
+  table[data-stack-on] tr[data-stack-skip] td { padding-left: 0 !important; }
+  table[data-stack-on] :is(td, tbody th)[data-label]::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 0;
+    top: 0.4rem;
+    width: 38%;
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6b7280;
+  }
+  table[data-stack-on] :is(td, tbody th)[data-label=""] { padding-left: 0 !important; }
+  table[data-stack-on] :is(td, tbody th)[data-label=""]::before { display: none; }
+  table[data-stack-on] :is(td, tbody th):empty { display: none; }
+  table[data-stack-on] :is(td, tbody th).hidden, table[data-stack-on] th.hidden { display: none !important; }
+  table[data-stack-on] :is(td, tbody th) > * { max-width: 100%; }
+  /* Tombol yang hanya muncul saat hover (edit/hapus) harus selalu terlihat di layar sentuh */
+  table[data-stack-on] [class*="group-hover:opacity-100"] { opacity: 1 !important; }
+  table[data-stack-on] [class*="group-hover:visible"] { visibility: visible !important; }
+  /* Pembungkus tabel: tanpa geser, tanpa bingkai ganda (kartu sudah punya bingkai sendiri) */
+  :is(.overflow-x-auto, .glass-table-wrap):has(> table[data-stack-on]) {
+    overflow-x: visible !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+  html.dark table[data-stack-on] :is(td, tbody th)[data-label]::before { color: #94a3b8; }
+}
+
+/* Layar sentuh tidak punya hover: elemen yang baru muncul saat hover (salin/edit/hapus) ditampilkan terus */
+@media (hover: none) {
+  [class*="group-hover:opacity-100"] { opacity: 1 !important; }
+}

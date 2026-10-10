@@ -145,6 +145,7 @@ export default function SettingsPage() {
   const [user, setUser] = useState<any>(null);
   const [users, setUsers] = useState<UserData[]>([]);
   const [profileUser, setProfileUser] = useState<UserData | null>(null);
+  const [openUserId, setOpenUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [pendingChanges, setPendingChanges] = useState<Record<string, Partial<Record<PermKey, boolean>>>>({});
@@ -532,7 +533,7 @@ export default function SettingsPage() {
         {/* ── User Management ───────────────────────────────────────────── */}
         <GlassCard padding="none" className="glass-card-elevated overflow-hidden">
           {/* Table header bar */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/40">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-white/40">
             <div className="flex items-center gap-2.5">
               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-green-50">
                 <UsersIcon className="h-3.5 w-3.5 text-green-600" strokeWidth={2.25} />
@@ -561,8 +562,9 @@ export default function SettingsPage() {
           {loading ? (
             <div className="p-10 text-center text-sm text-gray-400">Loading...</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="border-collapse" style={{ fontSize: "10px" }}>
+            <>
+            <div className="hidden overflow-x-auto md:block">
+              <table data-stack="off" className="border-collapse" style={{ fontSize: "10px" }}>
                 <thead>
                   {/* Row 1: Group labels */}
                   <tr className="border-b border-gray-300">
@@ -753,6 +755,68 @@ export default function SettingsPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* HP: kartu per user (tanpa geser). Ketuk "Hak akses" untuk membuka daftar checkbox per grup. */}
+            <div className="divide-y divide-gray-100 md:hidden">
+              {slice.length === 0 && (
+                <p className="p-8 text-center text-sm text-gray-400">{searchQuery ? "Tidak ada user yang cocok" : "Tidak ada user"}</p>
+              )}
+              {slice.map((u) => {
+                const hasPending = !!pendingChanges[u.id] && Object.keys(pendingChanges[u.id]).length > 0;
+                const isSaving = savingId === u.id;
+                const open = openUserId === u.id;
+                const total = PERM_GROUPS.reduce((n, g) => n + g.fields.filter((f) => isTrue(u[f.key] as string)).length, 0);
+                return (
+                  <div key={u.id} className={`p-3 ${hasPending ? "bg-amber-50" : ""} ${isSaving ? "opacity-60" : ""}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <button type="button" onClick={() => setProfileUser(u)} className="truncate text-left text-sm font-semibold text-gray-800 underline-offset-2 hover:underline">
+                          {u.name}
+                        </button>
+                        <p className="truncate text-xs text-gray-500">{u.user_name} · {u.role_name || u.role}{u.deviations && u.deviations.length > 0 ? ` · ⚠ ${u.deviations.length}` : ""}</p>
+                        <p className="text-[11px] text-gray-400">{u.last_activity ? `Login terakhir ${u.last_activity}` : "Belum pernah login"}</p>
+                      </div>
+                      {hasPending && (
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <button onClick={() => handleSaveUser(u.id, u.user_name)} disabled={isSaving} className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+                            {isSaving ? "..." : "Simpan"}
+                          </button>
+                          <button onClick={() => handleDiscardUser(u.id)} disabled={isSaving} className="rounded-lg bg-gray-200 px-3 py-2 text-xs text-gray-600 disabled:opacity-50" title="Batalkan perubahan">✕</button>
+                        </div>
+                      )}
+                    </div>
+                    <button type="button" onClick={() => setOpenUserId(open ? null : u.id)} className="mt-2 flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600">
+                      <span>Hak akses <span className="text-gray-400">({total} aktif)</span></span>
+                      <span className="text-gray-400">{open ? "Tutup" : "Buka"}</span>
+                    </button>
+                    {open && (
+                      <div className="mt-3 space-y-4">
+                        {PERM_GROUPS.map((g) => (
+                          <div key={g.label}>
+                            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-500">{g.label}</p>
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                              {g.fields.map((f) => (
+                                <label key={f.key} className="flex items-center gap-2 py-1.5 text-xs text-gray-700">
+                                  <input
+                                    type="checkbox"
+                                    checked={isTrue(u[f.key] as string)}
+                                    disabled={isSaving}
+                                    onChange={(e) => handleToggle(u.id, u.user_name, f.key, e.target.checked)}
+                                    className="h-4 w-4 shrink-0 rounded accent-primary"
+                                  />
+                                  <span className="truncate">{f.label}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            </>
           )}
 
           {/* Pagination */}

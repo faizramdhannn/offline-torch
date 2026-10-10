@@ -24,10 +24,142 @@ export function AttendanceTable({ records, isAll }: { records: AttendanceRecord[
     setMapOpenFor((prev) => ({ ...prev, [recId]: prev[recId] === which ? null : which }));
   };
 
+  // Isi detail satu baris (foto, staf, waktu, peta, info teknis) — dipakai tabel (desktop) dan kartu (HP).
+  const renderExpanded = (
+    rec: AttendanceRecord,
+    openProxyUrl: string,
+    closeProxyUrl: string,
+    openStaff: string,
+    closeStaff: string,
+    isValid: boolean
+  ) => (
+    <>
+                        <div className="grid max-w-md grid-cols-2 gap-6">
+                          <div>
+                            <p className="mb-2 text-[9px] font-bold uppercase tracking-widest text-gray-500">Open</p>
+                            {openProxyUrl ? (
+                              <img
+                                src={openProxyUrl}
+                                alt="open"
+                                className="mb-2 w-full rounded-lg border border-gray-200 object-cover"
+                                style={{ aspectRatio: "4/3" }}
+                              />
+                            ) : (
+                              <SelfiePlaceholderMd />
+                            )}
+                            <p className="text-[10px] text-gray-500">
+                              <span className="text-gray-400">Staff: </span>
+                              <span className="font-medium text-gray-700">
+                                {openStaff || <span className="italic text-gray-300">tidak diisi</span>}
+                              </span>
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-gray-500">
+                              <span className="text-gray-400">Waktu: </span>
+                              <span className="font-medium text-gray-700">{rec.open_timestamp || "-"}</span>
+                            </p>
+                            {rec.open_maps_url && (
+                              <button
+                                type="button"
+                                onClick={() => showMap(rec.id, "open")}
+                                className={`mt-1 inline-flex items-center gap-1 text-[10px] hover:underline ${
+                                  mapOpenFor[rec.id] === "open" ? "font-semibold text-primary" : "text-gray-500 hover:text-gray-800"
+                                }`}
+                              >
+                                <MapPin className="h-3 w-3" />
+                                {mapOpenFor[rec.id] === "open" ? "Sembunyikan Peta" : "Lihat Peta"}
+                              </button>
+                            )}
+                          </div>
+                          <div>
+                            <p className="mb-2 text-[9px] font-bold uppercase tracking-widest text-gray-400">Close</p>
+                            {closeProxyUrl ? (
+                              <img
+                                src={closeProxyUrl}
+                                alt="close"
+                                className="mb-2 w-full rounded-lg border border-gray-200 object-cover"
+                                style={{ aspectRatio: "4/3" }}
+                              />
+                            ) : (
+                              <SelfiePlaceholderMd />
+                            )}
+                            <p className="text-[10px] text-gray-500">
+                              <span className="text-gray-400">Staff: </span>
+                              <span className="font-medium text-gray-700">
+                                {closeStaff || <span className="italic text-gray-300">tidak diisi</span>}
+                              </span>
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-gray-500">
+                              <span className="text-gray-400">Waktu: </span>
+                              <span className="font-medium text-gray-700">{rec.close_timestamp || "-"}</span>
+                            </p>
+                            {rec.close_maps_url && (
+                              <button
+                                type="button"
+                                onClick={() => showMap(rec.id, "close")}
+                                className={`mt-1 inline-flex items-center gap-1 text-[10px] hover:underline ${
+                                  mapOpenFor[rec.id] === "close" ? "font-semibold text-primary" : "text-gray-500 hover:text-gray-800"
+                                }`}
+                              >
+                                <MapPin className="h-3 w-3" />
+                                {mapOpenFor[rec.id] === "close" ? "Sembunyikan Peta" : "Lihat Peta"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {(() => {
+                          const which = mapOpenFor[rec.id];
+                          if (!which) return null;
+                          const mLat = parseCoord(which === "open" ? rec.open_latitude : rec.close_latitude);
+                          const mLng = parseCoord(which === "open" ? rec.open_longitude : rec.close_longitude);
+                          const mUrl = which === "open" ? rec.open_maps_url : rec.close_maps_url;
+                          if (Number.isNaN(mLat) || Number.isNaN(mLng)) return null;
+                          return (
+                            <div className="mt-4 max-w-md">
+                              <p className="mb-2 text-[9px] font-bold uppercase tracking-widest text-gray-500">
+                                Lokasi Absen {which === "open" ? "Masuk (Open)" : "Pulang (Close)"}
+                              </p>
+                              <MapPreview lat={mLat} lng={mLng} height={220} mapsUrl={mUrl} />
+                            </div>
+                          );
+                        })()}
+                        {isAll && (
+                          <div className="mt-4 grid grid-cols-2 gap-x-6 sm:grid-cols-3 gap-y-1 border-t border-gray-200 pt-3 text-[10px] text-gray-600">
+                            <div>
+                              <span className="text-gray-400">Device: </span>
+                              <span className="font-medium">{rec.device_info || "-"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Browser: </span>
+                              <span className="font-medium">{rec.browser || "-"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">IP: </span>
+                              <span className="font-mono font-medium">{rec.ip_address || "-"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Valid: </span>
+                              <span className={`font-semibold ${isValid ? "text-green-700" : "text-red-500"}`}>
+                                {isValid ? "Ya" : "Tidak"}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Lat: </span>
+                              <span className="font-mono font-medium">{rec.open_latitude || "-"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Lng: </span>
+                              <span className="font-mono font-medium">{rec.open_longitude || "-"}</span>
+                            </div>
+                          </div>
+                        )}
+    </>
+  );
+
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-      <div className="w-full overflow-x-auto">
-        <table className="w-full border-collapse" style={{ minWidth: isAll ? 760 : 480 }}>
+      <div className="hidden w-full overflow-x-auto md:block">
+        <table data-stack="off" className="w-full border-collapse" style={{ minWidth: isAll ? 760 : 480 }}>
           <thead className="sticky top-0 z-10 bg-gray-50">
             <tr>
               <th colSpan={2} className="border-b border-r border-gray-200 bg-gray-50" />
@@ -210,125 +342,7 @@ export function AttendanceTable({ records, isAll }: { records: AttendanceRecord[
                   {isExpanded && (
                     <tr className="border-b border-gray-200 bg-gray-50">
                       <td colSpan={isAll ? 14 : 8} className="px-6 py-4">
-                        <div className="grid max-w-md grid-cols-2 gap-6">
-                          <div>
-                            <p className="mb-2 text-[9px] font-bold uppercase tracking-widest text-gray-500">Open</p>
-                            {openProxyUrl ? (
-                              <img
-                                src={openProxyUrl}
-                                alt="open"
-                                className="mb-2 w-full rounded-lg border border-gray-200 object-cover"
-                                style={{ aspectRatio: "4/3" }}
-                              />
-                            ) : (
-                              <SelfiePlaceholderMd />
-                            )}
-                            <p className="text-[10px] text-gray-500">
-                              <span className="text-gray-400">Staff: </span>
-                              <span className="font-medium text-gray-700">
-                                {openStaff || <span className="italic text-gray-300">tidak diisi</span>}
-                              </span>
-                            </p>
-                            <p className="mt-0.5 text-[10px] text-gray-500">
-                              <span className="text-gray-400">Waktu: </span>
-                              <span className="font-medium text-gray-700">{rec.open_timestamp || "-"}</span>
-                            </p>
-                            {rec.open_maps_url && (
-                              <button
-                                type="button"
-                                onClick={() => showMap(rec.id, "open")}
-                                className={`mt-1 inline-flex items-center gap-1 text-[10px] hover:underline ${
-                                  mapOpenFor[rec.id] === "open" ? "font-semibold text-primary" : "text-gray-500 hover:text-gray-800"
-                                }`}
-                              >
-                                <MapPin className="h-3 w-3" />
-                                {mapOpenFor[rec.id] === "open" ? "Sembunyikan Peta" : "Lihat Peta"}
-                              </button>
-                            )}
-                          </div>
-                          <div>
-                            <p className="mb-2 text-[9px] font-bold uppercase tracking-widest text-gray-400">Close</p>
-                            {closeProxyUrl ? (
-                              <img
-                                src={closeProxyUrl}
-                                alt="close"
-                                className="mb-2 w-full rounded-lg border border-gray-200 object-cover"
-                                style={{ aspectRatio: "4/3" }}
-                              />
-                            ) : (
-                              <SelfiePlaceholderMd />
-                            )}
-                            <p className="text-[10px] text-gray-500">
-                              <span className="text-gray-400">Staff: </span>
-                              <span className="font-medium text-gray-700">
-                                {closeStaff || <span className="italic text-gray-300">tidak diisi</span>}
-                              </span>
-                            </p>
-                            <p className="mt-0.5 text-[10px] text-gray-500">
-                              <span className="text-gray-400">Waktu: </span>
-                              <span className="font-medium text-gray-700">{rec.close_timestamp || "-"}</span>
-                            </p>
-                            {rec.close_maps_url && (
-                              <button
-                                type="button"
-                                onClick={() => showMap(rec.id, "close")}
-                                className={`mt-1 inline-flex items-center gap-1 text-[10px] hover:underline ${
-                                  mapOpenFor[rec.id] === "close" ? "font-semibold text-primary" : "text-gray-500 hover:text-gray-800"
-                                }`}
-                              >
-                                <MapPin className="h-3 w-3" />
-                                {mapOpenFor[rec.id] === "close" ? "Sembunyikan Peta" : "Lihat Peta"}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        {(() => {
-                          const which = mapOpenFor[rec.id];
-                          if (!which) return null;
-                          const mLat = parseCoord(which === "open" ? rec.open_latitude : rec.close_latitude);
-                          const mLng = parseCoord(which === "open" ? rec.open_longitude : rec.close_longitude);
-                          const mUrl = which === "open" ? rec.open_maps_url : rec.close_maps_url;
-                          if (Number.isNaN(mLat) || Number.isNaN(mLng)) return null;
-                          return (
-                            <div className="mt-4 max-w-md">
-                              <p className="mb-2 text-[9px] font-bold uppercase tracking-widest text-gray-500">
-                                Lokasi Absen {which === "open" ? "Masuk (Open)" : "Pulang (Close)"}
-                              </p>
-                              <MapPreview lat={mLat} lng={mLng} height={220} mapsUrl={mUrl} />
-                            </div>
-                          );
-                        })()}
-                        {isAll && (
-                          <div className="mt-4 grid grid-cols-3 gap-x-6 gap-y-1 border-t border-gray-200 pt-3 text-[10px] text-gray-600">
-                            <div>
-                              <span className="text-gray-400">Device: </span>
-                              <span className="font-medium">{rec.device_info || "-"}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-400">Browser: </span>
-                              <span className="font-medium">{rec.browser || "-"}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-400">IP: </span>
-                              <span className="font-mono font-medium">{rec.ip_address || "-"}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-400">Valid: </span>
-                              <span className={`font-semibold ${isValid ? "text-green-700" : "text-red-500"}`}>
-                                {isValid ? "Ya" : "Tidak"}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-400">Lat: </span>
-                              <span className="font-mono font-medium">{rec.open_latitude || "-"}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-400">Lng: </span>
-                              <span className="font-mono font-medium">{rec.open_longitude || "-"}</span>
-                            </div>
-                          </div>
-                        )}
+                        {renderExpanded(rec, openProxyUrl, closeProxyUrl, openStaff, closeStaff, isValid)}
                       </td>
                     </tr>
                   )}
@@ -337,6 +351,74 @@ export function AttendanceTable({ records, isAll }: { records: AttendanceRecord[
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* HP: kartu per absensi (tanpa geser kiri-kanan). Ketuk kartu untuk foto besar, peta, dan info teknis. */}
+      <div className="divide-y divide-gray-100 md:hidden">
+        {records.map((rec, idx) => {
+          const isExpanded = expandedId === rec.id;
+          const openProxyUrl = isValidSelfie(rec.open_selfie) ? toDriveProxyUrl(rec.open_selfie) : "";
+          const closeProxyUrl = isValidSelfie(rec.close_selfie) ? toDriveProxyUrl(rec.close_selfie) : "";
+          const openStaff = rec.open_staff_name?.trim() || "";
+          const closeStaff = rec.close_staff_name?.trim() || "";
+          const isValid =
+            rec.is_valid_location === "TRUE" || rec.is_valid_location === "true" || rec.is_valid_location === "1";
+          const side = (label: string, url: string, staff: string, ts: string) => (
+            <div className="flex min-w-0 items-center gap-2">
+              {url ? (
+                <LazyImg
+                  src={url}
+                  alt={`foto ${label}`}
+                  className="shrink-0 overflow-hidden rounded border border-gray-200 bg-gray-100"
+                  style={{ width: 40, height: 40 }}
+                  fallback={<SelfiePlaceholderSm />}
+                />
+              ) : (
+                <SelfiePlaceholderSm />
+              )}
+              <div className="min-w-0">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400">{label}</p>
+                <p className="truncate text-[11px] font-semibold text-gray-800">{ts ? extractTime(ts) : "—"}</p>
+                <p className="truncate text-[10px] text-gray-500">{staff || "—"}</p>
+              </div>
+            </div>
+          );
+          return (
+            <div key={rec.id} className={isExpanded ? "bg-blue-50/30" : ""}>
+              <button
+                type="button"
+                onClick={() => setExpandedId(isExpanded ? null : rec.id)}
+                className="block w-full p-3 text-left"
+              >
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="truncate text-xs font-semibold capitalize text-gray-800">
+                    <span className="mr-1.5 text-gray-400">{idx + 1}.</span>
+                    {rec.store_name}
+                  </span>
+                  {isAll && (
+                    <span
+                      className={`inline-flex shrink-0 items-center gap-0.5 rounded border px-1.5 py-0.5 text-[9px] font-semibold ${
+                        isValid ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-500"
+                      }`}
+                    >
+                      {isValid ? <Check className="h-2.5 w-2.5" /> : <X className="h-2.5 w-2.5" />}
+                      {isValid ? "Lokasi valid" : "Di luar lokasi"}
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {side("Open", openProxyUrl, openStaff, rec.open_timestamp)}
+                  {side("Close", closeProxyUrl, closeStaff, rec.close_timestamp)}
+                </div>
+              </button>
+              {isExpanded && (
+                <div className="border-t border-gray-200 bg-gray-50 px-3 py-4">
+                  {renderExpanded(rec, openProxyUrl, closeProxyUrl, openStaff, closeStaff, isValid)}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

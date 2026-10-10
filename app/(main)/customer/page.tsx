@@ -734,7 +734,81 @@ return (
               <div className="p-8 text-center text-xs text-gray-400">Tidak ada data</div>
             ) : (
               <>
-                <div className="overflow-x-auto">
+                {/* HP: kartu per customer (tanpa geser kiri-kanan) */}
+                <div className="md:hidden">
+                  <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50/80 px-3 py-2 text-xs text-gray-500">
+                    <span className="shrink-0">Urutkan</span>
+                    <select value={sortKey} onChange={(e) => { setSortKey(e.target.value); setSortDir("desc"); }} className="min-w-0 flex-1 rounded-md border border-gray-200 bg-white px-2 py-1.5">
+                      <option value="total_value_num">Total Value</option>
+                      <option value="total_order">Total Order</option>
+                      <option value="total_qty">Qty Order</option>
+                      <option value="customer_name">Nama</option>
+                      <option value="location_store">Store</option>
+                      <option value="first_purchase">First Purchase</option>
+                      <option value="last_purchase">Last Purchase</option>
+                    </select>
+                    <button onClick={() => setSortDir(sortDir === "asc" ? "desc" : "asc")} className="shrink-0 rounded-md border border-gray-200 bg-white px-3 py-1.5">
+                      {sortDir === "asc" ? "Naik" : "Turun"}
+                    </button>
+                  </div>
+                  {currentItems.map((customer, index) => {
+                    const actualIndex = indexOfFirstItem + index;
+                    const hasFollowup = customer.followup === "TRUE" || customer.followup === "True" || customer.followup === "true";
+                    return (
+                      <div
+                        key={`m-${actualIndex}`}
+                        onClick={() => router.push(`/customer/${encodeURIComponent(customer.phone_number)}`)}
+                        className={`cursor-pointer space-y-2 border-b border-gray-100 p-3 ${hasFollowup ? "bg-green-50/50" : ""}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-gray-800">{customer.customer_name || "-"}</p>
+                            <p className="truncate text-[11px] text-gray-500">{customer.location_store}</p>
+                          </div>
+                          <span title={hasFollowup ? "Followup selesai" : "Belum followup"} className="shrink-0">
+                            {hasFollowup ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4 text-gray-300" />}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex min-w-0 items-center gap-1 text-xs text-gray-600">
+                            <span className="truncate">{customer.phone_number}</span>
+                            <CopyButton text={customer.phone_number} id={`mphone-${actualIndex}`} copiedId={copiedId} onCopy={copyToClipboard} />
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            {(customer.badges || []).map((key) => {
+                              const b = badgeMap[key];
+                              if (!b || !b.logo_url) return null;
+                              // eslint-disable-next-line @next/next/no-img-element
+                              return <img key={key} src={b.logo_url} alt={b.label} title={b.label} className="h-5 w-5 rounded-full object-cover ring-1 ring-gray-100" />;
+                            })}
+                          </div>
+                        </div>
+                        {customer.email && <p className="truncate text-[11px] text-gray-500">{customer.email}</p>}
+                        <div className="grid grid-cols-3 gap-2 rounded-lg bg-gray-50 p-2 text-center">
+                          <div><p className="text-[9px] uppercase tracking-wide text-gray-400">Order</p><p className="text-xs font-semibold text-gray-700">{customer.total_order}</p></div>
+                          <div><p className="text-[9px] uppercase tracking-wide text-gray-400">Qty</p><p className="text-xs font-semibold text-gray-700">{customer.total_qty || 0}</p></div>
+                          <div><p className="text-[9px] uppercase tracking-wide text-gray-400">Value</p><p className="text-xs font-semibold text-gray-800">{customer.total_value}</p></div>
+                        </div>
+                        <p className="text-[11px] text-gray-400">Pertama {customer.first_purchase || "-"} · Terakhir {customer.last_purchase || "-"}</p>
+                        <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                          {customer.link_url && customer.link_url.trim() !== "" && (
+                            <a href={customer.link_url} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-blue-600">View</a>
+                          )}
+                          <button onClick={() => setWaModalCustomer(customer)} className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-green-600">
+                            <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                          </button>
+                          {isOwner && (
+                            <Button onClick={() => openFollowupModal(customer, actualIndex)} size="sm" className="h-auto px-3 py-1.5 text-xs">
+                              {hasFollowup ? "Edit" : "Add"}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="hidden overflow-x-auto md:block">
                 <div className="min-w-[1050px]">
                   {/* Header — klik untuk sort asc/desc */}
                   <div className="flex items-center gap-3 border-b border-gray-100 bg-gray-50/80 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
