@@ -284,7 +284,7 @@ export default function StoreMonitorPage() {
                           </button>
                         </div>
                         <p className="mb-1.5 truncate text-gray-500">
-                          {tl?.music?.title ? <span className="inline-flex items-center gap-1">{tl.music.state === "playing" ? <PlayIcon width={11} height={11} /> : <PauseIcon width={11} height={11} />}<span className="truncate">{tl.music.title}</span></span> : tl ? (m?.playing ? "Menunggu pemutaran…" : "Tidak memutar") : "Perangkat pemutar offline"}
+                          {tl?.music?.title ? <span className="inline-flex items-center gap-1">{tl.music.state === "playing" ? <PlayIcon width={11} height={11} /> : <PauseIcon width={11} height={11} />}<span className="truncate">{tl.music.title}</span></span> : tl ? (tl.music?.note ? <span className="text-amber-600">{tl.music.note}</span> : m?.playing ? "Menunggu pemutaran…" : "Tidak memutar") : "Perangkat pemutar offline"}
                         </p>
                         <div className="flex flex-wrap items-center gap-1.5">
                           <select value={m?.playlist_id ?? ""} disabled={!live_} onChange={(e) => e.target.value && send("music", target, { action: "load", playlist_id: Number(e.target.value) })} className="min-w-0 flex-1 rounded-md border border-gray-200 bg-white px-1.5 py-1 text-[11px]">

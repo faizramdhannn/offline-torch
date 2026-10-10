@@ -70,12 +70,36 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
     let tick: ReturnType<typeof setInterval> | null = null;
     let blockTimer: ReturnType<typeof setTimeout> | null = null;
     let watchdog: ReturnType<typeof setInterval> | null = null;
+    let initTimer: ReturnType<typeof setTimeout> | null = null;
 
+    // Alasan yang ditampilkan di dashboard saat musik belum berbunyi (bukan sekadar "menunggu")
+    let blocked = false;
+    let lastError = 0;
+    const note = (state: string): string => {
+      if (state === "playing" || state === "buffering") return "";
+      if (!ready) return "Pemutar YouTube belum siap (diblokir ekstensi/jaringan, atau masih dimuat)";
+      if (!want.playlist) return "Belum ada playlist dipilih untuk toko ini";
+      if (!want.playing) return "";
+      if (blocked) return "Browser menahan suara: klik sekali di halaman aplikasi di perangkat ini";
+      if (lastError) return `Video tidak bisa diputar (kode ${lastError})`;
+      return "";
+    };
+    const setBlocked = (v: boolean) => { blocked = v; setNeedTap(v); report(); };
     const report = () => {
-      if (!player || !ready) return;
-      const st = player.getPlayerState?.();
-      const name = st === 1 ? "playing" : st === 2 ? "paused" : st === 3 ? "buffering" : "idle";
-      setPresenceExtra({ music: { state: name, title: player.getVideoData?.()?.title || "", playlist: want.playlist?.name || "", volume: want.volume, muted: want.muted, shuffle: want.shuffle } });
+      let state = "idle";
+      if (player && ready) {
+        const st = player.getPlayerState?.();
+        state = st === 1 ? "playing" : st === 2 ? "paused" : st === 3 ? "buffering" : "idle";
+      }
+      setPresenceExtra({
+        music: {
+          state,
+          title: (player && ready && player.getVideoData?.()?.title) || "",
+          playlist: want.playlist?.name || "",
+          volume: want.volume, muted: want.muted, shuffle: want.shuffle,
+          note: note(state),
+        },
+      });
     };
 
     const apply = () => {
@@ -95,10 +119,10 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
           } else if (player.getPlayerState() !== 1) player.playVideo();
           // YouTube menahan autoplay tanpa interaksi: kalau 4 detik kemudian belum berputar, minta satu ketukan
           if (blockTimer) clearTimeout(blockTimer);
-          blockTimer = setTimeout(() => !cancelled && setNeedTap(want.playing && player.getPlayerState() !== 1 && player.getPlayerState() !== 3), 4000);
+          blockTimer = setTimeout(() => !cancelled && setBlocked(want.playing && player.getPlayerState() !== 1 && player.getPlayerState() !== 3), 4000);
         } else {
           player.pauseVideo();
-          setNeedTap(false);
+          setBlocked(false);
         }
         report();
       } catch {}
@@ -217,11 +241,15 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
 
     const unlock = () => {
       if (want.playing && player && ready && player.getPlayerState() !== 1) { try { player.playVideo(); } catch {} }
-      setNeedTap(false);
+      setBlocked(false);
     };
     startRef.current = unlock;
-    document.addEventListener("pointerdown", unlock, { once: true });
+    // Tidak sekali-pakai: klik/tekan tombol apa pun di halaman mencoba memulai lagi kalau musik seharusnya berbunyi
+    document.addEventListener("pointerdown", unlock);
+    document.addEventListener("keydown", unlock);
 
+    report(); // langsung beri tahu dashboard bahwa perangkat ini pemutar (belum siap)
+    initTimer = setTimeout(() => { if (!ready) report(); }, 15_000);
     (async () => {
       const YT = await loadYouTubeApi();
       if (cancelled) return;
@@ -235,10 +263,10 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
         playerVars: { autoplay: 1, controls: 0, playsinline: 1, rel: 0 },
         events: {
           onReady: () => { ready = true; load(); },
-          onStateChange: () => { applyShuffleStart(); report(); if (player.getPlayerState() === 1) setNeedTap(false); },
-          onAutoplayBlocked: () => setNeedTap(true),
+          onStateChange: () => { applyShuffleStart(); if (player.getPlayerState() === 1) { lastError = 0; blocked = false; setNeedTap(false); } report(); },
+          onAutoplayBlocked: () => setBlocked(true),
           // video tidak boleh disematkan / tidak ada → lompat ke lagu berikutnya
-          onError: () => { try { player.nextVideo(); } catch {} },
+          onError: (e: any) => { lastError = Number(e?.data) || 1; report(); try { player.nextVideo(); } catch {} },
         },
       });
       (player as any).__wrap = wrap;
@@ -273,6 +301,8 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
       document.removeEventListener("visibilitychange", syncWake);
       try { lock?.release?.(); } catch {}
       document.removeEventListener("pointerdown", unlock);
+      document.removeEventListener("keydown", unlock);
+      if (initTimer) clearTimeout(initTimer);
       startRef.current = null;
       try { player?.destroy?.(); (player as any)?.__wrap?.remove(); } catch {}
       setPresenceExtra({ music: null });

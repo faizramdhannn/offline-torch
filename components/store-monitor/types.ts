@@ -16,7 +16,7 @@ export interface Live {
   battery?: number | null;
   charging?: boolean | null;
   visible?: boolean;
-  music?: { state?: string; title?: string; playlist?: string; volume?: number; muted?: boolean };
+  music?: { state?: string; title?: string; playlist?: string; volume?: number; muted?: boolean; note?: string };
 }
 export interface Playlist { id: number; name: string; url: string }
 export interface StoreMusic { user_name: string; playlist_id: number | null; volume: number; muted: boolean; playing: boolean; shuffle?: boolean }
