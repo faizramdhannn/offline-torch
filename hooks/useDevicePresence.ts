@@ -45,6 +45,10 @@ let extra: Record<string, unknown> = {};
 let pushUpdate: (() => void) | null = null;
 let extraTimer: ReturnType<typeof setTimeout> | null = null;
 export const getPresenceExtra = () => extra;
+// Perintah lokal (dari UI di perangkat ini, mis. staf menekan "lagu berikutnya"): tanpa server.
+export function emitLocalCommand(cmd: DeviceCommand) {
+  handlers.forEach((h) => h(cmd));
+}
 export function setPresenceExtra(p: Record<string, unknown>) {
   extra = { ...extra, ...p };
   if (extraTimer) clearTimeout(extraTimer);

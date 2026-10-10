@@ -310,5 +310,5 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
   }, [eligible, isPlayer]);
 
   const start = useCallback(() => startRef.current?.(), []);
-  return { needTap, start };
+  return { needTap, start, isPlayer };
 }

@@ -16,6 +16,7 @@ import { useDevicePresence } from "@/hooks/useDevicePresence";
 import { useStoreMusic } from "@/hooks/useStoreMusic";
 import DeviceAnnouncement from "@/components/DeviceAnnouncement";
 import TabletStandby from "@/components/TabletStandby";
+import MusicBadge from "@/components/MusicBadge";
 
 function MainLayoutInner({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
@@ -92,6 +93,7 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
       <UpdateToast />
       <DeviceAnnouncement />
       <TabletStandby user={user} />
+      <MusicBadge isPlayer={music.isPlayer} />
       {music.needTap && (
         <button
           onClick={music.start}
