@@ -117,6 +117,14 @@ export async function listByEntity(entityType: string, entityId: string): Promis
   )) as ActivityRow[];
 }
 
+export async function listByEntityTypes(types: string[], limit = 100): Promise<ActivityRow[]> {
+  await ensureActivityLogSchema();
+  return (await sql(
+    `SELECT ${SELECT} FROM app_activity_log WHERE entity_type = ANY($1) ORDER BY seq DESC, pk DESC LIMIT $2`,
+    [types, limit]
+  )) as ActivityRow[];
+}
+
 export async function listRecent(limit = 500): Promise<ActivityRow[]> {
   await ensureActivityLogSchema();
   return (await sql(`SELECT ${SELECT} FROM app_activity_log ORDER BY seq DESC, pk DESC LIMIT $1`, [limit])) as ActivityRow[];

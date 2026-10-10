@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { emitLocalCommand, onDeviceCommand } from "@/hooks/useDevicePresence";
+import { ackCommand, emitLocalCommand, onDeviceCommand } from "@/hooks/useDevicePresence";
+import { setAnnounceState } from "@/lib/announceStore";
 import { isDue, wibParts, type AnnounceRule } from "@/lib/announceSchedule";
 
 // Pengumuman layar penuh: dari perintah dashboard (langsung) dan dari jadwal (dihitung di perangkat ini).
@@ -12,8 +13,11 @@ export default function DeviceAnnouncement({ user }: { user?: { role?: string } 
 
   useEffect(
     () =>
-      onDeviceCommand(({ type, payload }) => {
-        if (type === "announce" && payload.text) setA({ text: String(payload.text), until: Date.now() + (Number(payload.seconds) || 30) * 1000 });
+      onDeviceCommand(({ type, payload, id }) => {
+        if (type === "announce" && payload.text) {
+          setA({ text: String(payload.text), until: Date.now() + (Number(payload.seconds) || 30) * 1000 });
+          ackCommand(id);
+        }
       }),
     []
   );
@@ -29,7 +33,10 @@ export default function DeviceAnnouncement({ user }: { user?: { role?: string } 
         const res = await fetch("/api/announce-schedule/mine", { cache: "no-store" });
         if (!res.ok) return;
         const d = await res.json();
-        if (!cancelled) rules = (d.rules || []).map((r: any) => ({ ...r, id: Number(r.id), all_stores: true, user_names: [], name: "" }));
+        if (!cancelled) {
+          rules = (d.rules || []).map((r: any) => ({ ...r, id: Number(r.id), all_stores: true, user_names: [], name: "" }));
+          setAnnounceState(rules, String(d.standby_text || ""));
+        }
       } catch {}
     };
     const tick = () => {

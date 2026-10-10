@@ -109,6 +109,7 @@ export const PERM_GROUPS: {
     fields: [
       { key: "registration_request", label: "Reg." },
       { key: "user_setting",         label: "Setting" },
+      { key: "store_monitor",        label: "Monitor" },
     ],
   },
   {

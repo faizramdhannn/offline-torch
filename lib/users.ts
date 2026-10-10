@@ -15,7 +15,7 @@ export const PERMISSION_KEYS = [
   "sales_view", "sales_view_all", "attendance_store", "attendance_store_all",
   "material_issue", "material_issue_all", "asset_store", "step_erp", "step_erp_all",
   "employee_discount", "employee_discount_approval", "daily_checklist",
-  "daily_checklist_all", "stock_pca_view", "affiliate_view", "jastiper",
+  "daily_checklist_all", "stock_pca_view", "affiliate_view", "jastiper", "store_monitor",
 ];
 
 // Role dinamis (tabel app_roles, lib/roles.ts). Tiga bawaan: super_admin, admin, store.

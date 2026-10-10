@@ -42,3 +42,15 @@ describe("pengumuman terjadwal", () => {
     expect(isDue({ ...base, active: false }, at("13:45"))).toBe(false);
   });
 });
+
+import { nextToday } from "@/lib/announceSchedule";
+describe("nextToday", () => {
+  it("mengambil pengumuman terdekat yang jamnya belum lewat hari ini", () => {
+    const r1 = { ...base, id: 1, time_min: 12 * 60 };
+    const r2 = { ...base, id: 2, time_min: 21 * 60 };
+    const r3 = { ...base, id: 3, time_min: 21 * 60 + 30, recurrence: "weekly" as const, days: "1" }; // bukan Jumat
+    // 2026-10-09 13:45 UTC = 20:45 WIB
+    expect(nextToday([r1, r2, r3], at("13:45"))?.id).toBe(2);
+    expect(nextToday([r1], at("13:45"))).toBeNull();
+  });
+});

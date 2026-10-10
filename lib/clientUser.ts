@@ -14,5 +14,7 @@ export function toClientUser(user: UserRow) {
     is_super_admin: user.role === "super_admin",
   };
   for (const k of PERMISSION_KEYS) out[k] = user[k] === "TRUE";
+  // Store Monitor: izin sendiri, tetapi pemegang akses Settings & Super Admin otomatis boleh (kompatibel dengan sebelumnya).
+  out.store_monitor = user.store_monitor === "TRUE" || user.user_setting === "TRUE" || user.role === "super_admin";
   return out;
 }

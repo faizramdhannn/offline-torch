@@ -15,10 +15,18 @@ const blank = (): Rule => ({
 });
 const today = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
 
-export default function AnnounceSchedule({ stores, groups, templates }: { stores: { user_name: string; name: string }[]; groups: Group[]; templates: Template[] }) {
+export default function AnnounceSchedule({
+  stores, groups, templates, standbyText, onStandby, onTest,
+}: {
+  stores: { user_name: string; name: string }[]; groups: Group[]; templates: Template[];
+  standbyText: string; onStandby: (text: string) => void; onTest: (text: string, seconds: number, userName: string) => Promise<boolean>;
+}) {
   const [rules, setRules] = useState<Rule[] | null>(null);
   const [editing, setEditing] = useState<Rule | null>(null);
   const [err, setErr] = useState("");
+  const [testing, setTesting] = useState<{ id: number; user: string } | null>(null);
+  const [sb, setSb] = useState(standbyText);
+  useEffect(() => setSb(standbyText), [standbyText]);
 
   const load = useCallback(async () => {
     const r = await fetch("/api/announce-schedule", { cache: "no-store" });
@@ -44,6 +52,14 @@ export default function AnnounceSchedule({ stores, groups, templates }: { stores
         <p className="text-xs text-gray-500">Tampil otomatis di perangkat toko pada jam yang diatur (WIB). Perangkat harus sedang membuka aplikasi.</p>
         <button onClick={() => setEditing(blank())} className="shrink-0 rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white">+ Tambah</button>
       </div>
+      <div className="mb-4 rounded-xl border border-gray-200 bg-white p-3">
+        <label className="mb-1 block text-xs font-medium text-gray-600">Teks layar standby tablet (opsional)</label>
+        <p className="mb-2 text-[11px] text-gray-400">Tampil di layar standby tablet toko (setelah 3 menit tidak disentuh), mis. promo atau pesan semangat. Berlaku untuk semua toko.</p>
+        <div className="flex gap-2">
+          <input value={sb} onChange={(e) => setSb(e.target.value)} maxLength={200} placeholder="mis. Diskon 20% semua tas hingga akhir pekan" className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+          <button onClick={() => onStandby(sb.trim())} disabled={sb.trim() === standbyText} className="shrink-0 rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white disabled:opacity-40">Simpan</button>
+        </div>
+      </div>
       {err && <p className="mb-3 text-xs text-red-500">{err}</p>}
       {!rules ? <p className="text-xs text-gray-400">Memuat…</p> : rules.length === 0 ? (
         <p className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-400">Belum ada pengumuman terjadwal.</p>
@@ -66,11 +82,25 @@ export default function AnnounceSchedule({ stores, groups, templates }: { stores
                   <label className="flex cursor-pointer items-center gap-1 text-[11px] text-gray-500">
                     <input type="checkbox" checked={r.active} onChange={(e) => call("PUT", { ...r, active: e.target.checked })} /> Aktif
                   </label>
+                  <button onClick={() => setTesting(testing?.id === r.id ? null : { id: r.id, user: stores[0]?.user_name || "" })} className="rounded-md px-2 py-2 text-[11px] text-gray-400 hover:text-gray-700">Uji</button>
                   <button onClick={() => setEditing(r)} className="rounded-md p-2 text-gray-400 hover:text-gray-700" aria-label="Ubah"><PencilIcon /></button>
                   <button onClick={() => setEditing({ ...r, id: 0, name: r.name ? `${r.name} (salinan)` : "" })} className="rounded-md px-2 py-2 text-[11px] text-gray-400 hover:text-gray-700">Gandakan</button>
                   <button onClick={() => confirm("Hapus pengumuman terjadwal ini?") && call("DELETE", { id: r.id })} className="rounded-md px-2 py-2 text-[11px] text-red-400 hover:text-red-600">Hapus</button>
                 </div>
               </div>
+              {testing?.id === r.id && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3 text-xs">
+                  <span className="text-gray-500">Kirim sekarang ke:</span>
+                  <select value={testing.user} onChange={(e) => setTesting({ id: r.id, user: e.target.value })} className="rounded-lg border border-gray-200 px-2 py-1.5">
+                    {stores.map((s) => <option key={s.user_name} value={s.user_name}>{s.name}</option>)}
+                  </select>
+                  <button
+                    onClick={async () => { if (await onTest(r.text, r.seconds, testing.user)) setTesting(null); }}
+                    className="rounded-lg bg-gray-900 px-3 py-1.5 font-medium text-white"
+                  >Kirim uji</button>
+                  <span className="text-[11px] text-gray-400">Hanya untuk melihat tampilannya; jadwal tidak berubah.</span>
+                </div>
+              )}
             </li>
           ))}
         </ul>

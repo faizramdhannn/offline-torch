@@ -5,7 +5,7 @@ import { ensureDevicesSchema } from "@/lib/devices";
 export const dynamic = "force-dynamic";
 
 // Preset suasana, grup toko, dan template pengumuman — dibagi ke semua admin (dibaca bersama /api/devices).
-const KEYS = ["presets", "groups", "templates"];
+const KEYS = ["presets", "groups", "templates", "standby"];
 
 export async function PUT(request: NextRequest) {
   const b = await request.json().catch(() => ({}));

@@ -34,7 +34,7 @@ export function getDeviceKind(): "tablet" | "pc" {
 
 // Bus perintah: hook lain (musik, pengumuman) ikut mendengar perintah Ably & menambah data presence
 // lewat koneksi yang SAMA — satu koneksi per perangkat.
-export interface DeviceCommand { type: string; payload: any }
+export interface DeviceCommand { type: string; payload: any; id?: string }
 type Handler = (cmd: DeviceCommand) => void;
 const handlers = new Set<Handler>();
 export function onDeviceCommand(h: Handler): () => void {
@@ -45,6 +45,10 @@ let extra: Record<string, unknown> = {};
 let pushUpdate: (() => void) | null = null;
 let extraTimer: ReturnType<typeof setTimeout> | null = null;
 export const getPresenceExtra = () => extra;
+// Konfirmasi "perintah diterima & dijalankan": id perintah dilaporkan lewat presence → dashboard menghitung perangkat yang menerima.
+export function ackCommand(id?: string) {
+  if (id) setPresenceExtra({ ack: { id, t: Date.now() } });
+}
 // Perintah lokal (dari UI di perangkat ini, mis. staf menekan "lagu berikutnya"): tanpa server.
 export function emitLocalCommand(cmd: DeviceCommand) {
   handlers.forEach((h) => h(cmd));
@@ -150,7 +154,7 @@ export function useDevicePresence(user: Me | null | undefined) {
           if (d.type === "reload") window.location.reload();
           else if (d.type === "logout") forceLogout();
           else if (d.type === "navigate" && typeof d.payload?.path === "string") window.location.assign(d.payload.path);
-          else handlers.forEach((h) => h({ type: d.type, payload: d.payload || {} }));
+          else handlers.forEach((h) => h({ type: d.type, payload: d.payload || {}, id: d.id }));
         });
         try {
           battery = await (navigator as any).getBattery?.();

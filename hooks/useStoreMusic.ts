@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getDeviceId, onDeviceCommand, setPresenceExtra } from "./useDevicePresence";
+import { ackCommand, getDeviceId, onDeviceCommand, setPresenceExtra } from "./useDevicePresence";
 import { activeRule, type ScheduleRule } from "@/lib/musicSchedule";
 
 // Pemutar musik toko (hanya TABLET akun Store/Merchant). YouTube IFrame API di elemen tersembunyi;
@@ -102,26 +102,53 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
       });
     };
 
+    // Perubahan volume dihaluskan (fade): musik mulai/berhenti/berpindah tidak mendadak.
+    let fadeTimer: ReturnType<typeof setInterval> | null = null;
+    let curVol = 0;
+    const stopFade = () => { if (fadeTimer) { clearInterval(fadeTimer); fadeTimer = null; } };
+    const fade = (to: number, ms: number, done?: () => void) => {
+      stopFade();
+      let from = curVol;
+      try { const v = player?.getVolume?.(); if (typeof v === "number") from = v; } catch {}
+      const steps = Math.max(1, Math.round(ms / 100));
+      let i = 0;
+      fadeTimer = setInterval(() => {
+        i++;
+        curVol = Math.round(from + ((to - from) * i) / steps);
+        try { player.setVolume(curVol); } catch {}
+        if (i >= steps) { stopFade(); done?.(); }
+      }, 100);
+    };
+
     const apply = () => {
       if (!player || !ready) return;
       try {
-        player.setVolume(want.volume);
+        const st0 = player.getPlayerState?.();
+        const wasPlaying = st0 === 1 || st0 === 3;
         want.muted ? player.mute() : player.unMute();
         const pl = want.playlist;
         if (want.playing && pl) {
-          if (loadedId !== pl.id) {
+          const switching = loadedId !== pl.id;
+          if (switching) {
             loadedId = pl.id;
             if (pl.list) {
               player.loadPlaylist({ list: pl.list, listType: "playlist", index: 0 });
               startPending = true;
             } else player.loadPlaylist([pl.video]);
             player.setLoop(true);
-          } else if (player.getPlayerState() !== 1) player.playVideo();
+          } else if (st0 !== 1) player.playVideo();
+          if (!wasPlaying || switching) {
+            stopFade();
+            try { player.setVolume(0); } catch {}
+            curVol = 0;
+            fade(want.volume, 2500); // naik perlahan
+          } else fade(want.volume, 600);
           // YouTube menahan autoplay tanpa interaksi: kalau 4 detik kemudian belum berputar, minta satu ketukan
           if (blockTimer) clearTimeout(blockTimer);
           blockTimer = setTimeout(() => !cancelled && setBlocked(want.playing && player.getPlayerState() !== 1 && player.getPlayerState() !== 3), 4000);
         } else {
-          player.pauseVideo();
+          if (wasPlaying) fade(0, 1000, () => { try { player.pauseVideo(); } catch {} });
+          else player.pauseVideo();
           setBlocked(false);
         }
         report();
@@ -190,12 +217,12 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
     };
 
     let duckTimer: ReturnType<typeof setTimeout> | null = null;
-    const off = onDeviceCommand(async ({ type, payload }) => {
+    const handle = async ({ type, payload }: { type: string; payload: any }) => {
       // Pengumuman: redam musik selama tampil, lalu kembalikan (tanpa panggilan ke server)
       if (type === "announce") {
-        try { player?.setVolume(Math.min(want.volume, 15)); } catch {}
+        fade(Math.min(want.volume, 15), 500);
         if (duckTimer) clearTimeout(duckTimer);
-        duckTimer = setTimeout(() => { try { player?.setVolume(want.volume); } catch {} }, (Number(payload.seconds) || 30) * 1000);
+        duckTimer = setTimeout(() => fade(want.volume, 1500), (Number(payload.seconds) || 30) * 1000);
         return;
       }
       if (type !== "music") return;
@@ -218,6 +245,10 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
       }
       else if (a === "next") { try { player.nextVideo(); } catch {} }
       else if (a === "prev") { try { player.previousVideo(); } catch {} }
+    };
+    const off = onDeviceCommand(async (c) => {
+      await handle(c);
+      if (c.type === "music") ackCommand(c.id); // konfirmasi ke dashboard: perintah musik diterima & dijalankan
     });
 
     // Tahan layar tetap menyala saat musik seharusnya berbunyi: layar mati/terkunci membuat browser
@@ -295,6 +326,7 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
       off();
       if (tick) clearInterval(tick);
       if (watchdog) clearInterval(watchdog);
+      stopFade();
       if (duckTimer) clearTimeout(duckTimer);
       if (blockTimer) clearTimeout(blockTimer);
       clearInterval(wakeTimer);

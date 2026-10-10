@@ -7,6 +7,17 @@ import { DEVICE_ID_RE, ensureDevicesSchema } from "@/lib/devices";
 
 export const dynamic = "force-dynamic";
 
+// Batas laju per akun (memori instance; cukup untuk mencegah klik beruntun/otomatisasi membanjiri Ably & Neon).
+const hits = new Map<string, number[]>();
+function limited(user: string, max: number, windowMs: number): boolean {
+  const now = Date.now();
+  const arr = (hits.get(user) || []).filter((t) => now - t < windowMs);
+  if (arr.length >= max) { hits.set(user, arr); return true; }
+  arr.push(now);
+  hits.set(user, arr);
+  return false;
+}
+
 const MUSIC_ACTIONS = ["load", "play", "pause", "volume", "mute", "shuffle", "preset", "next", "prev"];
 
 // Kirim perintah ke perangkat toko lewat Ably. Izin (user_setting) ditegakkan proxy; tercatat di activity log.
@@ -15,8 +26,12 @@ const MUSIC_ACTIONS = ["load", "play", "pause", "volume", "mute", "shuffle", "pr
 export async function POST(request: NextRequest) {
   if (!realtimeConfigured()) return NextResponse.json({ error: "Realtime belum dikonfigurasi" }, { status: 503 });
   const me = await sessionUser(request);
+  if (me && limited(me.user_name, 30, 60_000)) {
+    return NextResponse.json({ error: "Terlalu banyak perintah, tunggu sebentar lalu coba lagi" }, { status: 429 });
+  }
   const b = await request.json().catch(() => ({}));
   const type = String(b.type || "");
+  const cmdId = /^[A-Za-z0-9_-]{6,40}$/.test(String(b.id || "")) ? String(b.id) : undefined; // untuk konfirmasi diterima
   if (!["reload", "logout", "navigate", "announce", "music"].includes(type)) {
     return NextResponse.json({ error: "Perintah tidak dikenal" }, { status: 400 });
   }
@@ -126,7 +141,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await publishCommand({ type, target, payload, ts: Date.now() });
+    await publishCommand({ type, target, payload, ts: Date.now(), id: cmdId });
   } catch (e) {
     console.error("device command", e);
     return NextResponse.json({ error: "Gagal mengirim perintah" }, { status: 502 });

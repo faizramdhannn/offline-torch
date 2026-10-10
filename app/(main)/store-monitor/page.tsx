@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/context/UserContext";
+import CommandLog from "@/components/store-monitor/CommandLog";
 import EventLog from "@/components/store-monitor/EventLog";
 import PlaylistManager from "@/components/store-monitor/PlaylistManager";
 import PresetManager from "@/components/store-monitor/PresetManager";
@@ -19,7 +20,7 @@ type Tab = "devices" | "playlists" | "announce" | "summary" | "history";
 export default function StoreMonitorPage() {
   const { user } = useUser();
   const isSuper = (user as any)?.role === "super_admin";
-  const allowed = !!(user as any)?.user_setting || isSuper;
+  const allowed = !!(user as any)?.store_monitor || !!(user as any)?.user_setting || isSuper;
   const [tab, setTab] = useState<Tab>("devices");
   const [devices, setDevices] = useState<Device[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
@@ -34,6 +35,7 @@ export default function StoreMonitorPage() {
   const [presets, setPresetsState] = useState<Preset[]>([]);
   const [groups, setGroupsState] = useState<Group[]>([]);
   const [templates, setTemplatesState] = useState<Template[]>([]);
+  const [standbyText, setStandbyText] = useState("");
   const [announce, setAnnounce] = useState<{ target: Record<string, unknown>; label: string } | null>(null);
   // Preset, grup, dan template tersimpan di database (terlihat di semua admin/browser).
   const savePref = (key: string, value: unknown[]) =>
@@ -68,6 +70,7 @@ export default function StoreMonitorPage() {
     take<Preset>("presets", "torch_monitor_presets", setPresetsState);
     take<Group>("groups", "torch_monitor_groups", setGroupsState);
     take<Template>("templates", "torch_monitor_templates", setTemplatesState);
+    setStandbyText(String(pr.standby?.[0]?.text || ""));
   }, []);
 
   useEffect(() => {
@@ -128,16 +131,36 @@ export default function StoreMonitorPage() {
     return [...map.values()];
   }, [devices]);
 
-  const flash = (t: string) => { setToast(t); setTimeout(() => setToast(""), 2500); };
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flash = (t: string, ms = 2500) => {
+    setToast(t);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(""), ms);
+  };
+  // Dibaca di dalam timer/konfirmasi: nilai terbaru, bukan nilai saat perintah dikirim
+  const liveRef = useRef(live);
+  liveRef.current = live;
+  const expectRef = useRef<(type: string, target: Record<string, any>) => string[]>(() => []);
 
   const send = async (type: string, target: Record<string, unknown>, payload: Record<string, unknown> = {}) => {
+    const id = ((typeof crypto !== "undefined" && crypto.randomUUID?.()) || Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32);
+    const expected = expectRef.current(type, target); // perangkat online yang seharusnya menerima
     const r = await fetch("/api/devices/command", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type, target, payload }),
+      body: JSON.stringify({ type, target, payload, id }),
     });
-    if (!r.ok) { flash((await r.json().catch(() => ({}))).error || "Gagal mengirim perintah"); return false; }
-    flash("Terkirim");
+    if (!r.ok) { flash((await r.json().catch(() => ({}))).error || "Gagal mengirim perintah", 4000); return false; }
+    if (type === "music" || type === "announce") {
+      flash("Terkirim · menunggu konfirmasi…", 4000);
+      // perangkat melaporkan id perintah lewat presence → hitung yang sudah menerima
+      setTimeout(() => {
+        const acked = expected.filter((d) => liveRef.current[d]?.ack?.id === id).length;
+        flash(expected.length === 0 ? "Terkirim (tidak ada perangkat online)" : `Diterima ${acked} dari ${expected.length} perangkat${acked < expected.length ? " — sisanya belum merespons" : ""}`, 5000);
+      }, 3500);
+    } else {
+      flash(`Terkirim ke ${expected.length} perangkat online`);
+    }
     if (type === "music") setTimeout(loadAll, 600);
     return true;
   };
@@ -191,6 +214,20 @@ export default function StoreMonitorPage() {
     const offline = s.devices.every((d) => !live[d.device_id]);
     const issue = offline || (!!tablet && (!tl || !!tl.music?.note));
     return { tablet, tl, isPlayerDev, offline, issue };
+  };
+  // Perangkat online yang menjadi sasaran perintah: musik → hanya pemutar tiap toko; lainnya → semua perangkat toko.
+  expectRef.current = (type, target) => {
+    if (target.deviceId) return live[target.deviceId as string] ? [target.deviceId as string] : [];
+    const names = target.all ? null : (target.user_names as string[]) || [];
+    const out: string[] = [];
+    for (const s of stores) {
+      if (names && !names.includes(s.user_name)) continue;
+      if (type === "music") {
+        const p = storeInfo(s).tablet;
+        if (p && live[p.device_id]) out.push(p.device_id);
+      } else for (const d of s.devices) if (live[d.device_id]) out.push(d.device_id);
+    }
+    return out;
   };
   const stats = stores.reduce((a, s) => {
     const i = storeInfo(s);
@@ -261,9 +298,24 @@ export default function StoreMonitorPage() {
       )}
 
       {tab === "playlists" && <PlaylistManager playlists={playlists} onChanged={loadAll} />}
-      {tab === "announce" && isSuper && <AnnounceSchedule stores={stores.map((s) => ({ user_name: s.user_name, name: s.name }))} groups={groups} templates={templates} />}
+      {tab === "announce" && isSuper && <AnnounceSchedule stores={stores.map((s) => ({ user_name: s.user_name, name: s.name }))} groups={groups} templates={templates}
+        standbyText={standbyText}
+        onStandby={(t) => { setStandbyText(t); savePref("standby", t ? [{ text: t }] : []); flash("Teks standby disimpan"); }}
+        onTest={(text, seconds, u) => send("announce", { user_names: [u] }, { text, seconds })}
+      />}
       {tab === "summary" && <SummaryTab />}
-      {tab === "history" && <div className="max-w-3xl rounded-xl border border-gray-200 bg-white p-4"><EventLog /></div>}
+      {tab === "history" && (
+        <div className="max-w-3xl space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
+            <h2 className="mb-2 text-xs font-semibold text-gray-700">Perangkat online/offline</h2>
+            <EventLog />
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
+            <h2 className="mb-2 text-xs font-semibold text-gray-700">Perintah & perubahan</h2>
+            <CommandLog />
+          </div>
+        </div>
+      )}
 
       {tab === "devices" && (
         <>

@@ -69,12 +69,12 @@ describe("aturan akses /api", () => {
 
   it("perangkat toko: register cukup login, daftar & perintah butuh user_setting", () => {
     expect(rule("/api/devices/register", "POST").any).toEqual([]);
-    expect(rule("/api/devices", "GET").any).toEqual(["user_setting"]);
-    expect(rule("/api/devices/command", "POST").any).toEqual(["user_setting"]);
+    expect(rule("/api/devices", "GET").any).toEqual(["store_monitor", "user_setting"]);
+    expect(rule("/api/devices/command", "POST").any).toEqual(["store_monitor", "user_setting"]);
   });
 
   it("pengumuman terjadwal: admin butuh user_setting, perangkat baca aturan sendiri cukup login", () => {
-    expect(rule("/api/announce-schedule", "POST").any).toEqual(["user_setting"]);
+    expect(rule("/api/announce-schedule", "POST").any).toEqual(["store_monitor", "user_setting"]);
     expect(rule("/api/announce-schedule/mine", "GET").any).toEqual([]);
   });
 

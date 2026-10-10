@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { getDeviceKind, getPresenceExtra } from "@/hooks/useDevicePresence";
+import { getAnnounceState } from "@/lib/announceStore";
+import { nextToday } from "@/lib/announceSchedule";
 
 // Layar standby untuk TABLET toko: setelah tidak disentuh beberapa menit, tampilkan jam, nama toko, dan lagu
 // yang sedang diputar di latar gelap (hemat tampilan, rapi dipandang). Ketuk untuk kembali. Murni di perangkat.
@@ -12,6 +14,7 @@ export default function TabletStandby({ user }: { user: { role?: string; name?: 
   const [on, setOn] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [title, setTitle] = useState("");
+  const [info, setInfo] = useState<{ text: string; next: string }>({ text: "", next: "" });
 
   useEffect(() => {
     if (!eligible || getDeviceKind() !== "tablet") return;
@@ -32,6 +35,12 @@ export default function TabletStandby({ user }: { user: { role?: string; name?: 
     const t = setInterval(() => {
       setNow(new Date());
       setTitle(String((getPresenceExtra() as any)?.music?.title || ""));
+      const st = getAnnounceState();
+      const n = nextToday(st.rules);
+      setInfo({
+        text: st.standbyText,
+        next: n ? `${String(Math.floor(n.time_min / 60)).padStart(2, "0")}:${String(n.time_min % 60).padStart(2, "0")} · ${n.text}` : "",
+      });
     }, 1000);
     return () => clearInterval(t);
   }, [on]);
@@ -47,6 +56,8 @@ export default function TabletStandby({ user }: { user: { role?: string; name?: 
         <p className="text-6xl font-light tabular-nums md:text-8xl">{now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", hour12: false })}</p>
         <p className="mt-3 text-sm text-white/60">{now.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long" })}</p>
         <p className="mt-6 text-lg font-medium text-white/80">{user?.name}</p>
+        {info.text && <p className="mx-auto mt-5 max-w-md text-base leading-relaxed text-white/80">{info.text}</p>}
+        {info.next && <p className="mx-auto mt-5 max-w-xs truncate text-xs text-white/40">Berikutnya {info.next}</p>}
         {title && <p className="mx-auto mt-2 max-w-xs truncate text-xs text-white/50">{title}</p>}
       </div>
     </div>

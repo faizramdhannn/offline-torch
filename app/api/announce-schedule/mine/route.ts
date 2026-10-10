@@ -19,5 +19,7 @@ export async function GET(request: NextRequest) {
       AND (all_stores = true OR user_names ? ${user.user_name})
       AND (recurrence <> 'once' OR run_date >= ${today})
       AND (end_date = '' OR end_date >= ${today})`;
-  return NextResponse.json({ rules: rows }, { headers: { "Cache-Control": "no-store" } });
+  const sb = await sql`SELECT value FROM monitor_prefs WHERE key = 'standby'`;
+  const standby_text = String((sb[0]?.value as any)?.[0]?.text || "");
+  return NextResponse.json({ rules: rows, standby_text }, { headers: { "Cache-Control": "no-store" } });
 }

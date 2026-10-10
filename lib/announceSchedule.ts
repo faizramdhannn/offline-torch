@@ -39,12 +39,9 @@ export function wibParts(d = new Date()): { ymd: string; day: number; dom: numbe
   };
 }
 
-// Apakah aturan ini jatuh tempo SEKARANG? Berlaku pada menit yang ditentukan sampai `graceMin` menit sesudahnya
-// (toleransi bila perangkat baru memuat halaman sesaat setelah jamnya). Lewat dari itu, dilewati.
-export function isDue(r: AnnounceRule, now = new Date(), graceMin = 2): boolean {
+// Apakah hari ini termasuk jadwal aturan (tanpa memperhatikan jam)?
+function dayMatches(r: AnnounceRule, w: ReturnType<typeof wibParts>): boolean {
   if (!r.active) return false;
-  const w = wibParts(now);
-  if (w.min < r.time_min || w.min >= r.time_min + graceMin) return false;
   if (r.recurrence === "once") return w.ymd === r.run_date;
   if (r.start_date && w.ymd < r.start_date) return false;
   if (r.end_date && w.ymd > r.end_date) return false;
@@ -52,6 +49,20 @@ export function isDue(r: AnnounceRule, now = new Date(), graceMin = 2): boolean 
   if (r.recurrence === "weekly") return r.days.split(",").filter(Boolean).map(Number).includes(w.day);
   if (r.recurrence === "monthly") return !!r.day_of_month && w.dom === Math.min(r.day_of_month, w.daysInMonth);
   return false;
+}
+
+// Apakah aturan ini jatuh tempo SEKARANG? Berlaku pada menit yang ditentukan sampai `graceMin` menit sesudahnya
+// (toleransi bila perangkat baru memuat halaman sesaat setelah jamnya). Lewat dari itu, dilewati.
+export function isDue(r: AnnounceRule, now = new Date(), graceMin = 2): boolean {
+  const w = wibParts(now);
+  if (w.min < r.time_min || w.min >= r.time_min + graceMin) return false;
+  return dayMatches(r, w);
+}
+
+// Pengumuman berikutnya HARI INI (jamnya belum lewat), untuk layar standby.
+export function nextToday(rules: AnnounceRule[], now = new Date()): AnnounceRule | null {
+  const w = wibParts(now);
+  return rules.filter((r) => r.time_min > w.min && dayMatches(r, w)).sort((a, b) => a.time_min - b.time_min)[0] || null;
 }
 
 // Ringkasan satu baris untuk daftar di dashboard.
