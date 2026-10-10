@@ -6,6 +6,8 @@ import CommandLog from "@/components/store-monitor/CommandLog";
 import EventLog from "@/components/store-monitor/EventLog";
 import PlaylistManager from "@/components/store-monitor/PlaylistManager";
 import PresetManager from "@/components/store-monitor/PresetManager";
+import HoursEditor from "@/components/store-monitor/HoursEditor";
+import { DEFAULT_HOURS, isOpenNow, normalizeHours, type StoreHours } from "@/lib/storeHours";
 import AnnounceSchedule from "@/components/store-monitor/AnnounceSchedule";
 import AnnounceDialog from "@/components/store-monitor/AnnounceDialog";
 import SummaryTab from "@/components/store-monitor/SummaryTab";
@@ -36,6 +38,8 @@ export default function StoreMonitorPage() {
   const [groups, setGroupsState] = useState<Group[]>([]);
   const [templates, setTemplatesState] = useState<Template[]>([]);
   const [standbyText, setStandbyText] = useState("");
+  const [hoursMap, setHoursMap] = useState<Record<string, StoreHours>>({});
+  const [editingHours, setEditingHours] = useState<{ title: string; users: string[] } | null>(null);
   const [announce, setAnnounce] = useState<{ target: Record<string, unknown>; label: string } | null>(null);
   // Preset, grup, dan template tersimpan di database (terlihat di semua admin/browser).
   const savePref = (key: string, value: unknown[]) =>
@@ -71,6 +75,12 @@ export default function StoreMonitorPage() {
     take<Group>("groups", "torch_monitor_groups", setGroupsState);
     take<Template>("templates", "torch_monitor_templates", setTemplatesState);
     setStandbyText(String(pr.standby?.[0]?.text || ""));
+    const hm: Record<string, StoreHours> = {};
+    for (const r of d.hours || []) {
+      const h = normalizeHours({ weekly: r.weekly, closed_dates: r.closed_dates, follow: r.follow });
+      if (h) hm[r.user_name] = h;
+    }
+    setHoursMap(hm);
   }, []);
 
   useEffect(() => {
@@ -189,6 +199,13 @@ export default function StoreMonitorPage() {
     flash(r.ok ? "Perangkat diputus" : "Gagal");
     loadAll();
   };
+  const saveHours = async (users: string[], h: StoreHours) => {
+    const r = await fetch("/api/music/hours", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_names: users, ...h }) });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "Gagal menyimpan");
+    setEditingHours(null);
+    flash("Jam buka tersimpan");
+    loadAll();
+  };
   const saveSchedule = async (users: string[], rules: Rule[]) => {
     const r = await fetch("/api/music/schedule", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_names: users, rules }) });
     if (!r.ok) { flash((await r.json().catch(() => ({}))).error || "Gagal menyimpan"); return; }
@@ -212,8 +229,9 @@ export default function StoreMonitorPage() {
     const isPlayerDev = (d: Device) => (explicit ? d.device_id === explicit.device_id : d.kind === "tablet");
     const tl = tablet ? live[tablet.device_id] : undefined;
     const offline = s.devices.every((d) => !live[d.device_id]);
-    const issue = offline || (!!tablet && (!tl || !!tl.music?.note));
-    return { tablet, tl, isPlayerDev, offline, issue };
+    const open = isOpenNow(hoursMap[(s as any).user_name]); // di luar jam buka, offline bukan masalah
+    const issue = open && (offline || (!!tablet && (!tl || !!tl.music?.note)));
+    return { tablet, tl, isPlayerDev, offline, issue, open };
   };
   // Perangkat online yang menjadi sasaran perintah: musik → hanya pemutar tiap toko; lainnya → semua perangkat toko.
   expectRef.current = (type, target) => {
@@ -266,6 +284,7 @@ export default function StoreMonitorPage() {
         <button className={b} disabled={!live_ || !isSuper} onClick={() => { afterSheet(); doAnnounce(scopeTarget(), scopeLabel); }}><MegaphoneIcon /> Pengumuman</button>
         <button className={b} onClick={() => { afterSheet(); setEditing({ title: scopeLabel, users: selected.size ? [...selected] : stores.map((s) => s.user_name) }); }}><CalendarIcon /> Jadwal</button>
         <button className={b} disabled={!live_ || !isSuper} onClick={() => { if (confirm(`Muat ulang perangkat ${scopeLabel}?`)) { send("reload", scopeTarget()); afterSheet(); } }}><RefreshIcon /> Reload</button>
+        <button className={b} onClick={() => { afterSheet(); setEditingHours({ title: scopeLabel, users: selected.size ? [...selected] : stores.map((s) => s.user_name) }); }}>Jam buka</button>
         <button className={b} onClick={() => { afterSheet(); setManaging(true); }}>Kelola preset & grup</button>
       </>
     );
@@ -364,6 +383,7 @@ export default function StoreMonitorPage() {
                             {s.devices.map((d) => <span key={d.device_id} title={d.label || d.kind} className={`h-2 w-2 rounded-full ${live[d.device_id] ? "bg-emerald-500" : "bg-gray-300"}`} />)}
                           </span>
                         </span>
+                        {!info.open && <span className="mt-0.5 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Tutup sekarang</span>}
                         {nowPlaying && <span className={`mt-0.5 block truncate text-[11px] md:hidden ${tl?.music?.note ? "text-amber-600" : "text-gray-500"}`}>{nowPlaying}</span>}
                       </button>
                       <button className={`${btn} shrink-0`} disabled={!live_ || !isSuper} onClick={() => confirm(`Muat ulang ${s.name}?`) && send("reload", target)} aria-label="Reload"><RefreshIcon /></button>
@@ -374,6 +394,10 @@ export default function StoreMonitorPage() {
 
                     {/* Isi kartu: di mobile hanya saat dibuka */}
                     <div className={`${open ? "block" : "hidden"} border-t border-gray-100 px-4 pb-4 pt-3 md:block md:border-t-0 md:pt-0`}>
+                      <div className="mb-3 flex items-center justify-between text-xs">
+                        <span className="text-gray-500">{info.open ? "Buka sekarang" : "Tutup sekarang"}</span>
+                        <button onClick={() => setEditingHours({ title: s.name, users: [s.user_name] })} className="py-1 text-[11px] text-gray-500 hover:underline">Jam buka</button>
+                      </div>
                       <div className="space-y-3 md:space-y-2">
                         {s.devices.map((d) => {
                           const l = live[d.device_id];
@@ -486,6 +510,14 @@ export default function StoreMonitorPage() {
           onTemplates={setTemplates}
           onSend={async (text, seconds) => { if (await send("announce", announce.target, { text, seconds })) setAnnounce(null); }}
           onClose={() => setAnnounce(null)}
+        />
+      )}
+      {editingHours && (
+        <HoursEditor
+          title={editingHours.title}
+          initial={editingHours.users.length === 1 ? hoursMap[editingHours.users[0]] || DEFAULT_HOURS : DEFAULT_HOURS}
+          onSave={(h) => saveHours(editingHours.users, h)}
+          onClose={() => setEditingHours(null)}
         />
       )}
       {managing && (

@@ -10,9 +10,10 @@ export async function GET(request: NextRequest) {
   const user = await sessionUser(request);
   if (!user) return NextResponse.json({ error: "Sesi tidak valid" }, { status: 401 });
   await ensureDevicesSchema();
-  const [state, rules] = await Promise.all([
+  const [state, rules, hoursRows] = await Promise.all([
     sql`SELECT playlist_id, volume, muted, playing, shuffle, updated_at FROM store_music WHERE user_name = ${user.user_name}`,
     sql`SELECT id, days, start_min, end_min, playlist_id, volume, shuffle FROM music_schedule WHERE user_name = ${user.user_name} ORDER BY start_min`,
+    sql`SELECT weekly, closed_dates, follow FROM store_hours WHERE user_name = ${user.user_name}`,
   ]);
   // Apakah perangkat INI pemutar musik toko? Pilihan eksplisit (music_player) menang; tanpa pilihan = tablet.
   const dev = new URL(request.url).searchParams.get("deviceId") || "";
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
     ? await sql`SELECT id, name, yt_list AS list, yt_video AS video FROM music_playlists WHERE id = ANY(${[...ids]})`
     : [];
   return NextResponse.json(
-    { state: state[0] || null, rules, playlists, player },
+    { state: state[0] || null, rules, playlists, player, hours: hoursRows[0] || null },
     { headers: { "Cache-Control": "no-store" } }
   );
 }

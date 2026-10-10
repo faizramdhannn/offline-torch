@@ -1,27 +1,35 @@
 import { sql } from "./neon";
 import { notifyUsersWithPermission } from "./notifications";
 import { sendTelegram } from "./telegram";
+import { DEFAULT_HOURS, isOpenNow, normalizeHours, type StoreHours } from "./storeHours";
 
 // Peringatan perangkat → notifikasi dalam aplikasi untuk pemegang akses Settings.
 // Dipicu oleh webhook Ably dan saat dashboard dibuka (tanpa cron/polling).
 // Klaim lewat UPDATE ... RETURNING supaya satu kejadian hanya memberi satu notifikasi walau dipicu bersamaan.
-const OPEN_FROM = 9;
-const OPEN_TO = 22; // jam buka toko (WIB); di luar jam ini tablet mati dianggap wajar
-
+// Tablet offline hanya diperingatkan saat toko itu BUKA (jam buka per toko + hari libur; bawaan 09–22 WIB).
 export async function checkDeviceAlerts(): Promise<void> {
-  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jakarta", hour: "2-digit", hour12: false }).format(new Date())) % 24;
-  const open = hour >= OPEN_FROM && hour < OPEN_TO;
-
-  if (open) {
-    const off = await sql`
-      UPDATE store_devices SET alerted_at = now()
-      WHERE kind = 'tablet' AND revoked = false AND online = false
-        AND offline_since IS NOT NULL AND offline_since < now() - interval '10 minutes'
-        AND (alerted_at IS NULL OR alerted_at < offline_since)
-      RETURNING store_name, user_name, label
-    `;
-    for (const d of off as any[]) {
-      const msg = `${d.label || "Tablet"} ${d.store_name || d.user_name} offline lebih dari 10 menit.`;
+  const cand = await sql`
+    SELECT device_id, store_name, user_name, label FROM store_devices
+    WHERE kind = 'tablet' AND revoked = false AND online = false
+      AND offline_since IS NOT NULL AND offline_since < now() - interval '10 minutes'
+      AND (alerted_at IS NULL OR alerted_at < offline_since)
+  `;
+  if ((cand as any[]).length) {
+    const hrows = await sql`SELECT user_name, weekly, closed_dates, follow FROM store_hours`;
+    const hours = new Map<string, StoreHours>();
+    for (const r of hrows as any[]) {
+      const h = normalizeHours({ weekly: r.weekly, closed_dates: r.closed_dates, follow: r.follow });
+      if (h) hours.set(r.user_name, h);
+    }
+    for (const c of cand as any[]) {
+      if (!isOpenNow(hours.get(c.user_name) || DEFAULT_HOURS)) continue;
+      // klaim agar satu kejadian hanya satu notifikasi walau dipicu bersamaan
+      const claimed = await sql`
+        UPDATE store_devices SET alerted_at = now()
+        WHERE device_id = ${c.device_id} AND (alerted_at IS NULL OR alerted_at < offline_since)
+        RETURNING device_id`;
+      if (!claimed.length) continue;
+      const msg = `${c.label || "Tablet"} ${c.store_name || c.user_name} offline lebih dari 10 menit (toko sedang buka).`;
       await sendTelegram(`Tablet toko offline: ${msg}`);
       await notifyUsersWithPermission("user_setting", {
         type: "device_offline",

@@ -8,7 +8,7 @@ export type DeviceKind = "tablet" | "pc";
 let schemaReady: Promise<void> | null = null;
 export function ensureDevicesSchema(): Promise<void> {
   if (!schemaReady) {
-    schemaReady = ensureOnce("devices", "v6", async () => {
+    schemaReady = ensureOnce("devices", "v7", async () => {
       await sql`
         CREATE TABLE IF NOT EXISTS store_devices (
           device_id TEXT PRIMARY KEY,
@@ -89,6 +89,16 @@ export function ensureDevicesSchema(): Promise<void> {
           end_date TEXT NOT NULL DEFAULT '',
           active BOOLEAN NOT NULL DEFAULT true,
           created_by TEXT NOT NULL DEFAULT '',
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+      `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS store_hours (
+          user_name TEXT PRIMARY KEY,
+          weekly JSONB NOT NULL,
+          closed_dates JSONB NOT NULL DEFAULT '[]'::jsonb,
+          follow BOOLEAN NOT NULL DEFAULT false,
+          updated_by TEXT NOT NULL DEFAULT '',
           updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )
       `;

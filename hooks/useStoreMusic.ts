@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ackCommand, getDeviceId, onDeviceCommand, setPresenceExtra } from "./useDevicePresence";
 import { activeRule, type ScheduleRule } from "@/lib/musicSchedule";
+import { isOpenNow, normalizeHours, type StoreHours } from "@/lib/storeHours";
 
 // Pemutar musik toko (hanya TABLET akun Store/Merchant). YouTube IFrame API di elemen tersembunyi;
 // dikendalikan dari dashboard lewat perintah Ably + jadwal per jam (WIB). Layout (main) tidak ikut
@@ -67,6 +68,11 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
     let rules: ScheduleRule[] = [];
     let playlists = new Map<number, Playlist>();
     let lastActive: number | undefined;
+    // Musik otomatis mengikuti jam buka toko (hanya bila diaktifkan & tidak ada jadwal musik eksplisit)
+    let hours: StoreHours | null = null;
+    let manualPlaying = true;
+    let lastOpen: boolean | undefined;
+    const followHours = () => rules.length === 0 && !!hours?.follow;
     let tick: ReturnType<typeof setInterval> | null = null;
     let blockTimer: ReturnType<typeof setTimeout> | null = null;
     let watchdog: ReturnType<typeof setInterval> | null = null;
@@ -194,8 +200,16 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
           playing: s ? !!s.playing : false,
           shuffle: s ? s.shuffle !== false : true,
         };
+        hours = d.hours ? normalizeHours({ weekly: d.hours.weekly, closed_dates: d.hours.closed_dates, follow: d.hours.follow }) : null;
+        manualPlaying = manual.playing;
         const act = rules.length ? activeRule(rules) : null;
-        if (!rules.length) want = manual;
+        if (!rules.length) {
+          want = manual;
+          if (followHours()) {
+            lastOpen = isOpenNow(hours);
+            want = { ...manual, playing: manual.playing && lastOpen };
+          }
+        }
         else if (act) {
           // perintah manual yang lebih baru dari awal jendela jadwal menang
           const manualNewer = s && new Date(s.updated_at).getTime() >= act.startMs;
@@ -207,6 +221,14 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
     };
 
     const checkSchedule = () => {
+      if (followHours()) {
+        const open = isOpenNow(hours);
+        if (open === lastOpen) return;
+        lastOpen = open;
+        want = { ...want, playing: open ? manualPlaying : false }; // buka → mulai (fade in), tutup/libur → berhenti (fade out)
+        apply();
+        return;
+      }
       if (!rules.length) return;
       const act = activeRule(rules);
       const id = act ? act.rule.id : 0;
@@ -235,8 +257,8 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
         if (a === "preset") want = { ...want, volume: Number(payload.volume), shuffle: payload.shuffle !== false, muted: false };
         loadedId = null;
         apply();
-      } else if (a === "play") { want = { ...want, playing: true }; apply(); }
-      else if (a === "pause") { want = { ...want, playing: false }; apply(); }
+      } else if (a === "play") { want = { ...want, playing: true }; manualPlaying = true; apply(); }
+      else if (a === "pause") { want = { ...want, playing: false }; manualPlaying = false; apply(); }
       else if (a === "volume") { want = { ...want, volume: Number(payload.volume) }; apply(); }
       else if (a === "mute") { want = { ...want, muted: !!payload.muted }; apply(); }
       else if (a === "shuffle") {
