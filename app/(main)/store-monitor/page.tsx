@@ -5,13 +5,15 @@ import { useUser } from "@/context/UserContext";
 import EventLog from "@/components/store-monitor/EventLog";
 import PlaylistManager from "@/components/store-monitor/PlaylistManager";
 import PresetManager from "@/components/store-monitor/PresetManager";
-import { useLocalList, type Group, type Preset } from "@/components/store-monitor/localLists";
+import AnnounceDialog from "@/components/store-monitor/AnnounceDialog";
+import SummaryTab from "@/components/store-monitor/SummaryTab";
+import type { Group, Preset, Template } from "@/components/store-monitor/localLists";
 import ScheduleEditor from "@/components/store-monitor/ScheduleEditor";
 import { BatteryIcon, BoltIcon, CalendarIcon, ClockIcon, MegaphoneIcon, MusicIcon, MuteIcon, NextIcon, PauseIcon, PencilIcon, PlayIcon, PowerIcon, PrevIcon, RefreshIcon, ShuffleIcon, VolumeIcon } from "@/components/store-monitor/icons";
 import { ago, type Device, type Live, type Playlist, type Rule, type StoreMusic } from "@/components/store-monitor/types";
 
 type Status = "connecting" | "live" | "off" | "unconfigured";
-type Tab = "devices" | "playlists" | "history";
+type Tab = "devices" | "playlists" | "summary" | "history";
 
 export default function StoreMonitorPage() {
   const { user } = useUser();
@@ -28,8 +30,16 @@ export default function StoreMonitorPage() {
   const [editing, setEditing] = useState<{ title: string; users: string[] } | null>(null);
   const [historyFor, setHistoryFor] = useState<Device | null>(null);
   const [toast, setToast] = useState("");
-  const [presets, setPresets] = useLocalList<Preset>("torch_monitor_presets");
-  const [groups, setGroups] = useLocalList<Group>("torch_monitor_groups");
+  const [presets, setPresetsState] = useState<Preset[]>([]);
+  const [groups, setGroupsState] = useState<Group[]>([]);
+  const [templates, setTemplatesState] = useState<Template[]>([]);
+  const [announce, setAnnounce] = useState<{ target: Record<string, unknown>; label: string } | null>(null);
+  // Preset, grup, dan template tersimpan di database (terlihat di semua admin/browser).
+  const savePref = (key: string, value: unknown[]) =>
+    fetch("/api/devices/prefs", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, value }) }).catch(() => {});
+  const setPresets = (v: Preset[]) => { setPresetsState(v); savePref("presets", v); };
+  const setGroups = (v: Group[]) => { setGroupsState(v); savePref("groups", v); };
+  const setTemplates = (v: Template[]) => { setTemplatesState(v); savePref("templates", v); };
   const [managing, setManaging] = useState(false);
   const [filter, setFilter] = useState<"all" | "offline" | "issue">("all");
   const [sheet, setSheet] = useState(false); // panel aksi (mobile)
@@ -45,6 +55,18 @@ export default function StoreMonitorPage() {
     setMusic(d.music || []);
     setSchedule(d.schedule || []);
     knownRef.current = new Set((d.devices || []).map((x: Device) => x.device_id));
+    // Preset/grup/template dari database. Data lama yang tersimpan di browser ini dipindahkan sekali.
+    const pr = d.prefs || {};
+    const take = <T,>(key: string, legacy: string, set: (v: T[]) => void) => {
+      if (Array.isArray(pr[key])) return set(pr[key]);
+      try {
+        const old = JSON.parse(localStorage.getItem(legacy) || "[]");
+        if (Array.isArray(old) && old.length) { set(old); savePref(key, old); localStorage.removeItem(legacy); }
+      } catch {}
+    };
+    take<Preset>("presets", "torch_monitor_presets", setPresetsState);
+    take<Group>("groups", "torch_monitor_groups", setGroupsState);
+    take<Template>("templates", "torch_monitor_templates", setTemplatesState);
   }, []);
 
   useEffect(() => {
@@ -124,12 +146,7 @@ export default function StoreMonitorPage() {
   const musicOf = (u: string) => music.find((m) => m.user_name === u);
   const live_ = status === "live";
 
-  const doAnnounce = (target: Record<string, unknown>, label: string) => {
-    const text = prompt(`Pengumuman untuk ${label}:`);
-    if (!text) return;
-    const sec = Number(prompt("Tampil berapa detik?", "30")) || 30;
-    send("announce", target, { text, seconds: sec });
-  };
+  const doAnnounce = (target: Record<string, unknown>, label: string) => setAnnounce({ target, label });
   const rename = async (d: Device) => {
     const label = prompt("Nama perangkat", d.label || "");
     if (label === null) return;
@@ -208,9 +225,9 @@ export default function StoreMonitorPage() {
         <button className={b} disabled={!live_} onClick={() => { send("music", scopeTarget(), { action: "mute", muted: false }); afterSheet(); }}><VolumeIcon /> Unmute</button>
         <button className={b} disabled={!live_} onClick={() => { send("music", scopeTarget(), { action: "shuffle", shuffle: true }); afterSheet(); }}><ShuffleIcon /> Acak: nyala</button>
         <button className={b} disabled={!live_} onClick={() => { send("music", scopeTarget(), { action: "shuffle", shuffle: false }); afterSheet(); }}><ShuffleIcon /> Acak: mati</button>
-        <button className={b} disabled={!live_} onClick={() => { afterSheet(); doAnnounce(scopeTarget(), scopeLabel); }}><MegaphoneIcon /> Pengumuman</button>
+        <button className={b} disabled={!live_ || !isSuper} onClick={() => { afterSheet(); doAnnounce(scopeTarget(), scopeLabel); }}><MegaphoneIcon /> Pengumuman</button>
         <button className={b} onClick={() => { afterSheet(); setEditing({ title: scopeLabel, users: selected.size ? [...selected] : stores.map((s) => s.user_name) }); }}><CalendarIcon /> Jadwal</button>
-        <button className={b} disabled={!live_} onClick={() => { if (confirm(`Muat ulang perangkat ${scopeLabel}?`)) { send("reload", scopeTarget()); afterSheet(); } }}><RefreshIcon /> Reload</button>
+        <button className={b} disabled={!live_ || !isSuper} onClick={() => { if (confirm(`Muat ulang perangkat ${scopeLabel}?`)) { send("reload", scopeTarget()); afterSheet(); } }}><RefreshIcon /> Reload</button>
         <button className={b} onClick={() => { afterSheet(); setManaging(true); }}>Kelola preset & grup</button>
       </>
     );
@@ -229,8 +246,8 @@ export default function StoreMonitorPage() {
           </p>
         </div>
         <a href="/panduan-tablet" className="text-xs text-gray-500 underline-offset-2 hover:underline md:order-none">Panduan setup tablet</a>
-        <div className="grid w-full grid-cols-3 gap-1 rounded-lg bg-gray-100 p-1 text-xs md:flex md:w-auto">
-          {([["devices", "Perangkat"], ["playlists", "Playlist"], ["history", "Riwayat"]] as const).map(([k, l]) => (
+        <div className="grid w-full grid-cols-4 gap-1 rounded-lg bg-gray-100 p-1 text-xs md:flex md:w-auto">
+          {([["devices", "Perangkat"], ["playlists", "Playlist"], ["summary", "Ringkasan"], ["history", "Riwayat"]] as const).map(([k, l]) => (
             <button key={k} onClick={() => setTab(k)} className={`rounded-md px-3 py-2 md:py-1 ${tab === k ? "bg-white font-medium text-gray-800 shadow-sm" : "text-gray-500"}`}>{l}</button>
           ))}
         </div>
@@ -243,6 +260,7 @@ export default function StoreMonitorPage() {
       )}
 
       {tab === "playlists" && <PlaylistManager playlists={playlists} onChanged={loadAll} />}
+      {tab === "summary" && <SummaryTab />}
       {tab === "history" && <div className="max-w-3xl rounded-xl border border-gray-200 bg-white p-4"><EventLog /></div>}
 
       {tab === "devices" && (
@@ -294,7 +312,7 @@ export default function StoreMonitorPage() {
                         </span>
                         {nowPlaying && <span className={`mt-0.5 block truncate text-[11px] md:hidden ${tl?.music?.note ? "text-amber-600" : "text-gray-500"}`}>{nowPlaying}</span>}
                       </button>
-                      <button className={`${btn} shrink-0`} disabled={!live_} onClick={() => confirm(`Muat ulang ${s.name}?`) && send("reload", target)} aria-label="Reload"><RefreshIcon /></button>
+                      <button className={`${btn} shrink-0`} disabled={!live_ || !isSuper} onClick={() => confirm(`Muat ulang ${s.name}?`) && send("reload", target)} aria-label="Reload"><RefreshIcon /></button>
                       <button className="shrink-0 p-1 text-gray-400 md:hidden" aria-label={open ? "Tutup" : "Buka"} onClick={() => setExpanded((p) => { const n = new Set(p); n.has(s.user_name) ? n.delete(s.user_name) : n.add(s.user_name); return n; })}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={open ? "rotate-180" : ""}><path d="M6 9l6 6 6-6" /></svg>
                       </button>
@@ -367,7 +385,7 @@ export default function StoreMonitorPage() {
                               aria-label="Acak"
                             ><ShuffleIcon /></button>
                             <button className={btnCtl} disabled={!live_} onClick={() => send("music", target, { action: "mute", muted: !m?.muted })} aria-label="Mute">{m?.muted ? <MuteIcon /> : <VolumeIcon />}</button>
-                            <button className={btnCtl} disabled={!live_} onClick={() => doAnnounce(target, s.name)} aria-label="Pengumuman"><MegaphoneIcon /></button>
+                            <button className={btnCtl} disabled={!live_ || !isSuper} onClick={() => doAnnounce(target, s.name)} aria-label="Pengumuman"><MegaphoneIcon /></button>
                           </div>
                           <input
                             key={`${s.user_name}-${m?.volume}`}
@@ -407,6 +425,15 @@ export default function StoreMonitorPage() {
         </>
       )}
 
+      {announce && (
+        <AnnounceDialog
+          label={announce.label}
+          templates={templates}
+          onTemplates={setTemplates}
+          onSend={async (text, seconds) => { if (await send("announce", announce.target, { text, seconds })) setAnnounce(null); }}
+          onClose={() => setAnnounce(null)}
+        />
+      )}
       {managing && (
         <PresetManager presets={presets} groups={groups} playlists={playlists} selected={[...selected]} onPresets={setPresets} onGroups={setGroups} onClose={() => setManaging(false)} />
       )}

@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 // Status online/offline LIVE datang dari presence Ably; kolom online di sini hasil webhook (untuk riwayat/peringatan).
 export async function GET(_request: NextRequest) {
   await ensureDevicesSchema();
-  const [devices, playlists, music, schedule] = await Promise.all([
+  const [devices, playlists, music, schedule, prefs] = await Promise.all([
     sql`
       SELECT d.device_id, d.user_name, d.store_name, d.kind, d.label, d.last_seen, d.online, d.battery, d.charging, d.music_player
       FROM store_devices d
@@ -24,9 +24,12 @@ export async function GET(_request: NextRequest) {
     sql`SELECT id, name, url FROM music_playlists ORDER BY name ASC`,
     sql`SELECT user_name, playlist_id, volume, muted, playing, shuffle FROM store_music`,
     sql`SELECT id, user_name, days, start_min, end_min, playlist_id, volume, shuffle FROM music_schedule ORDER BY user_name, start_min`,
+    sql`SELECT key, value FROM monitor_prefs`,
   ]);
   checkDeviceAlerts().catch(() => {});
-  return NextResponse.json({ devices, playlists, music, schedule }, { headers: { "Cache-Control": "no-store" } });
+  const prefMap: Record<string, unknown> = {};
+  for (const r of prefs as any[]) prefMap[r.key] = r.value;
+  return NextResponse.json({ devices, playlists, music, schedule, prefs: prefMap }, { headers: { "Cache-Control": "no-store" } });
 }
 
 // Ubah nama perangkat dan/atau jadikan perangkat ini pemutar musik toko.

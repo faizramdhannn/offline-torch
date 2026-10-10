@@ -11,7 +11,7 @@ const MUSIC_ACTIONS = ["load", "play", "pause", "volume", "mute", "shuffle", "pr
 
 // Kirim perintah ke perangkat toko lewat Ably. Izin (user_setting) ditegakkan proxy; tercatat di activity log.
 // target: { all } | { user_names: [...] } | { deviceId }
-// type: reload | logout* | navigate* | announce | music   (* = hanya Super Admin)
+// type: music (Admin & Super Admin) | reload, announce, logout, navigate (hanya Super Admin)
 export async function POST(request: NextRequest) {
   if (!realtimeConfigured()) return NextResponse.json({ error: "Realtime belum dikonfigurasi" }, { status: 503 });
   const me = await sessionUser(request);
@@ -20,7 +20,8 @@ export async function POST(request: NextRequest) {
   if (!["reload", "logout", "navigate", "announce", "music"].includes(type)) {
     return NextResponse.json({ error: "Perintah tidak dikenal" }, { status: 400 });
   }
-  if ((type === "logout" || type === "navigate") && me?.role !== "super_admin") {
+  // Admin (pemegang akses Settings) hanya boleh mengatur musik; reload, pengumuman, logout, dan pindah halaman = Super Admin.
+  if (type !== "music" && me?.role !== "super_admin") {
     return NextResponse.json({ error: "Hanya Super Admin" }, { status: 403 });
   }
 

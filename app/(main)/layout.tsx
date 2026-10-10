@@ -15,6 +15,7 @@ import UpdateToast from "@/components/UpdateToast";
 import { useDevicePresence } from "@/hooks/useDevicePresence";
 import { useStoreMusic } from "@/hooks/useStoreMusic";
 import DeviceAnnouncement from "@/components/DeviceAnnouncement";
+import TabletStandby from "@/components/TabletStandby";
 
 function MainLayoutInner({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
@@ -90,6 +91,7 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
 
       <UpdateToast />
       <DeviceAnnouncement />
+      <TabletStandby user={user} />
       {music.needTap && (
         <button
           onClick={music.start}

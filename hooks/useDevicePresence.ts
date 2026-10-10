@@ -44,6 +44,7 @@ export function onDeviceCommand(h: Handler): () => void {
 let extra: Record<string, unknown> = {};
 let pushUpdate: (() => void) | null = null;
 let extraTimer: ReturnType<typeof setTimeout> | null = null;
+export const getPresenceExtra = () => extra;
 export function setPresenceExtra(p: Record<string, unknown>) {
   extra = { ...extra, ...p };
   if (extraTimer) clearTimeout(extraTimer);
