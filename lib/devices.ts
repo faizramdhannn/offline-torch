@@ -8,7 +8,7 @@ export type DeviceKind = "tablet" | "pc";
 let schemaReady: Promise<void> | null = null;
 export function ensureDevicesSchema(): Promise<void> {
   if (!schemaReady) {
-    schemaReady = ensureOnce("devices", "v5", async () => {
+    schemaReady = ensureOnce("devices", "v6", async () => {
       await sql`
         CREATE TABLE IF NOT EXISTS store_devices (
           device_id TEXT PRIMARY KEY,
@@ -72,6 +72,26 @@ export function ensureDevicesSchema(): Promise<void> {
       `;
       await sql`CREATE INDEX IF NOT EXISTS music_schedule_user_idx ON music_schedule (user_name)`;
       await sql`ALTER TABLE store_devices ADD COLUMN IF NOT EXISTS music_player BOOLEAN`;
+      await sql`
+        CREATE TABLE IF NOT EXISTS announce_schedule (
+          id SERIAL PRIMARY KEY,
+          name TEXT NOT NULL DEFAULT '',
+          text TEXT NOT NULL,
+          seconds INT NOT NULL DEFAULT 30,
+          all_stores BOOLEAN NOT NULL DEFAULT true,
+          user_names JSONB NOT NULL DEFAULT '[]'::jsonb,
+          recurrence TEXT NOT NULL DEFAULT 'daily',
+          days TEXT NOT NULL DEFAULT '',
+          day_of_month INT,
+          run_date TEXT NOT NULL DEFAULT '',
+          time_min INT NOT NULL,
+          start_date TEXT NOT NULL DEFAULT '',
+          end_date TEXT NOT NULL DEFAULT '',
+          active BOOLEAN NOT NULL DEFAULT true,
+          created_by TEXT NOT NULL DEFAULT '',
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+      `;
       await sql`CREATE TABLE IF NOT EXISTS monitor_prefs (key TEXT PRIMARY KEY, value JSONB NOT NULL DEFAULT '[]'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`;
       await sql`ALTER TABLE store_music ADD COLUMN IF NOT EXISTS shuffle BOOLEAN NOT NULL DEFAULT true`;
       await sql`ALTER TABLE music_schedule ADD COLUMN IF NOT EXISTS shuffle BOOLEAN NOT NULL DEFAULT true`;

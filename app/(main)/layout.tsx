@@ -91,7 +91,7 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
       </main>
 
       <UpdateToast />
-      <DeviceAnnouncement />
+      <DeviceAnnouncement user={user} />
       <TabletStandby user={user} />
       <MusicBadge isPlayer={music.isPlayer} />
       {music.needTap && (

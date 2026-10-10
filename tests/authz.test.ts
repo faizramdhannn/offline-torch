@@ -73,6 +73,11 @@ describe("aturan akses /api", () => {
     expect(rule("/api/devices/command", "POST").any).toEqual(["user_setting"]);
   });
 
+  it("pengumuman terjadwal: admin butuh user_setting, perangkat baca aturan sendiri cukup login", () => {
+    expect(rule("/api/announce-schedule", "POST").any).toEqual(["user_setting"]);
+    expect(rule("/api/announce-schedule/mine", "GET").any).toEqual([]);
+  });
+
   it("semua flag di RULES adalah permission yang valid (cegah salah ketik)", () => {
     const valid = new Set(PERMISSION_KEYS);
     for (const r of RULES) {

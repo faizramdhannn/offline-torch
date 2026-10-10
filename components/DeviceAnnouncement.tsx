@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { onDeviceCommand } from "@/hooks/useDevicePresence";
+import { emitLocalCommand, onDeviceCommand } from "@/hooks/useDevicePresence";
+import { isDue, wibParts, type AnnounceRule } from "@/lib/announceSchedule";
 
-// Pengumuman layar penuh dari pusat (dikirim lewat dashboard Store Monitor).
-export default function DeviceAnnouncement() {
+// Pengumuman layar penuh: dari perintah dashboard (langsung) dan dari jadwal (dihitung di perangkat ini).
+export default function DeviceAnnouncement({ user }: { user?: { role?: string } | null }) {
   const [a, setA] = useState<{ text: string; until: number } | null>(null);
   const [left, setLeft] = useState(0);
+  const eligible = !!user && (user.role === "store" || user.role === "merchant");
 
   useEffect(
     () =>
@@ -15,6 +17,48 @@ export default function DeviceAnnouncement() {
       }),
     []
   );
+
+  // Pengumuman terjadwal: aturan diambil sekali (dan saat dashboard mengubahnya), jam dicek lokal tiap 20 detik.
+  useEffect(() => {
+    if (!eligible) return;
+    let cancelled = false;
+    let rules: AnnounceRule[] = [];
+    const firedKey = (r: AnnounceRule, ymd: string) => `torch_ann_${r.id}_${ymd}`;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/announce-schedule/mine", { cache: "no-store" });
+        if (!res.ok) return;
+        const d = await res.json();
+        if (!cancelled) rules = (d.rules || []).map((r: any) => ({ ...r, id: Number(r.id), all_stores: true, user_names: [], name: "" }));
+      } catch {}
+    };
+    const tick = () => {
+      const { ymd } = wibParts();
+      for (const r of rules) {
+        if (!isDue(r)) continue;
+        const key = firedKey(r, ymd);
+        try {
+          if (localStorage.getItem(key)) continue; // sudah tampil hari ini (mis. setelah halaman dimuat ulang)
+          localStorage.setItem(key, "1");
+        } catch {}
+        emitLocalCommand({ type: "announce", payload: { text: r.text, seconds: r.seconds } }); // tampil + musik mengecil
+        break;
+      }
+    };
+    // bersihkan penanda lama (>3 hari) agar localStorage tidak menumpuk
+    try {
+      const cutoff = new Date(Date.now() - 3 * 86400_000).toISOString().slice(0, 10);
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i) || "";
+        const m = k.match(/^torch_ann_\d+_(\d{4}-\d{2}-\d{2})$/);
+        if (m && m[1] < cutoff) localStorage.removeItem(k);
+      }
+    } catch {}
+    load();
+    const t = setInterval(tick, 20_000);
+    const off = onDeviceCommand(({ type }) => { if (type === "announce_refresh") load(); });
+    return () => { cancelled = true; clearInterval(t); off(); };
+  }, [eligible]);
 
   useEffect(() => {
     if (!a) return;

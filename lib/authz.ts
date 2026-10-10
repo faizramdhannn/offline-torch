@@ -87,6 +87,8 @@ export const RULES: Rule[] = [
   need("/api/devices", ["user_setting"]),
   need("/api/devices/register", [], ["POST"]),
   need("/api/music", ["user_setting"]),
+  need("/api/announce-schedule", ["user_setting"]), // tulis/baca: hanya Super Admin (dicek di route)
+  need("/api/announce-schedule/mine", [], ["GET"]),
   need("/api/music/state", [], ["GET"]),
   pub("/api/realtime/webhook", ["POST"]), // diamankan secret di query (REALTIME_WEBHOOK_SECRET)
   need("/api/roles", []),

@@ -5,6 +5,7 @@ import { useUser } from "@/context/UserContext";
 import EventLog from "@/components/store-monitor/EventLog";
 import PlaylistManager from "@/components/store-monitor/PlaylistManager";
 import PresetManager from "@/components/store-monitor/PresetManager";
+import AnnounceSchedule from "@/components/store-monitor/AnnounceSchedule";
 import AnnounceDialog from "@/components/store-monitor/AnnounceDialog";
 import SummaryTab from "@/components/store-monitor/SummaryTab";
 import type { Group, Preset, Template } from "@/components/store-monitor/localLists";
@@ -13,7 +14,7 @@ import { BatteryIcon, BoltIcon, CalendarIcon, ClockIcon, MegaphoneIcon, MusicIco
 import { ago, type Device, type Live, type Playlist, type Rule, type StoreMusic } from "@/components/store-monitor/types";
 
 type Status = "connecting" | "live" | "off" | "unconfigured";
-type Tab = "devices" | "playlists" | "summary" | "history";
+type Tab = "devices" | "playlists" | "announce" | "summary" | "history";
 
 export default function StoreMonitorPage() {
   const { user } = useUser();
@@ -246,8 +247,8 @@ export default function StoreMonitorPage() {
           </p>
         </div>
         <a href="/panduan-tablet" className="text-xs text-gray-500 underline-offset-2 hover:underline md:order-none">Panduan setup tablet</a>
-        <div className="grid w-full grid-cols-4 gap-1 rounded-lg bg-gray-100 p-1 text-xs md:flex md:w-auto">
-          {([["devices", "Perangkat"], ["playlists", "Playlist"], ["summary", "Ringkasan"], ["history", "Riwayat"]] as const).map(([k, l]) => (
+        <div className="grid w-full grid-flow-col auto-cols-fr gap-1 rounded-lg bg-gray-100 p-1 text-xs md:flex md:w-auto">
+          {([["devices", "Perangkat"], ["playlists", "Playlist"], ...(isSuper ? [["announce", "Pengumuman"]] : []), ["summary", "Ringkasan"], ["history", "Riwayat"]] as [Tab, string][]).map(([k, l]) => (
             <button key={k} onClick={() => setTab(k)} className={`rounded-md px-3 py-2 md:py-1 ${tab === k ? "bg-white font-medium text-gray-800 shadow-sm" : "text-gray-500"}`}>{l}</button>
           ))}
         </div>
@@ -260,6 +261,7 @@ export default function StoreMonitorPage() {
       )}
 
       {tab === "playlists" && <PlaylistManager playlists={playlists} onChanged={loadAll} />}
+      {tab === "announce" && isSuper && <AnnounceSchedule stores={stores.map((s) => ({ user_name: s.user_name, name: s.name }))} groups={groups} templates={templates} />}
       {tab === "summary" && <SummaryTab />}
       {tab === "history" && <div className="max-w-3xl rounded-xl border border-gray-200 bg-white p-4"><EventLog /></div>}
 
