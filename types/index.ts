@@ -62,6 +62,12 @@ export interface RegistrationRequest {
   password: string;
   status: string;
   request_at: string;
+  // Jejak pendaftar (hanya ada untuk permintaan baru): IP, lokasi perkiraan, perangkat
+  meta?: {
+    ip: string; country: string; region: string; city: string; latitude: string; longitude: string; timezone: string;
+    device_type: string; os: string; browser: string; model: string; user_agent: string;
+    client?: { tz?: string; lang?: string; screen?: string }; at?: string;
+  } | null;
 }
 
 export interface OrderReport {

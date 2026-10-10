@@ -23,7 +23,7 @@ Izin = kunci di `PERMISSION_KEYS` (`lib/users.ts`); penegakan di server ada di `
 | Stock Opname | `/stock-opname` | `stock_opname` (+`stock_opname_report`) | `stock-opname/{store,report}` | sheet: `sto_store`, `sto_store_report` | `components/stock-opname/*` |
 | Survey Store | `/traffic-store` | `traffic_store` / `report_store` | `traffic-store`, `master-traffic` | sheet traffic (`SPREADSHEET_TRAFFIC`) | `components/traffic-store/*` |
 | Voucher | `/voucher` | `voucher` | `voucher` | sheet: `voucher_list` | — |
-| Registration | `/registration` | `registration_request` | `registration` (POST publik dari `/login`) | sheet: `registration_request` + neon `app_users` | — |
+| Registration | `/registration` | `registration_request` | `registration` (POST publik dari `/login`: jebakan bot, batas 3/jam/IP & 30/hari, password ≥ 6, cek username ganda) | sheet: `registration_request` (kolom A–F) + neon `registration_meta` (IP, lokasi perkiraan dari header Vercel, perangkat) + `app_users` | `lib/clientInfo.ts`, `lib/registrationMeta.ts`; hash password tidak dikirim ke browser |
 | User Profiles | `/profiles` | **Super Admin** | `profiles`, `profiles/{backup,logout,password}`, `roles` | neon: `app_users`, `app_roles`, `app_users_backup` | `lib/users.ts`, `lib/roles.ts`, `lib/usersBackup.ts` |
 | Store Monitor | `/store-monitor` | `store_monitor` (Settings & Super Admin otomatis) | `devices*`, `music*`, `announce-schedule*`, `realtime/*` | neon (banyak tabel) + Ably | **[STORE-MONITOR.md](STORE-MONITOR.md)** |
 | Settings | `/settings` | `user_setting` | `users`, `activity-log`, `admin/db-export`, `javelin-cookie`, `javelin-login`, `test-env` | neon: `app_users`, `app_activity_log` | `lib/permGroups.ts` (kolom izin), `lib/activityLog.ts` |

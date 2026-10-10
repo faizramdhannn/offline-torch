@@ -41,3 +41,6 @@ yarn-error.log*
 next-env.d.ts
 service_account.json
 temp_credentials.jsontmp-catalog/
+
+# cookie sesi Javelin (rahasia) — jangan pernah di-commit
+/data/javelin_cookie.json

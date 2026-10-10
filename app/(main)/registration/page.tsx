@@ -215,6 +215,42 @@ export default function RegistrationPage() {
     </label>
   );
 
+  const ipCount = data.reduce<Record<string, number>>((m, r) => {
+    const ip = r.meta?.ip;
+    if (ip) m[ip] = (m[ip] || 0) + 1;
+    return m;
+  }, {});
+  const isBadUsername = (u: string) => !u || ["null", "undefined"].includes(String(u).trim().toLowerCase());
+  const IDN_TZ = ["Asia/Jakarta", "Asia/Pontianak", "Asia/Makassar", "Asia/Jayapura"];
+
+  // Asal & perangkat pendaftar (dari header server; lokasi = perkiraan berdasarkan IP, bukan GPS)
+  const Origin = ({ item }: { item: RegistrationRequest }) => {
+    const m = item.meta;
+    if (!m) return <span className="text-gray-400">Tidak tercatat (permintaan lama)</span>;
+    const place = [m.city, m.region, m.country].filter(Boolean).join(", ");
+    const flags: string[] = [];
+    if (m.country && m.country !== "ID") flags.push("Di luar Indonesia");
+    if (m.client?.tz && !IDN_TZ.includes(m.client.tz)) flags.push(`Zona waktu perangkat ${m.client.tz}`);
+    if (m.ip && ipCount[m.ip] > 1) flags.push(`IP sama dengan ${ipCount[m.ip] - 1} permintaan lain`);
+    const map = m.latitude && m.longitude ? `https://www.openstreetmap.org/?mlat=${m.latitude}&mlon=${m.longitude}&zoom=10` : "";
+    return (
+      <div className="space-y-0.5 text-[11px] leading-snug">
+        <p className="font-medium text-gray-700">
+          {place || "Lokasi tidak diketahui"}
+          {map && <a href={map} target="_blank" rel="noopener noreferrer" className="ml-1.5 font-normal text-blue-600 hover:underline">peta</a>}
+        </p>
+        <p className="font-mono text-gray-500">{m.ip || "IP tidak diketahui"}</p>
+        <p className="text-gray-500">
+          {[m.device_type, m.model, m.os, m.browser].filter(Boolean).join(" · ")}
+          {m.client?.screen ? ` · layar ${m.client.screen}` : ""}
+        </p>
+        {flags.map((f) => (
+          <span key={f} className="mr-1 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">{f}</span>
+        ))}
+      </div>
+    );
+  };
+
   const statusBadge = (status: string) => {
     if (status === "pending") return "bg-yellow-100 text-yellow-800";
     if (status === "approved") return "bg-green-100 text-green-800";
@@ -259,6 +295,7 @@ return (
                       <SortableTh label="Username" active={sortKey === "user_name"} dir={sortDir} onClick={() => toggleSort("user_name")} className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500" />
                       <SortableTh label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500" />
                       <SortableTh label="Request Date" active={sortKey === "request_at"} dir={sortDir} onClick={() => toggleSort("request_at")} className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500" />
+                      <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Asal / Perangkat</th>
                       <th className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Actions</th>
                     </tr>
                   </thead>
@@ -274,8 +311,18 @@ return (
                           </span>
                         </td>
                         <td className="px-2 py-1">{item.request_at}</td>
+                        <td className="px-2 py-1 align-top"><Origin item={item} /></td>
                         <td className="px-2 py-1">
-                          {item.status === "pending" && (
+                          {item.status === "pending" && isBadUsername(item.user_name) && (
+                            <div className="space-y-1.5">
+                              <p className="text-[10px] font-semibold text-red-600">Username kosong (bug lama). Tidak bisa disetujui.</p>
+                              <button onClick={() => handleReject(item.id)}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-gray-50">
+                                Reject
+                              </button>
+                            </div>
+                          )}
+                          {item.status === "pending" && !isBadUsername(item.user_name) && (
                             <div className="flex gap-2">
                               <button onClick={() => handleApprove(item)}
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-gray-50">
@@ -314,6 +361,10 @@ return (
             <div className="mb-4 p-3 bg-gray-50 rounded flex gap-6">
               <p className="text-sm text-gray-600"><strong>Name:</strong> {selectedRequest.name}</p>
               <p className="text-sm text-gray-600"><strong>Username:</strong> {selectedRequest.user_name}</p>
+            </div>
+            <div className="mb-4 rounded border border-gray-200 p-3">
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-gray-500">Asal / Perangkat pendaftar</p>
+              <Origin item={selectedRequest} />
             </div>
 
             <div className="grid grid-cols-3 gap-5 mb-5">

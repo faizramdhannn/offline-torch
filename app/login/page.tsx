@@ -27,6 +27,7 @@ function LoginPageContent() {
   const [regName, setRegName] = useState("");
   const [regUsername, setRegUsername] = useState("");
   const [regPassword, setRegPassword] = useState("");
+  const [regWebsite, setRegWebsite] = useState("");
   const [regShowPassword, setRegShowPassword] = useState(false);
   const [regError, setRegError] = useState("");
   const [regLoading, setRegLoading] = useState(false);
@@ -98,7 +99,13 @@ function LoginPageContent() {
       const response = await fetch("/api/registration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: regName, user_name: regUsername, password: regPassword }),
+        body: JSON.stringify({
+          name: regName, user_name: regUsername, password: regPassword,
+          website: regWebsite, // jebakan bot (harus kosong)
+          tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          lang: navigator.language,
+          screen: `${window.screen.width}x${window.screen.height}`,
+        }),
       });
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
@@ -525,6 +532,9 @@ function LoginPageContent() {
                 </div>
               ) : (
                 <form onSubmit={handleRegister}>
+                  {/* Jebakan bot: tersembunyi dari manusia */}
+                  <input type="text" name="website" value={regWebsite} onChange={(e) => setRegWebsite(e.target.value)} tabIndex={-1} autoComplete="off" aria-hidden="true"
+                    style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }} />
                   <div className="sl-field">
                     <label className="sl-label">Full Name</label>
                     <input type="text" value={regName} onChange={(e) => setRegName(e.target.value)}

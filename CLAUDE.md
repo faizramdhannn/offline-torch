@@ -64,8 +64,9 @@ Semua `/api/*` **wajib sesi sah** kecuali ditandai `pub(...)` di `RULES`. Aturan
 - `need(prefix, [flag...], methods?, scope?)` → user harus punya SALAH SATU flag (`[]` = cukup login).
 - Prefix terpanjang menang; aturan khusus-method menang atas aturan umum di prefix yang sama.
 - `scope` (hanya GET) mengikat parameter ke sesi: `identity` (diisi paksa user_name), `name`, `privileged` (parameter "lihat semua" hanya jika punya flag), `store`. Proxy menaruh hasilnya di header `x-scoped-search`; route membacanya via `scopedParams(request)` — **jangan baca `request.url` langsung untuk parameter yang ber-scope**.
-- Route tanpa aturan = cukup login. Endpoint publik: login/logout, `/api/cron/*` (diamankan `CRON_SECRET`), `/api/admin/db-export`, `/api/jastiper|affiliate/public|report-public`, `/api/drive-image`, `POST /api/registration`, `/api/realtime/webhook` (diamankan secret di query).
+- Route tanpa aturan = cukup login. Endpoint publik: login/logout, `/api/cron/*` (diamankan `CRON_SECRET`), `/api/admin/db-export`, `/api/jastiper|affiliate/public|report-public`, `/api/drive-image`, `POST /api/registration` (publik, diperketat: jebakan bot + batas laju per IP + jejak IP/lokasi/perangkat di `registration_meta`), `/api/realtime/webhook` (diamankan secret di query).
 - Tes `tests/authz.test.ts` memastikan semua flag di `RULES` ada di `PERMISSION_KEYS` (cegah salah ketik).
+- **Keputusan pemilik (Okt 2026): `/api/admin/db-export` tetap cukup `username`** (tanpa kunci) supaya formula IMPORTDATA di Google Sheets tidak perlu diubah. Risikonya diketahui: siapa pun yang tahu username ber-izin `registration_request`+`user_setting` bisa mengunduh tabel Neon (customer CRM, jastiper, log). Jangan "memperbaiki" ini tanpa persetujuan pemilik; mitigasinya = repo GitHub dijadikan Private.
 - Catatan: komentar lama di beberapa route (mis. `voucher`) yang bilang "enforcement di client" sudah **usang**; sekarang server yang menegakkan.
 
 ## 4. Data: Neon vs Google Sheets
@@ -74,7 +75,7 @@ Semua `/api/*` **wajib sesi sah** kecuali ditandai `pub(...)` di `RULES`. Aturan
 - `sql\`SELECT ... ${param}\`` (parameter otomatis aman). Untuk query dinamis: `sql(text, [params])`.
 - **Skema dibuat lewat `ensureOnce(name, version, fn)`** (tabel `schema_version`): DDL hanya jalan sekali per versi. **Setiap kali mengubah DDL di `fn`, naikkan string versinya** (mis. `"v7"` → `"v8"`), kalau tidak perubahan tidak pernah dijalankan.
 - Pola: `let schemaReady: Promise<void> | null`; fungsi `ensureXSchema()` dipanggil di awal route. Lihat `lib/devices.ts`, `lib/users.ts`, `lib/roles.ts`, `lib/activityLog.ts`.
-- Tabel: `app_users`, `app_roles`, `app_users_backup`, `app_activity_log`, `app_announcement`, `login_attempts`, `customer_*`, `shopify_orders`, `jastiper_master`, `catalog_state`, `store_devices`, `device_events`, `store_music`, `music_playlists`, `music_schedule`, `store_hours`, `announce_schedule`, `monitor_prefs`, `schema_version`.
+- Tabel: `app_users`, `app_roles`, `app_users_backup`, `app_activity_log`, `app_announcement`, `login_attempts`, `customer_*`, `shopify_orders`, `jastiper_master`, `catalog_state`, `store_devices`, `device_events`, `store_music`, `music_playlists`, `music_schedule`, `store_hours`, `announce_schedule`, `monitor_prefs`, `registration_meta`, `schema_version`.
 
 ### Google Sheets (`lib/sheets.ts`)
 - `getSheetData(name)` (cache 5 menit), `appendSheetData`, `updateSheetRow`, `deleteSheetRows`, `withCache(key, ttl, fn)`, `invalidateCache(key)`. ID spreadsheet dari env `SPREADSHEET_*`.
