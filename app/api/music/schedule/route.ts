@@ -28,6 +28,9 @@ export async function PUT(request: NextRequest) {
     });
   }
   await ensureDevicesSchema();
+  // Akun Admin tidak punya jadwal/jam buka: musiknya hanya manual (tidak auto-play).
+  const adm = await sql`SELECT user_name FROM app_users WHERE role = 'admin' AND user_name = ANY(${users})`;
+  if (adm.length) return NextResponse.json({ error: "Akun Admin hanya manual: tidak bisa diberi jadwal/jam buka" }, { status: 400 });
   for (const u of users) {
     await sql`DELETE FROM music_schedule WHERE user_name = ${u}`;
     for (const r of clean) {

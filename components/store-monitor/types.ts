@@ -9,6 +9,7 @@ export interface Device {
   battery: number | null;
   charging: boolean | null;
   music_player?: boolean | null;
+  role?: string;
 }
 export interface Live {
   kind?: string;

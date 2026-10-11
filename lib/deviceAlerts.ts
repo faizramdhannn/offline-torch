@@ -11,6 +11,7 @@ export async function checkDeviceAlerts(): Promise<void> {
   const cand = await sql`
     SELECT device_id, store_name, user_name, label FROM store_devices
     WHERE kind = 'tablet' AND revoked = false AND online = false
+      AND user_name IN (SELECT user_name FROM app_users WHERE role IN ('store', 'merchant'))
       AND offline_since IS NOT NULL AND offline_since < now() - interval '10 minutes'
       AND (alerted_at IS NULL OR alerted_at < offline_since)
   `;
@@ -43,6 +44,7 @@ export async function checkDeviceAlerts(): Promise<void> {
   const low = await sql`
     UPDATE store_devices SET alerted_at = now()
     WHERE revoked = false AND online = true AND battery IS NOT NULL AND battery <= 15 AND charging = false
+      AND user_name IN (SELECT user_name FROM app_users WHERE role IN ('store', 'merchant'))
       AND (alerted_at IS NULL OR alerted_at < now() - interval '6 hours')
     RETURNING store_name, user_name, label, kind, battery
   `;

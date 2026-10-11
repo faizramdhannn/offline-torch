@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/context/UserContext";
 import CommandLog from "@/components/store-monitor/CommandLog";
 import EventLog from "@/components/store-monitor/EventLog";
@@ -18,6 +18,17 @@ import { ago, type Device, type Live, type Playlist, type Rule, type StoreMusic 
 
 type Status = "connecting" | "live" | "off" | "unconfigured";
 type Tab = "devices" | "playlists" | "announce" | "summary" | "history";
+
+// Penanda jenis akun pada kartu: Admin / Store / Merchant
+const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
+  admin: { label: "Admin", cls: "bg-slate-800 text-white" },
+  store: { label: "Store", cls: "bg-sky-100 text-sky-700" },
+  merchant: { label: "Merchant", cls: "bg-amber-100 text-amber-700" },
+};
+function RoleBadge({ role }: { role?: string }) {
+  const b = ROLE_BADGE[role || "store"] || { label: role || "-", cls: "bg-gray-100 text-gray-600" };
+  return <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${b.cls}`}>{b.label}</span>;
+}
 
 export default function StoreMonitorPage() {
   const { user } = useUser();
@@ -132,13 +143,14 @@ export default function StoreMonitorPage() {
   }, [allowed, loadAll]);
 
   const stores = useMemo(() => {
-    const map = new Map<string, { name: string; user_name: string; devices: Device[] }>();
+    const map = new Map<string, { name: string; user_name: string; role: string; devices: Device[] }>();
     for (const d of devices) {
-      const g = map.get(d.user_name) || { name: d.store_name || d.user_name, user_name: d.user_name, devices: [] };
+      const g = map.get(d.user_name) || { name: d.store_name || d.user_name, user_name: d.user_name, role: d.role || "store", devices: [] };
       g.devices.push(d);
       map.set(d.user_name, g);
     }
-    return [...map.values()];
+    // akun Admin (musik manual) di bagian bawah, terpisah dari toko
+    return [...map.values()].sort((a, b) => Number(a.role === "admin") - Number(b.role === "admin"));
   }, [devices]);
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -223,15 +235,16 @@ export default function StoreMonitorPage() {
   const btnLg = "inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm text-gray-700 active:bg-gray-100 disabled:opacity-40";
 
   // Pemutar musik toko: pilihan eksplisit menang; tanpa pilihan = tablet
-  const storeInfo = (s: { devices: Device[] }) => {
+  const storeInfo = (s: { devices: Device[]; role?: string }) => {
+    const isAdminAcct = s.role === "admin"; // Admin: tidak ada pemutar bawaan, hanya yang dipilih Super Admin
     const explicit = s.devices.find((d) => d.music_player === true);
-    const tablet = explicit || s.devices.find((d) => d.kind === "tablet");
-    const isPlayerDev = (d: Device) => (explicit ? d.device_id === explicit.device_id : d.kind === "tablet");
+    const tablet = explicit || (isAdminAcct ? undefined : s.devices.find((d) => d.kind === "tablet"));
+    const isPlayerDev = (d: Device) => (explicit ? d.device_id === explicit.device_id : !isAdminAcct && d.kind === "tablet");
     const tl = tablet ? live[tablet.device_id] : undefined;
-    const offline = s.devices.every((d) => !live[d.device_id]);
+    const offline = !isAdminAcct && s.devices.every((d) => !live[d.device_id]);
     const open = isOpenNow(hoursMap[(s as any).user_name]); // di luar jam buka, offline bukan masalah
-    const issue = open && (offline || (!!tablet && (!tl || !!tl.music?.note)));
-    return { tablet, tl, isPlayerDev, offline, issue, open };
+    const issue = !isAdminAcct && open && (offline || (!!tablet && (!tl || !!tl.music?.note)));
+    return { tablet, tl, isPlayerDev, offline, issue, open, isAdminAcct };
   };
   // Perangkat online yang menjadi sasaran perintah: musik → hanya pemutar tiap toko; lainnya → semua perangkat toko.
   expectRef.current = (type, target) => {
@@ -344,7 +357,7 @@ export default function StoreMonitorPage() {
               <button key={k} onClick={() => setFilter(k)} className={`rounded-full border px-3 py-1.5 md:py-1 ${filter === k ? "border-gray-800 bg-gray-800 text-white" : "border-gray-200 bg-white text-gray-600"}`}>{l}</button>
             ))}
             <button
-              onClick={() => setSelected(selected.size === shown.length ? new Set() : new Set(shown.map((x) => x.user_name)))}
+              onClick={() => { const sel = shown.filter((x) => x.role !== "admin"); setSelected(selected.size === sel.length ? new Set() : new Set(sel.map((x) => x.user_name))); }}
               className="ml-auto rounded-full border border-gray-200 bg-white px-3 py-1.5 text-gray-600 md:py-1"
             >{selected.size === shown.length && shown.length > 0 ? "Batal pilih semua" : "Pilih semua"}</button>
           </div>
@@ -361,10 +374,12 @@ export default function StoreMonitorPage() {
             <p className="text-sm text-gray-400">{stores.length === 0 ? "Belum ada perangkat toko yang terdaftar. Perangkat muncul otomatis setelah akun toko login." : "Tidak ada toko pada filter ini."}</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {shown.map((s) => {
+              {shown.map((s, idx) => {
                 const m = musicOf(s.user_name);
                 const info = storeInfo(s);
-                const { tablet, tl, isPlayerDev } = info;
+                const { tablet, tl, isPlayerDev, isAdminAcct } = info;
+                const lock = isAdminAcct && !isSuper; // musik akun Admin hanya bisa diatur Super Admin
+                const firstAdmin = isAdminAcct && !(shown[idx - 1]?.role === "admin");
                 const target = { user_names: [s.user_name] };
                 const hasSchedule = schedule.some((r) => r.user_name === s.user_name);
                 const open = expanded.has(s.user_name);
@@ -372,18 +387,26 @@ export default function StoreMonitorPage() {
                   ? tl.music.title
                   : tl ? (tl.music?.note || (m?.playing ? "Menunggu pemutaran…" : "Tidak memutar")) : tablet ? "Pemutar offline" : "";
                 return (
-                  <div key={s.user_name} className={`rounded-xl border bg-white shadow-sm ${selected.has(s.user_name) ? "border-gray-800" : info.issue ? "border-amber-300" : "border-gray-200"}`}>
+                  <React.Fragment key={s.user_name}>
+                  {firstAdmin && (
+                    <div className="col-span-full mt-2 border-t border-gray-200 pt-4">
+                      <h3 className="text-xs font-semibold text-gray-700">Akun Admin</h3>
+                      <p className="text-[11px] text-gray-400">Musik manual (tidak auto-play, tanpa jadwal), hanya bisa diatur Super Admin.</p>
+                    </div>
+                  )}
+                  <div className={`rounded-xl border bg-white shadow-sm ${selected.has(s.user_name) ? "border-gray-800" : info.issue ? "border-amber-300" : "border-gray-200"}`}>
                     {/* Kepala kartu: selalu terlihat (ringkasan) */}
                     <div className="flex items-center gap-3 p-4">
                       <input type="checkbox" className="h-5 w-5 shrink-0 md:h-4 md:w-4" checked={selected.has(s.user_name)} onChange={() => setSelected((p) => { const n = new Set(p); n.has(s.user_name) ? n.delete(s.user_name) : n.add(s.user_name); return n; })} />
                       <button className="min-w-0 flex-1 text-left md:cursor-default" onClick={() => setExpanded((p) => { const n = new Set(p); n.has(s.user_name) ? n.delete(s.user_name) : n.add(s.user_name); return n; })}>
                         <span className="flex items-center gap-2">
                           <span className="truncate text-sm font-semibold text-gray-800">{s.name}</span>
+                          <RoleBadge role={s.role} />
                           <span className="flex shrink-0 gap-1">
                             {s.devices.map((d) => <span key={d.device_id} title={d.label || d.kind} className={`h-2 w-2 rounded-full ${live[d.device_id] ? "bg-emerald-500" : "bg-gray-300"}`} />)}
                           </span>
                         </span>
-                        {!info.open && <span className="mt-0.5 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Tutup sekarang</span>}
+                        {isAdminAcct ? <span className="mt-0.5 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Admin · musik manual</span> : !info.open && <span className="mt-0.5 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Tutup sekarang</span>}
                         {nowPlaying && <span className={`mt-0.5 block truncate text-[11px] md:hidden ${tl?.music?.note ? "text-amber-600" : "text-gray-500"}`}>{nowPlaying}</span>}
                       </button>
                       <button className={`${btn} shrink-0`} disabled={!live_ || !isSuper} onClick={() => confirm(`Muat ulang ${s.name}?`) && send("reload", target)} aria-label="Reload"><RefreshIcon /></button>
@@ -395,8 +418,8 @@ export default function StoreMonitorPage() {
                     {/* Isi kartu: di mobile hanya saat dibuka */}
                     <div className={`${open ? "block" : "hidden"} border-t border-gray-100 px-4 pb-4 pt-3 md:block md:border-t-0 md:pt-0`}>
                       <div className="mb-3 flex items-center justify-between text-xs">
-                        <span className="text-gray-500">{info.open ? "Buka sekarang" : "Tutup sekarang"}</span>
-                        <button onClick={() => setEditingHours({ title: s.name, users: [s.user_name] })} className="py-1 text-[11px] text-gray-500 hover:underline">Jam buka</button>
+                        <span className="text-gray-500">{isAdminAcct ? "Akun Admin" : info.open ? "Buka sekarang" : "Tutup sekarang"}</span>
+                        {!isAdminAcct && <button onClick={() => setEditingHours({ title: s.name, users: [s.user_name] })} className="py-1 text-[11px] text-gray-500 hover:underline">Jam buka</button>}
                       </div>
                       <div className="space-y-3 md:space-y-2">
                         {s.devices.map((d) => {
@@ -421,7 +444,7 @@ export default function StoreMonitorPage() {
                               </div>
                               <div className="flex shrink-0 gap-0.5 text-gray-400">
                                 <button
-                                  onClick={() => !isPlayerDev(d) && setPlayer(d)}
+                                  onClick={() => !isPlayerDev(d) && !lock && setPlayer(d)} disabled={lock}
                                   title={isPlayerDev(d) ? "Pemutar musik toko ini" : "Jadikan pemutar musik (perangkat lain di toko ini otomatis berhenti)"}
                                   className={`rounded-md p-2 md:p-1 ${isPlayerDev(d) ? "text-gray-800" : "hover:text-gray-700"}`}
                                 ><MusicIcon /></button>
@@ -439,35 +462,35 @@ export default function StoreMonitorPage() {
                           <div className="mb-1.5 flex items-center justify-between">
                             <span className="inline-flex items-center gap-1 font-medium text-gray-600"><MusicIcon /> Musik<span className="font-normal text-gray-400">· di {tablet.label || (tablet.kind === "tablet" ? "Tablet" : "PC")}</span></span>
                             <button onClick={() => setEditing({ title: s.name, users: [s.user_name] })} className="py-1 text-[11px] text-gray-500 hover:underline">
-                              {hasSchedule ? "Jadwal aktif" : "Atur jadwal"}
+                              {isAdminAcct ? "" : hasSchedule ? "Jadwal aktif" : "Atur jadwal"}
                             </button>
                           </div>
                           <p className="mb-2 truncate text-gray-500">
                             {tl?.music?.title ? <span className="inline-flex items-center gap-1">{tl.music.state === "playing" ? <PlayIcon width={11} height={11} /> : <PauseIcon width={11} height={11} />}<span className="truncate">{tl.music.title}</span></span> : tl ? (tl.music?.note ? <span className="text-amber-600">{tl.music.note}</span> : m?.playing ? "Menunggu pemutaran…" : "Tidak memutar") : "Perangkat pemutar offline"}
                           </p>
-                          <select value={m?.playlist_id ?? ""} disabled={!live_} onChange={(e) => e.target.value && send("music", target, { action: "load", playlist_id: Number(e.target.value) })} className="mb-2 w-full rounded-md border border-gray-200 bg-white px-2 py-2 text-xs md:py-1.5">
+                          <select value={m?.playlist_id ?? ""} disabled={!live_ || lock} onChange={(e) => e.target.value && send("music", target, { action: "load", playlist_id: Number(e.target.value) })} className="mb-2 w-full rounded-md border border-gray-200 bg-white px-2 py-2 text-xs md:py-1.5">
                             <option value="">— playlist —</option>
                             {playlists.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
                           <div className="grid grid-cols-6 gap-1.5">
-                            <button className={btnCtl} disabled={!live_} onClick={() => send("music", target, { action: "prev" })} aria-label="Sebelumnya"><PrevIcon /></button>
-                            <button className={btnCtl} disabled={!live_} onClick={() => send("music", target, { action: m?.playing === false || tl?.music?.state !== "playing" ? "play" : "pause" })} aria-label="Play/Pause">
+                            <button className={btnCtl} disabled={!live_ || lock} onClick={() => send("music", target, { action: "prev" })} aria-label="Sebelumnya"><PrevIcon /></button>
+                            <button className={btnCtl} disabled={!live_ || lock} onClick={() => send("music", target, { action: m?.playing === false || tl?.music?.state !== "playing" ? "play" : "pause" })} aria-label="Play/Pause">
                               {tl?.music?.state === "playing" ? <PauseIcon /> : <PlayIcon />}
                             </button>
-                            <button className={btnCtl} disabled={!live_} onClick={() => send("music", target, { action: "next" })} aria-label="Berikutnya"><NextIcon /></button>
+                            <button className={btnCtl} disabled={!live_ || lock} onClick={() => send("music", target, { action: "next" })} aria-label="Berikutnya"><NextIcon /></button>
                             <button
                               className={`${btnCtl} ${m?.shuffle !== false ? "!border-gray-800 !text-gray-800" : ""}`}
                               title={m?.shuffle !== false ? "Acak nyala" : "Acak mati"}
-                              disabled={!live_}
+                              disabled={!live_ || lock}
                               onClick={() => send("music", target, { action: "shuffle", shuffle: m?.shuffle === false })}
                               aria-label="Acak"
                             ><ShuffleIcon /></button>
-                            <button className={btnCtl} disabled={!live_} onClick={() => send("music", target, { action: "mute", muted: !m?.muted })} aria-label="Mute">{m?.muted ? <MuteIcon /> : <VolumeIcon />}</button>
-                            <button className={btnCtl} disabled={!live_ || !isSuper} onClick={() => doAnnounce(target, s.name)} aria-label="Pengumuman"><MegaphoneIcon /></button>
+                            <button className={btnCtl} disabled={!live_ || lock} onClick={() => send("music", target, { action: "mute", muted: !m?.muted })} aria-label="Mute">{m?.muted ? <MuteIcon /> : <VolumeIcon />}</button>
+                            <button className={btnCtl} disabled={!live_ || !isSuper || isAdminAcct} onClick={() => doAnnounce(target, s.name)} aria-label="Pengumuman"><MegaphoneIcon /></button>
                           </div>
                           <input
                             key={`${s.user_name}-${m?.volume}`}
-                            type="range" min={0} max={100} defaultValue={m?.volume ?? 50} disabled={!live_}
+                            type="range" min={0} max={100} defaultValue={m?.volume ?? 50} disabled={!live_ || lock}
                             onPointerUp={(e) => send("music", target, { action: "volume", volume: Number((e.target as HTMLInputElement).value) })}
                             className="mt-3 h-6 w-full md:mt-2 md:h-4"
                           />
@@ -475,6 +498,7 @@ export default function StoreMonitorPage() {
                       )}
                     </div>
                   </div>
+                  </React.Fragment>
                 );
               })}
             </div>

@@ -22,6 +22,14 @@ Perangkat toko (browser)                         Ably (channel "stores")        
 - **Perintah** (`type`): `music` (action: `load`, `preset`, `play`, `pause`, `volume`, `mute`, `shuffle`, `next`, `prev`, `refresh`, `role`), `announce`, `reload`, `logout`, `navigate`, `announce_refresh`. Target: `{all}` | `{user_names[]}` | `{deviceId}`. Pesan membawa `id`; perangkat yang menjalankan membalas `ack:{id}` lewat presence → dashboard menampilkan "Diterima N dari M".
 - **Bus klien** (`hooks/useDevicePresence.ts`): `onDeviceCommand(handler)`, `emitLocalCommand(cmd)` (aksi lokal tanpa server), `setPresenceExtra({...})`, `ackCommand(id)`, `getPresenceExtra()`. Hook lain (musik, pengumuman) menumpang satu koneksi Ably yang sama.
 
+## Akun Admin sebagai pemutar musik (manual)
+Perangkat milik akun ber-role **admin** ikut terdaftar (`/api/devices/register`) hanya untuk dijadikan pemutar musik:
+- **Tidak ada pemutar bawaan** — hanya perangkat yang dipilih **Super Admin** (ikon musik di baris perangkat) yang bisa memutar.
+- **Tanpa auto-play, jadwal, dan jam buka** (`/api/music/state` mengirim `manual_only`; `useStoreMusic` mulai dalam keadaan berhenti dan baru berbunyi setelah Super Admin mengirim play/playlist di sesi itu). `PUT /api/music/schedule|hours` menolak akun Admin.
+- **Semua kontrol musik ke akun Admin hanya Super Admin** (`/api/devices/command` dan `PATCH /api/devices` memeriksa role pemilik perangkat; 403 untuk Admin biasa). Target `{all}` tidak pernah mencakup akun Admin.
+- Tidak dimasukkan ke peringatan offline/baterai, ringkasan 7 hari, filter "Perlu dicek", maupun pilih-semua. Tampil di bagian "Akun Admin" di bawah daftar toko.
+- Pengumuman, layar standby, dan jam buka hanya untuk Store/Merchant.
+
 ## Deteksi tipe perangkat
 `getDeviceKind()`: tablet jika UA iPad/Tablet/Android non-Mobile, iPadOS menyamar Mac dengan multi-touch, atau pointer utama `coarse`; selain itu PC. HP staf yang login akun toko ikut terdeteksi "tablet".
 

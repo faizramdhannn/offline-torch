@@ -33,7 +33,7 @@ function loadYouTubeApi(): Promise<any> {
 export function useStoreMusic(user: { role?: string } | null | undefined) {
   const [needTap, setNeedTap] = useState(false);
   const startRef = useRef<(() => void) | null>(null);
-  const eligible = !!user && (user.role === "store" || user.role === "merchant");
+  const eligible = !!user && (user.role === "store" || user.role === "merchant" || user.role === "admin");
   // Hanya SATU perangkat per toko yang memutar musik: pilihan dari dashboard, default tablet.
   const [isPlayer, setIsPlayer] = useState(false);
 
@@ -71,6 +71,9 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
     // Musik otomatis mengikuti jam buka toko (hanya bila diaktifkan & tidak ada jadwal musik eksplisit)
     let hours: StoreHours | null = null;
     let manualPlaying = true;
+    // Akun Admin: tidak ada auto-play. Musik hanya berbunyi setelah Super Admin mengirim play/playlist di sesi ini.
+    let manualOnly = false;
+    let manualStarted = false;
     let lastOpen: boolean | undefined;
     const followHours = () => rules.length === 0 && !!hours?.follow;
     let tick: ReturnType<typeof setInterval> | null = null;
@@ -202,6 +205,7 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
         };
         hours = d.hours ? normalizeHours({ weekly: d.hours.weekly, closed_dates: d.hours.closed_dates, follow: d.hours.follow }) : null;
         manualPlaying = manual.playing;
+        manualOnly = !!d.manual_only;
         const act = rules.length ? activeRule(rules) : null;
         if (!rules.length) {
           want = manual;
@@ -216,6 +220,7 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
           want = manualNewer ? manual : { ...fromRule(act.rule), muted: manual.muted };
         } else want = { ...manual, playing: false };
         lastActive = act ? act.rule.id : 0;
+        if (manualOnly) want = { ...manual, playing: manualStarted }; // tanpa jadwal/jam buka/auto-play
         apply();
       } catch {}
     };
@@ -255,10 +260,11 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
         playlists.set(Number(p.id), { ...p, id: Number(p.id) });
         want = { ...want, playlist: playlists.get(Number(p.id))!, playing: true };
         if (a === "preset") want = { ...want, volume: Number(payload.volume), shuffle: payload.shuffle !== false, muted: false };
+        manualStarted = true;
         loadedId = null;
         apply();
-      } else if (a === "play") { want = { ...want, playing: true }; manualPlaying = true; apply(); }
-      else if (a === "pause") { want = { ...want, playing: false }; manualPlaying = false; apply(); }
+      } else if (a === "play") { want = { ...want, playing: true }; manualPlaying = true; manualStarted = true; apply(); }
+      else if (a === "pause") { want = { ...want, playing: false }; manualPlaying = false; manualStarted = false; apply(); }
       else if (a === "volume") { want = { ...want, volume: Number(payload.volume) }; apply(); }
       else if (a === "mute") { want = { ...want, muted: !!payload.muted }; apply(); }
       else if (a === "shuffle") {

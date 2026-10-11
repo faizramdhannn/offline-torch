@@ -17,6 +17,9 @@ export async function PUT(request: NextRequest) {
   const h = normalizeHours(b);
   if (!h) return NextResponse.json({ error: "Jam buka tidak valid (jam tutup harus setelah jam buka)" }, { status: 400 });
   await ensureDevicesSchema();
+  // Akun Admin tidak punya jadwal/jam buka: musiknya hanya manual (tidak auto-play).
+  const adm = await sql`SELECT user_name FROM app_users WHERE role = 'admin' AND user_name = ANY(${users})`;
+  if (adm.length) return NextResponse.json({ error: "Akun Admin hanya manual: tidak bisa diberi jadwal/jam buka" }, { status: 400 });
   const by = actorName(request);
   for (const u of users) {
     await sql`

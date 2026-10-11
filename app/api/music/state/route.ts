@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
     const me = (rows as any[]).find((r) => r.device_id === dev);
     if (me) {
       const explicit = (rows as any[]).some((r) => r.music_player === true);
-      player = explicit ? me.music_player === true : me.kind === "tablet";
+      // Admin: tidak ada pemutar bawaan — hanya perangkat yang dipilih Super Admin
+      player = explicit ? me.music_player === true : user.role === "admin" ? false : me.kind === "tablet";
     }
   }
   const ids = new Set<number>();
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
     ? await sql`SELECT id, name, yt_list AS list, yt_video AS video FROM music_playlists WHERE id = ANY(${[...ids]})`
     : [];
   return NextResponse.json(
-    { state: state[0] || null, rules, playlists, player, hours: hoursRows[0] || null },
+    { state: state[0] || null, rules: user.role === "admin" ? [] : rules, playlists, player, hours: user.role === "admin" ? null : hoursRows[0] || null, manual_only: user.role === "admin" },
     { headers: { "Cache-Control": "no-store" } }
   );
 }

@@ -12,7 +12,7 @@ export async function GET(_request: NextRequest) {
   const since = new Date(Date.now() - days * 86400_000);
   const [devs, events] = await Promise.all([
     sql`SELECT d.device_id, d.store_name, d.user_name, d.kind, d.label, d.online, d.first_seen
-        FROM store_devices d JOIN app_users u ON u.user_name = d.user_name AND u.active = true
+        FROM store_devices d JOIN app_users u ON u.user_name = d.user_name AND u.active = true AND u.role IN ('store', 'merchant')
         WHERE d.revoked = false ORDER BY d.store_name, d.kind`,
     sql`SELECT device_id, event, at FROM device_events
         WHERE event IN ('online','offline') AND at >= ${since.toISOString()} ORDER BY device_id, at ASC LIMIT 20000`,

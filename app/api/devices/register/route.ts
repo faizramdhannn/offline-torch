@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   const user = await sessionUser(request);
   if (!user) return NextResponse.json({ error: "Sesi tidak valid" }, { status: 401 });
-  if (user.role !== "store" && user.role !== "merchant") return NextResponse.json({ ok: true, skipped: true });
+  // Store & Merchant (perangkat toko) + Admin (hanya untuk pemutar musik manual — lihat docs/STORE-MONITOR.md)
+  if (user.role !== "store" && user.role !== "merchant" && user.role !== "admin") return NextResponse.json({ ok: true, skipped: true });
   const b = await request.json().catch(() => ({}));
   const deviceId = String(b.deviceId || "");
   if (!DEVICE_ID_RE.test(deviceId)) return NextResponse.json({ error: "deviceId tidak valid" }, { status: 400 });

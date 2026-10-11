@@ -77,6 +77,11 @@ export async function POST(request: NextRequest) {
       stores = (await sql`SELECT user_name FROM store_devices WHERE device_id = ${target.deviceId as string}`).map((r: any) => r.user_name);
     }
     const by = actorName(request);
+    // Akun ber-role Admin: musik MANUAL dan hanya boleh diatur Super Admin.
+    if (me?.role !== "super_admin" && stores.length) {
+      const adm = await sql`SELECT 1 FROM app_users WHERE role = 'admin' AND user_name = ANY(${stores}) LIMIT 1`;
+      if (adm.length) return NextResponse.json({ error: "Musik akun Admin hanya bisa diatur Super Admin" }, { status: 403 });
+    }
     if (action === "preset") {
       // Satu perintah = playlist + volume + acak sekaligus (hemat panggilan dibanding tiga perintah terpisah)
       const id = Number(p.playlist_id);

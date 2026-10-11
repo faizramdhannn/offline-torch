@@ -15,7 +15,7 @@ export async function GET(_request: NextRequest) {
   await ensureDevicesSchema();
   const [devices, playlists, music, schedule, prefs, hours] = await Promise.all([
     sql`
-      SELECT d.device_id, d.user_name, d.store_name, d.kind, d.label, d.last_seen, d.online, d.battery, d.charging, d.music_player
+      SELECT d.device_id, d.user_name, d.store_name, d.kind, d.label, d.last_seen, d.online, d.battery, d.charging, d.music_player, u.role
       FROM store_devices d
       JOIN app_users u ON u.user_name = d.user_name AND u.active = true
       WHERE d.revoked = false
@@ -46,6 +46,11 @@ export async function PATCH(request: NextRequest) {
     audit(request, "PUT", `Nama perangkat diubah: ${label || "(kosong)"}`, "device", id);
   }
   if (b.music_player === true) {
+    // Perangkat milik akun Admin: hanya Super Admin yang boleh menjadikannya pemutar musik.
+    const own = await sql`SELECT u.role FROM store_devices d JOIN app_users u ON u.user_name = d.user_name WHERE d.device_id = ${id}`;
+    if (own[0]?.role === "admin" && (await sessionUser(request))?.role !== "super_admin") {
+      return NextResponse.json({ error: "Musik akun Admin hanya bisa diatur Super Admin" }, { status: 403 });
+    }
     const r = await sql`UPDATE store_devices SET music_player = true WHERE device_id = ${id} RETURNING user_name`;
     if (!r.length) return NextResponse.json({ error: "Perangkat tidak ditemukan" }, { status: 404 });
     const store = r[0].user_name as string;

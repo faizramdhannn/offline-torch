@@ -71,7 +71,7 @@ export function useDevicePresence(user: Me | null | undefined) {
   const updateRef = useRef<(() => void) | null>(null);
   pageRef.current = pathname;
 
-  const eligible = !!user && (user.role === "store" || user.role === "merchant");
+  const eligible = !!user && (user.role === "store" || user.role === "merchant" || user.role === "admin"); // admin: hanya untuk pemutar musik manual
   const userName = user?.user_name || "";
   const storeName = user?.name || "";
 
