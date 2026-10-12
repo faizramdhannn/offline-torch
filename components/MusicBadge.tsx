@@ -2,14 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { emitLocalCommand, getPresenceExtra } from "@/hooks/useDevicePresence";
-import { NextIcon } from "@/components/store-monitor/icons";
+import { NextIcon, PauseIcon, PlayIcon } from "@/components/store-monitor/icons";
 
 // Penanda untuk staf toko di perangkat yang MEMUTAR musik toko: musik berasal dari aplikasi ini, jadi
 // tab/aplikasi jangan ditutup. Juga: judul tab diberi awalan, dan browser menanyakan konfirmasi saat tab akan ditutup.
-export default function MusicBadge({ isPlayer }: { isPlayer: boolean }) {
+// canPause: akun Admin boleh menjeda/melanjutkan musik di perangkatnya sendiri (staf toko hanya "lagu berikutnya").
+export default function MusicBadge({ isPlayer, canPause = false }: { isPlayer: boolean; canPause?: boolean }) {
   const [m, setM] = useState<{ state?: string; title?: string; note?: string } | null>(null);
   const [open, setOpen] = useState(false);
   const [cooling, setCooling] = useState(false);
+  const toggle = () => {
+    if (cooling) return;
+    emitLocalCommand({ type: "music", payload: { action: playing ? "pause" : "play" } });
+    setCooling(true);
+    setTimeout(() => setCooling(false), 1500);
+  };
   const skip = () => {
     if (cooling) return;
     emitLocalCommand({ type: "music", payload: { action: "next" } });
@@ -69,6 +76,15 @@ export default function MusicBadge({ isPlayer }: { isPlayer: boolean }) {
             {m?.title && !m?.note && <span className="block max-w-[55vw] truncate text-[11px] font-normal text-white/70 sm:max-w-xs">{m.title}</span>}
           </span>
         </button>
+        {canPause && (
+          <button
+            onClick={toggle}
+            disabled={cooling}
+            aria-label={playing ? "Jeda musik" : "Lanjutkan musik"}
+            title={playing ? "Jeda" : "Lanjutkan"}
+            className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 hover:bg-white/25 disabled:opacity-40"
+          >{playing ? <PauseIcon /> : <PlayIcon />}</button>
+        )}
         {playing && (
           <button
             onClick={skip}
