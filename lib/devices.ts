@@ -8,7 +8,7 @@ export type DeviceKind = "tablet" | "pc";
 let schemaReady: Promise<void> | null = null;
 export function ensureDevicesSchema(): Promise<void> {
   if (!schemaReady) {
-    schemaReady = ensureOnce("devices", "v7", async () => {
+    schemaReady = ensureOnce("devices", "v8", async () => {
       await sql`
         CREATE TABLE IF NOT EXISTS store_devices (
           device_id TEXT PRIMARY KEY,
@@ -104,6 +104,7 @@ export function ensureDevicesSchema(): Promise<void> {
       `;
       await sql`CREATE TABLE IF NOT EXISTS monitor_prefs (key TEXT PRIMARY KEY, value JSONB NOT NULL DEFAULT '[]'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`;
       await sql`ALTER TABLE store_music ADD COLUMN IF NOT EXISTS shuffle BOOLEAN NOT NULL DEFAULT true`;
+      await sql`ALTER TABLE store_music ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT true`;
       await sql`ALTER TABLE music_schedule ADD COLUMN IF NOT EXISTS shuffle BOOLEAN NOT NULL DEFAULT true`;
     });
   }

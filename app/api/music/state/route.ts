@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Sesi tidak valid" }, { status: 401 });
   await ensureDevicesSchema();
   const [state, rules, hoursRows] = await Promise.all([
-    sql`SELECT playlist_id, volume, muted, playing, shuffle, updated_at FROM store_music WHERE user_name = ${user.user_name}`,
+    sql`SELECT playlist_id, volume, muted, playing, shuffle, enabled, updated_at FROM store_music WHERE user_name = ${user.user_name}`,
     sql`SELECT id, days, start_min, end_min, playlist_id, volume, shuffle FROM music_schedule WHERE user_name = ${user.user_name} ORDER BY start_min`,
     sql`SELECT weekly, closed_dates, follow FROM store_hours WHERE user_name = ${user.user_name}`,
   ]);

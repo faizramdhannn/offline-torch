@@ -22,7 +22,7 @@ export async function GET(_request: NextRequest) {
       ORDER BY d.store_name ASC, d.kind ASC
     `,
     sql`SELECT id, name, url FROM music_playlists ORDER BY name ASC`,
-    sql`SELECT user_name, playlist_id, volume, muted, playing, shuffle FROM store_music`,
+    sql`SELECT user_name, playlist_id, volume, muted, playing, shuffle, enabled FROM store_music`,
     sql`SELECT id, user_name, days, start_min, end_min, playlist_id, volume, shuffle FROM music_schedule ORDER BY user_name, start_min`,
     sql`SELECT key, value FROM monitor_prefs`,
     sql`SELECT user_name, weekly, closed_dates, follow FROM store_hours`,

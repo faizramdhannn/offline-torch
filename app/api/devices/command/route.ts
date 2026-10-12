@@ -18,7 +18,7 @@ function limited(user: string, max: number, windowMs: number): boolean {
   return false;
 }
 
-const MUSIC_ACTIONS = ["load", "play", "pause", "volume", "mute", "shuffle", "preset", "next", "prev"];
+const MUSIC_ACTIONS = ["load", "play", "pause", "volume", "mute", "shuffle", "preset", "next", "prev", "disable", "enable"];
 
 // Kirim perintah ke perangkat toko lewat Ably. Izin (user_setting) ditegakkan proxy; tercatat di activity log.
 // target: { all } | { user_names: [...] } | { deviceId }
@@ -82,7 +82,22 @@ export async function POST(request: NextRequest) {
       const adm = await sql`SELECT 1 FROM app_users WHERE role = 'admin' AND user_name = ANY(${stores}) LIMIT 1`;
       if (adm.length) return NextResponse.json({ error: "Musik akun Admin hanya bisa diatur Super Admin" }, { status: 403 });
     }
-    if (action === "preset") {
+    // Toko yang musiknya DINONAKTIFKAN tidak menerima play/playlist/preset sampai diaktifkan lagi.
+    if (["play", "load", "preset"].includes(action) && stores.length) {
+      const off = (await sql`SELECT user_name FROM store_music WHERE enabled = false AND user_name = ANY(${stores})`).map((r: any) => r.user_name);
+      if (off.length) {
+        if (off.length === stores.length) return NextResponse.json({ error: "Musik toko ini sedang dinonaktifkan. Aktifkan dulu." }, { status: 409 });
+        stores = stores.filter((u) => !off.includes(u)); // sebagian aktif: yang nonaktif dilewati
+      }
+    }
+    if (action === "disable" || action === "enable") {
+      const on = action === "enable";
+      for (const u of stores) {
+        await sql`
+          INSERT INTO store_music (user_name, enabled, playing, updated_by) VALUES (${u}, ${on}, false, ${by})
+          ON CONFLICT (user_name) DO UPDATE SET enabled = ${on}, updated_by = ${by}, updated_at = now()`; // status play/pause terakhir dipertahankan
+      }
+    } else if (action === "preset") {
       // Satu perintah = playlist + volume + acak sekaligus (hemat panggilan dibanding tiga perintah terpisah)
       const id = Number(p.playlist_id);
       const pl = await sql`SELECT id, name, yt_list, yt_video FROM music_playlists WHERE id = ${id}`;

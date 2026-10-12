@@ -72,6 +72,8 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
     let hours: StoreHours | null = null;
     let manualPlaying = true;
     // Akun Admin: tidak ada auto-play. Musik hanya berbunyi setelah Super Admin mengirim play/playlist di sesi ini.
+    // Musik dinonaktifkan (diistirahatkan) dari dashboard: tidak ada jadwal/jam buka/auto-play/play manual sampai diaktifkan lagi
+    let enabled = true;
     let manualOnly = false;
     let manualStarted = false;
     let lastOpen: boolean | undefined;
@@ -206,6 +208,7 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
         hours = d.hours ? normalizeHours({ weekly: d.hours.weekly, closed_dates: d.hours.closed_dates, follow: d.hours.follow }) : null;
         manualPlaying = manual.playing;
         manualOnly = !!d.manual_only;
+        enabled = s ? s.enabled !== false : true;
         const act = rules.length ? activeRule(rules) : null;
         if (!rules.length) {
           want = manual;
@@ -221,11 +224,13 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
         } else want = { ...manual, playing: false };
         lastActive = act ? act.rule.id : 0;
         if (manualOnly) want = { ...manual, playing: manualStarted }; // tanpa jadwal/jam buka/auto-play
+        if (!enabled) want = { ...want, playing: false };
         apply();
       } catch {}
     };
 
     const checkSchedule = () => {
+      if (!enabled) return;
       if (followHours()) {
         const open = isOpenNow(hours);
         if (open === lastOpen) return;
@@ -255,6 +260,9 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
       if (type !== "music") return;
       const a = payload.action;
       if (a === "refresh") { loadedId = null; await load(); return; }
+      if (a === "disable") { enabled = false; want = { ...want, playing: false }; apply(); return; } // fade out & berhenti
+      if (a === "enable") { enabled = true; loadedId = null; await load(); return; }            // jadwal/jam buka berjalan lagi
+      if (!enabled && (a === "play" || a === "load" || a === "preset")) return;                 // diabaikan saat dinonaktifkan
       if ((a === "load" || a === "preset") && payload.playlist) {
         const p = payload.playlist as Playlist;
         playlists.set(Number(p.id), { ...p, id: Number(p.id) });

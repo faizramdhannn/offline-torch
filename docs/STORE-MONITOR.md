@@ -43,6 +43,12 @@ Perangkat milik akun ber-role **admin** ikut terdaftar (`/api/devices/register`)
 - `components/MusicBadge.tsx` (lencana untuk staf: judul lagu + tombol *Lagu berikutnya* lokal, judul tab "Musik aktif · …", konfirmasi tutup tab).
 - Playlist: tabel `music_playlists` (`parseYouTube` di `lib/devices.ts`).
 
+## Istirahatkan / nonaktifkan musik
+Saklar per toko (`store_music.enabled`, bawaan aktif; aksi musik `disable` / `enable` di `/api/devices/command`). Tombol ada di kartu toko ("Nonaktifkan musik" / "Aktifkan musik") dan di bar aksi untuk toko terpilih / semua toko.
+- **Nonaktif** = musik berhenti (fade out) dan **jadwal musik, musik-mengikuti-jam-buka, dan auto-play tidak berjalan**; play/playlist/preset manual ditolak server (409, atau dilewati pada target massal) dan diabaikan perangkat. Jadwal dan pengaturan lain **tidak dihapus**.
+- **Aktifkan lagi** = perangkat memuat ulang statusnya: jadwal/jam buka langsung berjalan lagi (jendela yang sedang aktif langsung berbunyi); toko tanpa jadwal kembali ke status play/pause manual terakhir.
+- Pengumuman, layar standby, dan peringatan perangkat tidak terpengaruh.
+
 ## Jam buka & peringatan
 - `store_hours` per toko: jam per hari (Min–Sab) + hari libur + `follow`. Bawaan 09:00–22:00 (`lib/storeHours.ts`: `DEFAULT_HOURS`, `isOpenNow`).
 - `lib/deviceAlerts.ts` (`checkDeviceAlerts`, dipicu webhook & saat dashboard dibuka): tablet offline > 10 mnt **hanya saat toko buka**; baterai ≤ 15% tidak mengisi (batas ulang 6 jam). Kirim notifikasi dalam aplikasi ke pemegang `user_setting` + Telegram bila `TELEGRAM_*` diset (`lib/telegram.ts`).

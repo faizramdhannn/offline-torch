@@ -288,6 +288,8 @@ export default function StoreMonitorPage() {
           <option value="">Ganti playlist…</option>
           {playlists.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
+        <button className={b} disabled={!live_} onClick={() => { if (confirm(`Nonaktifkan musik ${scopeLabel}? Musik berhenti dan jadwal tidak berjalan sampai diaktifkan lagi.`)) { send("music", scopeTarget(), { action: "disable" }); afterSheet(); } }}>Nonaktifkan musik</button>
+        <button className={b} disabled={!live_} onClick={() => { if (confirm(`Aktifkan kembali musik ${scopeLabel}? Jadwal/jam buka berjalan lagi.`)) { send("music", scopeTarget(), { action: "enable" }); afterSheet(); } }}>Aktifkan musik</button>
         <button className={b} disabled={!live_} onClick={() => { send("music", scopeTarget(), { action: "play" }); afterSheet(); }}><PlayIcon /> Play</button>
         <button className={b} disabled={!live_} onClick={() => { send("music", scopeTarget(), { action: "pause" }); afterSheet(); }}><PauseIcon /> Pause</button>
         <button className={b} disabled={!live_} onClick={() => { send("music", scopeTarget(), { action: "mute", muted: true }); afterSheet(); }}><MuteIcon /> Mute</button>
@@ -379,11 +381,12 @@ export default function StoreMonitorPage() {
                 const info = storeInfo(s);
                 const { tablet, tl, isPlayerDev, isAdminAcct } = info;
                 const lock = isAdminAcct && !isSuper; // musik akun Admin hanya bisa diatur Super Admin
+                const musicOff = m?.enabled === false; // musik DINONAKTIFKAN: jadwal/jam buka tidak jalan
                 const firstAdmin = isAdminAcct && !(shown[idx - 1]?.role === "admin");
                 const target = { user_names: [s.user_name] };
                 const hasSchedule = schedule.some((r) => r.user_name === s.user_name);
                 const open = expanded.has(s.user_name);
-                const nowPlaying = tl?.music?.title
+                const nowPlaying = musicOff ? "Musik dinonaktifkan" : tl?.music?.title
                   ? tl.music.title
                   : tl ? (tl.music?.note || (m?.playing ? "Menunggu pemutaran…" : "Tidak memutar")) : tablet ? "Pemutar offline" : "";
                 return (
@@ -406,6 +409,7 @@ export default function StoreMonitorPage() {
                             {s.devices.map((d) => <span key={d.device_id} title={d.label || d.kind} className={`h-2 w-2 rounded-full ${live[d.device_id] ? "bg-emerald-500" : "bg-gray-300"}`} />)}
                           </span>
                         </span>
+                        {musicOff && <span className="mr-1 mt-0.5 inline-block rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600">Musik nonaktif</span>}
                         {isAdminAcct ? <span className="mt-0.5 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Admin · musik manual</span> : !info.open && <span className="mt-0.5 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Tutup sekarang</span>}
                         {nowPlaying && <span className={`mt-0.5 block truncate text-[11px] md:hidden ${tl?.music?.note ? "text-amber-600" : "text-gray-500"}`}>{nowPlaying}</span>}
                       </button>
@@ -419,6 +423,11 @@ export default function StoreMonitorPage() {
                     <div className={`${open ? "block" : "hidden"} border-t border-gray-100 px-4 pb-4 pt-3 md:block md:border-t-0 md:pt-0`}>
                       <div className="mb-3 flex items-center justify-between text-xs">
                         <span className="text-gray-500">{isAdminAcct ? "Akun Admin" : info.open ? "Buka sekarang" : "Tutup sekarang"}</span>
+                        <button
+                          onClick={() => confirm(musicOff ? `Aktifkan kembali musik ${s.name}? Jadwal/jam buka berjalan lagi.` : `Nonaktifkan musik ${s.name}? Musik berhenti dan jadwal tidak berjalan sampai diaktifkan lagi.`) && send("music", target, { action: musicOff ? "enable" : "disable" })}
+                          disabled={!live_ || lock}
+                          className={`rounded-md border px-2.5 py-1 text-[11px] font-medium disabled:opacity-40 ${musicOff ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-gray-200 bg-white text-gray-600"}`}
+                        >{musicOff ? "Aktifkan musik" : "Nonaktifkan musik"}</button>
                         {!isAdminAcct && <button onClick={() => setEditingHours({ title: s.name, users: [s.user_name] })} className="py-1 text-[11px] text-gray-500 hover:underline">Jam buka</button>}
                       </div>
                       <div className="space-y-3 md:space-y-2">
@@ -465,32 +474,33 @@ export default function StoreMonitorPage() {
                               {isAdminAcct ? "" : hasSchedule ? "Jadwal aktif" : "Atur jadwal"}
                             </button>
                           </div>
+                          {musicOff && <p className="mb-2 rounded bg-red-50 px-2 py-1 text-[11px] text-red-600">Musik dinonaktifkan: berhenti dan jadwal/jam buka tidak berjalan. Aktifkan lagi lewat tombol di atas.</p>}
                           <p className="mb-2 truncate text-gray-500">
                             {tl?.music?.title ? <span className="inline-flex items-center gap-1">{tl.music.state === "playing" ? <PlayIcon width={11} height={11} /> : <PauseIcon width={11} height={11} />}<span className="truncate">{tl.music.title}</span></span> : tl ? (tl.music?.note ? <span className="text-amber-600">{tl.music.note}</span> : m?.playing ? "Menunggu pemutaran…" : "Tidak memutar") : "Perangkat pemutar offline"}
                           </p>
-                          <select value={m?.playlist_id ?? ""} disabled={!live_ || lock} onChange={(e) => e.target.value && send("music", target, { action: "load", playlist_id: Number(e.target.value) })} className="mb-2 w-full rounded-md border border-gray-200 bg-white px-2 py-2 text-xs md:py-1.5">
+                          <select value={m?.playlist_id ?? ""} disabled={!live_ || lock || musicOff} onChange={(e) => e.target.value && send("music", target, { action: "load", playlist_id: Number(e.target.value) })} className="mb-2 w-full rounded-md border border-gray-200 bg-white px-2 py-2 text-xs md:py-1.5">
                             <option value="">— playlist —</option>
                             {playlists.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
                           <div className="grid grid-cols-6 gap-1.5">
-                            <button className={btnCtl} disabled={!live_ || lock} onClick={() => send("music", target, { action: "prev" })} aria-label="Sebelumnya"><PrevIcon /></button>
-                            <button className={btnCtl} disabled={!live_ || lock} onClick={() => send("music", target, { action: m?.playing === false || tl?.music?.state !== "playing" ? "play" : "pause" })} aria-label="Play/Pause">
+                            <button className={btnCtl} disabled={!live_ || lock || musicOff} onClick={() => send("music", target, { action: "prev" })} aria-label="Sebelumnya"><PrevIcon /></button>
+                            <button className={btnCtl} disabled={!live_ || lock || musicOff} onClick={() => send("music", target, { action: m?.playing === false || tl?.music?.state !== "playing" ? "play" : "pause" })} aria-label="Play/Pause">
                               {tl?.music?.state === "playing" ? <PauseIcon /> : <PlayIcon />}
                             </button>
-                            <button className={btnCtl} disabled={!live_ || lock} onClick={() => send("music", target, { action: "next" })} aria-label="Berikutnya"><NextIcon /></button>
+                            <button className={btnCtl} disabled={!live_ || lock || musicOff} onClick={() => send("music", target, { action: "next" })} aria-label="Berikutnya"><NextIcon /></button>
                             <button
                               className={`${btnCtl} ${m?.shuffle !== false ? "!border-gray-800 !text-gray-800" : ""}`}
                               title={m?.shuffle !== false ? "Acak nyala" : "Acak mati"}
-                              disabled={!live_ || lock}
+                              disabled={!live_ || lock || musicOff}
                               onClick={() => send("music", target, { action: "shuffle", shuffle: m?.shuffle === false })}
                               aria-label="Acak"
                             ><ShuffleIcon /></button>
-                            <button className={btnCtl} disabled={!live_ || lock} onClick={() => send("music", target, { action: "mute", muted: !m?.muted })} aria-label="Mute">{m?.muted ? <MuteIcon /> : <VolumeIcon />}</button>
+                            <button className={btnCtl} disabled={!live_ || lock || musicOff} onClick={() => send("music", target, { action: "mute", muted: !m?.muted })} aria-label="Mute">{m?.muted ? <MuteIcon /> : <VolumeIcon />}</button>
                             <button className={btnCtl} disabled={!live_ || !isSuper || isAdminAcct} onClick={() => doAnnounce(target, s.name)} aria-label="Pengumuman"><MegaphoneIcon /></button>
                           </div>
                           <input
                             key={`${s.user_name}-${m?.volume}`}
-                            type="range" min={0} max={100} defaultValue={m?.volume ?? 50} disabled={!live_ || lock}
+                            type="range" min={0} max={100} defaultValue={m?.volume ?? 50} disabled={!live_ || lock || musicOff}
                             onPointerUp={(e) => send("music", target, { action: "volume", volume: Number((e.target as HTMLInputElement).value) })}
                             className="mt-3 h-6 w-full md:mt-2 md:h-4"
                           />
