@@ -16,5 +16,7 @@ export function toClientUser(user: UserRow) {
   for (const k of PERMISSION_KEYS) out[k] = user[k] === "TRUE";
   // Store Monitor: izin sendiri, tetapi pemegang akses Settings & Super Admin otomatis boleh (kompatibel dengan sebelumnya).
   out.store_monitor = user.store_monitor === "TRUE" || user.user_setting === "TRUE" || user.role === "super_admin";
+  // Super Admin selalu approver Invoice (server: invoiceFlow/actorOf), jadi UI pun menampilkannya.
+  out.invoice_approval = user.invoice_approval === "TRUE" || user.role === "super_admin";
   return out;
 }

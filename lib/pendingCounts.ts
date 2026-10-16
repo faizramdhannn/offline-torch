@@ -67,7 +67,7 @@ export async function computePending(user: UserRow): Promise<PendingCounts> {
   }
 
   // Invoice: dokumen berstatus Need Approval (Neon) — untuk pemegang invoice_approval.
-  if (isTrue(user.invoice_approval)) {
+  if (isTrue(user.invoice_approval) || user.role === "super_admin") {
     jobs.push(import("./invoices").then((m) => m.countNeedApproval()).then((n) => { out.invoice = n; }));
   }
 

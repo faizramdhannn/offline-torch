@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { toClientUser } from '@/lib/clientUser';
 import { getUserByUserName, touchLastActivity } from '@/lib/users';
 import bcrypt from 'bcryptjs';
 import { loginKeys, lockedSeconds, recordFailure, clearFailures } from '@/lib/loginGuard';
@@ -52,76 +53,9 @@ export async function POST(request: NextRequest) {
       console.error('Failed to update last_activity:', err);
     });
 
-    const res = NextResponse.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      address: user.address,
-      photo_url: user.photo_url,
-      role: user.role,
-      is_super_admin: user.role === 'super_admin',
-      user_name: user.user_name,
-      dashboard: user.dashboard === 'TRUE',
-      order_report: user.order_report === 'TRUE',
-      analytics_order: user.analytics_order === 'TRUE',
-      stock: user.stock === 'TRUE',
-      registration_request: user.registration_request === 'TRUE',
-      user_setting: user.user_setting === 'TRUE',
-      petty_cash: user.petty_cash === 'TRUE',
-      petty_cash_add: user.petty_cash_add === 'TRUE',
-      petty_cash_export: user.petty_cash_export === 'TRUE',
-      petty_cash_balance: user.petty_cash_balance === 'TRUE',
-      order_report_import: user.order_report_import === 'TRUE',
-      order_report_export: user.order_report_export === 'TRUE',
-      customer: user.customer === 'TRUE',
-      voucher: user.voucher === 'TRUE',
-      bundling: user.bundling === 'TRUE',
-      canvasing: user.canvasing === 'TRUE',
-      canvasing_export: user.canvasing_export === 'TRUE',
-      request: user.request === 'TRUE',
-      edit_request: user.edit_request === 'TRUE',
-      stock_opname: user.stock_opname === 'TRUE',
-      request_tracking: user.request_tracking === 'TRUE',
-      tracking_edit: user.tracking_edit === 'TRUE',
-      stock_opname_report: user.stock_opname_report === 'TRUE',
-      attendance: user.attendance === 'TRUE',
-      attendance_report: user.attendance_report === 'TRUE',
-      // Stock permissions
-      stock_import: user.stock_import === 'TRUE',
-      stock_export: user.stock_export === 'TRUE',
-      stock_view_store: user.stock_view_store === 'TRUE',
-      stock_view_pca: user.stock_view_pca === 'TRUE',
-      stock_view_master: user.stock_view_master === 'TRUE',
-      stock_view_hpp: user.stock_view_hpp === 'TRUE',
-      stock_view_hpt: user.stock_view_hpt === 'TRUE',
-      stock_view_hpj: user.stock_view_hpj === 'TRUE',
-      stock_refresh_javelin: user.stock_refresh_javelin === 'TRUE',
-      // Traffic Store permissions
-      traffic_store: user.traffic_store === 'TRUE',
-      report_store: user.report_store === 'TRUE',
-      invoice: user.invoice === 'TRUE',
-      invoice_create: user.invoice_create === 'TRUE',
-      invoice_edit: user.invoice_edit === 'TRUE',
-      invoice_delete: user.invoice_delete === 'TRUE',
-      invoice_master: user.invoice_master === 'TRUE',
-      sales_view: user.sales_view === 'TRUE',
-      sales_view_all: user.sales_view_all === 'TRUE',
-      attendance_store: user.attendance_store === 'TRUE',
-      attendance_store_all: user.attendance_store_all === 'TRUE',
-      material_issue: user.material_issue === 'TRUE',
-      material_issue_all: user.material_issue_all === 'TRUE',
-      asset_store: user.asset_store === 'TRUE',
-      step_erp: user.step_erp === 'TRUE',
-      step_erp_all: user.step_erp_all === 'TRUE',
-      employee_discount: user.employee_discount === 'TRUE',
-      employee_discount_approval: user.employee_discount_approval === 'TRUE',
-      daily_checklist: user.daily_checklist === 'TRUE',
-      daily_checklist_all: user.daily_checklist_all === 'TRUE',
-      stock_pca_view: user.stock_pca_view === 'TRUE',
-      affiliate_view: user.affiliate_view === 'TRUE',
-      jastiper: user.jastiper === 'TRUE',
-    });
+    // Bentuk user di browser SAMA dengan /api/auth/me (toClientUser): izin baru otomatis ikut,
+    // tidak perlu menambah daftar manual di sini (dulu invoice_approval & store_monitor tidak terkirim saat login).
+    const res = NextResponse.json(toClientUser(user));
     res.cookies.set(SESSION_COOKIE, createSessionToken(user.user_name), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
