@@ -7,7 +7,7 @@ import { useSessionGuard } from "@/hooks/useSessionGuard";
 import InvoiceForm, { type InvoiceFormValues } from "@/components/invoice/InvoiceForm";
 import type { InvoiceDoc, InvoiceLine, MasterInvoice, MasterItem } from "@/components/invoice/shared";
 
-// Ubah Draft (hanya saat berstatus Draft oleh pembuatnya / approver; server memeriksa ulang).
+// Ubah dokumen: tim toko hanya Draft miliknya; approver semua status kecuali Void (server memeriksa ulang).
 export default function EditInvoicePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -52,14 +52,14 @@ export default function EditInvoicePage() {
   if (state !== "ok" || !doc) {
     return (
       <div className="p-6 text-sm text-gray-500">
-        {state === "denied" ? "Dokumen ini tidak bisa diubah (hanya Draft yang bisa diubah oleh pembuatnya)." : "Dokumen tidak ditemukan."}{" "}
+        {state === "denied" ? "Dokumen ini tidak bisa diubah (tim toko: hanya Draft miliknya; approver: semua status kecuali Void; dokumen Void: Super Admin)." : "Dokumen tidak ditemukan."}{" "}
         <Link href={`/invoice/${id}`} className="underline">Kembali</Link>
       </div>
     );
   }
   return (
     <div className="p-4 md:p-6">
-      <div className="mb-4"><Link href={`/invoice/${id}`} className="text-xs text-gray-500 hover:underline">← Kembali</Link><h1 className="mt-1 text-xl font-bold text-primary">Ubah Draft</h1></div>
+      <div className="mb-4"><Link href={`/invoice/${id}`} className="text-xs text-gray-500 hover:underline">← Kembali</Link><h1 className="mt-1 text-xl font-bold text-primary">Ubah dokumen</h1>{doc.status !== "draft" && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">Dokumen berstatus <b>{doc.status === "submitted" ? "Need Approval" : doc.status === "void" ? "Void" : "Approved"}</b>. Perubahan Anda langsung berlaku dan tercatat di riwayat{doc.status === "approved" ? "; PDF/Word yang dibuat ulang akan memakai isi terbaru" : ""}.</p>}</div>
       <InvoiceForm mode="edit" initial={{ ...doc, items: doc.items }} master={master} masterItems={items} saving={saving} error={error} onSave={save} onCancel={() => router.push(`/invoice/${id}`)} />
     </div>
   );

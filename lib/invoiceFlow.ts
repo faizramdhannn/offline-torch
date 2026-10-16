@@ -16,7 +16,8 @@ export const STATUS_LABEL: Record<string, string> = {
 
 export interface Actor {
   userName: string;
-  isApprover: boolean; // izin invoice_approval
+  isApprover: boolean; // izin invoice_approval (Super Admin selalu dianggap approver)
+  isSuperAdmin?: boolean; // hanya Super Admin yang boleh mengubah dokumen Void
   canCreate: boolean;  // invoice_create
   canEdit: boolean;    // invoice_edit
   canDelete: boolean;  // invoice_delete
@@ -31,10 +32,13 @@ export function canView(doc: DocLike, a: Actor): boolean {
 // Dokumen lama (migrasi) tidak punya pembuat → hanya approver yang mengurusnya.
 const isOwner = (doc: DocLike, a: Actor) => !!doc.created_by && doc.created_by === a.userName;
 
+// Approver boleh mengubah dokumen di semua status KECUALI Void/Deleted (perubahan tercatat di riwayat);
+// dokumen Void hanya bisa diubah Super Admin; tim toko hanya mengubah Draft miliknya sendiri.
 export function canEditDoc(doc: DocLike, a: Actor): boolean {
-  if (doc.status !== "draft") return false;
+  if (doc.status === "deleted") return false;
+  if (doc.status === "void") return !!a.isSuperAdmin;
   if (a.isApprover) return true;
-  return isOwner(doc, a) && (a.canCreate || a.canEdit);
+  return doc.status === "draft" && isOwner(doc, a) && (a.canCreate || a.canEdit);
 }
 
 export type Transition = { ok: true; to: InvoiceStatus } | { ok: false; error: string };

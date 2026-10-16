@@ -161,7 +161,8 @@ export async function getVisibleInvoice(id: string, actor: Actor): Promise<{ inv
 // Hak user dari izin di akun (untuk invoiceFlow).
 export function actorOf(u: UserRow): Actor {
   const t = (k: string) => u[k] === "TRUE";
-  return { userName: u.user_name, isApprover: t("invoice_approval"), canCreate: t("invoice_create"), canEdit: t("invoice_edit"), canDelete: t("invoice_delete") };
+  const superAdmin = u.role === "super_admin";
+  return { userName: u.user_name, isApprover: superAdmin || t("invoice_approval"), isSuperAdmin: superAdmin, canCreate: t("invoice_create"), canEdit: t("invoice_edit"), canDelete: t("invoice_delete") };
 }
 
 // ── Validasi & hitung ───────────────────────────────────────────────────────
@@ -253,7 +254,7 @@ export async function createInvoice(v: NormalizedInvoice, by: string): Promise<s
   return id;
 }
 
-export async function updateInvoice(id: string, v: NormalizedInvoice, by: string) {
+export async function updateInvoice(id: string, v: NormalizedInvoice, by: string, status = "draft") {
   await ensureInvoiceSchema();
   await sql`
     UPDATE invoices SET invoice_number = ${v.doc_type === "quotation" ? "" : v.invoice_number}, doc_type = ${v.doc_type}, invoice_date = ${v.invoice_date},
@@ -262,7 +263,7 @@ export async function updateInvoice(id: string, v: NormalizedInvoice, by: string
       signature_store = ${v.signature_store}, signature_pic = ${v.signature_pic}, updated_by = ${by}, updated_at = now()
     WHERE invoice_id = ${id}`;
   await writeItems(id, v.items);
-  await addEvent(id, "updated", by, "draft", "draft");
+  await addEvent(id, "updated", by, status, status, status === "draft" ? "" : `Diubah oleh ${status === "void" ? "Super Admin" : "approver"} saat ${status}`);
 }
 
 // Terapkan perpindahan status (sudah divalidasi oleh invoiceFlow.transition) + catat riwayat.

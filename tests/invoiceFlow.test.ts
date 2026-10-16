@@ -47,11 +47,16 @@ describe("alur Draft → Need Approval → Approved", () => {
     expect(transition(doc("approved"), "delete", approver).ok).toBe(false);
     expect(transition(doc("draft"), "delete", { ...store, canDelete: false }).ok).toBe(false);
   });
-  it("edit hanya saat Draft", () => {
+  it("edit: tim toko hanya Draft miliknya; approver semua status kecuali Void/Deleted", () => {
     expect(canEditDoc(doc("draft"), store)).toBe(true);
     expect(canEditDoc(doc("submitted"), store)).toBe(false);
     expect(canEditDoc(doc("draft"), other)).toBe(false);
-    expect(canEditDoc(doc("approved"), approver)).toBe(false);
+    expect(canEditDoc(doc("draft", "cirebon"), approver)).toBe(true);
+    expect(canEditDoc(doc("submitted"), approver)).toBe(true);
+    expect(canEditDoc(doc("approved"), approver)).toBe(true);
+    expect(canEditDoc(doc("void"), approver)).toBe(false);
+    expect(canEditDoc(doc("void"), { ...approver, isSuperAdmin: true })).toBe(true); // Super Admin boleh mengubah Void
+    expect(canEditDoc(doc("deleted"), { ...approver, isSuperAdmin: true })).toBe(false);
   });
   it("availableActions untuk tampilan tombol", () => {
     expect(availableActions(doc("submitted"), approver).sort()).toEqual(["approve", "reject"]);

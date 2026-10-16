@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT – ubah isi dokumen (hanya Draft; pembuatnya atau approver)
+// PUT – ubah isi dokumen (tim toko: Draft miliknya; approver: semua status kecuali Void; Void: Super Admin)
 export async function PUT(request: NextRequest) {
   try {
     const m = await me(request);
@@ -66,14 +66,14 @@ export async function PUT(request: NextRequest) {
     const doc = await getVisibleInvoice(id, m.actor);
     if (!doc) return NextResponse.json({ error: 'Dokumen tidak ditemukan' }, { status: 404 });
     if (!canEditDoc(doc.invoice, m.actor)) {
-      return NextResponse.json({ error: 'Dokumen hanya bisa diubah saat berstatus Draft oleh pembuatnya' }, { status: 403 });
+      return NextResponse.json({ error: 'Dokumen ini tidak bisa diubah (tim toko: hanya Draft miliknya; approver: semua kecuali Void; Void: Super Admin)' }, { status: 403 });
     }
     const n = normalizeInput(body);
     if (!n.ok) return NextResponse.json({ error: n.error }, { status: 400 });
     if (n.v.doc_type === 'invoice' && (await numberTaken(n.v.invoice_number, id))) {
       return NextResponse.json({ error: `Nomor ${n.v.invoice_number} sudah dipakai dokumen lain` }, { status: 409 });
     }
-    await updateInvoice(id, n.v, actorName(request));
+    await updateInvoice(id, n.v, actorName(request), doc.invoice.status);
     audit(request, 'PUT', `Dokumen diubah: ${n.v.customer_name}`, 'invoice', id);
     return NextResponse.json({ success: true });
   } catch (error) {
