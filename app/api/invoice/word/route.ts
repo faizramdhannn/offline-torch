@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSheetData } from '@/lib/sheets';
+import { sessionUser } from '@/lib/authz';
+import { actorOf, getMaster, getVisibleInvoice } from '@/lib/invoices';
+import { displayItems } from '@/lib/invoiceTax';
+import { fitBox, imageSize } from '@/lib/imageSize';
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   ImageRun, AlignmentType, BorderStyle, WidthType, ShadingType, VerticalAlign,
@@ -12,8 +15,9 @@ function formatRupiah(val: number | string): string {
 }
 
 function formatRupiahFull(val: number | string): string {
-  const n = typeof val === 'string' ? parseInt(val.replace(/[^0-9]/g, '')) || 0 : Number(val) || 0;
-  return 'Rp' + n.toLocaleString('id-ID') + ',00';
+  const n = typeof val === 'string' ? parseFloat(val.replace(/[^0-9.]/g, '')) || 0 : Number(val) || 0;
+  // Harga tanpa PPN bisa berdesimal (mis. 359.459,33); selain itu tetap ",00"
+  return 'Rp' + n.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function formatDate(dateStr: string): string {
@@ -173,21 +177,19 @@ export async function POST(request: NextRequest) {
     const { invoice_id } = await request.json();
     if (!invoice_id) return NextResponse.json({ error: 'invoice_id required' }, { status: 400 });
 
-    const [invoices, allItems, masterArr] = await Promise.all([
-      getSheetData('invoices'),
-      getSheetData('invoice_items'),
-      getSheetData('master_invoice'),
-    ]);
-
-    const invoice = invoices.find((r: any) => r.invoice_id === invoice_id);
-    if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+    // Data dari Neon; hanya dokumen yang boleh dilihat user (pembuatnya, atau pemegang izin approval).
+    const user = await sessionUser(request);
+    if (!user) return NextResponse.json({ error: 'Sesi tidak valid' }, { status: 401 });
+    const found = await getVisibleInvoice(invoice_id, actorOf(user));
+    if (!found) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+    const invoice: any = found.invoice;
 
     if (invoice.status !== 'approved') {
       return NextResponse.json({ error: 'Word hanya tersedia untuk invoice dengan status approved' }, { status: 403 });
     }
 
-    const items      = allItems.filter((r: any) => r.invoice_id === invoice_id);
-    const master     = masterArr[0] || {};
+    const items: any[] = displayItems(found.invoice, found.items); // harga tanpa PPN bila PPN dicentang (dokumen baru)
+    const master: any = await getMaster();
     const isQuotation = (invoice.doc_type || 'invoice').toLowerCase() === 'quotation';
     const docLabel   = isQuotation ? 'QUOTATION' : 'INVOICE';
     const hasPPN     = Number(invoice.tax_percent) > 0;
@@ -261,7 +263,7 @@ export async function POST(request: NextRequest) {
     if (invoice.invoice_number) {
       rightChildren.push(new Paragraph({
         alignment: AlignmentType.RIGHT,
-        children: [new TextRun({ text: `#${invoice.invoice_number}`, bold: true, size: 22, color: NAVY_MID, font: 'Times' })],
+        children: [new TextRun({ text: `#${String(invoice.invoice_number).replace(/^#+/, '')}`, bold: true, size: 22, color: NAVY_MID, font: 'Times' })],
       }));
     }
 
@@ -388,7 +390,7 @@ export async function POST(request: NextRequest) {
           children: [
             new ImageRun({
               data: signImgResult.data,
-              transformation: { width: 105, height: 66 }, // ≈ 40mm × 25mm dalam pixel (96dpi)
+              transformation: (() => { const d = imageSize(signImgResult.data); const f = d ? fitBox(d.width, d.height, 227, 113) : { w: 105, h: 66 }; return { width: Math.round(f.w), height: Math.round(f.h) }; })(), // rasio asli, maks ≈ 60mm × 30mm (96dpi)
             }),
           ],
         }));

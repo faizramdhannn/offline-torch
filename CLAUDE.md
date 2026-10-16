@@ -75,7 +75,7 @@ Semua `/api/*` **wajib sesi sah** kecuali ditandai `pub(...)` di `RULES`. Aturan
 - `sql\`SELECT ... ${param}\`` (parameter otomatis aman). Untuk query dinamis: `sql(text, [params])`.
 - **Skema dibuat lewat `ensureOnce(name, version, fn)`** (tabel `schema_version`): DDL hanya jalan sekali per versi. **Setiap kali mengubah DDL di `fn`, naikkan string versinya** (mis. `"v7"` → `"v8"`), kalau tidak perubahan tidak pernah dijalankan.
 - Pola: `let schemaReady: Promise<void> | null`; fungsi `ensureXSchema()` dipanggil di awal route. Lihat `lib/devices.ts`, `lib/users.ts`, `lib/roles.ts`, `lib/activityLog.ts`.
-- Tabel: `app_users`, `app_roles`, `app_users_backup`, `app_activity_log`, `app_announcement`, `login_attempts`, `customer_*`, `shopify_orders`, `jastiper_master`, `catalog_state`, `store_devices`, `device_events`, `store_music`, `music_playlists`, `music_schedule`, `store_hours`, `announce_schedule`, `monitor_prefs`, `registration_meta`, `schema_version`.
+- Tabel: `app_users`, `app_roles`, `app_users_backup`, `app_activity_log`, `app_announcement`, `login_attempts`, `customer_*`, `shopify_orders`, `jastiper_master`, `catalog_state`, `store_devices`, `device_events`, `store_music`, `music_playlists`, `music_schedule`, `store_hours`, `announce_schedule`, `monitor_prefs`, `registration_meta`, `invoices`, `invoice_items`, `invoice_events`, `invoice_master`, `schema_version`.
 
 ### Google Sheets (`lib/sheets.ts`)
 - `getSheetData(name)` (cache 5 menit), `appendSheetData`, `updateSheetRow`, `deleteSheetRows`, `withCache(key, ttl, fn)`, `invalidateCache(key)`. ID spreadsheet dari env `SPREADSHEET_*`.
@@ -147,6 +147,8 @@ Kuota (30 hari) yang pernah hampir habis: **Fluid Active CPU 4 jam**, **Fast Ori
 - **Badge pending sidebar** (`lib/pendingCounts.ts`): angka request menunggu, hanya untuk user yang boleh mengubah status; ikut `/api/auth/me`.
 - **Update toast** (`lib/buildInfo.ts`, `components/UpdateToast.tsx`): memberi tahu bila ada deployment baru.
 - **Activity log**: `/api/activity-log`, tabel `app_activity_log`; tampil di Settings.
+
+- **Invoice/Quotation** (`/invoice`): data di Neon (`lib/invoices.ts`), alur ala ERP di `lib/invoiceFlow.ts` (Draft → Need Approval → Approved → Void; reject/recall kembali ke Draft; Draft yang dihapus = Deleted). **Tanpa izin `invoice_approval` user hanya melihat dokumen buatannya sendiri** (ditegakkan di query `listInvoices`/`getVisibleInvoice`, juga di PDF/Word). Perpindahan status hanya lewat `POST /api/invoice/action`; edit hanya saat Draft. Nomor invoice manual (wajib untuk invoice, kosong untuk quotation), unik di antara dokumen aktif. Dokumen hasil migrasi spreadsheet tidak punya pembuat → hanya terlihat approver. Migrasi: `scripts/migrate-invoices.ts` (aman diulang). **PPN**: harga barang SUDAH termasuk PPN (`lib/invoiceTax.ts`): bila PPN dicentang, dokumen menampilkan harga/total baris tanpa PPN (DPP), `subtotal` = DPP, `tax_amount` = total − DPP, `grand_total` tetap; item di DB selalu menyimpan harga termasuk PPN dan tampilan dihitung saat render (`displayItems`). Kolom `tax_mode` (`legacy`/`inclusive`); dokumen lama dihitung ulang dengan `scripts/recalc-invoice-tax.ts` (nilai lama dicadangkan di tabel `invoice_tax_backup`).
 
 ## 11. Konvensi kerja
 

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSheetData } from '@/lib/sheets';
+import { sessionUser } from '@/lib/authz';
+import { actorOf, getMaster, getVisibleInvoice } from '@/lib/invoices';
+import { displayItems } from '@/lib/invoiceTax';
+import { dataUriToBuffer, fitBox, imageSize } from '@/lib/imageSize';
 import jsPDF from 'jspdf';
 
 // ── Colours ───────────────────────────────────────────────────────────────────
@@ -33,8 +36,9 @@ function formatRupiah(val: number | string): string {
 }
 
 function formatRupiahFull(val: number | string): string {
-  const n = typeof val === 'string' ? parseInt(val.replace(/[^0-9]/g, '')) || 0 : Number(val) || 0;
-  return 'Rp' + n.toLocaleString('id-ID') + ',00';
+  const n = typeof val === 'string' ? parseFloat(val.replace(/[^0-9.]/g, '')) || 0 : Number(val) || 0;
+  // Harga tanpa PPN bisa berdesimal (mis. 359.459,33); selain itu tetap ",00"
+  return 'Rp' + n.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function formatDate(dateStr: string): string {
@@ -105,21 +109,19 @@ export async function POST(request: NextRequest) {
     const { invoice_id } = await request.json();
     if (!invoice_id) return NextResponse.json({ error: 'invoice_id required' }, { status: 400 });
 
-    const [invoices, allItems, masterArr] = await Promise.all([
-      getSheetData('invoices'),
-      getSheetData('invoice_items'),
-      getSheetData('master_invoice'),
-    ]);
-
-    const invoice = invoices.find((r: any) => r.invoice_id === invoice_id);
-    if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+    // Data dari Neon; hanya dokumen yang boleh dilihat user (pembuatnya, atau pemegang izin approval).
+    const user = await sessionUser(request);
+    if (!user) return NextResponse.json({ error: 'Sesi tidak valid' }, { status: 401 });
+    const found = await getVisibleInvoice(invoice_id, actorOf(user));
+    if (!found) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+    const invoice: any = found.invoice;
 
     if (invoice.status !== 'approved') {
       return NextResponse.json({ error: 'PDF hanya tersedia untuk invoice dengan status approved' }, { status: 403 });
     }
 
-    const items = allItems.filter((r: any) => r.invoice_id === invoice_id);
-    const master = masterArr[0] || {};
+    const items: any[] = displayItems(found.invoice, found.items); // harga tanpa PPN bila PPN dicentang (dokumen baru)
+    const master: any = await getMaster();
 
     const useSign = parseBoolField(invoice.use_signature);
     const hasPPN  = Number(invoice.tax_percent) > 0;
@@ -186,7 +188,7 @@ export async function POST(request: NextRequest) {
     if (invoice.invoice_number) {
       setFont(doc, 'bold');
       doc.setFontSize(11);
-      doc.text(`#${invoice.invoice_number}`, W - margin, y + 16, { align: 'right' });
+      doc.text(`#${String(invoice.invoice_number).replace(/^#+/, '')}`, W - margin, y + 16, { align: 'right' });
     }
 
     y += logoH + 7;
@@ -373,13 +375,16 @@ export async function POST(request: NextRequest) {
     doc.text(`Bandung, ${formatDate(invoice.invoice_date)}`, rightX, sigY, { align: 'right' });
 
     // Gambar tanda tangan — hanya jika useSign = true
-    const imgH = 28;
+    // Ukuran mengikuti rasio asli gambar (sebelumnya dipaksa 40×25 mm sehingga gepeng/mengecil); muat dalam kotak 60×30 mm.
+    let imgH = 28;
     if (useSign && signImg) {
       try {
-        const w = 40;
-        const h = 25;
+        const buf = dataUriToBuffer(signImg);
+        const dim = buf ? imageSize(buf) : null;
+        const fit = dim ? fitBox(dim.width, dim.height, 60, 30) : { w: 40, h: 25 };
         const format = signImg.includes('data:image/png') ? 'PNG' : 'JPEG';
-        doc.addImage(signImg, format, margin, sigY + 1, w, h, undefined, 'FAST');
+        doc.addImage(signImg, format, margin, sigY + 1, fit.w, fit.h, undefined, 'FAST');
+        imgH = Math.max(24, fit.h + 4); // ruang untuk nama di bawah gambar
       } catch {
         // gagal load gambar, ruang tetap tersedia
       }

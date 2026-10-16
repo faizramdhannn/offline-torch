@@ -32,8 +32,8 @@ describe("aturan akses /api", () => {
     expect(rule("/api/petty-cash", "POST").any).toEqual(["petty_cash_add"]);
     expect(rule("/api/petty-cash", "DELETE").any).toEqual(["petty_cash_add"]);
     expect(rule("/api/invoice", "GET").any).toEqual(["invoice"]);
-    expect(rule("/api/invoice", "POST").any).toEqual(["invoice_create", "invoice_edit"]);
-    expect(rule("/api/invoice", "DELETE").any).toEqual(["invoice_delete"]);
+    expect(rule("/api/invoice", "POST").any).toEqual(["invoice_create", "invoice_edit", "invoice_approval"]);
+    expect(rule("/api/invoice", "DELETE").any).toEqual(["invoice_delete", "invoice_approval"]);
   });
 
   it("prefix terpanjang menang", () => {
@@ -76,6 +76,16 @@ describe("aturan akses /api", () => {
   it("pengumuman terjadwal: admin butuh user_setting, perangkat baca aturan sendiri cukup login", () => {
     expect(rule("/api/announce-schedule", "POST").any).toEqual(["store_monitor", "user_setting"]);
     expect(rule("/api/announce-schedule/mine", "GET").any).toEqual([]);
+  });
+
+  it("invoice: approver boleh tulis walau tanpa invoice_create; aksi & PDF/Word hanya perlu izin invoice (dicek per-aksi di route)", () => {
+    expect(rule("/api/invoice", "GET").any).toEqual(["invoice"]);
+    expect(rule("/api/invoice", "POST").any).toEqual(["invoice_create", "invoice_edit", "invoice_approval"]);
+    expect(rule("/api/invoice", "DELETE").any).toEqual(["invoice_delete", "invoice_approval"]);
+    expect(rule("/api/invoice/action", "POST").any).toEqual(["invoice"]);
+    expect(rule("/api/invoice/pdf", "POST").any).toEqual(["invoice"]);
+    expect(rule("/api/invoice/word", "POST").any).toEqual(["invoice"]);
+    expect(rule("/api/invoice/master", "POST").any).toEqual(["invoice_master"]);
   });
 
   it("semua flag di RULES adalah permission yang valid (cegah salah ketik)", () => {

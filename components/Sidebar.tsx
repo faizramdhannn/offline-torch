@@ -22,6 +22,7 @@ interface SidebarProps {
     registration_request: boolean;
     user_setting: boolean;
     store_monitor?: boolean;
+    invoice_approval?: boolean;
     is_super_admin?: boolean;
     petty_cash?: boolean;
     customer?: boolean;
@@ -53,7 +54,7 @@ interface SidebarProps {
     daily_checklist_all?: boolean;
     affiliate_view?: boolean;
     jastiper?: boolean;
-    pending?: { cancel_order?: number; material_issue?: number; employee_discount?: number; shipment?: number };
+    pending?: { cancel_order?: number; material_issue?: number; employee_discount?: number; shipment?: number; invoice?: number };
   };
 }
 
@@ -821,7 +822,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
 
   const requestItems = [
     { path: "/request-store", label: "Cancel Order", icon: cancelOrderIcon, show: hasRequestAccess, badge: pending.cancel_order },
-    { path: "/invoice", label: "Invoice", icon: invoiceIcon, show: hasInvoiceAccess },
+    { path: "/invoice", label: "Invoice", icon: invoiceIcon, show: hasInvoiceAccess, badge: pending.invoice },
     { path: "/material-issue", label: "Material Issue", icon: materialIssueIcon, show: hasMaterialIssueAccess, badge: pending.material_issue },
     { path: "/employee-discount", label: "Employee Discount", icon: employeeDiscountIcon, show: hasEmployeeDiscountAccess, badge: pending.employee_discount },
     { path: "/request-tracking", label: "Shipment", icon: shipmentIcon, show: hasTrackingAccess, badge: pending.shipment },

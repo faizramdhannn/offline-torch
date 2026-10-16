@@ -9,6 +9,7 @@ export interface PendingCounts {
   material_issue?: number;
   employee_discount?: number;
   shipment?: number;
+  invoice?: number;
 }
 
 const isTrue = (v: unknown) => v === "TRUE";
@@ -63,6 +64,11 @@ export async function computePending(user: UserRow): Promise<PendingCounts> {
         out.employee_discount = pending.size;
       })
     );
+  }
+
+  // Invoice: dokumen berstatus Need Approval (Neon) — untuk pemegang invoice_approval.
+  if (isTrue(user.invoice_approval)) {
+    jobs.push(import("./invoices").then((m) => m.countNeedApproval()).then((n) => { out.invoice = n; }));
   }
 
   await Promise.all(jobs);

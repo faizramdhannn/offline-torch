@@ -1,288 +1,80 @@
-import { actorName } from '@/lib/authz';
 import { NextRequest, NextResponse } from 'next/server';
-import { getSheetData, appendSheetData, updateSheetRow } from '@/lib/sheets';
-import { notifyUser, notifyUsersWithPermission } from '@/lib/notifications';
+import { actorName, sessionUser } from '@/lib/authz';
+import { audit } from '@/lib/audit';
+import { displayItems } from '@/lib/invoiceTax';
+import { availableActions, canEditDoc, transition } from '@/lib/invoiceFlow';
+import {
+  actorOf, createInvoice, getEvents, getVisibleInvoice, listInvoices, normalizeInput, numberTaken, updateInvoice, applyTransition,
+} from '@/lib/invoices';
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-function terbilang(n: number): string {
-  const satuan = ['', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan',
-    'Sepuluh', 'Sebelas', 'Dua Belas', 'Tiga Belas', 'Empat Belas', 'Lima Belas',
-    'Enam Belas', 'Tujuh Belas', 'Delapan Belas', 'Sembilan Belas'];
+export const dynamic = 'force-dynamic';
 
-  function toWords(num: number): string {
-    if (num === 0) return '';
-    if (num < 20) return satuan[num];
-    if (num < 100) {
-      const tens = Math.floor(num / 10);
-      const ones = num % 10;
-      const tensWord = tens === 2 ? 'Dua Puluh' : tens === 3 ? 'Tiga Puluh' : tens === 4 ? 'Empat Puluh' :
-        tens === 5 ? 'Lima Puluh' : tens === 6 ? 'Enam Puluh' : tens === 7 ? 'Tujuh Puluh' :
-        tens === 8 ? 'Delapan Puluh' : 'Sembilan Puluh';
-      return ones === 0 ? tensWord : `${tensWord} ${satuan[ones]}`;
-    }
-    if (num < 200) return `Seratus${num % 100 === 0 ? '' : ' ' + toWords(num % 100)}`;
-    if (num < 1000) return `${satuan[Math.floor(num / 100)]} Ratus${num % 100 === 0 ? '' : ' ' + toWords(num % 100)}`;
-    if (num < 2000) return `Seribu${num % 1000 === 0 ? '' : ' ' + toWords(num % 1000)}`;
-    if (num < 1000000) return `${toWords(Math.floor(num / 1000))} Ribu${num % 1000 === 0 ? '' : ' ' + toWords(num % 1000)}`;
-    if (num < 1000000000) return `${toWords(Math.floor(num / 1000000))} Juta${num % 1000000 === 0 ? '' : ' ' + toWords(num % 1000000)}`;
-    return `${toWords(Math.floor(num / 1000000000))} Miliar${num % 1000000000 === 0 ? '' : ' ' + toWords(num % 1000000000)}`;
-  }
-
-  if (n === 0) return 'Nol Rupiah';
-  return toWords(n).trim() + ' Rupiah';
+// Invoice & Quotation (Neon). Alur: Draft → Need Approval → Approved (→ Void). Aturan akses di lib/invoiceFlow.ts:
+//  - tanpa izin invoice_approval, user HANYA melihat dokumen buatannya sendiri (ditegakkan di query/server);
+//  - edit hanya saat Draft; perpindahan status lewat POST /api/invoice/action.
+async function me(request: NextRequest) {
+  const user = await sessionUser(request);
+  return user ? { user, actor: actorOf(user) } : null;
 }
 
-// GET – list all invoices or a single invoice with its items
+// GET /api/invoice            → daftar (sesuai hak lihat)
+// GET /api/invoice?id=<id>    → detail + item + riwayat + aksi yang tersedia
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    const invoices = await getSheetData('invoices');
-    const filtered = invoices.filter((r: any) => r.invoice_id);
-
+    const m = await me(request);
+    if (!m) return NextResponse.json({ error: 'Sesi tidak valid' }, { status: 401 });
+    const id = new URL(request.url).searchParams.get('id');
     if (id) {
-      const invoice = filtered.find((r: any) => r.invoice_id === id);
-      if (!invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
-
-      const allItems = await getSheetData('invoice_items');
-      const items = allItems.filter((r: any) => r.invoice_id === id);
-      return NextResponse.json({ invoice, items });
+      const doc = await getVisibleInvoice(id, m.actor);
+      if (!doc) return NextResponse.json({ error: 'Dokumen tidak ditemukan' }, { status: 404 });
+      const events = await getEvents(id);
+      return NextResponse.json({ ...doc, items: displayItems(doc.invoice, doc.items), events, actions: availableActions(doc.invoice, m.actor), can_edit: canEditDoc(doc.invoice, m.actor) });
     }
-
-    // Sort newest first
-    const sorted = filtered.sort((a: any, b: any) =>
-      new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-    );
-    return NextResponse.json(sorted);
+    return NextResponse.json(await listInvoices(m.actor));
   } catch (error) {
     console.error('Error fetching invoices:', error);
     return NextResponse.json({ error: 'Failed to fetch invoices' }, { status: 500 });
   }
 }
 
-// POST – create new invoice + items
+// POST – buat Draft baru (milik user yang login)
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const {
-      customer_name,
-      customer_address,
-      invoice_date,
-      items,
-      tax_percent = 0,
-      use_signature = false,
-      doc_type = 'invoice',
-      manual_invoice_number = null,
-      signature_store = '',
-      signature_pic = '',
-    } = body;
-    const created_by = actorName(request);
-
-    if (!customer_name || !invoice_date || !items?.length) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    const m = await me(request);
+    if (!m) return NextResponse.json({ error: 'Sesi tidak valid' }, { status: 401 });
+    const n = normalizeInput(await request.json().catch(() => ({})));
+    if (!n.ok) return NextResponse.json({ error: n.error }, { status: 400 });
+    if (n.v.doc_type === 'invoice' && (await numberTaken(n.v.invoice_number))) {
+      return NextResponse.json({ error: `Nomor ${n.v.invoice_number} sudah dipakai dokumen lain` }, { status: 409 });
     }
-
-    // ── Tentukan nomor dokumen ──────────────────────────────────────────────
-    let invoiceNumber: string;
-
-    if (doc_type === 'quotation') {
-      invoiceNumber = '';
-    } else {
-      if (!manual_invoice_number || !manual_invoice_number.trim()) {
-        return NextResponse.json({ error: 'Nomor invoice wajib diisi' }, { status: 400 });
-      }
-      invoiceNumber = manual_invoice_number.trim();
-    }
-
-    const invoice_id = Date.now().toString();
-    const now = new Date().toISOString();
-
-    // ── Kalkulasi ──────────────────────────────────────────────────────────
-    // grand_total = subtotal (PPN hanya info, tidak masuk ke grand total)
-    const subtotal = items.reduce((s: number, it: any) => s + (Number(it.qty) * Number(it.unit_price)), 0);
-    const tax_amount = Number(tax_percent) > 0
-      ? Math.round(subtotal * (Number(tax_percent) / 100))
-      : 0;
-    const grand_total = subtotal;
-    const amount_in_words = terbilang(grand_total);
-
-    // Kolom: invoice_id, invoice_number, invoice_date, customer_name, customer_address,
-    //        subtotal, tax_percent, tax_amount, grand_total, amount_in_words,
-    //        status, created_at, doc_type, signature_store, signature_pic, created_by, use_signature
-    const invoiceRow = [
-      invoice_id,
-      invoiceNumber,
-      invoice_date,
-      customer_name,
-      customer_address || '',
-      subtotal,
-      tax_percent,
-      tax_amount,
-      grand_total,
-      amount_in_words,
-      'draft',
-      now,
-      doc_type,
-      signature_store || '',
-      signature_pic || '',
-      created_by || '',
-      use_signature ? 'TRUE' : 'FALSE',
-    ];
-    await appendSheetData('invoices', [invoiceRow]);
-
-    // Save invoice items
-    const itemRows = items.map((it: any) => {
-      const total = Number(it.qty) * Number(it.unit_price);
-      return [
-        `${invoice_id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-        invoice_id,
-        it.product_name,
-        it.variant || '',
-        it.qty,
-        it.unit_price,
-        total,
-        total,
-      ];
-    });
-    await appendSheetData('invoice_items', itemRows);
-
-    return NextResponse.json({ success: true, invoice_id, invoice_number: invoiceNumber });
+    const id = await createInvoice(n.v, actorName(request));
+    audit(request, 'POST', `Draft ${n.v.doc_type} dibuat: ${n.v.customer_name}`, 'invoice', id);
+    return NextResponse.json({ success: true, invoice_id: id, invoice_number: n.v.invoice_number });
   } catch (error) {
     console.error('Error creating invoice:', error);
     return NextResponse.json({ error: 'Failed to create invoice' }, { status: 500 });
   }
 }
 
-// PUT – update invoice status or fields
+// PUT – ubah isi dokumen (hanya Draft; pembuatnya atau approver)
 export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json();
-    const {
-      invoice_id,
-      status,
-      customer_name,
-      customer_address,
-      invoice_date,
-      items,
-      tax_percent,
-      updated_by,
-      // Kolom signature — bisa diupdate saat edit
-      use_signature,
-      signature_store,
-      signature_pic,
-    } = body;
-
-    const invoices = await getSheetData('invoices', { skipCache: true });
-    const idx = invoices.findIndex((r: any) => r.invoice_id === invoice_id);
-    if (idx === -1) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
-
-    const existing = invoices[idx];
-    const now = new Date().toISOString();
-
-    let subtotal = Number(existing.subtotal);
-    let tax_amount = Number(existing.tax_amount);
-    let grand_total = Number(existing.grand_total);
-    let amount_in_words = existing.amount_in_words;
-    const effectiveTax = tax_percent !== undefined ? Number(tax_percent) : Number(existing.tax_percent);
-
-    // Recalculate if items provided
-    if (items && items.length > 0) {
-      subtotal = items.reduce((s: number, it: any) => s + Number(it.qty) * Number(it.unit_price), 0);
-      tax_amount = effectiveTax > 0 ? Math.round(subtotal * (effectiveTax / 100)) : 0;
-      grand_total = subtotal; // grand_total = subtotal
-      amount_in_words = terbilang(grand_total);
-
-      const allItems = await getSheetData('invoice_items', { skipCache: true });
-      const oldItemIndexes = allItems
-        .map((r: any, i: number) => ({ r, i }))
-        .filter(({ r }: any) => r.invoice_id === invoice_id);
-
-      for (const { i } of oldItemIndexes) {
-        await updateSheetRow('invoice_items', i + 2, Array(8).fill(''));
-      }
-
-      const newItemRows = items.map((it: any) => {
-        const total = Number(it.qty) * Number(it.unit_price);
-        return [
-          `${invoice_id}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-          invoice_id,
-          it.product_name,
-          it.variant || '',
-          it.qty,
-          it.unit_price,
-          total,
-          total,
-        ];
-      });
-      await appendSheetData('invoice_items', newItemRows);
+    const m = await me(request);
+    if (!m) return NextResponse.json({ error: 'Sesi tidak valid' }, { status: 401 });
+    const body = await request.json().catch(() => ({}));
+    const id = String(body.invoice_id || '');
+    const doc = await getVisibleInvoice(id, m.actor);
+    if (!doc) return NextResponse.json({ error: 'Dokumen tidak ditemukan' }, { status: 404 });
+    if (!canEditDoc(doc.invoice, m.actor)) {
+      return NextResponse.json({ error: 'Dokumen hanya bisa diubah saat berstatus Draft oleh pembuatnya' }, { status: 403 });
     }
-
-    // Resolve nilai use_signature:
-    // - Jika dikirim dari body (edit), gunakan nilai baru
-    // - Jika tidak dikirim (hanya update status), pertahankan nilai existing
-    let resolvedUseSignature: string;
-    if (use_signature !== undefined) {
-      resolvedUseSignature = use_signature ? 'TRUE' : 'FALSE';
-    } else {
-      resolvedUseSignature = existing.use_signature || 'FALSE';
+    const n = normalizeInput(body);
+    if (!n.ok) return NextResponse.json({ error: n.error }, { status: 400 });
+    if (n.v.doc_type === 'invoice' && (await numberTaken(n.v.invoice_number, id))) {
+      return NextResponse.json({ error: `Nomor ${n.v.invoice_number} sudah dipakai dokumen lain` }, { status: 409 });
     }
-
-    // Resolve signature_store & signature_pic
-    const resolvedSignatureStore = signature_store !== undefined ? (signature_store || '') : (existing.signature_store || '');
-    const resolvedSignaturePic   = signature_pic   !== undefined ? (signature_pic   || '') : (existing.signature_pic   || '');
-
-    const updatedRow = [
-      invoice_id,
-      existing.invoice_number,
-      invoice_date    ?? existing.invoice_date,
-      customer_name   ?? existing.customer_name,
-      customer_address ?? existing.customer_address,
-      subtotal,
-      effectiveTax,
-      tax_amount,
-      grand_total,
-      amount_in_words,
-      status          ?? existing.status,
-      existing.created_at,
-      existing.doc_type || 'invoice',
-      resolvedSignatureStore,
-      resolvedSignaturePic,
-      existing.created_by || '',
-      resolvedUseSignature,
-    ];
-
-    await updateSheetRow('invoices', idx + 2, updatedRow);
-
-    // Notifikasi in-app — hanya kalau status BENAR-BENAR berubah lewat request ini.
-    if (status && status !== existing.status) {
-      try {
-        if (status === 'submitted') {
-          // Butuh approval — kasih tahu semua user yang punya akses invoice_master.
-          await notifyUsersWithPermission('invoice_master', {
-            type: 'invoice_need_approval',
-            title: 'Invoice perlu di-approve',
-            message: `Invoice ${existing.invoice_number || invoice_id} (${existing.customer_name}) menunggu approval.`,
-            sourceFeature: 'invoice',
-            sourceId: invoice_id,
-            createdBy: updated_by,
-          });
-        } else if (status === 'approved') {
-          // Kasih tahu pembuat invoice bahwa dokumennya sudah di-approve.
-          await notifyUser(existing.created_by, {
-            type: 'invoice_approved',
-            title: 'Invoice di-approve',
-            message: `Invoice ${existing.invoice_number || invoice_id} (${existing.customer_name}) sudah di-approve. Word/PDF sudah bisa diunduh.`,
-            sourceFeature: 'invoice',
-            sourceId: invoice_id,
-            createdBy: updated_by,
-          });
-        }
-      } catch (err) {
-        console.error('Failed to send invoice notification:', err);
-      }
-    }
-
+    await updateInvoice(id, n.v, actorName(request));
+    audit(request, 'PUT', `Dokumen diubah: ${n.v.customer_name}`, 'invoice', id);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error updating invoice:', error);
@@ -290,29 +82,18 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE – soft delete (set status to deleted)
+// DELETE ?id= – hapus Draft (tersembunyi; dokumen yang sudah diajukan/approved tidak dihapus, gunakan Void)
 export async function DELETE(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-    if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
-
-    const invoices = await getSheetData('invoices', { skipCache: true });
-    const idx = invoices.findIndex((r: any) => r.invoice_id === id);
-    if (idx === -1) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-
-    const e = invoices[idx];
-    const updatedRow = [
-      e.invoice_id, e.invoice_number, e.invoice_date, e.customer_name,
-      e.customer_address, e.subtotal, e.tax_percent, e.tax_amount,
-      e.grand_total, e.amount_in_words, 'deleted', e.created_at,
-      e.doc_type || 'invoice',
-      e.signature_store || '',
-      e.signature_pic || '',
-      e.created_by || '',
-      e.use_signature || 'FALSE',
-    ];
-    await updateSheetRow('invoices', idx + 2, updatedRow);
+    const m = await me(request);
+    if (!m) return NextResponse.json({ error: 'Sesi tidak valid' }, { status: 401 });
+    const id = new URL(request.url).searchParams.get('id') || '';
+    const doc = await getVisibleInvoice(id, m.actor);
+    if (!doc) return NextResponse.json({ error: 'Dokumen tidak ditemukan' }, { status: 404 });
+    const t = transition(doc.invoice, 'delete', m.actor);
+    if (!t.ok) return NextResponse.json({ error: t.error }, { status: 403 });
+    await applyTransition(id, 'delete', doc.invoice.status, t.to, actorName(request), '');
+    audit(request, 'DELETE', `Draft dihapus: ${doc.invoice.customer_name}`, 'invoice', id);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting invoice:', error);

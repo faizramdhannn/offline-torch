@@ -78,6 +78,7 @@ export const PERM_GROUPS: {
       { key: "invoice_edit",     label: "Edit" },
       { key: "invoice_delete",   label: "Delete" },
       { key: "invoice_master",   label: "Master" },
+      { key: "invoice_approval", label: "Approve" },
       { key: "material_issue",   label: "Material" },
       { key: "material_issue_all",label: "Mat All" },
       { key: "asset_store",      label: "Asset" },

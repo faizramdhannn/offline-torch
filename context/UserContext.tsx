@@ -37,7 +37,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     w.__fetch401Patched = true;
     const original = window.fetch.bind(window);
     // Setelah user mengubah data di 4 menu "request", segarkan angka pending di sidebar (digabung 1,2 detik).
-    const PENDING_APIS = ["/api/request-store", "/api/request-tracking", "/api/material-issue", "/api/employee-discount"];
+    const PENDING_APIS = ["/api/request-store", "/api/request-tracking", "/api/material-issue", "/api/employee-discount", "/api/invoice"];
     let pendingTimer: ReturnType<typeof setTimeout> | null = null;
     window.fetch = async (...args: Parameters<typeof fetch>) => {
       const res = await original(...args);

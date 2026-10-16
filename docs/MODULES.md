@@ -34,7 +34,7 @@ Izin = kunci di `PERMISSION_KEYS` (`lib/users.ts`); penegakan di server ada di `
 | Menu | Path | Izin | API | Data |
 |---|---|---|---|---|
 | Cancel Order | `/request-store` | `request` / `edit_request` | `request-store`, `master-dropdown`, `push-notify` | sheet: `request_store` |
-| Invoice | `/invoice` | `invoice` (+`_create`, `_edit`, `_delete`, `_master`) | `invoice`, `invoice/{master,pdf,word}`, `master-item` | sheet: `invoices`, `invoice_items`, `master_invoice` |
+| Invoice | `/invoice`, `/invoice/new`, `/invoice/[id]`, `/invoice/[id]/edit` | `invoice` (+`_create`, `_edit`, `_delete`, `_master` = pengaturan master, **`invoice_approval`** = approve/reject/void + lihat semua) | `invoice`, `invoice/action`, `invoice/{master,pdf,word}`, `master-item` | **neon**: `invoices`, `invoice_items`, `invoice_events`, `invoice_master` (sheet lama tidak dipakai lagi) |
 | Material Issue | `/material-issue` | `material_issue` / `material_issue_all` | `material-issue`, `material-issue-dropdown`, `master-item`, `push-notify` | sheet: `material_issue` |
 | Employee Discount | `/employee-discount` | `employee_discount` / `employee_discount_approval` | `employee-discount`, `employee-discount/upload`, `master-item` | sheet: `request_discount` |
 | Shipment | `/request-tracking` | `request_tracking` / `tracking_edit` | `request-tracking`, `store-directory`, `push-notify` | sheet: `request_tracking` |

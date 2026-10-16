@@ -1,1714 +1,222 @@
 "use client";
 
-import { useSessionGuard } from "@/hooks/useSessionGuard";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useSessionGuard } from "@/hooks/useSessionGuard";
 import Popup from "@/components/Popup";
-import { useSearchShortcut } from "@/hooks/useSearchShortcut";
-import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
-import { Button } from "@/components/shared/Button";
-import { Plus, Pencil, Trash2, Download, FileText } from "lucide-react";
-import { useSortableTable } from "@/hooks/useSortableTable";
-import { SortableTh } from "@/components/shared/SortableTh";
-import { GlassCard } from "@/components/shared/GlassCard";
-import { FilterBar } from "@/components/shared/FilterBar";
-import { tableWrapClassGlass, theadClassGlass } from "@/components/shared/tableStyles";
+import MasterSettingsModal from "@/components/invoice/MasterSettingsModal";
+import { StatusBadge, docLabel, fmtDate, rupiah, type InvoiceDoc, type MasterInvoice } from "@/components/invoice/shared";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-interface MasterInvoice {
-  id?: string;
-  header_image_url?: string;
-  company_name?: string;
-  company_address?: string;
-  company_phone?: string;
-  company_email?: string;
-  signature_image_url?: string;
-  default_use_signature?: string | boolean;
-  default_use_ppn?: string | boolean;
-  ppn_percentage?: string | number;
-  invoice_prefix?: string;
-  next_invoice_number?: string | number;
-  updated_by?: string;
-  updated_at?: string;
-}
-
-interface InvoiceItem {
-  product_name: string;
-  qty: number;
-  unit_price: number;
-  total_price?: number;
-}
-
-interface Invoice {
-  invoice_id: string;
-  invoice_number: string;
-  invoice_date: string;
-  customer_name: string;
-  customer_address: string;
-  subtotal: string | number;
-  tax_percent: string | number;
-  tax_amount: string | number;
-  grand_total: string | number;
-  amount_in_words: string;
-  status: string;
-  doc_type?: string;
-  created_at: string;
-  signature_store?: string;
-  signature_pic?: string;
-  use_signature?: string | boolean;
-}
-
-interface MasterItem {
-  SKU: string;
-  image_url: string;
-  Product_name: string;
-  Stock: string;
-  Artikel: string;
-  Category: string;
-  Grade: string;
-  HPP: string;
-  HPT: string;
-  HPJ: string;
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function formatRupiah(val: number | string): string {
-  const n = typeof val === "string" ? parseInt(val.replace(/[^0-9]/g, "")) || 0 : val || 0;
-  return "Rp " + n.toLocaleString("id-ID");
-}
-
-function parseNum(val: string | number | undefined): number {
-  if (!val) return 0;
-  return typeof val === "number" ? val : parseInt(String(val).replace(/[^0-9]/g, "")) || 0;
-}
-
-function statusBadge(status: string) {
-  const s = (status || "").toLowerCase();
-  const map: Record<string, string> = {
-    draft: "bg-gray-100 text-gray-600",
-    submitted: "bg-[#FFEB3B] text-amber-800", // "Need Approval"
-    approved: "bg-green-100 text-green-700",
-    deleted: "bg-red-100 text-red-600",
-  };
-  return map[s] || "bg-gray-100 text-gray-500";
-}
-
-function statusLabel(status: string) {
-  const map: Record<string, string> = {
-    draft: "Draft",
-    submitted: "Need Approval",
-    approved: "Approved",
-    deleted: "Deleted",
-  };
-  return map[(status || "").toLowerCase()] || status;
-}
-
-// ── Torch Store List ──────────────────────────────────────────────────────────
-const TORCH_STORES = [
-  "Torch Lembong",
-  "Torch Margonda",
-  "Torch Karawaci",
-  "Torch Jogja",
-  "Torch Makassar",
-  "Torch Cirebon",
-  "Torch Purwokerto",
-  "Torch Karawang",
-  "Torch Pekalongan",
-  "Torch Lampung",
-  "Torch Surabaya",
-  "Torch Malang",
+// Daftar Invoice/Quotation. Tanpa izin invoice_approval, server hanya mengirim dokumen buatan user itu sendiri.
+const FILTERS: { key: string; label: string }[] = [
+  { key: "all", label: "Semua" },
+  { key: "draft", label: "Draft" },
+  { key: "submitted", label: "Need Approval" },
+  { key: "approved", label: "Approved" },
+  { key: "void", label: "Void" },
 ];
+const PER_PAGE = 20;
 
-// ── Empty Item ────────────────────────────────────────────────────────────────
-const emptyItem = (): InvoiceItem => ({ product_name: "", qty: 1, unit_price: 0, total_price: 0 });
-
-// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function InvoicePage() {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const sp = useSearchParams();
   useSessionGuard();
-
   const [user, setUser] = useState<any>(null);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [docs, setDocs] = useState<InvoiceDoc[]>([]);
   const [master, setMaster] = useState<MasterInvoice>({});
-  const [masterItems, setMasterItems] = useState<MasterItem[]>([]);
-  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
-  const { ref: searchRef, shortcutLabel } = useSearchShortcut();
-  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") ?? "all");
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState(sp.get("q") ?? "");
+  const [status, setStatus] = useState(sp.get("status") ?? "all");
+  const [type, setType] = useState(sp.get("type") ?? "all");
+  const [page, setPage] = useState(1);
+  const [showMaster, setShowMaster] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
-  // Popup
-  const [showPopup, setShowPopup] = useState(false);
-  const [popupMessage, setPopupMessage] = useState("");
-  const [popupType, setPopupType] = useState<"success" | "error">("success");
-
-  // Modals
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [showMasterModal, setShowMasterModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-
-  // PDF Preview
-  const [showPdfPreview, setShowPdfPreview] = useState(false);
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
-  const [previewInvoiceNumber, setPreviewInvoiceNumber] = useState("");
-
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
-  const [selectedItems, setSelectedItems] = useState<InvoiceItem[]>([]);
-  const [loadingDetail, setLoadingDetail] = useState(false);
-  const [generatingPdf, setGeneratingPdf] = useState(false);
-  const [generatingWord, setGeneratingWord] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  // Create form state
-  const [docType, setDocType] = useState<"invoice" | "quotation">("invoice");
-  const [manualInvoiceNumber, setManualInvoiceNumber] = useState("");
-  const [selectedStore, setSelectedStore] = useState("");
-  const [manualCustomerName, setManualCustomerName] = useState("");
-  const [usePPN, setUsePPN] = useState(false);
-  const [useSignature, setUseSignature] = useState(false);
-  const [formData, setFormData] = useState({
-    customer_address: "",
-    invoice_date: new Date().toISOString().split("T")[0],
-  });
-  const [formItems, setFormItems] = useState<InvoiceItem[]>([emptyItem()]);
-  const [productSearch, setProductSearch] = useState<string[]>([""]);
-  const [productQuery, setProductQuery] = useState<string[]>([""]);
-  const [productDropdowns, setProductDropdowns] = useState<boolean[]>([false]);
-
-  // Create - Signature
-  const [signatureStore, setSignatureStore] = useState("");
-  const [signaturePic, setSignaturePic] = useState("");
-
-  // Edit form state
-  const [editInvoice, setEditInvoice] = useState<Invoice | null>(null);
-  const [editItems, setEditItems] = useState<InvoiceItem[]>([]);
-  const [editCustomerName, setEditCustomerName] = useState("");
-  const [editCustomerAddress, setEditCustomerAddress] = useState("");
-  const [editDate, setEditDate] = useState("");
-  const [editUsePPN, setEditUsePPN] = useState(false);
-  const [editUseSignature, setEditUseSignature] = useState(false);
-  const [editSignatureStore, setEditSignatureStore] = useState("");
-  const [editSignaturePic, setEditSignaturePic] = useState("");
-  const [editProductSearch, setEditProductSearch] = useState<string[]>([]);
-  const [editProductQuery, setEditProductQuery] = useState<string[]>([]);
-  const [editProductDropdowns, setEditProductDropdowns] = useState<boolean[]>([]);
-
-  // Master form
-  const [masterForm, setMasterForm] = useState<MasterInvoice>({});
-
-  const PPN_RATE = 11;
-
-  const showMessage = (message: string, type: "success" | "error") => {
-    setPopupMessage(message);
-    setPopupType(type);
-    setShowPopup(true);
-  };
-
-  // ── Init ───────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const userData = localStorage.getItem("user");
-    if (!userData) { router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`); return; }
-    const u = JSON.parse(userData);
+    const raw = localStorage.getItem("user");
+    if (!raw) { router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`); return; }
+    const u = JSON.parse(raw);
     if (!u.invoice) { router.push("/dashboard"); return; }
     setUser(u);
-    fetchAll();
-  }, []);
+  }, [router]);
 
-  const fetchAll = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [invRes, masterRes, itemsRes] = await Promise.all([
-        fetch("/api/invoice"),
-        fetch("/api/invoice/master"),
-        fetch("/api/master-item?mode=invoice"),
-      ]);
-      const [invData, masterData, itemsData] = await Promise.all([
-        invRes.json(), masterRes.json(), itemsRes.json(),
-      ]);
-      setInvoices(Array.isArray(invData) ? invData.filter((i: Invoice) => i.status !== "deleted") : []);
-      setMaster(masterData || {});
-      setMasterForm(masterData || {});
-      setMasterItems(Array.isArray(itemsData) ? itemsData : []);
+      const [a, b] = await Promise.all([fetch("/api/invoice", { cache: "no-store" }), fetch("/api/invoice/master", { cache: "no-store" })]);
+      const list = await a.json();
+      setDocs(Array.isArray(list) ? list : []);
+      setMaster((await b.json()) || {});
     } catch {
-      showMessage("Gagal memuat data", "error");
+      setToast({ msg: "Gagal memuat data", type: "error" });
     } finally {
       setLoading(false);
     }
-  };
-
-  // ── Filtered list ──────────────────────────────────────────────────────────
-  const filteredInvoices = invoices.filter((inv) => {
-    const q = searchQuery.toLowerCase();
-    const matchQ = !q || inv.invoice_number?.toLowerCase().includes(q) || inv.customer_name?.toLowerCase().includes(q);
-    const matchS = statusFilter === "all" || inv.status === statusFilter;
-    return matchQ && matchS;
-  });
-
-  const { sorted: sortedInvoices, sortKey, sortDir, toggleSort } = useSortableTable(filteredInvoices, "invoice_date");
-
-  // ── Pagination ─────────────────────────────────────────────────────────────
-  const itemsPerPage = 20;
-  const [currentPage, setCurrentPage] = useState(1);
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter]);
+  }, []);
+  useEffect(() => { if (user) load(); }, [user, load]);
 
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (searchQuery) params.set("q", searchQuery);
-    if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
-    const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [searchQuery, statusFilter, pathname, router]);
-  const totalPages = Math.max(1, Math.ceil(sortedInvoices.length / itemsPerPage));
-  const pagedInvoices = sortedInvoices.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    if (status !== "all") p.set("status", status);
+    if (type !== "all") p.set("type", type);
+    const s = p.toString();
+    router.replace(s ? `${pathname}?${s}` : pathname, { scroll: false });
+    setPage(1);
+  }, [q, status, type, pathname, router]);
 
-  // ── Open detail ────────────────────────────────────────────────────────────
-  const openDetail = async (inv: Invoice) => {
-    setSelectedInvoice(inv);
-    setShowDetailModal(true);
-    setLoadingDetail(true);
-    try {
-      const res = await fetch(`/api/invoice?id=${inv.invoice_id}`);
-      const data = await res.json();
-      setSelectedItems(data.items || []);
-    } catch {
-      showMessage("Gagal memuat detail invoice", "error");
-    } finally {
-      setLoadingDetail(false);
-    }
-  };
+  const isApprover = !!user?.invoice_approval;
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { all: docs.length };
+    for (const d of docs) c[d.status] = (c[d.status] || 0) + 1;
+    return c;
+  }, [docs]);
 
-  // ── Open Edit ──────────────────────────────────────────────────────────────
-  const openEdit = (inv: Invoice, items: InvoiceItem[]) => {
-    setEditInvoice(inv);
-    setEditItems(items.map(it => ({ ...it })));
-    setEditCustomerName(inv.customer_name);
-    setEditCustomerAddress(inv.customer_address || "");
-    setEditDate(inv.invoice_date);
-    setEditUsePPN(parseNum(inv.tax_percent) > 0);
-    const useSign = inv.use_signature === true || inv.use_signature === "TRUE";
-    setEditUseSignature(useSign);
-    setEditSignatureStore(inv.signature_store || "");
-    setEditSignaturePic(inv.signature_pic || "");
-    setEditProductSearch(items.map(it => it.product_name));
-    setEditProductQuery(items.map(it => it.product_name));
-    setEditProductDropdowns(items.map(() => false));
-    setShowEditModal(true);
-  };
-
-  const logActivity = async (method: string, activity: string, entityId?: string) => {
-    try {
-      await fetch("/api/activity-log", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user: user?.user_name, method, activity_log: activity, entity_type: "invoice", entity_id: entityId || "" }),
-      });
-    } catch {}
-  };
-
-  // ── Create Invoice ─────────────────────────────────────────────────────────
-  const handleCreate = async () => {
-    const customerName = manualCustomerName.trim();
-    if (!customerName) { showMessage("Nama customer wajib diisi", "error"); return; }
-    if (docType === "invoice" && !manualInvoiceNumber.trim()) { showMessage("Nomor invoice wajib diisi", "error"); return; }
-    if (formItems.some(it => !it.product_name)) { showMessage("Nama produk wajib diisi", "error"); return; }
-
-    setSaving(true);
-    try {
-      const res = await fetch("/api/invoice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          customer_name: customerName,
-          tax_percent: usePPN ? PPN_RATE : 0,
-          use_signature: useSignature,
-          items: formItems,
-          created_by: user?.user_name,
-          doc_type: docType,
-          manual_invoice_number: docType === "invoice" ? manualInvoiceNumber.trim() : null,
-          signature_store: signatureStore,
-          signature_pic: signaturePic,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      const label = docType === "quotation" ? "Quotation" : `Invoice ${data.invoice_number}`;
-      await logActivity("POST", `Created ${label}: ${customerName}`, data.invoice_id);
-      showMessage(`${label} berhasil dibuat!`, "success");
-      setShowCreateModal(false);
-      resetCreateForm();
-      fetchAll();
-    } catch (e: any) {
-      showMessage(e.message || "Gagal membuat dokumen", "error");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // ── Edit Invoice ───────────────────────────────────────────────────────────
-  const handleEdit = async () => {
-    if (!editInvoice) return;
-    if (!editCustomerName.trim()) { showMessage("Nama customer wajib diisi", "error"); return; }
-    if (editItems.some(it => !it.product_name)) { showMessage("Nama produk wajib diisi", "error"); return; }
-
-    setSaving(true);
-    try {
-      const res = await fetch("/api/invoice", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          invoice_id: editInvoice.invoice_id,
-          customer_name: editCustomerName.trim(),
-          customer_address: editCustomerAddress,
-          invoice_date: editDate,
-          tax_percent: editUsePPN ? PPN_RATE : 0,
-          items: editItems,
-          use_signature: editUseSignature,
-          signature_store: editSignatureStore,
-          signature_pic: editSignaturePic,
-          updated_by: user?.user_name,
-        }),
-      });
-      if (!res.ok) throw new Error();
-      await logActivity("PUT", `Updated invoice: ${editCustomerName.trim()}`, editInvoice.invoice_id);
-      showMessage("Invoice berhasil diperbarui!", "success");
-      setShowEditModal(false);
-      setShowDetailModal(false);
-      fetchAll();
-    } catch {
-      showMessage("Gagal memperbarui invoice", "error");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const resetCreateForm = () => {
-    setDocType("invoice");
-    setManualInvoiceNumber("");
-    setSelectedStore("");
-    setManualCustomerName("");
-    setUsePPN(false);
-    setUseSignature(false);
-    setSignatureStore("");
-    setSignaturePic("");
-    setFormData({ customer_address: "", invoice_date: new Date().toISOString().split("T")[0] });
-    setFormItems([emptyItem()]);
-    setProductSearch([""]);
-    setProductQuery([""]);
-    setProductDropdowns([false]);
-  };
-
-  // ── Items management (Create) ──────────────────────────────────────────────
-  const addItem = () => {
-    setFormItems(p => [...p, emptyItem()]);
-    setProductSearch(p => [...p, ""]);
-    setProductQuery(p => [...p, ""]);
-    setProductDropdowns(p => [...p, false]);
-  };
-
-  const removeItem = (i: number) => {
-    setFormItems(p => p.filter((_, idx) => idx !== i));
-    setProductSearch(p => p.filter((_, idx) => idx !== i));
-    setProductQuery(p => p.filter((_, idx) => idx !== i));
-    setProductDropdowns(p => p.filter((_, idx) => idx !== i));
-  };
-
-  const updateItem = (i: number, field: keyof InvoiceItem, value: any) => {
-    setFormItems(p => p.map((it, idx) => idx === i ? { ...it, [field]: value } : it));
-  };
-
-  const selectProduct = (i: number, item: MasterItem) => {
-    const hpj = parseNum(item.HPJ);
-    const name = item.Product_name || item.SKU || "";
-    setFormItems(p => p.map((it, idx) => idx === i
-      ? { ...it, product_name: name, unit_price: hpj }
-      : it
-    ));
-    setProductSearch(p => p.map((v, idx) => idx === i ? name : v));
-    setProductDropdowns(p => p.map(() => false));
-  };
-
-  const handleProductBlur = (i: number) => {
-    setTimeout(() => {
-      setProductDropdowns(p => p.map((_, idx) => idx === i ? false : _));
-    }, 150);
-  };
-
-  // ── Items management (Edit) ────────────────────────────────────────────────
-  const addEditItem = () => {
-    setEditItems(p => [...p, emptyItem()]);
-    setEditProductSearch(p => [...p, ""]);
-    setEditProductQuery(p => [...p, ""]);
-    setEditProductDropdowns(p => [...p, false]);
-  };
-
-  const removeEditItem = (i: number) => {
-    setEditItems(p => p.filter((_, idx) => idx !== i));
-    setEditProductSearch(p => p.filter((_, idx) => idx !== i));
-    setEditProductQuery(p => p.filter((_, idx) => idx !== i));
-    setEditProductDropdowns(p => p.filter((_, idx) => idx !== i));
-  };
-
-  const selectEditProduct = (i: number, item: MasterItem) => {
-    const hpj = parseNum(item.HPJ);
-    const name = item.Product_name || item.SKU || "";
-    setEditItems(p => p.map((it, idx) => idx === i ? { ...it, product_name: name, unit_price: hpj } : it));
-    setEditProductSearch(p => p.map((v, idx) => idx === i ? name : v));
-    setEditProductDropdowns(p => p.map(() => false));
-  };
-
-  // ── Status update ──────────────────────────────────────────────────────────
-  const updateStatus = async (invoice_id: string, status: string) => {
-    try {
-      const res = await fetch("/api/invoice", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invoice_id, status, updated_by: user?.user_name }),
-      });
-      if (!res.ok) throw new Error();
-      showMessage("Status diperbarui", "success");
-      if (selectedInvoice) setSelectedInvoice(p => p ? { ...p, status } : null);
-      fetchAll();
-    } catch {
-      showMessage("Gagal memperbarui status", "error");
-    }
-  };
-
-  // ── Delete ─────────────────────────────────────────────────────────────────
-  const handleDelete = async (invoice_id: string) => {
-    if (!confirm("Yakin hapus invoice ini?")) return;
-    try {
-      await fetch(`/api/invoice?id=${invoice_id}`, { method: "DELETE" });
-      await logActivity("DELETE", `Deleted invoice ID: ${invoice_id}`, invoice_id);
-      showMessage("Invoice dihapus", "success");
-      setShowDetailModal(false);
-      fetchAll();
-    } catch {
-      showMessage("Gagal menghapus", "error");
-    }
-  };
-
-  // ── PDF Preview & Download ─────────────────────────────────────────────────
-  // Word/PDF baru muncul setelah invoice di-approve (bukan lagi begitu submitted).
-  const canDownloadPdf = (inv: Invoice) => inv.status === "approved";
-
-  const previewPdf = async (invoice_id: string, invoice_number: string) => {
-    setGeneratingPdf(true);
-    try {
-      const res = await fetch("/api/invoice/pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invoice_id }),
-      });
-      if (!res.ok) throw new Error();
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      setPdfPreviewUrl(url);
-      setPreviewInvoiceNumber(invoice_number);
-      setShowPdfPreview(true);
-    } catch {
-      showMessage("Gagal generate PDF", "error");
-    } finally {
-      setGeneratingPdf(false);
-    }
-  };
-
-  const downloadPdf = () => {
-    if (!pdfPreviewUrl) return;
-    const a = document.createElement("a");
-    a.href = pdfPreviewUrl;
-    a.download = `Invoice_${previewInvoiceNumber}.pdf`;
-    a.click();
-  };
-
-  const closePdfPreview = () => {
-    if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
-    setPdfPreviewUrl(null);
-    setShowPdfPreview(false);
-  };
-
-  // ── Word Download ──────────────────────────────────────────────────────────
-  const downloadWord = async (invoice_id: string, invoice_number: string) => {
-    setGeneratingWord(true);
-    try {
-      const res = await fetch("/api/invoice/word", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invoice_id }),
-      });
-      if (!res.ok) throw new Error();
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Invoice_${invoice_number}.docx`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      showMessage("Gagal generate Word", "error");
-    } finally {
-      setGeneratingWord(false);
-    }
-  };
-
-  // ── Save Master ────────────────────────────────────────────────────────────
-  const saveMaster = async () => {
-    setSaving(true);
-    try {
-      const res = await fetch("/api/invoice/master", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...masterForm, updated_by: user?.user_name }),
-      });
-      if (!res.ok) throw new Error();
-      showMessage("Pengaturan disimpan", "success");
-      setShowMasterModal(false);
-      fetchAll();
-    } catch {
-      showMessage("Gagal menyimpan pengaturan", "error");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // ── Calculated totals (Create) ─────────────────────────────────────────────
-  const calcSubtotal = formItems.reduce((s, it) => s + (Number(it.qty) * Number(it.unit_price)), 0);
-  const calcTax = usePPN ? Math.round(calcSubtotal * (PPN_RATE / 100)) : 0;
-  const calcTotal = calcSubtotal;
-
-  // ── Calculated totals (Edit) ───────────────────────────────────────────────
-  const editCalcSubtotal = editItems.reduce((s, it) => s + (Number(it.qty) * Number(it.unit_price)), 0);
-  const editCalcTax = editUsePPN ? Math.round(editCalcSubtotal * (PPN_RATE / 100)) : 0;
-
-  // ── Filtered items for dropdown ────────────────────────────────────────────
-  const getFilteredItems = (searchVal: string) => {
-    const q = (searchVal || "").toLowerCase().trim();
-    if (!q) return masterItems.slice(0, 50);
-    return masterItems.filter(m =>
-      (m.Product_name || "").toLowerCase().includes(q) ||
-      (m.SKU || "").toLowerCase().includes(q)
+  const filtered = useMemo(() => {
+    const s = q.toLowerCase().trim();
+    return docs.filter((d) =>
+      (status === "all" || d.status === status) &&
+      (type === "all" || d.doc_type === type) &&
+      (!s || d.invoice_number.toLowerCase().includes(s) || d.customer_name.toLowerCase().includes(s) || d.created_by.toLowerCase().includes(s))
     );
-  };
+  }, [docs, q, status, type]);
+  const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const shown = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+  // Ringkasan (dihitung dari dokumen yang boleh dilihat user): menunggu approval, Approved bulan ini, rata-rata waktu approval (30 hari)
+  const stats = useMemo(() => {
+    const wib = (s: string) => new Date(new Date(s).getTime() + 7 * 3600_000).toISOString().slice(0, 7);
+    const month = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 7);
+    const approvedNow = docs.filter((d) => d.status === "approved" && d.approved_at && wib(d.approved_at) === month);
+    const invoiceValue = approvedNow.filter((d) => d.doc_type === "invoice").reduce((s, d) => s + d.grand_total, 0);
+    const since = Date.now() - 30 * 86400_000;
+    const times = docs
+      .filter((d) => d.approved_at && d.submitted_at && new Date(d.approved_at).getTime() >= since)
+      .map((d) => new Date(d.approved_at as string).getTime() - new Date(d.submitted_at as string).getTime())
+      .filter((ms) => ms >= 0);
+    const avg = times.length ? times.reduce((a, b) => a + b, 0) / times.length : null;
+    const fmt = (ms: number) => {
+      const m = Math.round(ms / 60000);
+      if (m < 60) return `${m} menit`;
+      if (m < 60 * 48) return `${Math.floor(m / 60)} jam ${m % 60} mnt`;
+      return `${Math.round(m / 1440)} hari`;
+    };
+    return { waiting: docs.filter((d) => d.status === "submitted").length, drafts: docs.filter((d) => d.status === "draft").length, approvedCount: approvedNow.length, invoiceValue, avg: avg === null ? "—" : fmt(avg), avgN: times.length };
+  }, [docs]);
 
   if (!user) return null;
-
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="p-4">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-primary">Invoice</h1>
-            <p className="text-xs text-gray-500 mt-0.5">Manajemen permintaan invoice</p>
-          </div>
-          <div className="flex gap-2">
-            {user?.invoice_master && (
-              <button
-                onClick={() => setShowMasterModal(true)}
-                className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200 flex items-center gap-1.5"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                Pengaturan
-              </button>
-            )}
-            {user?.invoice_create && (
-              <Button size="sm" icon={Plus} onClick={() => setShowCreateModal(true)}>
-                Buat Dokumen
-              </Button>
-            )}
-          </div>
+    <div className="p-4 md:p-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-primary">Invoice</h1>
+          <p className="text-xs text-gray-500">{isApprover ? "Semua dokumen" : "Dokumen buatan Anda"}</p>
         </div>
-
-        {/* Filters */}
-        <FilterBar className="mb-4">
-            <div className="flex-1 min-w-48 relative">
-              <input
-                ref={searchRef}
-                type="text"
-                placeholder="Cari nomor invoice atau nama customer..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full px-3 py-1.5 pr-11 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              <SearchShortcutHint label={shortcutLabel} />
-            </div>
-            <select
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
-              className="px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="all">Semua Status</option>
-              <option value="draft">Draft</option>
-              <option value="submitted">Need Approval</option>
-              <option value="approved">Approved</option>
-            </select>
-        </FilterBar>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-          {[
-            { label: "Total Invoice", value: invoices.length, color: "text-primary" },
-            { label: "Draft", value: invoices.filter(i => i.status === "draft").length, color: "text-gray-600" },
-            { label: "Need Approval", value: invoices.filter(i => i.status === "submitted").length, color: "text-amber-600" },
-            { label: "Approved", value: invoices.filter(i => i.status === "approved").length, color: "text-green-600" },
-          ].map(stat => (
-            <GlassCard key={stat.label} padding="md">
-              <p className="text-xs text-gray-500">{stat.label}</p>
-              <p className={`text-2xl font-bold mt-1 ${stat.color}`}>{stat.value}</p>
-            </GlassCard>
-          ))}
+        <div className="flex gap-2">
+          {user.invoice_master && <button onClick={() => setShowMaster(true)} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 hover:bg-gray-50">Pengaturan master</button>}
+          {(user.invoice_create || isApprover) && <Link href="/invoice/new" className="rounded-lg bg-gray-900 px-4 py-2 text-xs font-medium text-white hover:bg-gray-800">+ Buat dokumen</Link>}
         </div>
-
-        {/* Table */}
-        <GlassCard padding="none" className="overflow-hidden">
-          {loading ? (
-            <div className="p-8 text-center text-sm text-gray-500">Memuat data...</div>
-          ) : (
-            <>
-              <div className={tableWrapClassGlass}>
-                <table className="w-full text-[11px]">
-                  <thead className={theadClassGlass}>
-                    <tr>
-                      <SortableTh label="No. Invoice" active={sortKey === "invoice_number"} dir={sortDir} onClick={() => toggleSort("invoice_number")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
-                      <SortableTh label="Tipe" active={sortKey === "doc_type"} dir={sortDir} onClick={() => toggleSort("doc_type")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
-                      <SortableTh label="Tanggal" active={sortKey === "invoice_date"} dir={sortDir} onClick={() => toggleSort("invoice_date")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
-                      <SortableTh label="Customer" active={sortKey === "customer_name"} dir={sortDir} onClick={() => toggleSort("customer_name")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
-                      <SortableTh label="Signature Store" active={sortKey === "signature_store"} dir={sortDir} onClick={() => toggleSort("signature_store")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
-                      <SortableTh label="Signature PIC" active={sortKey === "signature_pic"} dir={sortDir} onClick={() => toggleSort("signature_pic")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
-                      <SortableTh label="Subtotal" active={sortKey === "subtotal"} dir={sortDir} onClick={() => toggleSort("subtotal")} align="right" className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
-                      <SortableTh label="Status" active={sortKey === "status"} dir={sortDir} onClick={() => toggleSort("status")} className="px-2 py-1.5 font-semibold text-gray-700 whitespace-nowrap" />
-                      <th className="px-2 py-1.5 text-left font-semibold text-gray-700 whitespace-nowrap">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagedInvoices.map((inv) => (
-                      <tr
-                        key={inv.invoice_id}
-                        className="border-b hover:bg-gray-50 cursor-pointer"
-                        onClick={() => openDetail(inv)}
-                      >
-                        <td className="px-2 py-1 font-semibold text-primary whitespace-nowrap">{inv.invoice_number || "—"}</td>
-                        <td className="px-2 py-1">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                            (inv.doc_type || "invoice") === "quotation"
-                              ? "bg-purple-100 text-purple-700"
-                              : "bg-blue-100 text-blue-700"
-                          }`}>
-                            {(inv.doc_type || "invoice") === "quotation" ? "Quotation" : "Invoice"}
-                          </span>
-                        </td>
-                        <td className="px-2 py-1 text-gray-600 whitespace-nowrap">{inv.invoice_date}</td>
-                        <td className="px-2 py-1 font-medium whitespace-nowrap">{inv.customer_name}</td>
-                        <td className="px-2 py-1 text-gray-600 whitespace-nowrap">{inv.signature_store || "—"}</td>
-                        <td className="px-2 py-1 text-gray-600 whitespace-nowrap">{inv.signature_pic || "—"}</td>
-                        <td className="px-2 py-1 font-semibold whitespace-nowrap">{formatRupiah(inv.subtotal)}</td>
-                        <td className="px-2 py-1">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${statusBadge(inv.status)}`}>
-                            {statusLabel(inv.status)}
-                          </span>
-                        </td>
-                        <td className="px-2 py-1" onClick={e => e.stopPropagation()}>
-                          <button
-                            onClick={() => router.push(`/invoice/${inv.invoice_id}`)}
-                            className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-[10px] hover:bg-gray-300 mr-1"
-                          >
-                            Detail
-                          </button>
-                          {canDownloadPdf(inv) && user?.invoice_create ? (
-                            <div className="flex gap-1">
-                              <button
-                                onClick={() => previewPdf(inv.invoice_id, inv.invoice_number)}
-                                disabled={generatingPdf}
-                                className="px-2 py-1 bg-primary text-white rounded text-[10px] hover:bg-primary/90 disabled:opacity-50"
-                              >
-                                {generatingPdf ? "..." : "PDF"}
-                              </button>
-                              <button
-                                onClick={() => downloadWord(inv.invoice_id, inv.invoice_number)}
-                                disabled={generatingWord}
-                                className="px-2 py-1 bg-gray-800 text-white rounded text-[10px] hover:bg-gray-900 disabled:opacity-50"
-                              >
-                                {generatingWord ? "..." : "Word"}
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="px-2 py-1 text-gray-300 text-[10px]">
-                              {inv.status === "draft" || inv.status === "submitted" ? statusLabel(inv.status) : "—"}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {filteredInvoices.length === 0 && (
-                  <div className="p-8 text-center text-gray-400 text-sm">Tidak ada invoice</div>
-                )}
-              </div>
-
-              {filteredInvoices.length > 0 && totalPages > 1 && (
-                <div className="flex items-center justify-end gap-2 px-3 py-3 border-t text-xs">
-                  <button
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    className="px-2 py-1 border rounded disabled:opacity-40"
-                  >
-                    Prev
-                  </button>
-                  <span>{currentPage} / {totalPages}</span>
-                  <button
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    className="px-2 py-1 border rounded disabled:opacity-40"
-                  >
-                    Next
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </GlassCard>
       </div>
 
-      {/* ── Create Modal ─────────────────────────────────────────────────────── */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 overflow-y-auto py-6">
-          <div className="glass-card rounded-2xl w-full max-w-3xl mx-4 shadow-2xl">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b">
-              <h2 className="text-base font-bold text-primary">Buat Dokumen Baru</h2>
-              <button onClick={() => { setShowCreateModal(false); resetCreateForm(); }}
-                className="w-7 h-7 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="p-6 space-y-5">
-
-              {/* ── Tipe Dokumen ── */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-2">Tipe Dokumen</label>
-                <div className="flex gap-2">
-                  {(["invoice", "quotation"] as const).map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => setDocType(type)}
-                      className={`flex-1 py-2 rounded-lg text-xs font-semibold border-2 transition-all ${
-                        docType === type
-                          ? type === "invoice"
-                            ? "border-primary bg-primary text-white"
-                            : "border-purple-600 bg-purple-600 text-white"
-                          : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                      }`}
-                    >
-                      {type === "invoice" ? "Invoice" : "Quotation"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* ── Nomor Invoice (hanya saat Invoice) ── */}
-              {docType === "invoice" && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Nomor Invoice <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    value={manualInvoiceNumber}
-                    onChange={e => setManualInvoiceNumber(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary font-mono"
-                    placeholder="Contoh: INV/00002"
-                  />
-                </div>
-              )}
-
-              {/* ── Customer / Kepada ── */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-2">
-                    Kepada <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      value={manualCustomerName}
-                      onChange={e => setManualCustomerName(e.target.value)}
-                      className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                      placeholder="Nama customer / toko..."
-                    />
-                    {manualCustomerName && (
-                      <button
-                        onClick={() => setManualCustomerName("")}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Tanggal <span className="text-red-500">*</span></label>
-                    <input
-                      type="date"
-                      value={formData.invoice_date}
-                      onChange={e => setFormData(p => ({ ...p, invoice_date: e.target.value }))}
-                      className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Alamat Customer</label>
-                    <textarea
-                      value={formData.customer_address}
-                      onChange={e => setFormData(p => ({ ...p, customer_address: e.target.value }))}
-                      rows={1}
-                      className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-                      placeholder="Alamat lengkap customer"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* ── Items ── */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-semibold text-gray-700">Item Produk</label>
-                  <button onClick={addItem} className="text-xs text-primary hover:underline flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Tambah Item
-                  </button>
-                </div>
-
-                <div className="border border-gray-200 rounded-lg overflow-visible">
-                  <table className="w-full text-[11px]">
-                    <thead className="glass-table-head">
-                      <tr>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-600 w-8">#</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-600">Produk</th>
-                        <th className="px-2 py-1.5 text-center font-semibold text-gray-600 w-16">Qty</th>
-                        <th className="px-2 py-1.5 text-right font-semibold text-gray-600 w-32">Harga Satuan</th>
-                        <th className="px-2 py-1.5 text-right font-semibold text-gray-600 w-28">Total</th>
-                        <th className="w-8"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {formItems.map((item, i) => (
-                        <tr key={i} className="border-b last:border-0">
-                          <td className="px-2 py-1 text-gray-400">{i + 1}</td>
-                          <td className="px-2 py-1 relative">
-                            <input
-                              value={productSearch[i] ?? ""}
-                              onChange={e => {
-                                const v = e.target.value;
-                                setProductSearch(p => p.map((s, idx) => idx === i ? v : s));
-                                setProductQuery(p => p.map((s, idx) => idx === i ? v : s));
-                                setProductDropdowns(p => p.map((_, idx) => idx === i ? true : _));
-                                updateItem(i, "product_name", v);
-                              }}
-                              onFocus={() => setProductDropdowns(p => p.map((_, idx) => idx === i ? true : _))}
-                              onClick={() => setProductDropdowns(p => p.map((_, idx) => idx === i ? true : _))}
-                              onBlur={() => handleProductBlur(i)}
-                              className="w-full px-2 py-1 border border-gray-200 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
-                              placeholder="Cari produk..."
-                            />
-                            {productDropdowns[i] && (
-                              <div className="absolute left-0 top-full mt-0.5 z-[200] bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto w-80">
-                                {getFilteredItems(productQuery[i]).length === 0 ? (
-                                  <div className="px-3 py-2 text-gray-400 text-center text-[11px]">Tidak ditemukan</div>
-                                ) : (
-                                  getFilteredItems(productQuery[i]).map((m, j) => (
-                                    <div
-                                      key={`${j}-${m.SKU}-${m.Product_name}`}
-                                      className="px-3 py-2 hover:bg-primary/10 cursor-pointer text-[11px] border-b last:border-0"
-                                      onMouseDown={() => selectProduct(i, m)}
-                                    >
-                                      <div className="font-medium text-gray-800">
-                                        {m.Product_name || "(no name)"}
-                                      </div>
-                                      <div className="text-gray-400 text-[10px] mt-0.5 flex gap-2">
-                                        {m.SKU && <span>{m.SKU}</span>}
-                                        {m.HPJ && <span>{formatRupiah(m.HPJ)}</span>}
-                                      </div>
-                                    </div>
-                                  ))
-                                )}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-2 py-1">
-                            <input
-                              type="number"
-                              min="1"
-                              value={item.qty ?? 1}
-                              onChange={e => updateItem(i, "qty", parseInt(e.target.value) || 1)}
-                              className="w-full px-2 py-1 border border-gray-200 rounded text-[11px] text-center focus:outline-none focus:ring-1 focus:ring-primary"
-                            />
-                          </td>
-                          <td className="px-2 py-1">
-                            <input
-                              type="number"
-                              min="0"
-                              value={item.unit_price ?? 0}
-                              onChange={e => updateItem(i, "unit_price", parseFloat(e.target.value) || 0)}
-                              className="w-full px-2 py-1 border border-gray-200 rounded text-[11px] text-right focus:outline-none focus:ring-1 focus:ring-primary"
-                            />
-                          </td>
-                          <td className="px-2 py-1 text-right font-semibold text-gray-700">
-                            {formatRupiah(item.qty * item.unit_price)}
-                          </td>
-                          <td className="px-2 py-1">
-                            {formItems.length > 1 && (
-                              <button onClick={() => removeItem(i)} className="text-red-400 hover:text-red-600">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* ── Totals + Toggles ── */}
-              <div className="flex justify-between items-start">
-                <div className="space-y-2 mt-1">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={usePPN}
-                      onChange={e => setUsePPN(e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
-                    />
-                    <span className="text-xs font-medium text-gray-700">
-                      Gunakan PPN <span className="font-bold text-primary">11%</span>
-                    </span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={useSignature}
-                      onChange={e => setUseSignature(e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
-                    />
-                    <span className="text-xs font-medium text-gray-700">
-                      Gunakan tanda tangan &amp; cap
-                    </span>
-                  </label>
-                </div>
-
-                <div className="text-right space-y-1">
-                  <div className="text-xs text-gray-500">
-                    Sub Total: <span className="font-semibold text-gray-800">{formatRupiah(calcSubtotal)}</span>
-                  </div>
-                  {usePPN && (
-                    <div className="text-xs text-gray-500">
-                      PPN 11% <span className="text-[10px] text-gray-400">(info)</span>:{" "}
-                      <span className="font-semibold text-gray-800">{formatRupiah(calcTax)}</span>
-                    </div>
-                  )}
-                  <div className="text-sm font-bold text-primary">
-                    Total: {formatRupiah(calcTotal)}
-                  </div>
-                </div>
-              </div>
-
-              {/* ── Tanda Tangan Kanan Bawah ── */}
-              {useSignature && (
-                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <svg className="w-3.5 h-3.5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                    <label className="text-xs font-semibold text-gray-700">
-                      Tanda Tangan Penerima (Kanan Bawah PDF)
-                    </label>
-                  </div>
-
-                  <div>
-                    <p className="text-[10px] text-gray-500 mb-1.5">Pilih Toko Penerima</p>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {TORCH_STORES.map((store) => (
-                        <button
-                          key={store}
-                          type="button"
-                          onClick={() => setSignatureStore(prev => prev === store ? "" : store)}
-                          className={`px-2 py-1.5 rounded text-[11px] font-medium border text-left truncate transition-all ${
-                            signatureStore === store
-                              ? "bg-primary text-white border-primary"
-                              : "bg-white text-gray-600 border-gray-200 hover:border-primary/50 hover:text-primary"
-                          }`}
-                        >
-                          {store}
-                        </button>
-                      ))}
-                    </div>
-                    {signatureStore && (
-                      <button
-                        onClick={() => setSignatureStore("")}
-                        className="mt-1.5 text-[10px] text-gray-400 hover:text-red-500 underline"
-                      >
-                        Hapus pilihan toko
-                      </button>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-gray-500 mb-1">Nama PIC / Penerima</label>
-                    <input
-                      value={signaturePic}
-                      onChange={e => setSignaturePic(e.target.value)}
-                      className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-white"
-                      placeholder="Nama lengkap PIC penerima..."
-                    />
-                  </div>
-
-                  {(signatureStore || signaturePic) && (
-                    <div className="bg-white border border-primary/20 rounded px-3 py-2">
-                      <p className="text-[10px] text-gray-400 mb-0.5">Preview tanda tangan kanan:</p>
-                      <p className="text-xs font-bold text-primary">{signatureStore || "—"}</p>
-                      {signaturePic && <p className="text-[11px] text-gray-600">{signaturePic}</p>}
-                    </div>
-                  )}
-                </div>
-              )}
-
-            </div>
-
-            <div className="flex gap-2 px-6 pb-5">
-              <Button variant="secondary" className="flex-1 justify-center" onClick={() => { setShowCreateModal(false); resetCreateForm(); }}>
-                Batal
-              </Button>
-              <Button className="flex-1 justify-center" onClick={handleCreate} disabled={saving} loading={saving}>
-                {docType === "quotation" ? "Buat Quotation" : "Buat Invoice"}
-              </Button>
-            </div>
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[
+          { label: "Menunggu approval", value: String(stats.waiting), sub: isApprover ? "perlu tindakan" : "dokumen Anda", tone: stats.waiting ? "text-amber-600" : "text-gray-800" },
+          { label: "Draft", value: String(stats.drafts), sub: "belum diajukan", tone: "text-gray-800" },
+          { label: "Approved bulan ini", value: String(stats.approvedCount), sub: `Invoice ${rupiah(stats.invoiceValue)}`, tone: "text-green-700" },
+          { label: "Rata-rata waktu approval", value: stats.avg, sub: stats.avgN ? `${stats.avgN} dokumen · 30 hari` : "belum ada data", tone: "text-gray-800" },
+        ].map((c) => (
+          <div key={c.label} className="rounded-xl border border-gray-200 bg-white p-3.5">
+            <p className="text-[11px] text-gray-500">{c.label}</p>
+            <p className={`mt-0.5 text-xl font-bold ${c.tone}`}>{c.value}</p>
+            <p className="truncate text-[11px] text-gray-400">{c.sub}</p>
           </div>
-        </div>
+        ))}
+      </div>
+
+      {isApprover && (counts.submitted || 0) > 0 && (
+        <button onClick={() => setStatus("submitted")} className="mb-4 flex w-full items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-800">
+          <span><b>{counts.submitted}</b> dokumen menunggu approval Anda</span><span className="text-xs underline">Lihat</span>
+        </button>
       )}
 
-      {/* ── Detail Modal ──────────────────────────────────────────────────────── */}
-      {showDetailModal && selectedInvoice && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="glass-card rounded-2xl w-full max-w-2xl mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 glass-card rounded-none flex items-center justify-between px-6 py-4 border-b z-10">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base font-bold text-primary">
-                    {selectedInvoice.invoice_number || "—"}
-                  </h2>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                    (selectedInvoice.doc_type || "invoice") === "quotation"
-                      ? "bg-purple-100 text-purple-700"
-                      : "bg-blue-100 text-blue-700"
-                  }`}>
-                    {(selectedInvoice.doc_type || "invoice") === "quotation" ? "Quotation" : "Invoice"}
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500">{selectedInvoice.customer_name}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {canDownloadPdf(selectedInvoice) && user?.invoice_create && (
-                  <>
-                    <Button
-                      size="sm"
-                      icon={Download}
-                      loading={generatingPdf}
-                      onClick={() => previewPdf(selectedInvoice.invoice_id, selectedInvoice.invoice_number)}
-                    >
-                      PDF
-                    </Button>
-                    <Button
-                      size="sm"
-                      icon={FileText}
-                      loading={generatingWord}
-                      className="bg-gray-800 border-gray-800 hover:bg-gray-900"
-                      onClick={() => downloadWord(selectedInvoice.invoice_id, selectedInvoice.invoice_number)}
-                    >
-                      Word
-                    </Button>
-                  </>
-                )}
-                {selectedInvoice.status === "draft" && user?.invoice_create && (
-                  <span className="px-3 py-1.5 bg-gray-100 text-gray-400 rounded text-xs flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                    PDF (Draft)
-                  </span>
-                )}
-                <button onClick={() => setShowDetailModal(false)}
-                  className="w-7 h-7 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {FILTERS.map((f) => (
+          <button key={f.key} onClick={() => setStatus(f.key)} className={`rounded-full border px-3 py-1.5 text-xs ${status === f.key ? "border-gray-800 bg-gray-800 text-white" : "border-gray-200 bg-white text-gray-600"}`}>
+            {f.label} <span className="opacity-60">{counts[f.key] || 0}</span>
+          </button>
+        ))}
+      </div>
+      <div className="mb-3 flex flex-wrap gap-2">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari nomor, customer, pembuat…" className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm md:max-w-sm" />
+        <select value={type} onChange={(e) => setType(e.target.value)} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm">
+          <option value="all">Semua tipe</option>
+          <option value="invoice">Invoice</option>
+          <option value="quotation">Quotation</option>
+        </select>
+      </div>
 
-            <div className="p-6 space-y-5">
-              {/* Meta */}
-              <div className="grid grid-cols-3 gap-4 text-xs">
-                {[
-                  ["Tanggal", selectedInvoice.invoice_date],
-                  ["Status", selectedInvoice.status],
-                  ["Tgl Dibuat", selectedInvoice.created_at?.split("T")[0] || ""],
-                ].map(([k, v]) => (
-                  <div key={k}>
-                    <p className="text-gray-400 mb-0.5">{k}</p>
-                    {k === "Status" ? (
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${statusBadge(v)}`}>
-                        {statusLabel(v)}
-                      </span>
-                    ) : (
-                      <p className="font-semibold text-gray-800">{v}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {selectedInvoice.customer_address && (
-                <div className="text-xs">
-                  <p className="text-gray-400 mb-0.5">Alamat</p>
-                  <p className="text-gray-700">{selectedInvoice.customer_address}</p>
-                </div>
-              )}
-
-              {/* Signature info */}
-              {(selectedInvoice.signature_store || selectedInvoice.signature_pic) && (
-                <div className="text-xs bg-gray-50 border border-gray-200 rounded p-3">
-                  <p className="text-gray-400 mb-1">Tanda Tangan Penerima</p>
-                  {selectedInvoice.signature_store && (
-                    <p className="font-semibold text-primary">{selectedInvoice.signature_store}</p>
-                  )}
-                  {selectedInvoice.signature_pic && (
-                    <p className="text-gray-600">{selectedInvoice.signature_pic}</p>
-                  )}
-                </div>
-              )}
-
-              {/* Items table */}
-              {loadingDetail ? (
-                <div className="text-center py-4 text-xs text-gray-400">Memuat item...</div>
-              ) : (
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-[11px]">
-                    <thead className="glass-table-head">
-                      <tr>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-600">Produk</th>
-                        <th className="px-2 py-1.5 text-center font-semibold text-gray-600">Qty</th>
-                        <th className="px-2 py-1.5 text-right font-semibold text-gray-600">Harga</th>
-                        <th className="px-2 py-1.5 text-right font-semibold text-gray-600">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedItems.map((it, i) => (
-                        <tr key={i} className={`border-b last:border-0 ${i % 2 === 0 ? "row-stripe" : ""}`}>
-                          <td className="px-2 py-1">{it.product_name}</td>
-                          <td className="px-2 py-1 text-center">{it.qty}</td>
-                          <td className="px-2 py-1 text-right">{formatRupiah(it.unit_price)}</td>
-                          <td className="px-2 py-1 text-right font-semibold">{formatRupiah(it.total_price || 0)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* Totals */}
-              <div className="flex justify-end">
-                <div className="w-60 space-y-1.5 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Sub Total</span>
-                    <span className="font-medium">{formatRupiah(selectedInvoice.subtotal)}</span>
-                  </div>
-                  {parseNum(selectedInvoice.tax_percent) > 0 && (
-                    <div className="flex justify-between text-gray-400">
-                      <span>PPN {selectedInvoice.tax_percent}% <span className="text-[10px]">(info)</span></span>
-                      <span>{formatRupiah(selectedInvoice.tax_amount)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between border-t pt-1.5">
-                    <span className="font-bold text-primary">Total Pembayaran</span>
-                    <span className="font-bold text-primary text-sm">{formatRupiah(selectedInvoice.grand_total)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {selectedInvoice.amount_in_words && (
-                <div className="bg-amber-50 border border-amber-200 rounded p-3">
-                  <p className="text-[10px] text-amber-600 font-medium">Terbilang:</p>
-                  <p className="text-xs text-amber-800 italic mt-0.5">{selectedInvoice.amount_in_words}</p>
-                </div>
-              )}
-
-              {/* Status actions */}
-              {user?.invoice_edit && selectedInvoice.status !== "deleted" && (
-                <div className="flex gap-2 flex-wrap">
-                  {selectedInvoice.status === "draft" && (
-                    <Button
-                      size="sm"
-                      icon={Pencil}
-                      className="bg-amber-100 text-amber-700 border-amber-100 hover:bg-amber-200"
-                      onClick={() => openEdit(selectedInvoice, selectedItems)}
-                    >
-                      Edit
-                    </Button>
-                  )}
-
-                  {/* Tombol turun status (Draft/Need Approval) sengaja TIDAK ditampilkan
-                      lagi begitu invoice sudah approved — sebelumnya tombol ini masih
-                      muncul (cuma di-filter beda dari status saat ini) dan sekali klik
-                      diam-diam menurunkan invoice yang sudah approved balik ke Need
-                      Approval, memblokir Word/PDF yang sudah pernah tergenerate. */}
-                  {selectedInvoice.status !== "approved" && [
-                    { status: "draft", label: "→ Draft", cls: "bg-gray-100 text-gray-700 hover:bg-gray-200" },
-                    { status: "submitted", label: "→ Need Approval", cls: "bg-[#FFEB3B] text-amber-800 hover:bg-yellow-300" },
-                  ].filter(s => s.status !== selectedInvoice.status).map(s => (
-                    <button key={s.status} onClick={() => updateStatus(selectedInvoice.invoice_id, s.status)}
-                      className={`px-3 py-1.5 rounded text-xs font-medium ${s.cls}`}>
-                      {s.label}
-                    </button>
-                  ))}
-
-                  {/* Approve — hanya untuk user dengan akses invoice_master, dan hanya
-                      kalau statusnya sedang Need Approval (submitted). Setelah approved,
-                      Word/PDF baru muncul (lihat canDownloadPdf). */}
-                  {user?.invoice_master && selectedInvoice.status === "submitted" && (
-                    <button
-                      onClick={() => updateStatus(selectedInvoice.invoice_id, "approved")}
-                      className="px-3 py-1.5 rounded text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200"
-                    >
-                      ✓ Approve
-                    </button>
-                  )}
-
-                  {user?.invoice_delete && (
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      className="bg-red-100 text-red-600 border-red-100 hover:bg-red-200 ml-auto"
-                      onClick={() => handleDelete(selectedInvoice.invoice_id)}
-                    >
-                      Hapus
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              {!user?.invoice_edit && selectedInvoice.status === "draft" && user?.invoice_create && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs text-yellow-700">
-                  ⏳ Dokumen masih dalam status <strong>Draft</strong>. Word/PDF akan tersedia setelah disubmit dan di-approve oleh tim yang berwenang.
-                </div>
-              )}
-
-              {selectedInvoice.status === "submitted" && !user?.invoice_master && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs text-yellow-700">
-                  ⏳ Dokumen sedang <strong>Need Approval</strong>. Word/PDF akan tersedia setelah di-approve.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Edit Modal ────────────────────────────────────────────────────────── */}
-      {showEditModal && editInvoice && (
-        <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-[60] overflow-y-auto py-6">
-          <div className="glass-card rounded-2xl w-full max-w-3xl mx-4 shadow-2xl">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b">
-              <div>
-                <h2 className="text-base font-bold text-primary">Edit Dokumen</h2>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {editInvoice.invoice_number || "Quotation"} · {editInvoice.customer_name}
-                </p>
-              </div>
-              <button onClick={() => setShowEditModal(false)}
-                className="w-7 h-7 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="p-6 space-y-5">
-
-              {/* ── Customer / Kepada ── */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Kepada <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    value={editCustomerName}
-                    onChange={e => setEditCustomerName(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                    placeholder="Nama customer / toko..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Tanggal</label>
-                    <input
-                      type="date"
-                      value={editDate}
-                      onChange={e => setEditDate(e.target.value)}
-                      className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Alamat Customer</label>
-                    <textarea
-                      value={editCustomerAddress}
-                      onChange={e => setEditCustomerAddress(e.target.value)}
-                      rows={1}
-                      className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-                      placeholder="Alamat lengkap customer"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* ── Items ── */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-semibold text-gray-700">Item Produk</label>
-                  <button onClick={addEditItem} className="text-xs text-primary hover:underline flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Tambah Item
-                  </button>
-                </div>
-
-                <div className="border border-gray-200 rounded-lg overflow-visible">
-                  <table className="w-full text-[11px]">
-                    <thead className="glass-table-head">
-                      <tr>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-600 w-8">#</th>
-                        <th className="px-2 py-1.5 text-left font-semibold text-gray-600">Produk</th>
-                        <th className="px-2 py-1.5 text-center font-semibold text-gray-600 w-16">Qty</th>
-                        <th className="px-2 py-1.5 text-right font-semibold text-gray-600 w-32">Harga Satuan</th>
-                        <th className="px-2 py-1.5 text-right font-semibold text-gray-600 w-28">Total</th>
-                        <th className="w-8"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {editItems.map((item, i) => (
-                        <tr key={i} className="border-b last:border-0">
-                          <td className="px-2 py-1 text-gray-400">{i + 1}</td>
-                          <td className="px-2 py-1 relative">
-                            <input
-                              value={editProductSearch[i] ?? item.product_name}
-                              onChange={e => {
-                                const v = e.target.value;
-                                setEditProductSearch(p => p.map((s, idx) => idx === i ? v : s));
-                                setEditProductQuery(p => p.map((s, idx) => idx === i ? v : s));
-                                setEditProductDropdowns(p => p.map((_, idx) => idx === i ? true : _));
-                                setEditItems(p => p.map((it, idx) => idx === i ? { ...it, product_name: v } : it));
-                              }}
-                              onFocus={() => setEditProductDropdowns(p => p.map((_, idx) => idx === i ? true : _))}
-                              onClick={() => setEditProductDropdowns(p => p.map((_, idx) => idx === i ? true : _))}
-                              onBlur={() => setTimeout(() => setEditProductDropdowns(p => p.map((_, idx) => idx === i ? false : _)), 150)}
-                              className="w-full px-2 py-1 border border-gray-200 rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
-                              placeholder="Cari produk..."
-                            />
-                            {editProductDropdowns[i] && (
-                              <div className="absolute left-0 top-full mt-0.5 z-[200] bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto w-80">
-                                {getFilteredItems(editProductQuery[i]).length === 0 ? (
-                                  <div className="px-3 py-2 text-gray-400 text-center text-[11px]">Tidak ditemukan</div>
-                                ) : (
-                                  getFilteredItems(editProductQuery[i]).map((m, j) => (
-                                    <div
-                                      key={`${j}-${m.SKU}-${m.Product_name}`}
-                                      className="px-3 py-2 hover:bg-primary/10 cursor-pointer text-[11px] border-b last:border-0"
-                                      onMouseDown={() => selectEditProduct(i, m)}
-                                    >
-                                      <div className="font-medium text-gray-800">
-                                        {m.Product_name || "(no name)"}
-                                      </div>
-                                      <div className="text-gray-400 text-[10px] mt-0.5 flex gap-2">
-                                        {m.SKU && <span>{m.SKU}</span>}
-                                        {m.HPJ && <span>{formatRupiah(m.HPJ)}</span>}
-                                      </div>
-                                    </div>
-                                  ))
-                                )}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-2 py-1">
-                            <input
-                              type="number"
-                              min="1"
-                              value={item.qty ?? 1}
-                              onChange={e => setEditItems(p => p.map((it, idx) => idx === i ? { ...it, qty: parseInt(e.target.value) || 1 } : it))}
-                              className="w-full px-2 py-1 border border-gray-200 rounded text-[11px] text-center focus:outline-none focus:ring-1 focus:ring-primary"
-                            />
-                          </td>
-                          <td className="px-2 py-1">
-                            <input
-                              type="number"
-                              min="0"
-                              value={item.unit_price ?? 0}
-                              onChange={e => setEditItems(p => p.map((it, idx) => idx === i ? { ...it, unit_price: parseFloat(e.target.value) || 0 } : it))}
-                              className="w-full px-2 py-1 border border-gray-200 rounded text-[11px] text-right focus:outline-none focus:ring-1 focus:ring-primary"
-                            />
-                          </td>
-                          <td className="px-2 py-1 text-right font-semibold text-gray-700">
-                            {formatRupiah(item.qty * item.unit_price)}
-                          </td>
-                          <td className="px-2 py-1">
-                            {editItems.length > 1 && (
-                              <button onClick={() => removeEditItem(i)} className="text-red-400 hover:text-red-600">
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* ── Totals + Toggles ── */}
-              <div className="flex justify-between items-start">
-                <div className="space-y-2 mt-1">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={editUsePPN}
-                      onChange={e => setEditUsePPN(e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
-                    />
-                    <span className="text-xs font-medium text-gray-700">
-                      Gunakan PPN <span className="font-bold text-primary">11%</span>
-                    </span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={editUseSignature}
-                      onChange={e => setEditUseSignature(e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
-                    />
-                    <span className="text-xs font-medium text-gray-700">
-                      Gunakan tanda tangan &amp; cap
-                    </span>
-                  </label>
-                </div>
-
-                <div className="text-right space-y-1">
-                  <div className="text-xs text-gray-500">
-                    Sub Total: <span className="font-semibold text-gray-800">{formatRupiah(editCalcSubtotal)}</span>
-                  </div>
-                  {editUsePPN && (
-                    <div className="text-xs text-gray-500">
-                      PPN 11% <span className="text-[10px] text-gray-400">(info)</span>:{" "}
-                      <span className="font-semibold text-gray-800">{formatRupiah(editCalcTax)}</span>
-                    </div>
-                  )}
-                  <div className="text-sm font-bold text-primary">
-                    Total: {formatRupiah(editCalcSubtotal)}
-                  </div>
-                </div>
-              </div>
-
-              {/* ── Tanda Tangan Edit ── */}
-              {editUseSignature && (
-                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <svg className="w-3.5 h-3.5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                    <label className="text-xs font-semibold text-gray-700">
-                      Tanda Tangan Penerima (Kanan Bawah PDF)
-                    </label>
-                  </div>
-
-                  <div>
-                    <p className="text-[10px] text-gray-500 mb-1.5">Pilih Toko Penerima</p>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {TORCH_STORES.map((store) => (
-                        <button
-                          key={store}
-                          type="button"
-                          onClick={() => setEditSignatureStore(prev => prev === store ? "" : store)}
-                          className={`px-2 py-1.5 rounded text-[11px] font-medium border text-left truncate transition-all ${
-                            editSignatureStore === store
-                              ? "bg-primary text-white border-primary"
-                              : "bg-white text-gray-600 border-gray-200 hover:border-primary/50 hover:text-primary"
-                          }`}
-                        >
-                          {store}
-                        </button>
-                      ))}
-                    </div>
-                    {editSignatureStore && (
-                      <button
-                        onClick={() => setEditSignatureStore("")}
-                        className="mt-1.5 text-[10px] text-gray-400 hover:text-red-500 underline"
-                      >
-                        Hapus pilihan toko
-                      </button>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-gray-500 mb-1">Nama PIC / Penerima</label>
-                    <input
-                      value={editSignaturePic}
-                      onChange={e => setEditSignaturePic(e.target.value)}
-                      className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-white"
-                      placeholder="Nama lengkap PIC penerima..."
-                    />
-                  </div>
-
-                  {(editSignatureStore || editSignaturePic) && (
-                    <div className="bg-white border border-primary/20 rounded px-3 py-2">
-                      <p className="text-[10px] text-gray-400 mb-0.5">Preview tanda tangan kanan:</p>
-                      <p className="text-xs font-bold text-primary">{editSignatureStore || "—"}</p>
-                      {editSignaturePic && <p className="text-[11px] text-gray-600">{editSignaturePic}</p>}
-                    </div>
-                  )}
-                </div>
-              )}
-
-            </div>
-
-            <div className="flex gap-2 px-6 pb-5">
-              <Button variant="secondary" className="flex-1 justify-center" onClick={() => setShowEditModal(false)}>
-                Batal
-              </Button>
-              <Button className="flex-1 justify-center" onClick={handleEdit} disabled={saving} loading={saving}>
-                Simpan Perubahan
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Master Settings Modal ──────────────────────────────────────────────── */}
-      {showMasterModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="glass-card rounded-2xl w-full max-w-lg mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b">
-              <h2 className="text-base font-bold text-primary">Pengaturan Invoice</h2>
-              <button onClick={() => setShowMasterModal(false)}
-                className="w-7 h-7 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              {[
-                { key: "company_name", label: "Nama Perusahaan", type: "text" },
-                { key: "company_address", label: "Alamat Perusahaan", type: "textarea" },
-                { key: "company_phone", label: "Telepon", type: "text" },
-                { key: "company_email", label: "Email", type: "text" },
-                { key: "header_image_url", label: "URL Gambar Header", type: "text" },
-                { key: "signature_image_url", label: "URL Gambar Tanda Tangan & Cap", type: "text" },
-                { key: "invoice_prefix", label: "Prefix Nomor Invoice", type: "text" },
-                { key: "next_invoice_number", label: "Nomor Invoice Berikutnya", type: "number" },
-              ].map(({ key, label, type }) => (
-                <div key={key}>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>
-                  {type === "textarea" ? (
-                    <textarea
-                      value={(masterForm as any)[key] || ""}
-                      onChange={e => setMasterForm(p => ({ ...p, [key]: e.target.value }))}
-                      rows={2}
-                      className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-                    />
-                  ) : (
-                    <input
-                      type={type}
-                      value={(masterForm as any)[key] || ""}
-                      onChange={e => setMasterForm(p => ({ ...p, [key]: e.target.value }))}
-                      className="w-full px-3 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  )}
-                </div>
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+        {loading ? (
+          <p className="p-8 text-center text-sm text-gray-400">Memuat…</p>
+        ) : shown.length === 0 ? (
+          <p className="p-8 text-center text-sm text-gray-400">Tidak ada dokumen.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="border-b border-gray-100 bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+              <tr>
+                <th className="px-4 py-2.5">Dokumen</th>
+                <th className="px-4 py-2.5">Customer</th>
+                <th className="px-4 py-2.5">Tanggal</th>
+                <th className="px-4 py-2.5 text-right">Total</th>
+                <th className="px-4 py-2.5">Status</th>
+                {isApprover && <th className="px-4 py-2.5">Pembuat</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((d) => (
+                <tr key={d.invoice_id} onClick={() => router.push(`/invoice/${d.invoice_id}`)} className="cursor-pointer border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-gray-800">{d.doc_type === "quotation" ? "Quotation" : d.invoice_number || "—"}</p>
+                    <p className="text-[11px] text-gray-400">{docLabel(d.doc_type)}</p>
+                  </td>
+                  <td className="px-4 py-3 text-gray-700">{d.customer_name}</td>
+                  <td className="px-4 py-3 text-gray-500">{fmtDate(d.invoice_date)}</td>
+                  <td className="px-4 py-3 text-right font-medium text-gray-800">{rupiah(d.grand_total)}</td>
+                  <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
+                  {isApprover && <td className="px-4 py-3 text-gray-500">{d.created_by || "—"}</td>}
+                </tr>
               ))}
-            </div>
+            </tbody>
+          </table>
+        )}
+      </div>
 
-            <div className="flex gap-2 px-6 pb-5">
-              <Button variant="secondary" className="flex-1 justify-center" onClick={() => setShowMasterModal(false)}>
-                Batal
-              </Button>
-              <Button className="flex-1 justify-center" onClick={saveMaster} disabled={saving} loading={saving}>
-                Simpan
-              </Button>
-            </div>
+      {pages > 1 && (
+        <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
+          <span>{(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filtered.length)} dari {filtered.length}</span>
+          <div className="flex gap-1">
+            <button disabled={page === 1} onClick={() => setPage(page - 1)} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 disabled:opacity-40">Sebelumnya</button>
+            <button disabled={page === pages} onClick={() => setPage(page + 1)} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 disabled:opacity-40">Berikutnya</button>
           </div>
         </div>
       )}
 
-      {/* ── PDF Preview Modal ─────────────────────────────────────────────────── */}
-      {showPdfPreview && pdfPreviewUrl && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70]">
-          <div
-            className="glass-card rounded-2xl shadow-2xl w-full max-w-4xl mx-4 flex flex-col"
-            style={{ height: "90vh" }}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b shrink-0">
-              <div>
-                <h2 className="text-sm font-bold text-primary">Preview PDF</h2>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Invoice #{previewInvoiceNumber} · Periksa sebelum download
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button size="sm" icon={Download} onClick={downloadPdf}>
-                  Download PDF
-                </Button>
-                <button
-                  onClick={closePdfPreview}
-                  className="w-7 h-7 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* iframe */}
-            <iframe
-              src={pdfPreviewUrl}
-              className="flex-1 w-full rounded-b-xl"
-              title="PDF Preview"
-            />
-          </div>
-        </div>
+      {showMaster && (
+        <MasterSettingsModal
+          initial={master}
+          onClose={() => setShowMaster(false)}
+          onSave={async (m) => {
+            const r = await fetch("/api/invoice/master", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(m) });
+            if (!r.ok) { setToast({ msg: "Gagal menyimpan pengaturan", type: "error" }); return; }
+            setShowMaster(false);
+            setToast({ msg: "Pengaturan disimpan", type: "success" });
+            load();
+          }}
+        />
       )}
-
-      <Popup show={showPopup} message={popupMessage} type={popupType} onClose={() => setShowPopup(false)} />
+      <Popup show={!!toast} message={toast?.msg || ""} type={toast?.type || "success"} onClose={() => setToast(null)} />
     </div>
   );
 }
