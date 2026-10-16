@@ -9,6 +9,8 @@ export interface InvoiceDoc {
   subtotal: number; tax_percent: number; tax_amount: number; grand_total: number; amount_in_words: string;
   status: "draft" | "submitted" | "approved" | "void" | "deleted";
   tax_mode?: string;
+  item_count?: number;
+  qty_total?: number;
   use_signature: boolean; signature_store: string; signature_pic: string;
   created_by: string; created_at: string; updated_by: string; updated_at: string;
   submitted_by: string; submitted_at: string | null; approved_by: string; approved_at: string | null;
@@ -38,6 +40,19 @@ export const fmtDateTime = (s: string | null | undefined) => {
   if (!s) return "-";
   const d = new Date(s);
   return isNaN(d.getTime()) ? String(s) : d.toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" });
+};
+// "3 jam lalu", "kemarin", "5 hari lalu" — untuk keterangan singkat di daftar
+export const ago = (s: string | null | undefined) => {
+  if (!s) return "";
+  const t = new Date(s).getTime();
+  if (isNaN(t)) return "";
+  const m = Math.max(0, Math.round((Date.now() - t) / 60000));
+  if (m < 2) return "baru saja";
+  if (m < 60) return `${m} menit lalu`;
+  if (m < 60 * 24) return `${Math.floor(m / 60)} jam lalu`;
+  if (m < 60 * 24 * 2) return "kemarin";
+  if (m < 60 * 24 * 30) return `${Math.floor(m / 1440)} hari lalu`;
+  return fmtDate(s);
 };
 export const docLabel = (t: string) => (t === "quotation" ? "Quotation" : "Invoice");
 
@@ -91,7 +106,7 @@ export function StatusStepper({ status }: { status: string }) {
 
 const ACTION_TEXT: Record<string, string> = {
   created: "Dibuat", updated: "Diubah", submitted: "Diajukan (Need Approval)", submit: "Diajukan (Need Approval)",
-  recall: "Ditarik kembali ke Draft", approve: "Di-approve", reject: "Dikembalikan ke Draft (Reject)", void: "Di-void",
+  recall: "Ditarik kembali ke Draft", approve: "Di-approve", restore: "Dikembalikan ke Approved (dari Void)", reject: "Dikembalikan ke Draft (Reject)", void: "Di-void",
   delete: "Dihapus", migrated: "Dipindahkan dari spreadsheet",
 };
 export function EventTimeline({ events }: { events: InvoiceEvent[] }) {

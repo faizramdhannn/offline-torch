@@ -125,6 +125,7 @@ export const RULES: Rule[] = [
   need("/api/invoice", ["invoice_create", "invoice_edit", "invoice_approval"], ["POST", "PUT"]),
   need("/api/invoice", ["invoice_delete", "invoice_approval"], ["DELETE"]),
   need("/api/invoice/action", ["invoice"], ["POST"]), // izin per-aksi & kepemilikan dicek di route (invoiceFlow)
+  need("/api/invoice/pic", ["invoice"], ["GET"]),     // daftar Nama PIC (dari master Survey Store)
   need("/api/invoice/pdf", ["invoice"], ["POST"]),    // hanya Approved & hanya yang boleh melihat dokumen (dicek di route)
   need("/api/invoice/word", ["invoice"], ["POST"]),
   need("/api/invoice/master", ["invoice_master"], ["POST"]),

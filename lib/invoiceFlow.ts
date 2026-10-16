@@ -1,10 +1,10 @@
 // Alur dokumen Invoice/Quotation ala ERP — murni (tanpa DB) supaya bisa dipakai server, UI, dan tes.
 //
-//   Draft ──submit──► Need Approval ──approve──► Approved ──void──► Void
+//   Draft ──submit──► Need Approval ──approve──► Approved ──void──► Void ──restore (Super Admin)──► Approved
 //     ▲                    │
 //     └──── reject / recall┘            (Draft yang dihapus → Deleted, tersembunyi)
 export type InvoiceStatus = "draft" | "submitted" | "approved" | "void" | "deleted";
-export type InvoiceAction = "submit" | "recall" | "approve" | "reject" | "void" | "delete";
+export type InvoiceAction = "submit" | "recall" | "approve" | "reject" | "void" | "restore" | "delete";
 
 export const STATUS_LABEL: Record<string, string> = {
   draft: "Draft",
@@ -70,6 +70,11 @@ export function transition(doc: DocLike, action: InvoiceAction, a: Actor, note =
       if (!a.isApprover) return deny("Anda tidak punya izin approval");
       if (!note.trim()) return deny("Alasan void wajib diisi");
       return { ok: true, to: "void" };
+    case "restore":
+      if (st !== "void") return deny("Hanya dokumen Void yang bisa dikembalikan ke Approved");
+      if (!a.isSuperAdmin) return deny("Hanya Super Admin yang bisa mengembalikan dokumen Void");
+      if (!note.trim()) return deny("Alasan pengembalian wajib diisi");
+      return { ok: true, to: "approved" };
     case "delete":
       if (st !== "draft") return deny("Hanya dokumen Draft yang bisa dihapus (dokumen lain: gunakan Void)");
       if (!a.isApprover && !(owner && a.canDelete)) return deny("Anda tidak punya izin menghapus dokumen ini");
@@ -79,6 +84,6 @@ export function transition(doc: DocLike, action: InvoiceAction, a: Actor, note =
 
 // Aksi yang tersedia untuk dokumen ini bagi user ini (dipakai UI untuk menampilkan tombol; server tetap memeriksa ulang).
 export function availableActions(doc: DocLike, a: Actor): InvoiceAction[] {
-  const all: InvoiceAction[] = ["submit", "recall", "approve", "reject", "void", "delete"];
+  const all: InvoiceAction[] = ["submit", "recall", "approve", "reject", "void", "restore", "delete"];
   return all.filter((x) => transition(doc, x, a, "x").ok);
 }

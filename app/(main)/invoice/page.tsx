@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import Popup from "@/components/Popup";
 import MasterSettingsModal from "@/components/invoice/MasterSettingsModal";
-import { StatusBadge, docLabel, fmtDate, rupiah, type InvoiceDoc, type MasterInvoice } from "@/components/invoice/shared";
+import { StatusBadge, ago, docLabel, fmtDate, rupiah, type InvoiceDoc, type MasterInvoice } from "@/components/invoice/shared";
 
 // Daftar Invoice/Quotation. Tanpa izin invoice_approval, server hanya mengirim dokumen buatan user itu sendiri.
 const FILTERS: { key: string; label: string }[] = [
@@ -169,25 +169,54 @@ export default function InvoicePage() {
                 <th className="px-4 py-2.5">Dokumen</th>
                 <th className="px-4 py-2.5">Customer</th>
                 <th className="px-4 py-2.5">Tanggal</th>
+                <th className="px-4 py-2.5">Toko / PIC</th>
+                <th className="px-4 py-2.5">Item</th>
                 <th className="px-4 py-2.5 text-right">Total</th>
                 <th className="px-4 py-2.5">Status</th>
                 {isApprover && <th className="px-4 py-2.5">Pembuat</th>}
               </tr>
             </thead>
             <tbody>
-              {shown.map((d) => (
-                <tr key={d.invoice_id} onClick={() => router.push(`/invoice/${d.invoice_id}`)} className="cursor-pointer border-b border-gray-50 last:border-0 hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-gray-800">{d.doc_type === "quotation" ? "Quotation" : d.invoice_number || "—"}</p>
-                    <p className="text-[11px] text-gray-400">{docLabel(d.doc_type)}</p>
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">{d.customer_name}</td>
-                  <td className="px-4 py-3 text-gray-500">{fmtDate(d.invoice_date)}</td>
-                  <td className="px-4 py-3 text-right font-medium text-gray-800">{rupiah(d.grand_total)}</td>
-                  <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
-                  {isApprover && <td className="px-4 py-3 text-gray-500">{d.created_by || "—"}</td>}
-                </tr>
-              ))}
+              {shown.map((d) => {
+                // keterangan di bawah status: siapa/kapan langkah terakhir
+                const statusNote =
+                  d.status === "submitted" ? `diajukan ${ago(d.submitted_at)}${d.submitted_by ? ` oleh ${d.submitted_by}` : ""}`
+                  : d.status === "approved" ? (d.approved_by && d.approved_by !== "(migrasi)" ? `oleh ${d.approved_by} · ${ago(d.approved_at)}` : fmtDate(d.approved_at))
+                  : d.status === "void" ? `oleh ${d.voided_by || "approver"} · ${ago(d.voided_at)}`
+                  : d.reject_note ? "dikembalikan — perlu revisi" : `diubah ${ago(d.updated_at)}`;
+                return (
+                  <tr key={d.invoice_id} onClick={() => router.push(`/invoice/${d.invoice_id}`)} className="cursor-pointer border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-gray-800">{d.doc_type === "quotation" ? "Quotation" : d.invoice_number || "—"}</p>
+                      <p className="text-[11px] text-gray-400">{docLabel(d.doc_type)}{d.tax_percent > 0 ? ` · PPN ${d.tax_percent}%` : ""}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-gray-800">{d.customer_name}</p>
+                      {d.customer_address && <p className="max-w-[240px] truncate text-[11px] text-gray-400">{d.customer_address.trim()}</p>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-gray-700">{fmtDate(d.invoice_date)}</p>
+                      <p className="text-[11px] text-gray-400">dibuat {ago(d.created_at)}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      {d.signature_store ? (<><p className="text-gray-700">{d.signature_store}</p>{d.signature_pic && <p className="text-[11px] text-gray-400">{d.signature_pic}</p>}</>) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-gray-700">{d.item_count ?? 0} item</p>
+                      <p className="text-[11px] text-gray-400">{Math.round(d.qty_total ?? 0)} pcs</p>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <p className="font-medium text-gray-800">{rupiah(d.grand_total)}</p>
+                      {d.tax_percent > 0 && d.tax_mode === "inclusive" && <p className="text-[11px] text-gray-400">DPP {rupiah(d.subtotal)}</p>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={d.status} />
+                      <p className={`mt-1 text-[11px] ${d.status === "draft" && d.reject_note ? "text-red-500" : "text-gray-400"}`}>{statusNote}</p>
+                    </td>
+                    {isApprover && <td className="px-4 py-3 text-gray-500">{d.created_by || "—"}</td>}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

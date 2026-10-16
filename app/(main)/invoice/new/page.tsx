@@ -19,6 +19,8 @@ export default function NewInvoicePage() {
   const [items, setItems] = useState<MasterItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [lockedStore, setLockedStore] = useState<string | undefined>();
+  useEffect(() => { try { const u = JSON.parse(localStorage.getItem("user") || "{}"); if (u.role === "store" || u.role === "merchant") setLockedStore(u.name); } catch {} }, []);
 
   useEffect(() => {
     const raw = localStorage.getItem("user");
@@ -65,7 +67,7 @@ export default function NewInvoicePage() {
   return (
     <div className="p-4 md:p-6">
       <div className="mb-4"><Link href="/invoice" className="text-xs text-gray-500 hover:underline">← Kembali</Link><h1 className="mt-1 text-xl font-bold text-primary">{fromLabel ? "Invoice dari Quotation" : "Dokumen baru"}</h1>{fromLabel && <p className="mt-1 text-xs text-gray-500">Isi disalin dari Quotation {fromLabel}. Lengkapi nomor invoice, periksa isinya, lalu simpan sebagai Draft.</p>}</div>
-      <InvoiceForm key={fromLabel || "new"} mode="create" initial={initial} master={master} masterItems={items} saving={saving} error={error} onSave={save} onCancel={() => router.push("/invoice")} />
+      <InvoiceForm lockedStore={lockedStore} key={fromLabel || "new"} mode="create" initial={initial} master={master} masterItems={items} saving={saving} error={error} onSave={save} onCancel={() => router.push("/invoice")} />
     </div>
   );
 }

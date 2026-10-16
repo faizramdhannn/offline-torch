@@ -12,6 +12,11 @@ export const dynamic = 'force-dynamic';
 // Invoice & Quotation (Neon). Alur: Draft → Need Approval → Approved (→ Void). Aturan akses di lib/invoiceFlow.ts:
 //  - tanpa izin invoice_approval, user HANYA melihat dokumen buatannya sendiri (ditegakkan di query/server);
 //  - edit hanya saat Draft; perpindahan status lewat POST /api/invoice/action.
+// Akun Store/Merchant: toko penanda tangan DIKUNCI ke toko akunnya (nama akun, mis. "Torch Cirebon"); akun lain bebas memilih.
+function lockSignatureStore(u: { role: string; name: string }, v: { use_signature: boolean; signature_store: string }) {
+  if (u.role === 'store' || u.role === 'merchant') v.signature_store = v.use_signature ? u.name : '';
+}
+
 async function me(request: NextRequest) {
   const user = await sessionUser(request);
   return user ? { user, actor: actorOf(user) } : null;
@@ -44,6 +49,7 @@ export async function POST(request: NextRequest) {
     if (!m) return NextResponse.json({ error: 'Sesi tidak valid' }, { status: 401 });
     const n = normalizeInput(await request.json().catch(() => ({})));
     if (!n.ok) return NextResponse.json({ error: n.error }, { status: 400 });
+    lockSignatureStore(m.user, n.v);
     if (n.v.doc_type === 'invoice' && (await numberTaken(n.v.invoice_number))) {
       return NextResponse.json({ error: `Nomor ${n.v.invoice_number} sudah dipakai dokumen lain` }, { status: 409 });
     }
@@ -70,6 +76,7 @@ export async function PUT(request: NextRequest) {
     }
     const n = normalizeInput(body);
     if (!n.ok) return NextResponse.json({ error: n.error }, { status: 400 });
+    lockSignatureStore(m.user, n.v);
     if (n.v.doc_type === 'invoice' && (await numberTaken(n.v.invoice_number, id))) {
       return NextResponse.json({ error: `Nomor ${n.v.invoice_number} sudah dipakai dokumen lain` }, { status: 409 });
     }

@@ -61,7 +61,7 @@ function ProductPicker({ value, items, onChange, onPick }: { value: string; item
 }
 
 export default function InvoiceForm({
-  mode, initial, master, masterItems, saving, error, onSave, onCancel,
+  mode, initial, master, masterItems, saving, error, lockedStore, onSave, onCancel,
 }: {
   mode: "create" | "edit";
   initial?: Partial<InvoiceFormValues>;
@@ -69,6 +69,7 @@ export default function InvoiceForm({
   masterItems: MasterItem[];
   saving: boolean;
   error?: string;
+  lockedStore?: string; // akun Store/Merchant: toko penanda tangan dikunci ke toko akunnya
   onSave: (v: InvoiceFormValues) => void;
   onCancel: () => void;
 }) {
@@ -80,8 +81,17 @@ export default function InvoiceForm({
   const [address, setAddress] = useState(initial?.customer_address || "");
   const [usePPN, setUsePPN] = useState(initial ? (initial.tax_percent || 0) > 0 : !!master.default_use_ppn);
   const [useSign, setUseSign] = useState(initial ? !!initial.use_signature : !!master.default_use_signature);
-  const [signStore, setSignStore] = useState(initial?.signature_store || "");
+  const [signStore, setSignStore] = useState(lockedStore || initial?.signature_store || "");
   const [signPic, setSignPic] = useState(initial?.signature_pic || "");
+  useEffect(() => { if (lockedStore) setSignStore(lockedStore); }, [lockedStore]);
+  const [picMap, setPicMap] = useState<Record<string, string[]>>({});
+  const [picManual, setPicManual] = useState(false);
+  useEffect(() => {
+    fetch("/api/invoice/pic").then((r) => r.json()).then((d) => setPicMap(d.pics || {})).catch(() => {});
+  }, []);
+  // "Torch Lembong" → kunci "lembong" (store_location di master Survey Store)
+  const picOptions = picMap[signStore.replace(/^torch\s+/i, "").trim().toLowerCase()] || [];
+  const picInList = !signPic || picOptions.includes(signPic);
   const [lines, setLines] = useState<InvoiceLine[]>(initial?.items?.length ? initial.items.map((l) => ({ ...l })) : [blankLine()]);
 
   // Harga barang sudah termasuk PPN: dengan PPN dicentang, dokumen menampilkan harga tanpa PPN (DPP) + PPN; total tetap.
@@ -189,14 +199,26 @@ export default function InvoiceForm({
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
                 <label className={label}>Toko penanda tangan</label>
-                <select value={signStore} onChange={(e) => setSignStore(e.target.value)} className={input}>
+                <select value={signStore} onChange={(e) => { setSignStore(e.target.value); setSignPic(""); setPicManual(false); }} disabled={!!lockedStore} className={`${input} disabled:bg-gray-50 disabled:text-gray-500`}>
                   <option value="">— pilih toko —</option>
-                  {TORCH_STORES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  {(lockedStore && !TORCH_STORES.includes(lockedStore) ? [lockedStore, ...TORCH_STORES] : TORCH_STORES).map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
+                {lockedStore && <p className="mt-1 text-[11px] text-gray-400">Dikunci ke toko akun Anda.</p>}
               </div>
               <div>
                 <label className={label}>Nama PIC</label>
-                <input value={signPic} onChange={(e) => setSignPic(e.target.value)} className={input} />
+                {picManual || !picInList || picOptions.length === 0 ? (
+                  <>
+                    <input value={signPic} onChange={(e) => setSignPic(e.target.value)} placeholder={picOptions.length ? "Ketik nama PIC" : signStore ? "Belum ada daftar PIC toko ini, ketik manual" : "Pilih toko dulu"} className={input} />
+                    {picOptions.length > 0 && <button type="button" onClick={() => { setPicManual(false); setSignPic(""); }} className="mt-1 text-[11px] text-gray-500 underline">Pilih dari daftar</button>}
+                  </>
+                ) : (
+                  <select value={signPic} onChange={(e) => (e.target.value === "__manual__" ? (setPicManual(true), setSignPic("")) : setSignPic(e.target.value))} className={input}>
+                    <option value="">— pilih PIC —</option>
+                    {picOptions.map((n) => <option key={n} value={n}>{n}</option>)}
+                    <option value="__manual__">Lainnya (ketik manual)…</option>
+                  </select>
+                )}
               </div>
             </div>
           )}

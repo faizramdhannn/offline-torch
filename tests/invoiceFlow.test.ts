@@ -37,6 +37,13 @@ describe("alur Draft → Need Approval → Approved", () => {
     expect(transition(doc("approved"), "void", approver, "salah customer")).toEqual({ ok: true, to: "void" });
     expect(transition(doc("approved"), "void", store, "x").ok).toBe(false);
   });
+  it("restore: Void → Approved hanya Super Admin dengan alasan", () => {
+    const sa = { ...approver, isSuperAdmin: true };
+    expect(transition(doc("void"), "restore", sa, "salah void")).toEqual({ ok: true, to: "approved" });
+    expect(transition(doc("void"), "restore", sa, "").ok).toBe(false);
+    expect(transition(doc("void"), "restore", approver, "x").ok).toBe(false);
+    expect(transition(doc("approved"), "restore", sa, "x").ok).toBe(false);
+  });
   it("tarik kembali hanya oleh pembuat saat Need Approval", () => {
     expect(transition(doc("submitted"), "recall", store)).toEqual({ ok: true, to: "draft" });
     expect(transition(doc("submitted"), "recall", other).ok).toBe(false);

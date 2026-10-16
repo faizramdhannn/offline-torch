@@ -120,13 +120,16 @@ export interface InvoiceRow {
 }
 export interface ItemRow { item_id: number; invoice_id: string; line_no: number; product_name: string; variant: string; qty: number; unit_price: number; total_price: number }
 
-export async function listInvoices(actor: Actor): Promise<InvoiceRow[]> {
+export async function listInvoices(actor: Actor): Promise<(InvoiceRow & { item_count: number; qty_total: number })[]> {
   await ensureInvoiceSchema();
   // Approver melihat semua; selain itu hanya dokumen buatannya sendiri (ditegakkan di query, bukan di UI).
+  const EXTRA = `,
+    (SELECT count(*)::int FROM invoice_items i WHERE i.invoice_id = invoices.invoice_id) AS item_count,
+    (SELECT COALESCE(sum(qty), 0)::float8 FROM invoice_items i WHERE i.invoice_id = invoices.invoice_id) AS qty_total`;
   const rows = actor.isApprover
-    ? await sql(`SELECT ${SELECT_INVOICE} FROM invoices WHERE status <> 'deleted' ORDER BY created_at DESC`)
-    : await sql(`SELECT ${SELECT_INVOICE} FROM invoices WHERE status <> 'deleted' AND created_by = $1 ORDER BY created_at DESC`, [actor.userName]);
-  return rows as InvoiceRow[];
+    ? await sql(`SELECT ${SELECT_INVOICE}${EXTRA} FROM invoices WHERE status <> 'deleted' ORDER BY created_at DESC`)
+    : await sql(`SELECT ${SELECT_INVOICE}${EXTRA} FROM invoices WHERE status <> 'deleted' AND created_by = $1 ORDER BY created_at DESC`, [actor.userName]);
+  return rows as (InvoiceRow & { item_count: number; qty_total: number })[];
 }
 
 export async function getInvoice(id: string): Promise<InvoiceRow | null> {
@@ -279,6 +282,9 @@ export async function applyTransition(id: string, action: InvoiceAction, from: s
     await sql`UPDATE invoices SET status = ${to}, reject_note = ${note.slice(0, 500)}, rejected_by = ${by}, rejected_at = now(), updated_by = ${by}, updated_at = now() WHERE invoice_id = ${id}`;
   } else if (action === "void") {
     await sql`UPDATE invoices SET status = ${to}, void_note = ${note.slice(0, 500)}, voided_by = ${by}, voided_at = now(), updated_by = ${by}, updated_at = now() WHERE invoice_id = ${id}`;
+  } else if (action === "restore") {
+    // Void → Approved (Super Admin): jejak void tetap ada di riwayat; kolom void dikosongkan agar tampilan tidak menyesatkan
+    await sql`UPDATE invoices SET status = ${to}, void_note = '', voided_by = '', voided_at = NULL, updated_by = ${by}, updated_at = now() WHERE invoice_id = ${id}`;
   } else if (action === "delete") {
     await sql`UPDATE invoices SET status = ${to}, updated_by = ${by}, updated_at = now() WHERE invoice_id = ${id}`;
   }

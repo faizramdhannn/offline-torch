@@ -38,6 +38,7 @@ describe("aturan akses /api", () => {
 
   it("prefix terpanjang menang", () => {
     expect(rule("/api/invoice/master", "POST").any).toEqual(["invoice_master"]);
+    expect(rule("/api/invoice/pic", "GET").any).toEqual(["invoice"]);
     expect(rule("/api/invoice/master", "GET").any).toEqual(["invoice"]);
     expect(rule("/api/customer/badges", "GET").any).toEqual([]);
     expect(rule("/api/customer/badges", "POST").any).toEqual(["customer"]);

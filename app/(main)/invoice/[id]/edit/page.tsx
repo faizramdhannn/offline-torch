@@ -18,6 +18,8 @@ export default function EditInvoicePage() {
   const [items, setItems] = useState<MasterItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [lockedStore, setLockedStore] = useState<string | undefined>();
+  useEffect(() => { try { const u = JSON.parse(localStorage.getItem("user") || "{}"); if (u.role === "store" || u.role === "merchant") setLockedStore(u.name); } catch {} }, []);
 
   useEffect(() => {
     if (!localStorage.getItem("user")) { router.push(`/login?next=/invoice/${id}/edit`); return; }
@@ -60,7 +62,7 @@ export default function EditInvoicePage() {
   return (
     <div className="p-4 md:p-6">
       <div className="mb-4"><Link href={`/invoice/${id}`} className="text-xs text-gray-500 hover:underline">← Kembali</Link><h1 className="mt-1 text-xl font-bold text-primary">Ubah dokumen</h1>{doc.status !== "draft" && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">Dokumen berstatus <b>{doc.status === "submitted" ? "Need Approval" : doc.status === "void" ? "Void" : "Approved"}</b>. Perubahan Anda langsung berlaku dan tercatat di riwayat{doc.status === "approved" ? "; PDF/Word yang dibuat ulang akan memakai isi terbaru" : ""}.</p>}</div>
-      <InvoiceForm mode="edit" initial={{ ...doc, items: doc.items }} master={master} masterItems={items} saving={saving} error={error} onSave={save} onCancel={() => router.push(`/invoice/${id}`)} />
+      <InvoiceForm lockedStore={lockedStore} mode="edit" initial={{ ...doc, items: doc.items }} master={master} masterItems={items} saving={saving} error={error} onSave={save} onCancel={() => router.push(`/invoice/${id}`)} />
     </div>
   );
 }

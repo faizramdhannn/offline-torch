@@ -10,7 +10,7 @@ import {
   rupiahDec, type InvoiceDoc, type InvoiceEvent, type InvoiceLine,
 } from "@/components/invoice/shared";
 
-type Action = "submit" | "recall" | "approve" | "reject" | "void" | "delete";
+type Action = "submit" | "recall" | "approve" | "reject" | "void" | "restore" | "delete";
 interface Detail { invoice: InvoiceDoc; items: (InvoiceLine & { total_price: number })[]; events: InvoiceEvent[]; actions: Action[]; can_edit: boolean }
 
 // Halaman dokumen ala ERP: status + alur, aksi sesuai peran, isi dokumen, dan riwayat.
@@ -21,7 +21,7 @@ export default function InvoiceDocumentPage() {
   const [d, setD] = useState<Detail | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "missing">("loading");
   const [busy, setBusy] = useState("");
-  const [noteFor, setNoteFor] = useState<"reject" | "void" | null>(null);
+  const [noteFor, setNoteFor] = useState<"reject" | "void" | "restore" | null>(null);
   const [note, setNote] = useState("");
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -54,7 +54,7 @@ export default function InvoiceDocumentPage() {
       if (!r.ok) { setToast({ msg: j.error || "Gagal", type: "error" }); return; }
       setNoteFor(null);
       setNote("");
-      setToast({ msg: { submit: "Diajukan ke approver", recall: "Ditarik kembali ke Draft", approve: "Dokumen di-approve", reject: "Dikembalikan ke Draft", void: "Dokumen di-void" }[action] || "Berhasil", type: "success" });
+      setToast({ msg: { submit: "Diajukan ke approver", recall: "Ditarik kembali ke Draft", approve: "Dokumen di-approve", reject: "Dikembalikan ke Draft", void: "Dokumen di-void", restore: "Dokumen dikembalikan ke Approved" }[action] || "Berhasil", type: "success" });
       await load();
     } finally {
       setBusy("");
@@ -123,6 +123,7 @@ export default function InvoiceDocumentPage() {
           {has("delete") && <button disabled={!!busy} onClick={() => confirm("Hapus draft ini?") && act("delete")} className={`${ghost} text-red-600`}>Hapus</button>}
           {has("reject") && <button disabled={!!busy} onClick={() => setNoteFor("reject")} className={`${ghost} text-red-600`}>Reject</button>}
           {has("void") && <button disabled={!!busy} onClick={() => setNoteFor("void")} className={`${ghost} text-red-600`}>Void</button>}
+          {has("restore") && <button disabled={!!busy} onClick={() => setNoteFor("restore")} className={`${btn} bg-green-600 text-white hover:bg-green-700`}>Kembalikan ke Approved</button>}
           {inv.doc_type === "quotation" && inv.status === "approved" && canCreate && <Link href={`/invoice/new?from=${id}`} className={ghost}>Jadikan Invoice</Link>}
           {has("submit") && <button disabled={!!busy} onClick={() => confirm("Ajukan dokumen ini untuk di-approve? Setelah diajukan, dokumen tidak bisa diubah.") && act("submit")} className={solid}>Ajukan (Need Approval)</button>}
           {has("approve") && <button disabled={!!busy} onClick={() => confirm("Approve dokumen ini?") && act("approve")} className={`${btn} bg-green-600 text-white hover:bg-green-700`}>Approve</button>}
@@ -219,6 +220,7 @@ export default function InvoiceDocumentPage() {
         {has("delete") && <button disabled={!!busy} onClick={() => confirm("Hapus draft ini?") && act("delete")} className={`${ghost} flex-1 text-red-600`}>Hapus</button>}
         {has("reject") && <button disabled={!!busy} onClick={() => setNoteFor("reject")} className={`${ghost} flex-1 text-red-600`}>Reject</button>}
         {has("void") && <button disabled={!!busy} onClick={() => setNoteFor("void")} className={`${ghost} flex-1 text-red-600`}>Void</button>}
+        {has("restore") && <button disabled={!!busy} onClick={() => setNoteFor("restore")} className={`${btn} flex-1 bg-green-600 text-white`}>Kembalikan ke Approved</button>}
         {has("submit") && <button disabled={!!busy} onClick={() => confirm("Ajukan dokumen ini untuk di-approve? Setelah diajukan, dokumen tidak bisa diubah.") && act("submit")} className={`${solid} flex-1`}>Ajukan</button>}
         {has("approve") && <button disabled={!!busy} onClick={() => confirm("Approve dokumen ini?") && act("approve")} className={`${btn} flex-1 bg-green-600 text-white`}>Approve</button>}
       </div>
@@ -226,12 +228,12 @@ export default function InvoiceDocumentPage() {
       {noteFor && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={() => setNoteFor(null)}>
           <div className="w-full max-w-md rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="mb-1 text-sm font-semibold text-gray-800">{noteFor === "reject" ? "Reject (kembalikan ke Draft)" : "Void dokumen"}</h3>
-            <p className="mb-3 text-xs text-gray-500">{noteFor === "reject" ? "Tim toko akan melihat alasan ini, memperbaiki, lalu mengajukan ulang." : "Dokumen Approved dibatalkan permanen; nomor tetap tercatat dan tidak bisa dipakai ulang."}</p>
+            <h3 className="mb-1 text-sm font-semibold text-gray-800">{noteFor === "reject" ? "Reject (kembalikan ke Draft)" : noteFor === "restore" ? "Kembalikan ke Approved" : "Void dokumen"}</h3>
+            <p className="mb-3 text-xs text-gray-500">{noteFor === "reject" ? "Tim toko akan melihat alasan ini, memperbaiki, lalu mengajukan ulang." : noteFor === "restore" ? "Dokumen Void menjadi Approved lagi (PDF/Word tersedia kembali). Riwayat void tetap tercatat." : "Dokumen Approved dibatalkan; nomor tetap tercatat. Hanya Super Admin yang bisa mengembalikannya."}</p>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={500} placeholder="Alasan (wajib)" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
             <div className="mt-4 flex justify-end gap-2">
               <button onClick={() => setNoteFor(null)} className="rounded-lg px-4 py-2 text-xs text-gray-500 hover:bg-gray-100">Batal</button>
-              <button disabled={!note.trim() || !!busy} onClick={() => act(noteFor, note.trim())} className="rounded-lg bg-red-600 px-5 py-2 text-xs font-medium text-white disabled:opacity-50">{noteFor === "reject" ? "Reject" : "Void"}</button>
+              <button disabled={!note.trim() || !!busy} onClick={() => act(noteFor, note.trim())} className={`rounded-lg px-5 py-2 text-xs font-medium text-white disabled:opacity-50 ${noteFor === "restore" ? "bg-green-600" : "bg-red-600"}`}>{noteFor === "reject" ? "Reject" : noteFor === "restore" ? "Kembalikan" : "Void"}</button>
             </div>
           </div>
         </div>
