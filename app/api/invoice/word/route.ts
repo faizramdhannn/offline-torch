@@ -340,7 +340,7 @@ export async function POST(request: NextRequest) {
     const totalRows: TableRow[] = [totalRow('SubTotal', formatRupiah(invoice.subtotal))];
     if (hasPPN) {
       totalRows.push(totalRow(
-        `PPN ${invoice.tax_percent}% (info)`,
+        "PPN (info)",
         formatRupiah(invoice.tax_amount)
       ));
     }

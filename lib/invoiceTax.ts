@@ -12,8 +12,10 @@ export function taxBreakdown(items: TaxLineIn[], taxPercent: number): TaxBreakdo
     const qty = Number(it.qty) || 0;
     const total_incl = Math.round(qty * (Number(it.unit_price) || 0));
     if (rate <= 0) return { total_incl, total_excl: total_incl, unit_excl: Number(it.unit_price) || 0 };
-    const total_excl = Math.round((total_incl * 100) / (100 + rate));
-    return { total_incl, total_excl, unit_excl: qty > 0 ? total_excl / qty : 0 };
+    // Harga satuan tanpa PPN dihitung dari harga satuan (bukan total ÷ qty) supaya harga sama → angka sama, berapa pun qty-nya
+    const unit_excl = Math.round(((Number(it.unit_price) || 0) * 100 / (100 + rate)) * 100) / 100;
+    const total_excl = Math.round(qty * unit_excl);
+    return { total_incl, total_excl, unit_excl };
   });
   const total = lines.reduce((s, l) => s + l.total_incl, 0);
   if (rate <= 0) return { lines, dpp: total, ppn: 0, total, withTax: false };

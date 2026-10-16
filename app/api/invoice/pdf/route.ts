@@ -332,7 +332,7 @@ export async function POST(request: NextRequest) {
       setTextCol(doc, TEXT_GRAY);
       setFont(doc, 'normal');
       doc.setFontSize(8);
-      doc.text(`PPN ${invoice.tax_percent}%`, totLblEnd, y + 5, { align: 'right' });
+      doc.text("PPN", totLblEnd, y + 5, { align: 'right' });
       doc.text(formatRupiah(invoice.tax_amount), totValEnd, y + 5, { align: 'right' });
       y += tRowH;
     }

@@ -231,7 +231,7 @@ export default function InvoiceForm({
           <h2 className="text-sm font-semibold text-gray-800">Ringkasan</h2>
           <dl className="space-y-1.5 text-sm">
             <div className="flex justify-between"><dt className="text-gray-500">{usePPN ? "Subtotal (tanpa PPN)" : "Subtotal"}</dt><dd>{rupiah(bd.dpp)}</dd></div>
-            {usePPN && <div className="flex justify-between"><dt className="text-gray-500">PPN {ppnRate}%</dt><dd>{rupiah(bd.ppn)}</dd></div>}
+            {usePPN && <div className="flex justify-between"><dt className="text-gray-500">PPN</dt><dd>{rupiah(bd.ppn)}</dd></div>}
             <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-semibold"><dt>Total</dt><dd>{rupiah(subtotal)}</dd></div>
           </dl>
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}

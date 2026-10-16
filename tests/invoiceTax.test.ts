@@ -26,6 +26,6 @@ describe("PPN: harga sudah termasuk PPN", () => {
   it("harga satuan tanpa PPN bisa berdesimal; total baris bulat", () => {
     const r = taxBreakdown([{ qty: 3, unit_price: 399000 }], 11);
     expect(r.lines[0].total_excl).toBe(1078378);
-    expect(r.lines[0].unit_excl).toBeCloseTo(359459.33, 1);
+    expect(r.lines[0].unit_excl).toBeCloseTo(359459.46, 2);
   });
 });

@@ -188,7 +188,7 @@ export default function InvoicePage() {
                   <tr key={d.invoice_id} onClick={() => router.push(`/invoice/${d.invoice_id}`)} className="cursor-pointer border-b border-gray-50 last:border-0 hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <p className="font-medium text-gray-800">{d.doc_type === "quotation" ? "Quotation" : d.invoice_number || "—"}</p>
-                      <p className="text-[11px] text-gray-400">{docLabel(d.doc_type)}{d.tax_percent > 0 ? ` · PPN ${d.tax_percent}%` : ""}</p>
+                      <p className="text-[11px] text-gray-400">{docLabel(d.doc_type)}{d.tax_percent > 0 ? ` · PPN` : ""}</p>
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-gray-800">{d.customer_name}</p>
