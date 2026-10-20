@@ -37,16 +37,24 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       document.documentElement.classList.toggle("dark", next === "dark");
     };
 
-    // Peralihan layar: View Transitions API (Chrome/Edge/Safari 18+). Tanpa dukungan / gerak dikurangi → langsung ganti.
+    // Peralihan layar: View Transitions API (Chrome/Edge/Safari 18+). Tanpa dukungan → langsung ganti.
+    // Bila sistem meminta gerak dikurangi: hanya memudar (tanpa lingkaran yang bergerak).
     const doc = document as any;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (!doc.startViewTransition || reduce) { apply(); return; }
+    if (!doc.startViewTransition) { apply(); return; }
 
     const x = origin?.x ?? window.innerWidth / 2;
     const y = origin?.y ?? 0;
     const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
     const t = doc.startViewTransition(() => { flushSync(apply); });
     t.ready.then(() => {
+      if (reduce) {
+        document.documentElement.animate(
+          { opacity: [0, 1] },
+          { duration: 350, easing: "ease-out", pseudoElement: "::view-transition-new(root)" }
+        );
+        return;
+      }
       document.documentElement.animate(
         { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
         { duration: 550, easing: "cubic-bezier(0.4, 0, 0.2, 1)", pseudoElement: "::view-transition-new(root)" }
