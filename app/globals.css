@@ -488,3 +488,64 @@ html.dark .topbar-glass {
 }
 ::view-transition-old(root) { z-index: 1; }
 ::view-transition-new(root) { z-index: 2; }
+
+/* ── Audit dark mode (Okt 2026): kelas terang yang belum punya padanan gelap ────────────────────────── */
+/* Kanvas halaman berwarna terang tetap (Request Shipment, Petty Cash, Survey Store) */
+html.dark .bg-\[\#F8FAFC\] { background-color: var(--bg-primary) !important; }
+
+/* Abu-abu: garis pemisah, hover, trek/progress, ring */
+html.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+html.dark .divide-gray-50 > :not([hidden]) ~ :not([hidden]),
+html.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #484D51 !important; }
+html.dark .border-gray-50 { border-color: #3a3f43 !important; }
+html.dark .ring-gray-100, html.dark .ring-gray-200 { --tw-ring-color: #484D51 !important; }
+html.dark .bg-gray-300 { background-color: #5A6065 !important; }
+html.dark .hover\:bg-gray-200:hover { background-color: #3a3f43 !important; }
+html.dark .hover\:bg-white:hover, html.dark .focus\:bg-white:focus { background-color: #2C3033 !important; }
+html.dark .hover\:border-gray-300:hover { border-color: #7A8085 !important; }
+html.dark .hover\:text-gray-600:hover, html.dark .hover\:text-gray-700:hover,
+html.dark .hover\:text-gray-800:hover, html.dark .hover\:text-gray-900:hover { color: #f1f5f9 !important; }
+html.dark .text-black { color: #f1f5f9 !important; }
+html.dark .border-black\/10 { border-color: rgba(255,255,255,0.12) !important; }
+html.dark .bg-black\/5 { background-color: rgba(255,255,255,0.08) !important; }
+html.dark .hover\:bg-black\/5:hover, html.dark .hover\:bg-black\/10:hover { background-color: rgba(255,255,255,0.14) !important; }
+html.dark .bg-white\/50, html.dark .bg-white\/70 { background-color: rgba(36,39,42,0.6) !important; }
+
+/* Latar lembut berwarna (kartu info/peringatan) */
+html.dark .bg-amber-50    { background-color: rgba(245,158,11,0.10) !important; }
+html.dark .bg-amber-100   { background-color: rgba(245,158,11,0.18) !important; }
+html.dark .bg-emerald-50  { background-color: rgba(16,185,129,0.10) !important; }
+html.dark .bg-emerald-100 { background-color: rgba(16,185,129,0.18) !important; }
+html.dark .bg-teal-50     { background-color: rgba(20,184,166,0.10) !important; }
+html.dark .bg-teal-100    { background-color: rgba(20,184,166,0.18) !important; }
+html.dark .bg-sky-100     { background-color: rgba(14,165,233,0.18) !important; }
+html.dark .bg-cyan-50     { background-color: rgba(6,182,212,0.10) !important; }
+html.dark .bg-cyan-200    { background-color: rgba(6,182,212,0.28) !important; }
+html.dark .bg-yellow-200  { background-color: rgba(234,179,8,0.26) !important; }
+html.dark .bg-green-50\/50, html.dark .bg-blue-50\/30, html.dark .bg-blue-50\/40, html.dark .bg-blue-50\/50,
+html.dark .bg-blue-50\/60, html.dark .bg-amber-50\/60 { background-color: rgba(255,255,255,0.05) !important; }
+html.dark .hover\:bg-red-50:hover, html.dark .hover\:bg-red-100:hover { background-color: rgba(239,68,68,0.18) !important; }
+html.dark .hover\:bg-blue-50:hover, html.dark .hover\:bg-blue-100:hover { background-color: rgba(59,130,246,0.18) !important; }
+html.dark .hover\:bg-green-50:hover, html.dark .hover\:bg-green-200:hover { background-color: rgba(16,185,129,0.2) !important; }
+html.dark .hover\:bg-yellow-50:hover, html.dark .hover\:bg-yellow-100:hover, html.dark .hover\:bg-amber-200:hover { background-color: rgba(234,179,8,0.2) !important; }
+
+/* Teks berwarna gelap di atas latar lembut → terang */
+html.dark .text-amber-600, html.dark .text-amber-700, html.dark .text-amber-800, html.dark .text-amber-900,
+html.dark .text-yellow-600, html.dark .text-yellow-900 { color: #fcd34d !important; }
+html.dark .text-emerald-600, html.dark .text-emerald-700, html.dark .hover\:text-green-600:hover,
+html.dark .hover\:text-green-700:hover { color: #6ee7b7 !important; }
+html.dark .text-teal-700 { color: #5eead4 !important; }
+html.dark .text-sky-700, html.dark .text-cyan-700 { color: #7dd3fc !important; }
+html.dark .text-purple-700 { color: #d8b4fe !important; }
+html.dark .text-pink-700 { color: #f9a8d4 !important; }
+html.dark .text-blue-900, html.dark .hover\:text-blue-800:hover { color: #bfdbfe !important; }
+html.dark .text-red-800, html.dark .hover\:text-red-600:hover, html.dark .hover\:text-red-700:hover { color: #fca5a5 !important; }
+
+/* Garis tepi berwarna: versi tembus pandang supaya tidak menyala di latar gelap */
+html.dark .border-green-100, html.dark .border-green-200, html.dark .border-green-300,
+html.dark .border-emerald-100, html.dark .border-emerald-300 { border-color: rgba(16,185,129,0.35) !important; }
+html.dark .border-blue-100, html.dark .border-blue-200 { border-color: rgba(59,130,246,0.35) !important; }
+html.dark .border-red-100, html.dark .border-red-200, html.dark .border-red-300 { border-color: rgba(239,68,68,0.4) !important; }
+html.dark .border-amber-100, html.dark .border-amber-200, html.dark .border-amber-300,
+html.dark .border-yellow-200, html.dark .border-orange-100 { border-color: rgba(245,158,11,0.4) !important; }
+html.dark .border-purple-100, html.dark .border-purple-200 { border-color: rgba(168,85,247,0.35) !important; }
