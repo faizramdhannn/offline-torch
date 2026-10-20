@@ -439,7 +439,7 @@ function LoginPageContent() {
             <button
               type="button"
               className="sl-theme-toggle"
-              onClick={toggleTheme}
+              onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); toggleTheme({ x: r.left + r.width / 2, y: r.top + r.height / 2 }); }}
               title={isDark ? "Light mode" : "Dark mode"}
               aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
             >

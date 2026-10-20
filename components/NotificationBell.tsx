@@ -37,7 +37,7 @@ export default function NotificationBell({ userName, canAddCustom, isCollapsed }
         type="button"
         title="Notifikasi (nonaktif sementara)"
         aria-disabled="true"
-        className={`relative flex items-center justify-center rounded-lg text-gray-500 bg-black/5 cursor-default ${
+        className={`relative flex items-center justify-center rounded-full text-gray-600 dark:text-gray-300 cursor-default ${
           isCollapsed ? "w-full h-8" : "w-8 h-8 shrink-0"
         }`}
       >
@@ -173,7 +173,7 @@ export default function NotificationBell({ userName, canAddCustom, isCollapsed }
       <button
         onClick={toggleOpen}
         title="Notifikasi"
-        className={`relative flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-900 bg-black/5 hover:bg-black/10 transition-all duration-200 ${
+        className={`relative flex items-center justify-center rounded-full text-gray-600 dark:text-gray-300 hover:text-gray-900 hover:bg-black/10 transition-all duration-200 ${
           isCollapsed ? "w-full h-8" : "w-8 h-8 shrink-0"
         }`}
       >

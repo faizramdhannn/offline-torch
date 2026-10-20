@@ -629,12 +629,17 @@ export default function StockPage() {
     });
   });
 
+  // Store/Merchant: server tidak mengirim gudang partner, jadi grafik/filter hanya menampilkan gudang yang datanya ada.
+  const visibleWarehouses = user?.role === "store" || user?.role === "merchant"
+    ? WAREHOUSES.filter((w) => warehouses.includes(w.key))
+    : WAREHOUSES;
+
   // ── Chart → filter shortcuts ────────────────────────────────────────────
   // Clicking a bar isolates that value as the active filter (replacing
   // whatever was selected before), e.g. clicking the "Lembong" bar shows
   // only Lembong's stock. Clicking the same already-active bar clears it.
   const handleWarehouseBarClick = (warehouseName: string) => {
-    const wh = WAREHOUSES.find((w) => w.name === warehouseName);
+    const wh = visibleWarehouses.find((w) => w.name === warehouseName);
     if (!wh) return;
     setWarehouseFilter((prev) =>
       prev.length === 1 && prev[0] === wh.key ? [] : [wh.key]
@@ -783,7 +788,7 @@ export default function StockPage() {
     mode === "value" ? parseHarga(item.hpj) * parseStock(item.stock) : parseStock(item.stock);
 
   // ── Store chart data ──────────────────────────────────────────────────────
-  const chartData = WAREHOUSES.map((wh) => {
+  const chartData = visibleWarehouses.map((wh) => {
     const whData = filteredData.filter((i) => (i.warehouse || "").toString().trim() === wh.key);
     return {
       name: wh.name,
@@ -796,7 +801,7 @@ export default function StockPage() {
   const uniqueCategories = [...new Set(filteredData.map((i) => i.category).filter(Boolean))].sort() as string[];
   const categoryChartData = uniqueCategories.map((cat) => {
     const row: any = { name: cat };
-    WAREHOUSES.forEach((wh) => {
+    visibleWarehouses.forEach((wh) => {
       row[wh.name] = filteredData
         .filter((i) => (i.warehouse || "").toString().trim() === wh.key && i.category === cat)
         .reduce((s, i) => s + metricValue(i, storeMetricMode), 0);
@@ -958,7 +963,7 @@ export default function StockPage() {
               }
               legend={
                 chartMode === "category"
-                  ? WAREHOUSES.map((wh, i) => (
+                  ? visibleWarehouses.map((wh, i) => (
                       <LegendDot key={wh.name} color={WAREHOUSE_COLORS[i % WAREHOUSE_COLORS.length]} label={wh.name} />
                     ))
                   : undefined
@@ -984,7 +989,7 @@ export default function StockPage() {
                           {chartData.map((entry, index) => {
                             const minStock = Math.min(...chartData.filter((d) => d.stock > 0).map((d) => d.stock));
                             const isActive = warehouseFilter.length === 1 &&
-                              warehouseFilter[0] === WAREHOUSES.find((w) => w.name === entry.name)?.key;
+                              warehouseFilter[0] === visibleWarehouses.find((w) => w.name === entry.name)?.key;
                             const isDimmed = warehouseFilter.length === 1 && !isActive;
                             const color = entry.stock === maxStock ? "#3de400" : entry.stock === minStock && entry.stock > 0 ? "#e20000" : "#2563eb";
                             return <Cell key={index} fill={color} opacity={isDimmed ? 0.35 : 1} stroke={isActive ? "#0d334d" : undefined} strokeWidth={isActive ? 2 : 0} />;
@@ -1014,7 +1019,7 @@ export default function StockPage() {
                       <XAxis dataKey="name" tick={<CustomXTick />} axisLine={false} tickLine={false} interval={0} height={24} />
                       <YAxis tick={{ ...chartAxisTick, fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={(v) => formatMetricTick(v, storeMetricMode)} width={32} />
                       <Tooltip content={<CategoryTooltip />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-                      {WAREHOUSES.map((wh, i) => (
+                      {visibleWarehouses.map((wh, i) => (
                         <Bar
                           key={wh.name}
                           dataKey={wh.name}
@@ -1299,7 +1304,7 @@ export default function StockPage() {
             sku={storeBreakdownItem.sku}
             itemName={storeBreakdownItem.item_name}
             toProperCase={toProperCase}
-            warehouses={WAREHOUSES}
+            warehouses={visibleWarehouses}
             stockByWarehouse={
               // "data" = dataset unfiltered untuk view aktif (result_stock —
               // 1 baris per SKU per warehouse), jadi breakdown per toko untuk
@@ -1322,7 +1327,7 @@ export default function StockPage() {
               acc[d.name] = d.stock;
               return acc;
             }, {} as Record<string, number>)}
-            warehouses={WAREHOUSES}
+            warehouses={visibleWarehouses}
             formatValue={formatRupiah}
             onClose={() => setShowStockSummaryPopup(false)}
           />

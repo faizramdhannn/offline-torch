@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData } from '@/lib/sheets';
 import { sessionUser } from '@/lib/authz';
 import { jsonWithEtag } from '@/lib/etag';
+import { sql } from '@/lib/neon';
+import { isStoreScoped, scopeStockRows } from '@/lib/stockScope';
 
 // Hanya sheet stok yang memang dipakai klien (sebelumnya nama sheet apa pun bisa dibaca).
 const ALLOWED_TYPES = new Set([
@@ -22,8 +24,15 @@ export async function GET(request: NextRequest) {
     const sku = searchParams.get('sku');
     if (sku) data = data.filter((r: any) => String(r.sku || r.SKU) === sku);
 
-    // HPP/HPT hanya untuk yang berhak (HPJ tetap — dipakai tampilan nilai stok).
     const user = await sessionUser(request);
+
+    // Store/Merchant melihat stok semua toko & merchant, tapi bukan gudang partner (Neka/Gramedia/Vega/Metro).
+    if (user && isStoreScoped(user.role) && (type === 'result_stock' || type === 'result_stock_yesterday')) {
+      const accounts = (await sql`SELECT name, user_name FROM app_users WHERE role IN ('store','merchant')`) as { name: string; user_name: string }[];
+      data = scopeStockRows(data, accounts);
+    }
+
+    // HPP/HPT hanya untuk yang berhak (HPJ tetap — dipakai tampilan nilai stok).
     const hideHpp = user?.stock_view_hpp !== 'TRUE';
     const hideHpt = user?.stock_view_hpt !== 'TRUE';
     if (hideHpp || hideHpt) {

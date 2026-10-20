@@ -478,3 +478,13 @@ html.dark .topbar-glass {
 @media (hover: none) {
   [class*="group-hover:opacity-100"] { opacity: 1 !important; }
 }
+
+/* Peralihan tema: lingkaran membuka dari tombol (diatur di ThemeContext lewat View Transitions API).
+   Bawaan browser (cross-fade) dimatikan supaya hanya animasi clip-path yang jalan. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) { z-index: 1; }
+::view-transition-new(root) { z-index: 2; }

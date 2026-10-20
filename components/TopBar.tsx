@@ -177,11 +177,11 @@ export default function TopBar() {
         className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] opacity-70"
         style={{ background: "linear-gradient(90deg, #35393C 0%, #1f4e63 50%, #0d7a8f 100%)" }}
       />
-      <div className="flex items-center gap-2 px-4 py-2">
-        {/* ── Announcement ── */}
+      <div className="flex items-center gap-2 px-3 py-1.5 sm:gap-3 sm:px-4">
+        {/* ── Pil kiri: pengumuman (gaya "island" iPhone) ── */}
         <div className="min-w-0 flex-1">
           {editing ? (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 rounded-3xl bg-black/[0.06] px-3 py-2 ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
               <input
                 type="text"
                 value={draftMessage}
@@ -247,13 +247,13 @@ export default function TopBar() {
               </button>
             </div>
           ) : showAnnouncement ? (
-            <div className="flex min-w-0 items-center gap-2 text-xs text-gray-700">
+            <div className="inline-flex h-9 max-w-full min-w-0 items-center gap-2 rounded-full bg-black/[0.06] py-1 pl-3 pr-1.5 text-xs text-gray-700 ring-1 ring-black/5 dark:bg-white/10 dark:text-gray-200 dark:ring-white/10">
               <Megaphone className="h-3.5 w-3.5 shrink-0 text-primary" />
-              <span className="min-w-0 flex-1 truncate">{announcement.message}</span>
+              <span className="min-w-0 flex-1 truncate" title={announcement.message}>{announcement.message}</span>
               {hasImage && (
                 <button
                   onClick={() => setShowImagePopup(true)}
-                  className="shrink-0 rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/20"
+                  className="shrink-0 rounded-full bg-primary px-3 py-1 text-[11px] font-semibold text-white hover:opacity-90"
                   type="button"
                 >
                   {announcement.link_text || "Lihat"}
@@ -262,7 +262,7 @@ export default function TopBar() {
               {canEditAnnouncement && (
                 <button
                   onClick={startEditing}
-                  className="shrink-0 rounded p-1 text-gray-400 hover:bg-black/5 hover:text-gray-700"
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-gray-400 hover:bg-black/10 hover:text-gray-700"
                   title="Edit announcement"
                   type="button"
                 >
@@ -274,7 +274,7 @@ export default function TopBar() {
             canEditAnnouncement && (
               <button
                 onClick={startEditing}
-                className="flex items-center gap-1.5 text-[11px] text-gray-400 hover:text-gray-600"
+                className="inline-flex h-9 items-center gap-1.5 rounded-full bg-black/[0.06] px-3 text-[11px] text-gray-500 ring-1 ring-black/5 hover:text-gray-700 dark:bg-white/10"
                 type="button"
               >
                 <Pencil className="h-3 w-3" />
@@ -284,12 +284,13 @@ export default function TopBar() {
           )}
         </div>
 
-        {/* ── Controls: theme, notifikasi, logout ── */}
-        <div className="flex shrink-0 items-center gap-2">
+        {/* ── Pil kanan: tema, notifikasi, profil, logout ── */}
+        <div className="flex h-10 shrink-0 items-center gap-1 rounded-full bg-black/[0.06] p-1 ring-1 ring-black/5 dark:bg-white/10 dark:ring-white/10">
           <button
-            onClick={toggleTheme}
+            onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); toggleTheme({ x: r.left + r.width / 2, y: r.top + r.height / 2 }); }}
             title={isDark ? "Light mode" : "Dark mode"}
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-black/5 text-gray-500 transition-all hover:bg-black/10 hover:text-gray-900"
+            aria-label={isDark ? "Light mode" : "Dark mode"}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-gray-600 transition-colors hover:bg-black/10 dark:text-gray-300 dark:hover:bg-white/15"
           >
             {isDark ? (
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -304,20 +305,11 @@ export default function TopBar() {
 
           <NotificationBell userName={user?.user_name || ""} canAddCustom={!!user?.user_setting} isCollapsed={false} />
 
-          <button
-            onClick={logout}
-            className="flex items-center gap-1.5 rounded-lg bg-black/5 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-red-500/80 hover:text-white"
-          >
-            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            Logout
-          </button>
-
           <Link
             href="/profile"
             title="Profil saya"
-            className="flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full bg-black/5 text-xs font-semibold text-gray-700 ring-1 ring-black/10 transition-all hover:ring-2 hover:ring-primary"
+            aria-label="Profil saya"
+            className="flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full bg-black/5 text-xs font-semibold text-gray-700 ring-1 ring-black/10 transition-all hover:ring-2 hover:ring-primary dark:text-gray-200"
           >
             {user?.photo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -330,6 +322,17 @@ export default function TopBar() {
               (user?.name || user?.user_name || "?").charAt(0).toUpperCase()
             )}
           </Link>
+
+          <button
+            onClick={logout}
+            title="Logout"
+            aria-label="Logout"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-gray-600 transition-colors hover:bg-red-500/85 hover:text-white dark:text-gray-300"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
         </div>
       </div>
     </div>

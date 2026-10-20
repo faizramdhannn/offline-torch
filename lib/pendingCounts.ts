@@ -28,11 +28,11 @@ export async function computePending(user: UserRow): Promise<PendingCounts> {
     );
   }
 
-  // Shipment: belum diproses (has_processed bukan TRUE) — untuk tracking_edit.
+  // Shipment: status Pending (belum ada link resi/tracking, sama dengan filter "Pending" di halaman) — untuk tracking_edit.
   if (isTrue(user.tracking_edit)) {
     jobs.push(
       getSheetData("request_tracking").then((rows: any[]) => {
-        out.shipment = rows.filter((r) => r.id && norm(r.has_processed) !== "true").length;
+        out.shipment = rows.filter((r) => r.id && !String(r.link_tracking ?? "").trim()).length;
       })
     );
   }

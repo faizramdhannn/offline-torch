@@ -478,7 +478,8 @@ export default function CanvasingPage() {
     },
   ];
 
-  const { sorted: sortedData, sortKey, sortDir, toggleSort } = useSortableTable(filteredData, "visit_at");
+  // Urutan awal = terbaru dibuat dulu (created_at, diurutkan saat data dimuat); klik header kolom untuk mengurutkan lain.
+  const { sorted: sortedData, sortKey, sortDir, toggleSort } = useSortableTable(filteredData);
 
   const indexOfFirst = (currentPage - 1) * ITEMS_PER_PAGE;
   const currentItems = sortedData.slice(

@@ -1,6 +1,7 @@
 "use client";
 
 import { visiblePoll } from "@/lib/poll";
+import { cleanReceiver, receiverError as checkReceiver } from "@/lib/shipmentReceiver";
 import { usePushNotification } from "@/hooks/usePushNotification";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -89,30 +90,9 @@ function formatStoreAddress(s: StoreAddress): string {
   return [s.store_location, s.phone_number, s.address].filter(Boolean).join("\n");
 }
 
-function isValidIndonesianPhone(phone: string): boolean {
-  const cleaned = phone.replace(/[\s\-().]/g, "");
-  const withPrefixPattern = /^(\+?628|08)[0-9]{7,11}$/;
-  const barePattern = /^8[0-9]{7,11}$/;
-  return withPrefixPattern.test(cleaned) || barePattern.test(cleaned);
-}
-
-function extractValidPhone(text: string): string | null {
-  const tokens = text.split(/[\s,;]+/);
-  for (const token of tokens) {
-    const cleaned = token.replace(/[\-().]/g, "");
-    if (isValidIndonesianPhone(cleaned)) return cleaned;
-  }
-  return null;
-}
-
+// Validasi & perapian penerima ada di lib/shipmentReceiver.ts (nomor HP boleh bertanda baca/spasi, label "Nama :" dibuang).
 function validateReceiver(val: string): string {
-  if (!val.trim()) return "Receiver wajib diisi";
-  const validPhone = extractValidPhone(val);
-  if (!validPhone) return "Sertakan nomor telepon yang valid (08xx, +628xx, atau 628xx)";
-  const postalPattern = /(?<![0-9])\d{5}(?![0-9])/;
-  if (!postalPattern.test(val)) return "Sertakan kode pos 5 digit (contoh: 40123)";
-  if (val.trim().length < 20) return "Terlalu pendek — sertakan nama, nomor telepon, alamat, dan kode pos";
-  return "";
+  return checkReceiver(val);
 }
 
 // ── Google Drive URL converter (used by CSV export download links) ───────
@@ -330,6 +310,23 @@ export default function RequestTrackingPage() {
     else { setForm((prev) => ({ ...prev, sender: storeName })); setSelectedSenderDetails(found); }
   };
 
+  // Tempel dari clipboard + rapikan ("Nama : ...", "No Hp : ..." dibuang, nomor diseragamkan 08xx, alamat disatukan).
+  const applyReceiver = (text: string, isEdit: boolean) => {
+    const cleaned = cleanReceiver(text).slice(0, 300);
+    if (isEdit) setEditForm((prev) => ({ ...prev, receiver: cleaned }));
+    else setForm((prev) => ({ ...prev, receiver: cleaned }));
+    setReceiverError(checkReceiver(cleaned));
+  };
+  const pasteReceiver = async (isEdit: boolean) => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text.trim()) { showMessage("Clipboard kosong — salin data penerima dulu", "error"); return; }
+      applyReceiver(text, isEdit);
+    } catch {
+      showMessage("Browser menolak membaca clipboard — klik kolom lalu tekan Ctrl+V / tahan lalu Tempel", "error");
+    }
+  };
+
   const handleReceiverStoreChange = (storeName: string, isEdit = false) => {
     const found = storeAddresses.find((s) => s.store_location === storeName) || null;
     const formatted = found ? formatStoreAddress(found) : "";
@@ -384,7 +381,7 @@ export default function RequestTrackingPage() {
       const res = await fetch("/api/request-tracking", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, request_by: user.user_name }),
+        body: JSON.stringify({ ...form, receiver: cleanReceiver(form.receiver), request_by: user.user_name }),
       });
       if (res.ok) {
         const created = await res.json().catch(() => null);
@@ -441,7 +438,7 @@ export default function RequestTrackingPage() {
       const res = await fetch("/api/request-tracking", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: selectedItem.id, update_by: user.user_name, ...editForm }),
+        body: JSON.stringify({ id: selectedItem.id, update_by: user.user_name, ...editForm, receiver: cleanReceiver(editForm.receiver) }),
       });
       if (res.ok) {
         showMessage("Request berhasil diupdate", "success");
@@ -878,17 +875,31 @@ export default function RequestTrackingPage() {
               ) : (
                 <div>
                   <textarea value={form.receiver}
-                    onChange={(e) => { setForm({ ...form, receiver: e.target.value.slice(0, 200) }); setReceiverError(""); }}
+                    onChange={(e) => { setForm({ ...form, receiver: e.target.value.slice(0, 300) }); setReceiverError(""); }}
+                    onPaste={(e) => {
+                      const t = e.clipboardData.getData("text");
+                      if (!t.trim()) return;
+                      e.preventDefault();
+                      applyReceiver(t, false);
+                    }}
                     onBlur={() => setReceiverError(validateReceiver(form.receiver))}
-                    rows={4}
-                    placeholder={"Nama Penerima\n08xxxxxxxxxx\nJl. Contoh No. 1, Kota, Provinsi\n12345"}
-                    maxLength={200}
+                    rows={5}
+                    placeholder={"Tempel data penerima (boleh apa adanya):\nNama : ...\nNo Hp : ...\nAlamat : ...\nakan dirapikan jadi Nama / 08xx / Alamat / Kode pos"}
+                    maxLength={300}
                     className={`${inputClass(!!receiverError)} resize-none font-mono`} />
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={() => pasteReceiver(false)}
+                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-blue-700">Tempel</button>
+                    <button type="button" onClick={() => applyReceiver(form.receiver, false)} disabled={!form.receiver.trim()}
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40">Rapikan</button>
+                    <button type="button" onClick={() => { setForm({ ...form, receiver: "" }); setReceiverError(""); }} disabled={!form.receiver}
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40">Kosongkan</button>
+                  </div>
                   <div className="flex items-center justify-between mt-1">
-                    <FieldHint error={receiverError} hint="Nama · HP (08xx/+628xx) · alamat · kode pos 5 digit" />
+                    <FieldHint error={receiverError} hint="Tempel apa adanya — otomatis jadi: Nama · HP · Alamat · Kode pos" />
                     <p className={`text-[11px] tabular-nums shrink-0 ml-2 ${
-                      form.receiver.length >= 200 ? "text-red-500 font-semibold" : form.receiver.length >= 180 ? "text-yellow-500" : "text-gray-400"}`}>
-                      {form.receiver.length}/200
+                      form.receiver.length >= 300 ? "text-red-500 font-semibold" : form.receiver.length >= 270 ? "text-yellow-500" : "text-gray-400"}`}>
+                      {form.receiver.length}/300
                     </p>
                   </div>
                 </div>
@@ -1014,18 +1025,32 @@ export default function RequestTrackingPage() {
                   </select>
                 ) : (
                   <div>
-                    <textarea value={editForm.receiver}
-                      onChange={(e) => { setEditForm({ ...editForm, receiver: e.target.value.slice(0, 200) }); setReceiverError(""); }}
-                      onBlur={() => setReceiverError(validateReceiver(editForm.receiver))}
-                      rows={4}
-                      placeholder={"Nama Penerima\n08xxxxxxxxxx\nJl. Contoh No. 1, Kota, Provinsi\n12345"}
-                      maxLength={200}
-                      className={`${inputClass(!!receiverError)} resize-none font-mono`} />
+                  <textarea value={editForm.receiver}
+                    onChange={(e) => { setEditForm({ ...editForm, receiver: e.target.value.slice(0, 300) }); setReceiverError(""); }}
+                    onPaste={(e) => {
+                      const t = e.clipboardData.getData("text");
+                      if (!t.trim()) return;
+                      e.preventDefault();
+                      applyReceiver(t, true);
+                    }}
+                    onBlur={() => setReceiverError(validateReceiver(editForm.receiver))}
+                    rows={5}
+                    placeholder={"Tempel data penerima (boleh apa adanya):\nNama : ...\nNo Hp : ...\nAlamat : ...\nakan dirapikan jadi Nama / 08xx / Alamat / Kode pos"}
+                    maxLength={300}
+                    className={`${inputClass(!!receiverError)} resize-none font-mono`} />
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={() => pasteReceiver(true)}
+                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-blue-700">Tempel</button>
+                    <button type="button" onClick={() => applyReceiver(editForm.receiver, true)} disabled={!editForm.receiver.trim()}
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40">Rapikan</button>
+                    <button type="button" onClick={() => { setEditForm({ ...editForm, receiver: "" }); setReceiverError(""); }} disabled={!editForm.receiver}
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40">Kosongkan</button>
+                  </div>
                     <div className="flex items-center justify-between mt-1">
-                      <FieldHint error={receiverError} hint="Nama · HP (08xx/+628xx) · alamat · kode pos 5 digit" />
+                      <FieldHint error={receiverError} hint="Tempel apa adanya — otomatis jadi: Nama · HP · Alamat · Kode pos" />
                       <p className={`text-[11px] tabular-nums shrink-0 ml-2 ${
-                        editForm.receiver.length >= 200 ? "text-red-500 font-semibold" : editForm.receiver.length >= 180 ? "text-yellow-500" : "text-gray-400"}`}>
-                        {editForm.receiver.length}/200
+                        editForm.receiver.length >= 300 ? "text-red-500 font-semibold" : editForm.receiver.length >= 270 ? "text-yellow-500" : "text-gray-400"}`}>
+                        {editForm.receiver.length}/300
                       </p>
                     </div>
                   </div>
