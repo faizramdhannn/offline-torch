@@ -73,6 +73,8 @@ export default function RequestStorePage() {
   const [filterDateTo, setFilterDateTo] = useState(searchParams.get("to") ?? "");
   const [filterDoc, setFilterDoc] = useState(searchParams.get("doc") ?? "");
   const [filterStatus, setFilterStatus] = useState(searchParams.get("status") ?? "");
+  const [filterRequester, setFilterRequester] = useState(searchParams.get("requester") ?? "");
+  const [filterReason, setFilterReason] = useState(searchParams.get("reason") ?? "");
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
 
   const itemsPerPage = 25;
@@ -376,6 +378,13 @@ export default function RequestStorePage() {
       result = result.filter((d) => (d.status || "") === filterStatus);
     }
 
+    if (filterRequester) {
+      result = result.filter((d) => (d.requester || "").trim() === filterRequester);
+    }
+    if (filterReason) {
+      result = result.filter((d) => (d.reason_request || "").trim() === filterReason);
+    }
+
     // Filter by SO / DN / SI (case-insensitive)
     if (filterDoc.trim()) {
       const q = filterDoc.trim().toLowerCase();
@@ -396,21 +405,32 @@ export default function RequestStorePage() {
     if (filterDateTo) params.set("to", filterDateTo);
     if (filterDoc) params.set("doc", filterDoc);
     if (filterStatus) params.set("status", filterStatus);
+    if (filterRequester) params.set("requester", filterRequester);
+    if (filterReason) params.set("reason", filterReason);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }, [filterDateFrom, filterDateTo, filterDoc, filterStatus, pathname, router]);
+  }, [filterDateFrom, filterDateTo, filterDoc, filterStatus, filterRequester, filterReason, pathname, router]);
 
   const handleClearFilters = () => {
     setFilterDateFrom("");
     setFilterDateTo("");
     setFilterDoc("");
     setFilterStatus("");
+    setFilterRequester("");
+    setFilterReason("");
     setCurrentPage(1);
   };
 
-  const hasActiveFilter = filterDateFrom || filterDateTo || filterDoc.trim() || filterStatus;
+  const hasActiveFilter = filterDateFrom || filterDateTo || filterDoc.trim() || filterStatus || filterRequester || filterReason;
   // Pilihan status diambil dari data (Pending, Completed, dst.) supaya status baru otomatis ikut.
   const statusOptions = Array.from(new Set(["Pending", "Completed", ...data.map((d) => d.status).filter(Boolean)]));
+
+  // Pilihan Requester & Reason diambil dari data yang boleh dilihat user (bukan daftar tetap) supaya nilai baru ikut otomatis.
+  const scopedData = canEdit ? data : data.filter((d) => d.created_by === user?.user_name);
+  const distinctSorted = (vals: string[]) =>
+    Array.from(new Set(vals.map((v) => (v || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "id"));
+  const requesterOptions = distinctSorted(scopedData.map((d) => d.requester));
+  const reasonOptions = distinctSorted(scopedData.map((d) => d.reason_request));
 
   const { sorted: sortedData, sortKey, sortDir, toggleSort } = useSortableTable(filteredData, "date");
 
@@ -531,6 +551,28 @@ return (
               <option value="">Semua status</option>
               {statusOptions.map((s) => (
                 <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+
+            <select
+              value={filterRequester}
+              onChange={(e) => { setFilterRequester(e.target.value); setCurrentPage(1); }}
+              className="px-1.5 py-1 border border-gray-300 rounded text-[11px] bg-white max-w-[9rem] focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="">Semua requester</option>
+              {requesterOptions.map((o) => (
+                <option key={o} value={o}>{o}</option>
+              ))}
+            </select>
+
+            <select
+              value={filterReason}
+              onChange={(e) => { setFilterReason(e.target.value); setCurrentPage(1); }}
+              className="px-1.5 py-1 border border-gray-300 rounded text-[11px] bg-white max-w-[9rem] focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="">Semua reason</option>
+              {reasonOptions.map((o) => (
+                <option key={o} value={o}>{o}</option>
               ))}
             </select>
 
