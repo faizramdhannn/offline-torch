@@ -69,7 +69,7 @@ export default function RequestStoreDetailPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/request-store");
+      const res = await fetch(`/api/request-store?only=${encodeURIComponent(String(id))}`);
       const result = await res.json();
       const list: RequestItem[] = Array.isArray(result) ? result : result.data || [];
       const found = list.find((r) => String(r.id) === String(id));

@@ -67,6 +67,7 @@ export default function RequestTrackingDetailPage() {
         username: currentUser?.user_name || "",
         userName: currentUser?.name || "",
         isTrackingEdit: String(!!currentUser?.tracking_edit),
+        only: String(id),
       });
       const res = await fetch(`/api/request-tracking?${params}`);
       if (res.ok) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { visiblePoll } from "@/lib/poll";
+import { parseIdDateTime } from "@/lib/idDate";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -74,10 +75,7 @@ function generateId(): string {
 }
 
 function parseCreatedAt(str: string): number {
-  if (!str) return 0;
-  const cleaned = str.replace(",", "").replace(/\./g, ":");
-  const t = new Date(cleaned).getTime();
-  return isNaN(t) ? 0 : t;
+  return parseIdDateTime(str); // mengenal bulan Indonesia (Agu, Okt, Des...)
 }
 
 // ─── Status badge ─────────────────────────────────────────────────────────────

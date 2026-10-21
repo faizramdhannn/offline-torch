@@ -1,6 +1,8 @@
 "use client";
 
 import { visiblePoll } from "@/lib/poll";
+import HistoryToggle from "@/components/shared/HistoryToggle";
+import { withHistory } from "@/lib/historyFlag";
 import { usePushNotification } from "@/hooks/usePushNotification";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
@@ -126,7 +128,7 @@ export default function RequestStorePage() {
 
     const fetchData = async () => {
       try {
-        const res = await fetch("/api/request-store");
+        const res = await fetch(withHistory("/api/request-store", "request-store"));
         if (res.ok && isMounted) {
           setData(await res.json());
           setLoading(false);
@@ -248,7 +250,7 @@ export default function RequestStorePage() {
         setShowAddModal(false);
         resetAddForm();
         await logActivity("POST", `Created request: ${form.reason_request} → ${form.assigned_to}`, created?.id ? String(created.id) : undefined);
-        const fresh = await fetch("/api/request-store");
+        const fresh = await fetch(withHistory("/api/request-store", "request-store"));
         if (fresh.ok) setData(await fresh.json());
       } else {
         showMessage("Gagal membuat request", "error");
@@ -311,7 +313,7 @@ export default function RequestStorePage() {
         setEditImageFile(null);
         if (editFileRef.current) editFileRef.current.value = "";
         await logActivity("PUT", `Updated request ID: ${selectedItem.id}`, String(selectedItem.id));
-        const fresh = await fetch("/api/request-store");
+        const fresh = await fetch(withHistory("/api/request-store", "request-store"));
         if (fresh.ok) setData(await fresh.json());
       } else {
         showMessage("Gagal update request", "error");
@@ -503,6 +505,7 @@ return (
           </div>
 
           {/* ── Filter Bar ─────────────────────────────────────────────────── */}
+          <HistoryToggle mod="request-store" className="mb-2" />
           <FilterBar className="mb-3">
             <div className="flex items-center gap-1.5">
               <label className="text-[10px] text-gray-400 whitespace-nowrap">Date From</label>

@@ -1,4 +1,6 @@
 import { actorName } from '@/lib/authz';
+import { windowOrOnly } from '@/lib/rowWindow';
+import { parseIdDateTime } from '@/lib/idDate';
 import { jsonWithEtag } from '@/lib/etag';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
@@ -9,8 +11,13 @@ export async function GET(request: NextRequest) {
   try {
     const data = await getSheetData('request_store');
     const filtered = data.filter((row: any) => row.id);
-    const sorted = filtered.sort((a: any, b: any) => {
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    // Hemat CPU/transfer: 120 hari terakhir + yang masih Pending. ?all=1 = semua.
+    const windowed = windowOrOnly(filtered, request, {
+      dateOf: (r: any) => r.created_at || r.date,
+      keep: (r: any) => String(r.status ?? '').trim().toLowerCase() === 'pending',
+    });
+    const sorted = windowed.sort((a: any, b: any) => {
+      return parseIdDateTime(b.created_at) - parseIdDateTime(a.created_at);
     });
     return jsonWithEtag(request, sorted);
   } catch (error) {

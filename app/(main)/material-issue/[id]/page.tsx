@@ -57,7 +57,7 @@ export default function MaterialIssueDetailPage() {
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/material-issue?userName=${encodeURIComponent(u?.user_name || "")}&isAll=${!!u?.material_issue_all}`
+        `/api/material-issue?userName=${encodeURIComponent(u?.user_name || "")}&isAll=${!!u?.material_issue_all}&only=${encodeURIComponent(String(id))}`
       );
       const rows: MIItem[] = await res.json();
       const matches = (Array.isArray(rows) ? rows : []).filter((r) => String(r.id) === String(id));

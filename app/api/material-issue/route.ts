@@ -1,4 +1,6 @@
 import { actorName } from '@/lib/authz';
+import { windowOrOnly } from '@/lib/rowWindow';
+import { parseIdDateTime } from '@/lib/idDate';
 import { jsonWithEtag } from '@/lib/etag';
 import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from 'next/server';
@@ -101,13 +103,21 @@ export async function GET(request: NextRequest) {
 
     const rows = await getSheetData('material_issue');
 
-    const filtered = isAll
+    const scoped = isAll
       ? rows
       : rows.filter((r: any) => r.created_by === userName);
+    // Hemat CPU/transfer: 120 hari terakhir + yang belum tuntas (request/issue belum Approved atau belum diproses). ?all=1 = semua.
+    const filtered = windowOrOnly(scoped, request, {
+      dateOf: (r: any) => r.created_at,
+      keep: (r: any) =>
+        String(r.status_request || 'Need Approval') !== 'Approved' ||
+        String(r.status_issue || 'Need Approval') !== 'Approved' ||
+        String(r.has_processed).toUpperCase() !== 'TRUE',
+    });
 
     const sorted = [...filtered].sort((a: any, b: any) => {
-      const tA = new Date(a.created_at || 0).getTime();
-      const tB = new Date(b.created_at || 0).getTime();
+      const tA = parseIdDateTime(a.created_at);
+      const tB = parseIdDateTime(b.created_at);
       return tB - tA;
     });
 

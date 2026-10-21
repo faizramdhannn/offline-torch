@@ -1,6 +1,8 @@
 "use client";
 
 import { visiblePoll } from "@/lib/poll";
+import HistoryToggle from "@/components/shared/HistoryToggle";
+import { withHistory } from "@/lib/historyFlag";
 import { cleanReceiver, receiverError as checkReceiver } from "@/lib/shipmentReceiver";
 import { usePushNotification } from "@/hooks/usePushNotification";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
@@ -237,7 +239,7 @@ export default function RequestTrackingPage() {
         isTrackingEdit: String(!!user?.tracking_edit),
       });
 
-      const res = await fetch(`/api/request-tracking?${params}`);
+      const res = await fetch(withHistory(`/api/request-tracking?${params}`, "request-tracking"));
       if (res.ok) {
         const newData: TrackingItem[] = await res.json();
         if (prevDataRef.current.length > 0) {
@@ -675,6 +677,7 @@ export default function RequestTrackingPage() {
         {/* ── Tab: Table ───────────────────────────────────────────────── */}
         {activeTab === "table" && (
           <div className="mt-4 space-y-4">
+            <HistoryToggle mod="request-tracking" className="mb-2" />
             <Toolbar
               searchValue={searchReceiver}
               onSearchChange={(v) => { setSearchReceiver(v); setCurrentPage(1); }}

@@ -1,4 +1,5 @@
 import { actorName } from '@/lib/authz';
+import { parseIdDateTime } from '@/lib/idDate';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData } from '@/lib/sheets';
 import { createNotification } from '@/lib/notifications';
@@ -15,10 +16,7 @@ const MAX_NOTIFICATIONS = 30;
 // sama dipakai di beberapa halaman frontend (mis. material-issue) untuk
 // masalah yang sama.
 function parseCreatedAt(str: string): number {
-  if (!str) return 0;
-  const cleaned = str.replace(",", "").replace(/\./g, ":");
-  const t = new Date(cleaned).getTime();
-  return isNaN(t) ? 0 : t;
+  return parseIdDateTime(str); // mengenal bulan Indonesia (Agu, Okt, Des...)
 }
 
 // GET ?userName=xxx

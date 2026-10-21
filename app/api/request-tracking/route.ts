@@ -1,4 +1,6 @@
 import { actorName } from '@/lib/authz';
+import { windowOrOnly } from '@/lib/rowWindow';
+import { parseIdDateTime } from '@/lib/idDate';
 import { jsonWithEtag } from '@/lib/etag';
 import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from 'next/server';
@@ -106,8 +108,13 @@ export async function GET(request: NextRequest) {
 
     const data = await getSheetData('request_tracking');
     const filtered = data.filter((row: any) => row.id);
-    const sorted = filtered.sort((a: any, b: any) => {
-      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+    // Hemat CPU/transfer: 120 hari terakhir + yang masih Pending (belum ada link resi). ?all=1 = semua.
+    const windowed = windowOrOnly(filtered, request, {
+      dateOf: (r: any) => r.created_at || r.date,
+      keep: (r: any) => !String(r.link_tracking ?? '').trim(),
+    });
+    const sorted = windowed.sort((a: any, b: any) => {
+      return parseIdDateTime(b.created_at) - parseIdDateTime(a.created_at);
     });
 
     if (isTrackingEdit) return jsonWithEtag(request, sorted);

@@ -1,6 +1,9 @@
 "use client";
 
 import { visiblePoll } from "@/lib/poll";
+import HistoryToggle from "@/components/shared/HistoryToggle";
+import { withHistory } from "@/lib/historyFlag";
+import { parseIdDateTime } from "@/lib/idDate";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -95,10 +98,7 @@ function formatRupiah(val: string | number): string {
 // Helper ini menormalkan format tersebut supaya bisa diparse jadi timestamp,
 // dipakai bersama untuk sorting maupun filter rentang tanggal.
 function parseCreatedAt(str: string): number {
-  if (!str) return 0;
-  const cleaned = str.replace(",", "").replace(/\./g, ":");
-  const t = new Date(cleaned).getTime();
-  return isNaN(t) ? 0 : t;
+  return parseIdDateTime(str); // mengenal bulan Indonesia (Agu, Okt, Des...)
 }
 
 // Konversi value <input type="date"> ("YYYY-MM-DD") jadi timestamp awal/akhir hari.
@@ -745,7 +745,7 @@ export default function MaterialIssuePage() {
   const fetchData = async () => {
     try {
       const res = await fetch(
-        `/api/material-issue?userName=${encodeURIComponent(user?.user_name || "")}&isAll=${!!user?.material_issue_all}`
+        withHistory(`/api/material-issue?userName=${encodeURIComponent(user?.user_name || "")}&isAll=${!!user?.material_issue_all}`, "material-issue")
       );
       if (res.ok) {
         const rows: MIItem[] = await res.json();
@@ -1198,6 +1198,7 @@ export default function MaterialIssuePage() {
         </div>
 
         {/* Search */}
+        <HistoryToggle mod="material-issue" className="mb-2" />
         <FilterBar className="px-3 py-2 mb-3">
           <div className="relative">
             <svg className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

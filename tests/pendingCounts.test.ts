@@ -13,7 +13,7 @@ beforeEach(() => {
     { id: "1", status: "Pending" }, { id: "2", status: "pending " }, { id: "3", status: "Completed" },
   ];
   data.request_tracking = [
-    { id: "a", has_processed: "FALSE" }, { id: "b", has_processed: "TRUE" }, { id: "c", has_processed: "" },
+    { id: "a", link_tracking: "" }, { id: "b", link_tracking: "https://resi.example/1" }, { id: "c", link_tracking: "  " },
   ];
   data.material_issue = [
     // grup m1: dua baris, request belum disetujui → 1 grup pending
