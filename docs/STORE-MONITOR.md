@@ -40,7 +40,7 @@ Perangkat milik akun ber-role **admin** ikut terdaftar (`/api/devices/register`)
 - Status keinginan toko di `store_music` (playlist, volume, muted, playing, shuffle). Jadwal per jam/hari (WIB) di `music_schedule` (`lib/musicSchedule.ts`: `activeRule`). Perintah manual yang lebih baru dari awal jendela jadwal menang.
 - Opsi **musik mengikuti jam buka** (`store_hours.follow`) bila toko tak punya jadwal musik.
 - Fade in/out volume, redam saat pengumuman, watchdog pemulihan mandiri, Wake Lock saat musik berbunyi, alasan musik belum berbunyi dilaporkan di `music.note`.
-- `components/MusicBadge.tsx` (lencana untuk staf: judul lagu + tombol *Lagu berikutnya* lokal, judul tab "Musik aktif · …", konfirmasi tutup tab).
+- `components/MusicBadge.tsx` (lencana mengambang untuk staf: **bisa digeser** (posisi diingat per perangkat) dan **disembunyikan** jadi bulatan musik kecil (`torch_music_badge_pos`/`_hidden` di localStorage; musik tetap berbunyi); judul lagu + tombol *Lagu berikutnya* lokal, judul tab "Musik aktif · …", konfirmasi tutup tab).
 - Playlist: tabel `music_playlists` (`parseYouTube` di `lib/devices.ts`).
 
 ## Istirahatkan / nonaktifkan musik
