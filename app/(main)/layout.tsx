@@ -93,7 +93,7 @@ function MainLayoutInner({ children }: { children: React.ReactNode }) {
       <UpdateToast />
       <DeviceAnnouncement user={user} />
       <TabletStandby user={user} />
-      <MusicBadge isPlayer={music.isPlayer} canPause={user?.role === "admin"} />
+      <MusicBadge isPlayer={music.isPlayer} canPause={user?.role === "admin" || user?.role === "store" || user?.role === "merchant"} />
       {music.needTap && (
         <button
           onClick={music.start}

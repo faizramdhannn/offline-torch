@@ -6,7 +6,7 @@ import { NextIcon, PauseIcon, PlayIcon } from "@/components/store-monitor/icons"
 
 // Penanda untuk staf toko di perangkat yang MEMUTAR musik toko: musik berasal dari aplikasi ini, jadi
 // tab/aplikasi jangan ditutup. Juga: judul tab diberi awalan, dan browser menanyakan konfirmasi saat tab akan ditutup.
-// canPause: akun Admin boleh menjeda/melanjutkan musik di perangkatnya sendiri (staf toko hanya "lagu berikutnya").
+// canPause: Admin, Store, dan Merchant boleh menjeda/melanjutkan musik di perangkat pemutarnya sendiri (+ "lagu berikutnya").
 export default function MusicBadge({ isPlayer, canPause = false }: { isPlayer: boolean; canPause?: boolean }) {
   const [m, setM] = useState<{ state?: string; title?: string; note?: string } | null>(null);
   const [open, setOpen] = useState(false);
