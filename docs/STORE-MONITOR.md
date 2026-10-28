@@ -24,10 +24,10 @@ Perangkat toko (browser)                         Ably (channel "stores")        
 
 ## Akun Admin sebagai pemutar musik (manual)
 Perangkat milik akun ber-role **admin** ikut terdaftar (`/api/devices/register`) hanya untuk dijadikan pemutar musik:
-- **Tidak ada pemutar bawaan** — hanya perangkat yang dipilih **Super Admin** (ikon musik di baris perangkat) yang bisa memutar.
+- **Tidak ada pemutar bawaan** — hanya perangkat yang dipilih **Super Admin atau Admin** (ikon musik di baris perangkat) yang bisa memutar.
 - **Tanpa auto-play, jadwal, dan jam buka** (`/api/music/state` mengirim `manual_only`; `useStoreMusic` mulai dalam keadaan berhenti dan baru berbunyi setelah Super Admin mengirim play/playlist di sesi itu). `PUT /api/music/schedule|hours` menolak akun Admin.
-- **Semua kontrol musik ke akun Admin hanya Super Admin** (`/api/devices/command` dan `PATCH /api/devices` memeriksa role pemilik perangkat; 403 untuk Admin biasa). Target `{all}` tidak pernah mencakup akun Admin.
-- **Pengguna Admin boleh menjeda/melanjutkan sendiri** di perangkatnya lewat lencana musik (`MusicBadge`, prop `canPause` untuk role `admin`, `store`, dan `merchant`; aksi lokal tanpa server, selain tombol *Lagu berikutnya*). Untuk Store/Merchant, jeda lokal berlaku sampai jadwal/jam buka berikutnya atau perangkat memuat ulang statusnya; untuk Store/Merchant pemutar-nya tetap tablet/PC pemutar toko. Memulai dari nol (memilih playlist) tetap hanya Super Admin; Super Admin juga tetap bisa menjeda dari dashboard.
+- **Kontrol musik ke akun Admin: Super Admin dan sesama Admin** — Admin boleh mengganti playlist/play/jeda/volume perangkatnya sendiri maupun Admin lain (`/api/devices/command` dan `PATCH /api/devices` memeriksa role pemilik perangkat; 403 untuk role lain). Target `{all}` tidak pernah mencakup akun Admin.
+- **Pengguna Admin boleh menjeda/melanjutkan sendiri** di perangkatnya lewat lencana musik (`MusicBadge`, prop `canPause` untuk role `admin`, `store`, dan `merchant`; aksi lokal tanpa server, selain tombol *Lagu berikutnya*). Untuk Store/Merchant, jeda lokal berlaku sampai jadwal/jam buka berikutnya atau perangkat memuat ulang statusnya; untuk Store/Merchant pemutar-nya tetap tablet/PC pemutar toko. Memilih playlist dilakukan dari dashboard Store Monitor oleh Super Admin atau Admin.
 - Tidak dimasukkan ke peringatan offline/baterai, ringkasan 7 hari, filter "Perlu dicek", maupun pilih-semua. Tampil di bagian "Akun Admin" di bawah daftar toko.
 - Pengumuman, layar standby, dan jam buka hanya untuk Store/Merchant.
 

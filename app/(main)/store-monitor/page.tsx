@@ -236,7 +236,7 @@ export default function StoreMonitorPage() {
 
   // Pemutar musik toko: pilihan eksplisit menang; tanpa pilihan = tablet
   const storeInfo = (s: { devices: Device[]; role?: string }) => {
-    const isAdminAcct = s.role === "admin"; // Admin: tidak ada pemutar bawaan, hanya yang dipilih Super Admin
+    const isAdminAcct = s.role === "admin"; // Admin: tidak ada pemutar bawaan, hanya yang dipilih Super Admin/Admin
     const explicit = s.devices.find((d) => d.music_player === true);
     const tablet = explicit || (isAdminAcct ? undefined : s.devices.find((d) => d.kind === "tablet"));
     const isPlayerDev = (d: Device) => (explicit ? d.device_id === explicit.device_id : !isAdminAcct && d.kind === "tablet");
@@ -380,7 +380,7 @@ export default function StoreMonitorPage() {
                 const m = musicOf(s.user_name);
                 const info = storeInfo(s);
                 const { tablet, tl, isPlayerDev, isAdminAcct } = info;
-                const lock = isAdminAcct && !isSuper; // musik akun Admin hanya bisa diatur Super Admin
+                const lock = isAdminAcct && !isSuper && (user as any)?.role !== "admin"; // musik akun Admin: Super Admin & sesama Admin
                 const musicOff = m?.enabled === false; // musik DINONAKTIFKAN: jadwal/jam buka tidak jalan
                 const firstAdmin = isAdminAcct && !(shown[idx - 1]?.role === "admin");
                 const target = { user_names: [s.user_name] };

@@ -46,10 +46,11 @@ export async function PATCH(request: NextRequest) {
     audit(request, "PUT", `Nama perangkat diubah: ${label || "(kosong)"}`, "device", id);
   }
   if (b.music_player === true) {
-    // Perangkat milik akun Admin: hanya Super Admin yang boleh menjadikannya pemutar musik.
+    // Perangkat milik akun Admin: hanya Super Admin atau Admin yang boleh menjadikannya pemutar musik.
     const own = await sql`SELECT u.role FROM store_devices d JOIN app_users u ON u.user_name = d.user_name WHERE d.device_id = ${id}`;
-    if (own[0]?.role === "admin" && (await sessionUser(request))?.role !== "super_admin") {
-      return NextResponse.json({ error: "Musik akun Admin hanya bisa diatur Super Admin" }, { status: 403 });
+    const meRole = (await sessionUser(request))?.role;
+    if (own[0]?.role === "admin" && meRole !== "super_admin" && meRole !== "admin") {
+      return NextResponse.json({ error: "Musik akun Admin hanya bisa diatur Super Admin atau Admin" }, { status: 403 });
     }
     const r = await sql`UPDATE store_devices SET music_player = true WHERE device_id = ${id} RETURNING user_name`;
     if (!r.length) return NextResponse.json({ error: "Perangkat tidak ditemukan" }, { status: 404 });

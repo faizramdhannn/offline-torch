@@ -22,7 +22,7 @@ const MUSIC_ACTIONS = ["load", "play", "pause", "volume", "mute", "shuffle", "pr
 
 // Kirim perintah ke perangkat toko lewat Ably. Izin (user_setting) ditegakkan proxy; tercatat di activity log.
 // target: { all } | { user_names: [...] } | { deviceId }
-// type: music (Admin & Super Admin) | reload, announce, logout, navigate (hanya Super Admin)
+// type: music (Admin & Super Admin; musik akun Admin: Admin & Super Admin) | reload, announce, logout, navigate (hanya Super Admin)
 export async function POST(request: NextRequest) {
   if (!realtimeConfigured()) return NextResponse.json({ error: "Realtime belum dikonfigurasi" }, { status: 503 });
   const me = await sessionUser(request);
@@ -77,10 +77,10 @@ export async function POST(request: NextRequest) {
       stores = (await sql`SELECT user_name FROM store_devices WHERE device_id = ${target.deviceId as string}`).map((r: any) => r.user_name);
     }
     const by = actorName(request);
-    // Akun ber-role Admin: musik MANUAL dan hanya boleh diatur Super Admin.
-    if (me?.role !== "super_admin" && stores.length) {
+    // Akun ber-role Admin: musik MANUAL; hanya Super Admin dan sesama Admin (diri sendiri atau Admin lain) yang boleh mengaturnya.
+    if (me?.role !== "super_admin" && me?.role !== "admin" && stores.length) {
       const adm = await sql`SELECT 1 FROM app_users WHERE role = 'admin' AND user_name = ANY(${stores}) LIMIT 1`;
-      if (adm.length) return NextResponse.json({ error: "Musik akun Admin hanya bisa diatur Super Admin" }, { status: 403 });
+      if (adm.length) return NextResponse.json({ error: "Musik akun Admin hanya bisa diatur Super Admin atau Admin" }, { status: 403 });
     }
     // Toko yang musiknya DINONAKTIFKAN tidak menerima play/playlist/preset sampai diaktifkan lagi.
     if (["play", "load", "preset"].includes(action) && stores.length) {
