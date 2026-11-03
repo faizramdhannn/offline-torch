@@ -34,7 +34,7 @@ Izin = kunci di `PERMISSION_KEYS` (`lib/users.ts`); penegakan di server ada di `
 | Menu | Path | Izin | API | Data |
 |---|---|---|---|---|
 | Cancel Order | `/request-store` | `request` / `edit_request` | `request-store`, `master-dropdown`, `push-notify` | sheet: `request_store` |
-| Catalog Gundam | `/gundam-catalog` (publik) | `canvasing` (menu Catalog) | — | file statis `public/katalog-gundam.html` (data tertanam, snapshot; gambar dari CDN Shopify) | desain A4 landscape jadi; pemilih foto internal disembunyikan; diperbarui dengan mengganti file. Tanpa sheet/Neon/Blob. |
+| Catalog Gundam | `/gundam-catalog` (publik) | `canvasing` (menu Catalog) | — | file statis `public/katalog-gundam.html` (data tertanam, snapshot; gambar dari CDN Shopify) | desain A4 landscape jadi; pemilih foto tetap tampil (pilihan tersimpan di browser pengunjung); skala otomatis di HP; diperbarui dengan mengganti file. Tanpa sheet/Neon/Blob. |
 | Invoice | `/invoice`, `/invoice/new`, `/invoice/[id]`, `/invoice/[id]/edit` | `invoice` (+`_create`, `_edit`, `_delete`, `_master` = pengaturan master, **`invoice_approval`** = approve/reject/void + lihat semua) | `invoice`, `invoice/action`, `invoice/{master,pdf,word}`, `master-item` | **neon**: `invoices`, `invoice_items`, `invoice_events`, `invoice_master` (sheet lama tidak dipakai lagi) |
 | Material Issue | `/material-issue` | `material_issue` / `material_issue_all` | `material-issue`, `material-issue-dropdown`, `master-item`, `push-notify` | sheet: `material_issue` |
 | Employee Discount | `/employee-discount` | `employee_discount` / `employee_discount_approval` | `employee-discount`, `employee-discount/upload`, `master-item` | sheet: `request_discount` |

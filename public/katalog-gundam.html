@@ -19,7 +19,7 @@ body{background:#3a3d44;font-family:var(--mono);color:var(--ink)}
 .toolbar span{opacity:.8}
 .wrap{display:flex;flex-direction:column;align-items:center;gap:0;padding:18px 0 60px}
 .page{position:relative;width:297mm;height:210mm;background:var(--paper);overflow:hidden;box-shadow:0 6px 30px rgba(0,0,0,.45);page-break-after:always;break-after:page}
-.picker{display:none!important;width:297mm;background:#1b1e26;padding:8px 10px 12px;margin-bottom:26px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.picker{width:297mm;background:#1b1e26;padding:8px 10px 12px;margin-bottom:26px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .picker small{color:#9aa3b5;font-size:11px;width:100%}
 .picker img{height:54px;width:54px;object-fit:cover;cursor:pointer;border:2px solid transparent;opacity:.75}
 .picker img:hover{opacity:1}.picker img.hero{border-color:var(--yellow);opacity:1}.picker img.sup{border-color:#4fd1c5;opacity:1}
@@ -156,7 +156,9 @@ body{background:#3a3d44;font-family:var(--mono);color:var(--ink)}
 <div class="toolbar">
   <b>TORCH × MOBILE SUIT GUNDAM · KATALOG</b>
   <button onclick="window.print()">Cetak / Simpan PDF</button>
-  <span>Tip: di dialog cetak pilih "Simpan sebagai PDF", kertas A4 landscape, margin None.</span>
+  <button onclick="resetPick()" style="background:#fff">Reset pilihan foto</button>
+  <label><input type="checkbox" id="supMode"> Mode foto pendukung</label>
+  <span>Klik/tap foto di bawah tiap halaman = foto utama · Shift+klik atau centang "Mode foto pendukung" = foto pendukung (maks 2). Pilihan tersimpan otomatis.</span>
 </div>
 <div class="wrap" id="wrap"></div>
 
@@ -169,8 +171,8 @@ const ACC = {zeon:"#d71920", fed:"#1f5fbf", neu:"#f2b705"};
 const GROUPS = [["BACKPACK","SLING BAG","WAIST BAG"],["TOTEBAG & POUCH"],["APPAREL"],["ACCESSORIES"]];
 const TYPE_ORDER = ["Backpack","Sling Bag","Waist Bag","Foldable Totebag","Pouch","T-Shirt","Baseball Hat","Neck Wallet","Tumbler","Enamel Pin","Patch"];
 let pick = {};
-
-const save = ()=>{};
+try{ pick = JSON.parse(localStorage.getItem("torch_gundam_pick")||"{}"); }catch(e){}
+const save = ()=>{ try{localStorage.setItem("torch_gundam_pick",JSON.stringify(pick));}catch(e){} };
 function resetPick(){ pick={}; save(); render(); }
 
 function defaults(p){
@@ -269,12 +271,13 @@ document.addEventListener("click",e=>{
   const img = e.target.closest(".picker img"); if(!img) return;
   const slug = img.parentElement.dataset.slug, p = DATA.find(x=>x.slug===slug), i = +img.dataset.i;
   const cur = JSON.parse(JSON.stringify(state(p)));
-  if(e.shiftKey || document.getElementById("supMode")?.checked){ const k = cur.sup.indexOf(i); if(k>=0) cur.sup.splice(k,1); else { cur.sup.push(i); if(cur.sup.length>2) cur.sup.shift(); } }
+  if(e.shiftKey || document.getElementById("supMode").checked){ const k = cur.sup.indexOf(i); if(k>=0) cur.sup.splice(k,1); else { cur.sup.push(i); if(cur.sup.length>2) cur.sup.shift(); } }
   else { cur.hero = i; cur.sup = cur.sup.filter(x=>x!==i); }
   pick[slug] = cur; save();
   const y = scrollY; render(); scrollTo(0,y);
 });
 render();
+// Layar sempit: halaman 297mm diperkecil mengikuti lebar layar (cetak tetap ukuran asli).
 (function fit(){
   const w = document.getElementById("wrap"), pw = 297 * 96 / 25.4;
   const apply = ()=>{ w.style.zoom = Math.min(1, innerWidth / pw); };
