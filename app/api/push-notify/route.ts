@@ -5,7 +5,7 @@ import webpush from 'web-push';
 const SUBSCRIPTION_KEY_PREFIX = 'push_sub_';
 
 webpush.setVapidDetails(
-  'https://offline-torch.vercel.app',
+  'https://www.offlinetorch.my.id',
   process.env.VAPID_PUBLIC_KEY || '',
   process.env.VAPID_PRIVATE_KEY || ''
 );

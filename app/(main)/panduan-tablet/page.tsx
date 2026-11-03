@@ -3,7 +3,7 @@
 // Panduan setup tablet toko untuk dikirim ke staf (halaman statis: tanpa panggilan ke server).
 const STEPS: { title: string; body: string }[] = [
   { title: "Colok charger", body: "Tablet harus selalu tercolok listrik. Layar menyala terus akan menguras baterai." },
-  { title: "Buka aplikasi di Chrome", body: "Buka alamat aplikasi (offline-torch.vercel.app) di Chrome, lalu login dengan akun toko." },
+  { title: "Buka aplikasi di Chrome", body: "Buka alamat aplikasi (www.offlinetorch.my.id) di Chrome, lalu login dengan akun toko." },
   { title: "Pasang ikon di layar utama", body: "Ketuk menu ⋮ di Chrome → Add to Home screen. Setelah itu buka aplikasi dari ikon tersebut supaya tampil layar penuh." },
   { title: "Ketuk layar sekali", body: "Setelah aplikasi terbuka, ketuk layar satu kali agar musik diizinkan berbunyi. Kalau muncul tombol \"Ketuk untuk memulai musik\", ketuk tombol itu." },
   { title: "Jangan matikan layar", body: "Boleh diredupkan, tapi jangan ditekan tombol power. Jangan menutup aplikasi dan jangan pindah ke aplikasi lain, karena musik bisa berhenti." },

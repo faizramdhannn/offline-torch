@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   },
   serverExternalPackages: ['tesseract.js'],
   turbopack: {},
+  // Katalog Gundam = file statis di public/; rewrite (bukan redirect) supaya alamat tetap /gundam-catalog tanpa ".html".
+  async rewrites() {
+    return [{ source: "/gundam-catalog", destination: "/katalog-gundam.html" }];
+  },
 };
 
 export default nextConfig;
