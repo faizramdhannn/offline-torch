@@ -20,6 +20,7 @@ interface CatalogEntry {
   name: string;
   description: string;
   path: string;
+  static?: boolean; // desain jadi (bukan dari sheet) — tanpa tombol Refresh
 }
 
 const CATALOGS: CatalogEntry[] = [
@@ -34,6 +35,13 @@ const CATALOGS: CatalogEntry[] = [
     name: "Clearance Catalog",
     description: "Katalog A4 produk clearance dengan pilihan warna — hanya produk yang masih ada stock.",
     path: "/clearance-catalog",
+  },
+  {
+    key: "gundam",
+    name: "Gundam Catalog",
+    description: "Katalog A4 landscape Torch × Mobile Suit Gundam — cover, daftar isi, satu halaman per produk, halaman stiker.",
+    path: "/gundam-catalog",
+    static: true,
   },
 ];
 
@@ -190,7 +198,7 @@ export default function CatalogPage() {
                   QR Code
                 </Button>
               </div>
-              {user?.user_setting && (
+              {user?.user_setting && !entry.static && (
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-[10px] text-gray-400">
                     Diperbarui otomatis tiap hari
