@@ -277,10 +277,11 @@ document.addEventListener("click",e=>{
   const y = scrollY; render(); scrollTo(0,y);
 });
 render();
-// Layar sempit: halaman 297mm diperkecil mengikuti lebar layar (cetak tetap ukuran asli).
+// Tablet/laptop kecil (901–1122 px): halaman 297mm diperkecil mengikuti lebar layar. Di ≤ 900 px tampilan mobile bawaan
+// (satuan vw) yang dipakai, jadi TIDAK boleh di-zoom. Cetak tetap ukuran asli.
 (function fit(){
   const w = document.getElementById("wrap"), pw = 297 * 96 / 25.4;
-  const apply = ()=>{ w.style.zoom = Math.min(1, innerWidth / pw); };
+  const apply = ()=>{ w.style.zoom = innerWidth > 900 ? Math.min(1, innerWidth / pw) : 1; };
   apply(); addEventListener("resize", apply);
   addEventListener("beforeprint", ()=>{ w.style.zoom = 1; });
   addEventListener("afterprint", apply);
