@@ -43,6 +43,13 @@ const CATALOGS: CatalogEntry[] = [
     path: "/gundam-catalog",
     static: true,
   },
+  {
+    key: "women",
+    name: "Women Collection Catalog",
+    description: "Katalog A4 landscape Women Collection — sling bag, clutch, tote, pouch; satu halaman per produk dengan pilihan warna.",
+    path: "/women-catalog",
+    static: true,
+  },
 ];
 
 export default function CatalogPage() {

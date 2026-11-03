@@ -8,9 +8,19 @@ const nextConfig: NextConfig = {
   },
   serverExternalPackages: ['tesseract.js'],
   turbopack: {},
-  // Katalog Gundam = file statis di public/; rewrite (bukan redirect) supaya alamat tetap /gundam-catalog tanpa ".html".
+  // Katalog Gundam & Women = file statis di public/; rewrite (bukan redirect) supaya alamat tetap tanpa ".html".
+  // Alamat langsung ke file statis diarahkan ke alamat bersih (tanpa ".html").
+  async redirects() {
+    return [
+      { source: "/katalog-gundam.html", destination: "/gundam-catalog", permanent: false },
+      { source: "/katalog-women.html", destination: "/women-catalog", permanent: false },
+    ];
+  },
   async rewrites() {
-    return [{ source: "/gundam-catalog", destination: "/katalog-gundam.html" }];
+    return [
+      { source: "/gundam-catalog", destination: "/katalog-gundam.html" },
+      { source: "/women-catalog", destination: "/katalog-women.html" },
+    ];
   },
 };
 

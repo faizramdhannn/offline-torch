@@ -86,11 +86,6 @@ const SPREADSHEET_MAP: Record<string, string> = {
   voucher_list: process.env.SPREADSHEET_VOUCHER || "",
   master_bundling: process.env.SPREADSHEET_BUNDLING || "",
   canvasing_store: process.env.SPREADSHEET_STORE || "",
-  catalog_product: process.env.SPREADSHEET_CATALOG || "",
-  ihls_product: process.env.SPREADSHEET_CATALOG || "",
-  clearance_product: process.env.SPREADSHEET_CATALOG || "",
-  pasaraya_product: process.env.SPREADSHEET_CATALOG || "",
-  clearance_product_2: process.env.SPREADSHEET_CATALOG || "",
   online_catalog: process.env.SPREADSHEET_CATALOG || "",
   clearance_catalog: process.env.SPREADSHEET_CATALOG || "",
   // ✅ Step ERP — satu spreadsheet, satu tab per type (lihat lib/stepErpConfig.ts)
@@ -122,7 +117,6 @@ const SPREADSHEET_MAP: Record<string, string> = {
 const SHEET_RANGE: Record<string, string> = {
   qr_code: "A1:E",             // uuid, name, url, created_at, update_at
   qr_code_analytic: "A1:L",    // id, qr_uuid, scanned_at, ip_address, country, city, region, device_type, os, browser, user_agent, referrer
-  clearance_product_2: "A1:M", // id, sku, item_name, artikel, category, stock_lembong, stock_margonda, stock_cirebon, stock_karawang, image_url, price, price_promo, stock_all
   clearance_catalog: "A1:G", // sama dengan online_catalog
   online_catalog: "A1:G", // id, artikel, category, color, stock, image_url, price
   result_stock: "A1:M",       // ~36 kolom — sheet stok besar, batasi (L = tier_product, M = tier_phase)

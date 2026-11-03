@@ -141,7 +141,7 @@ Kuota (30 hari) yang pernah hampir habis: **Fluid Active CPU 4 jam**, **Fast Ori
 ## 10. Subsistem khusus (ringkas)
 
 - **Store Monitor** (`/store-monitor`): pantau tablet/PC toko, musik YouTube per toko, jadwal, jam buka, pengumuman. Detail lengkap di [docs/STORE-MONITOR.md](docs/STORE-MONITOR.md).
-- **Katalog**: halaman publik `/online-catalog` dan `/clearance-catalog` (+ `/pdf`); status di tabel `catalog_state` (versi → URL PDF berversi `?v=`). Menu Catalog (izin `canvasing`) berisi tombol refresh. Harga promo Clearance dihitung di `lib/catalogs.ts` (`promoPercent: 50`).
+- **Katalog** (hanya 4): `/online-catalog` dan `/clearance-catalog` (+ `/pdf`, dari sheet) serta `/gundam-catalog` dan `/women-catalog` (file statis `public/katalog-*.html`, rewrite di `next.config.ts`); status di tabel `catalog_state` (versi → URL PDF berversi `?v=`). Menu Catalog (izin `canvasing`) berisi tombol refresh. Harga promo Clearance dihitung di `lib/catalogs.ts` (`promoPercent: 50`).
 - **Profil wajib lengkap** (`lib/profileRules.ts`): semua role butuh nama/email/telepon/foto; Store & Merchant juga alamat (harus ada kode pos). Telepon dinormalisasi ke `62…`. Layout memaksa ke `/profile?required=1` bila belum lengkap.
 - **Gate Store**: Attendance gate & Daily Checklist gate hanya untuk role **store** (Merchant tidak kena gate).
 - **Badge pending sidebar** (`lib/pendingCounts.ts`): angka request menunggu, hanya untuk user yang boleh mengubah status; ikut `/api/auth/me`.

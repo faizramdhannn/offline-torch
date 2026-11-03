@@ -5,11 +5,6 @@ import Image from "next/image";
 import { useState, ReactNode, useRef, useEffect, useCallback } from "react";
 import { useSidebar } from "@/context/SidebarContext";
 import NotificationListener from "@/components/NotificationListener";
-import { Clearance2CatalogPicker } from "@/components/canvasing/Clearance2CatalogPicker";
-
-// E-Catalog (5 tombol PDF) di Sidebar saat buka /canvasing disembunyikan dulu —
-// diganti menu Catalog. Set true untuk menampilkan lagi.
-const SHOW_ECATALOG_BUTTONS = false;
 
 interface SidebarProps {
   userName: string;
@@ -68,11 +63,6 @@ interface MenuItem {
 export default function Sidebar({ userName, permissions }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [generatingCatalog, setGeneratingCatalog] = useState(false);
-  const [generatingIhlsCatalog, setGeneratingIhlsCatalog] = useState(false);
-  const [generatingClearanceCatalog, setGeneratingClearanceCatalog] = useState(false);
-  const [generatingPasarayaCatalog, setGeneratingPasarayaCatalog] = useState(false);
-  const [showClearance2Picker, setShowClearance2Picker] = useState(false);
 
   // Angka permintaan menunggu: dasar dari /api/auth/me (permissions.pending, tiap 5 menit);
   // setelah user mengubah status, disegarkan sekali lewat /api/pending.
@@ -218,114 +208,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     },
     [router, toggleOpen]
   );
-
-  const handleGenerateCatalog = async () => {
-    setGeneratingCatalog(true);
-    try {
-      const response = await fetch("/api/canvasing/ecatalog/generate", {
-        method: "POST",
-      });
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `Torch_E-Catalog_${Date.now()}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        alert("Failed to generate e-catalog");
-      }
-    } catch {
-      alert("Failed to generate e-catalog");
-    } finally {
-      setGeneratingCatalog(false);
-    }
-  };
-
-  const handleGenerateIhlsCatalog = async () => {
-    setGeneratingIhlsCatalog(true);
-    try {
-      const response = await fetch("/api/canvasing/ecatalog-ihls/generate", {
-        method: "POST",
-      });
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `IHLS_E-Catalog_${Date.now()}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        alert("Failed to generate IHLS e-catalog");
-      }
-    } catch {
-      alert("Failed to generate IHLS e-catalog");
-    } finally {
-      setGeneratingIhlsCatalog(false);
-    }
-  };
-
-  const handleGenerateClearanceCatalog = async () => {
-    setGeneratingClearanceCatalog(true);
-    try {
-      const response = await fetch("/api/canvasing/ecatalog-clearance/generate", {
-        method: "POST",
-      });
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `Torch_E-Catalog_Clearance_${Date.now()}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        alert("Failed to generate clearance e-catalog");
-      }
-    } catch {
-      alert("Failed to generate clearance e-catalog");
-    } finally {
-      setGeneratingClearanceCatalog(false);
-    }
-  };
-
-  const handleGeneratePasarayaCatalog = async () => {
-    setGeneratingPasarayaCatalog(true);
-    try {
-      const response = await fetch("/api/canvasing/ecatalog-pasaraya/generate", {
-        method: "POST",
-      });
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `Pasaraya_E-Catalog_${Date.now()}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      } else {
-        alert("Failed to generate Pasaraya e-catalog");
-      }
-    } catch {
-      alert("Failed to generate Pasaraya e-catalog");
-    } finally {
-      setGeneratingPasarayaCatalog(false);
-    }
-  };
-
-  const handleGenerateClearance2Catalog = () => {
-    setShowClearance2Picker(true);
-  };
 
   const hasRequestAccess = !!(permissions.request || permissions.edit_request);
   const hasTrackingAccess = !!(
@@ -1156,107 +1038,6 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
           {/* Daily Job, Petty Cash, Step ERP, Stock, Stock Opname, Survey Store, Voucher, Registration, Settings */}
           {menuItems.slice(8).map((item) =>
             checkPermission(item) ? <MenuButton key={item.path} item={item} /> : null
-          )}
-
-          {SHOW_ECATALOG_BUTTONS && permissions?.canvasing && pathname === "/canvasing" && (
-            <button
-              onClick={handleGenerateCatalog}
-              disabled={generatingCatalog}
-              title={isCollapsed ? "E-Catalog" : undefined}
-              className={`w-full flex items-center gap-3 transition-colors mt-1 text-gray-500 hover:text-gray-900 hover:bg-black/5 disabled:opacity-40 disabled:cursor-not-allowed ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}`}
-            >
-              <span className="shrink-0 opacity-70">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-              </span>
-              {!isCollapsed && (
-                <span className="text-xs truncate">
-                  {generatingCatalog ? "Generating..." : "E-Catalog"}
-                </span>
-              )}
-            </button>
-          )}
-
-          {SHOW_ECATALOG_BUTTONS && permissions?.canvasing && pathname === "/canvasing" && (
-            <button
-              onClick={handleGenerateIhlsCatalog}
-              disabled={generatingIhlsCatalog}
-              title={isCollapsed ? "E-Catalog IHLS" : undefined}
-              className={`w-full flex items-center gap-3 transition-colors mt-1 text-gray-500 hover:text-gray-900 hover:bg-black/5 disabled:opacity-40 disabled:cursor-not-allowed ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}`}
-            >
-              <span className="shrink-0 opacity-70">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-              </span>
-              {!isCollapsed && (
-                <span className="text-xs truncate">
-                  {generatingIhlsCatalog ? "Generating..." : "E-Catalog IHLS"}
-                </span>
-              )}
-            </button>
-          )}
-
-          {SHOW_ECATALOG_BUTTONS && permissions?.canvasing && pathname === "/canvasing" && (
-            <button
-              onClick={handleGenerateClearanceCatalog}
-              disabled={generatingClearanceCatalog}
-              title={isCollapsed ? "E-Catalog Clearance" : undefined}
-              className={`w-full flex items-center gap-3 transition-colors mt-1 text-gray-500 hover:text-gray-900 hover:bg-black/5 disabled:opacity-40 disabled:cursor-not-allowed ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}`}
-            >
-              <span className="shrink-0 opacity-70">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-              </span>
-              {!isCollapsed && (
-                <span className="text-xs truncate">
-                  {generatingClearanceCatalog ? "Generating..." : "E-Catalog Clearance"}
-                </span>
-              )}
-            </button>
-          )}
-
-          {SHOW_ECATALOG_BUTTONS && permissions?.canvasing && pathname === "/canvasing" && (
-            <button
-              onClick={handleGeneratePasarayaCatalog}
-              disabled={generatingPasarayaCatalog}
-              title={isCollapsed ? "E-Catalog Pasaraya" : undefined}
-              className={`w-full flex items-center gap-3 transition-colors mt-1 text-gray-500 hover:text-gray-900 hover:bg-black/5 disabled:opacity-40 disabled:cursor-not-allowed ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}`}
-            >
-              <span className="shrink-0 opacity-70">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-              </span>
-              {!isCollapsed && (
-                <span className="text-xs truncate">
-                  {generatingPasarayaCatalog ? "Generating..." : "E-Catalog Pasaraya"}
-                </span>
-              )}
-            </button>
-          )}
-
-          {SHOW_ECATALOG_BUTTONS && permissions?.canvasing && pathname === "/canvasing" && (
-            <button
-              onClick={handleGenerateClearance2Catalog}
-              title={isCollapsed ? "E-Catalog Clearance 2" : undefined}
-              className={`w-full flex items-center gap-3 transition-colors mt-1 text-gray-500 hover:text-gray-900 hover:bg-black/5 disabled:opacity-40 disabled:cursor-not-allowed ${isCollapsed ? "justify-center px-0 py-2.5" : "px-4 py-2.5"}`}
-            >
-              <span className="shrink-0 opacity-70">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-              </span>
-              {!isCollapsed && (
-                <span className="text-xs truncate">E-Catalog Clearance 2</span>
-              )}
-            </button>
-          )}
-
-          {showClearance2Picker && (
-            <Clearance2CatalogPicker onClose={() => setShowClearance2Picker(false)} />
           )}
         </nav>
       </aside>
