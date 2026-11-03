@@ -150,6 +150,33 @@ body{background:#3a3d44;font-family:var(--mono);color:var(--ink)}
   .prod .hero[style]+.num{display:none}
   .prod .hero[style]{padding:6vw!important;height:auto!important;aspect-ratio:auto}
 }
+/* HP: satu produk (halaman + pemilih foto) muat satu layar — foto, nama, harga, warna, stiker, pilihan foto */
+@media screen and (max-width:900px){
+  .prod .hero{height:56vw}
+  .prod .num{left:3vw;top:1.5vw;font-size:14vw}
+  .prod .badge{left:4vw;top:15.5vw;font-size:9px;padding:.8vw 2.4vw;letter-spacing:2px}
+  .prod .sup{left:3vw;top:38.5vw;bottom:auto}
+  .prod .sup div{width:15vw;height:15vw;border-width:.6vw}
+  .prod .soldout{top:2vw;right:3vw;font-size:10px;padding:1vw 3vw}
+  .prod .info{padding:3vw 4vw 2.5vw;gap:2vw}
+  .prod .type{font-size:9px;letter-spacing:3px}
+  .prod h2{font-size:7.4vw!important}
+  .prod .price{padding:1.2vw 6vw 1.2vw 3vw}
+  .prod .price b{font-size:7vw}
+  .prod .lbl{font-size:8.5px;margin-bottom:1vw;letter-spacing:2px}
+  .prod .cols{gap:1.4vw}
+  .prod .col{padding:.8vw;gap:1.6vw;font-size:11px}
+  .prod .col .sw,.prod .col .ph{width:7.5vw;height:7.5vw}
+  .prod .sizes{gap:1.4vw}
+  .prod .sz{height:7vw;min-width:8vw;font-size:11px}
+  .prod .fs{gap:2vw}
+  .prod .fs div{max-width:19vw;border-width:.6vw}
+  .prod .note{display:none}
+  .bar{height:8mm}
+  .picker{padding:5px 8px 6px;gap:4px}
+  .picker small{font-size:9.5px;line-height:1.2}
+  .picker img{height:32px;width:32px}
+}
 </style>
 </head>
 <body>
