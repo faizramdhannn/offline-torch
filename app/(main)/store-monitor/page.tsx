@@ -211,6 +211,14 @@ export default function StoreMonitorPage() {
     flash(r.ok ? "Perangkat diputus" : "Gagal");
     loadAll();
   };
+  // Reset login massal (Super Admin): perangkat toko di-logout & harus login ulang. Perangkat offline keluar saat terhubung lagi.
+  const resetDevices = async () => {
+    if (!confirm(`Reset login perangkat ${scopeLabel}? Semua perangkat toko di-logout dan harus login ulang (perangkat yang sedang offline keluar saat terhubung lagi).`)) return;
+    const r = await fetch("/api/devices", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify(selected.size ? { user_names: [...selected] } : { all: true }) });
+    const d = await r.json().catch(() => ({}));
+    flash(r.ok ? `${d.devices ?? 0} perangkat di ${d.stores ?? 0} toko direset` : d.error || "Gagal mereset", 4000);
+    loadAll();
+  };
   const saveHours = async (users: string[], h: StoreHours) => {
     const r = await fetch("/api/music/hours", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_names: users, ...h }) });
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "Gagal menyimpan");
@@ -299,6 +307,7 @@ export default function StoreMonitorPage() {
         <button className={b} disabled={!live_ || !isSuper} onClick={() => { afterSheet(); doAnnounce(scopeTarget(), scopeLabel); }}><MegaphoneIcon /> Pengumuman</button>
         <button className={b} onClick={() => { afterSheet(); setEditing({ title: scopeLabel, users: selected.size ? [...selected] : stores.map((s) => s.user_name) }); }}><CalendarIcon /> Jadwal</button>
         <button className={b} disabled={!live_ || !isSuper} onClick={() => { if (confirm(`Muat ulang perangkat ${scopeLabel}?`)) { send("reload", scopeTarget()); afterSheet(); } }}><RefreshIcon /> Reload</button>
+        <button className={b} disabled={!isSuper} onClick={() => { afterSheet(); resetDevices(); }}><PowerIcon /> Reset login</button>
         <button className={b} onClick={() => { afterSheet(); setEditingHours({ title: scopeLabel, users: selected.size ? [...selected] : stores.map((s) => s.user_name) }); }}>Jam buka</button>
         <button className={b} onClick={() => { afterSheet(); setManaging(true); }}>Kelola preset & grup</button>
       </>

@@ -73,6 +73,8 @@ Setelah 3 menit tanpa sentuhan: jam, nama toko, lagu, **teks standby** (global, 
 
 Skema: `ensureDevicesSchema()` di `lib/devices.ts` memakai `ensureOnce("devices", "vN")` — **naikkan versi bila DDL berubah** (sekarang `v7`).
 Putuskan perangkat = `revoked=true`; `register` menjawab `{revoked:true}` sekali → klien logout, baris dihapus.
+**Perangkat tidak aktif**: perangkat yang `last_seen`-nya lebih dari 24 jam lalu tidak ditampilkan di daftar Store Monitor (`GET /api/devices`); barisnya tetap di database dan muncul lagi begitu perangkat membuka aplikasi (register memperbarui `last_seen`). Toko yang semua perangkatnya tidak aktif ikut tidak tampil.
+**Reset login massal** (Super Admin, tombol *Reset login* di bar aksi; `DELETE /api/devices` dengan `{all:true}` atau `{user_names:[…]}`): semua perangkat **Store/Merchant** (atau toko terpilih) di-`revoked`; perangkat online di-logout lewat Ably, yang offline keluar saat mendaftar lagi. Akun Admin tidak ikut. Berguna setelah pindah domain (identitas perangkat `torch_device_id` terikat domain) dan membersihkan pilihan pemutar musik yang menempel di perangkat lama (perangkat `revoked` tidak dihitung saat menentukan pemutar).
 
 ## Dashboard (`app/(main)/store-monitor/page.tsx`)
 Tab: Perangkat, Playlist, Pengumuman (Super Admin), Ringkasan (jam online 7 hari), Riwayat (online/offline + perintah dari activity log). Mobile: bar aksi bawah + panel aksi, kartu toko ringkas yang bisa dibuka, filter *Semua/Offline/Perlu dicek*. Komponen di `components/store-monitor/` (`AnnounceDialog`, `AnnounceSchedule`, `HoursEditor`, `ScheduleEditor`, `PlaylistManager`, `PresetManager`, `SummaryTab`, `EventLog`, `CommandLog`, `icons`).

@@ -19,6 +19,7 @@ export async function GET(_request: NextRequest) {
       FROM store_devices d
       JOIN app_users u ON u.user_name = d.user_name AND u.active = true
       WHERE d.revoked = false
+        AND d.last_seen > now() - interval '24 hours'  -- perangkat yang >24 jam tidak muncul/login disembunyikan (perangkat aktif memperbarui last_seen tiap jam)
       ORDER BY d.store_name ASC, d.kind ASC
     `,
     sql`SELECT id, name, url FROM music_playlists ORDER BY name ASC`,
@@ -69,9 +70,31 @@ export async function DELETE(request: NextRequest) {
   const me = await sessionUser(request);
   if (me?.role !== "super_admin") return NextResponse.json({ error: "Hanya Super Admin" }, { status: 403 });
   const b = await request.json().catch(() => ({}));
+  await ensureDevicesSchema();
+
+  // Reset massal: semua perangkat toko (Store/Merchant), atau hanya toko terpilih → harus login ulang.
+  // Perangkat online di-logout lewat Ably; yang offline keluar saat mendaftar lagi (register menjawab revoked).
+  if (b.all === true || (Array.isArray(b.user_names) && b.user_names.length)) {
+    const names: string[] | null = b.all === true ? null : b.user_names.slice(0, 200).map((x: unknown) => String(x).slice(0, 80));
+    const rows = (await sql`
+      UPDATE store_devices d SET revoked = true
+      FROM app_users u
+      WHERE u.user_name = d.user_name AND u.role IN ('store', 'merchant') AND d.revoked = false
+        AND (${names === null}::boolean OR d.user_name = ANY(${names || []}::text[]))
+      RETURNING d.device_id, d.user_name
+    `) as { device_id: string; user_name: string }[];
+    const stores = [...new Set(rows.map((r) => r.user_name))];
+    if (realtimeConfigured()) {
+      for (let i = 0; i < stores.length; i += 50) {
+        await publishCommand({ type: "logout", target: { user_names: stores.slice(i, i + 50) }, ts: Date.now() }).catch(() => {});
+      }
+    }
+    audit(request, "DELETE", `Reset login perangkat: ${rows.length} perangkat di ${stores.length} toko${names ? " (dipilih)" : " (semua)"}`, "device", "bulk");
+    return NextResponse.json({ ok: true, devices: rows.length, stores: stores.length });
+  }
+
   const id = String(b.device_id || "");
   if (!DEVICE_ID_RE.test(id)) return NextResponse.json({ error: "device_id tidak valid" }, { status: 400 });
-  await ensureDevicesSchema();
   await sql`UPDATE store_devices SET revoked = true WHERE device_id = ${id}`;
   if (realtimeConfigured()) {
     await publishCommand({ type: "logout", target: { deviceId: id }, ts: Date.now() }).catch(() => {});
