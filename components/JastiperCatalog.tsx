@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import { ChevronLeft, ChevronRight, ImageOff, Printer, Search, X } from "lucide-react";
 import type { JastiperData, JColor, JProduct } from "@/lib/jastiperCatalog";
+import { ONLINE_GROUPS } from "@/lib/onlineCatalogMap";
 
 // Katalog Jastiper (publik): grid produk + jendela detail dengan galeri foto & pilihan warna.
 // Tampilan sengaja berbeda dari katalog Gundam/Women (itu halaman editorial); ini katalog umum yang bisa dicari & difilter.
@@ -10,27 +12,127 @@ const LOGO = "https://i.ibb.co.com/dJBmqq1S/TORCH-LOGOS.png";
 const ACCENT = "#0b7a8f";
 
 // Foto Shopify bisa diminta dalam ukuran lebih kecil lewat ?width= — hemat data pengunjung.
+// ---- Cetak / Simpan PDF: A4 tegak penuh (tanpa margin browser, jadi tanpa kop tanggal/URL/nomor halaman bawaan browser).
+// Halaman disusun sendiri (cover + halaman produk 4 × 4 kartu) seperti PDF Online catalog; hanya dirender saat mencetak.
 const PRINT_CSS = `
-@page { size: A4 portrait; margin: 10mm; }
+@page { size: A4 portrait; margin: 0; }
 @media print {
-  html, body { background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .jc-grid { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 3mm !important; }
-  .jc-sec { margin-bottom: 4mm !important; }
-  .jc-h { margin-bottom: 2.5mm !important; padding-bottom: 1mm !important; break-after: avoid; }
-  .jc-h h2 { font-size: 11pt !important; }
-  .jc-card { height: 63mm; break-inside: avoid; box-shadow: none !important; border: 0.2mm solid #d9d9d9; border-radius: 2.5mm !important; transform: none !important; }
-  .jc-img { aspect-ratio: auto !important; height: 32mm !important; }
-  .jc-img img { padding: 1.5mm !important; transform: none !important; }
-  .jc-body { padding: 1.8mm 2.2mm !important; gap: 0.8mm !important; }
-  .jc-name { font-size: 7.5pt !important; min-height: 0 !important; line-height: 1.2 !important; }
-  .jc-foot { padding-top: 1.2mm !important; gap: 0.8mm !important; }
-  .jc-price span:first-child { font-size: 9pt !important; }
-  .jc-price span + span { font-size: 6.5pt !important; }
-  .jc-chips span { font-size: 5.5pt !important; padding: 0.2mm 1.2mm !important; }
-  .jc-badge { width: 9mm !important; height: 9mm !important; font-size: 7pt !important; right: 1.5mm !important; top: 1.5mm !important; }
-  .jc-badge span:last-child { font-size: 4.5pt !important; }
+  html, body { margin: 0 !important; background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+.pp { position: relative; width: 210mm; height: 297mm; overflow: hidden; background: #fff; break-after: page; page-break-after: always; font-family: inherit; }
+.pp:last-child { break-after: auto; page-break-after: auto; }
 `;
+
+const TORCH_ICON = "https://cdn.shopify.com/s/files/1/1615/1301/files/Untitled_design_162c0ca1-c46e-4635-8f4c-bc44d547ee5e.png?v=1770919047";
+const GROUP_COLOR: Record<string, string> = { ...Object.fromEntries(ONLINE_GROUPS.map((g) => [g.name, g.color])), Lainnya: "#475569" };
+const gcolor = (g: string) => GROUP_COLOR[g] ?? ACCENT;
+
+// Ukuran halaman (mm): isi mulai y=27, tersisa 260; banner grup 11 + jarak 3; satu baris kartu 58 + jarak 3.
+const PAGE_CAP = 260, BANNER_SLOT = 14, ROW_SLOT = 61, PER_ROW = 4;
+type PRow = { t: "b"; g: string } | { t: "c"; items: JProduct[] };
+
+function paginate(sections: { g: string; items: JProduct[] }[]): PRow[][] {
+  const pages: PRow[][] = [];
+  let cur: PRow[] = [];
+  let used = 0;
+  const flush = () => { if (cur.length) pages.push(cur); cur = []; used = 0; };
+  for (const { g, items } of sections) {
+    if (used + BANNER_SLOT + ROW_SLOT > PAGE_CAP) flush(); // judul grup tidak ditinggal sendirian di dasar halaman
+    cur.push({ t: "b", g }); used += BANNER_SLOT;
+    for (let i = 0; i < items.length; i += PER_ROW) {
+      if (used + ROW_SLOT > PAGE_CAP) flush();
+      cur.push({ t: "c", items: items.slice(i, i + PER_ROW) }); used += ROW_SLOT;
+    }
+  }
+  flush();
+  return pages;
+}
+
+function PrintCard({ p }: { p: JProduct }) {
+  const c = p.colors.find((x) => !x.soldOut) ?? p.colors[0];
+  const img = c.images?.[0];
+  const ready = p.colors.filter((x) => !x.soldOut).length;
+  const n = pct(c);
+  return (
+    <div className="relative h-[58mm] overflow-hidden rounded-[2.5mm] border-[0.25mm] border-[#e2e8f0] bg-[#ffffff] text-center">
+      <div className="h-[1.4mm] w-full" style={{ background: gcolor(p.group) }} />
+      <div className="relative mt-[0.5mm] h-[29mm] w-full">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {img && <img src={sized(img, 520)} alt="" loading="eager" decoding="sync" className="h-full w-full object-contain p-[1.5mm]" />}
+        {p.collection && <span className="absolute left-[1.5mm] top-[1.5mm] rounded-full bg-neutral-900 px-[1.6mm] py-[0.4mm] text-[5.5pt] font-bold text-white">{p.collection}</span>}
+        {n > 0 && <Badge n={n} className="absolute right-[1.5mm] top-[1.5mm] h-[9mm] w-[9mm] text-[7pt]" />}
+      </div>
+      <div className="px-[2mm] pt-[1mm]">
+        <p className="line-clamp-2 text-[7.5pt] font-bold leading-[1.15] text-neutral-900" style={{ height: "6.6mm" }}>{p.name}</p>
+        <div className="mt-[0.6mm] flex justify-center"><Dots colors={p.colors} max={7} /></div>
+        <p className="mt-[1mm] leading-none">
+          <span className="text-[9.5pt] font-extrabold" style={{ color: ACCENT }}>{c.price ? rupiah(c.price) : ""}</span>
+          {c.normal ? <span className="ml-[1mm] text-[6pt] text-neutral-400 line-through">{rupiah(c.normal)}</span> : null}
+        </p>
+        <p className="mt-[0.8mm] flex justify-center gap-[1mm] text-[5.5pt] font-bold leading-none">
+          <span className="rounded-full bg-emerald-50 px-[1.2mm] py-[0.5mm] text-emerald-700">Stok {totalStock(p).toLocaleString("id-ID")}</span>
+          {ready < p.colors.length && <span className="rounded-full bg-red-50 px-[1.2mm] py-[0.5mm] text-red-700">{p.colors.length - ready} warna habis</span>}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function PrintPages({ sections, updated, total }: { sections: { g: string; items: JProduct[] }[]; updated: string; total: number }) {
+  const pages = paginate(sections);
+  const month = new Date(updated).toLocaleDateString("id-ID", { month: "long", year: "numeric", timeZone: "Asia/Jakarta" });
+  const groups = sections.map((s) => s.g);
+  return (
+    <div className="hidden print:block">
+      {/* cover */}
+      <div className="pp" style={{ background: ACCENT }}>
+        {groups.map((g, i) => (
+          <span key={g} className="absolute rounded-full" style={{ left: `${-4 + i * 42}mm`, top: "281mm", width: "48mm", height: "48mm", background: gcolor(g) }} />
+        ))}
+        <span className="absolute rounded-full bg-[#ffffff]" style={{ left: "164mm", top: "-12mm", width: "68mm", height: "68mm" }} />
+        <span className="absolute rounded-full" style={{ left: "169mm", top: "-7mm", width: "58mm", height: "58mm", background: ACCENT }} />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={TORCH_ICON} alt="Torch" loading="eager" className="absolute left-1/2 -translate-x-1/2 object-contain" style={{ top: "92mm", width: "56mm", height: "22mm" }} />
+        <p className="absolute w-full text-center font-bold text-white" style={{ top: "124mm", fontSize: "38pt", lineHeight: 1.2 }}>Torch Catalog</p>
+        <p className="absolute w-full text-center text-white" style={{ top: "150mm", fontSize: "13pt" }}>{month}</p>
+        <div className="absolute flex w-full justify-center gap-[3mm]" style={{ top: "170mm" }}>
+          {groups.map((g) => (
+            <span key={g} className="rounded-full border-[0.5mm] border-white text-center font-bold text-white" style={{ background: gcolor(g), width: "27mm", fontSize: "7.5pt", lineHeight: "7mm", height: "8mm" }}>{g}</span>
+          ))}
+        </div>
+        <p className="absolute w-full text-center text-white/90" style={{ top: "188mm", fontSize: "9pt" }}>{total} produk ready · diperbarui {stamp(updated)}</p>
+      </div>
+
+      {pages.map((rows, pi) => (
+        <div key={pi} className="pp">
+          <div className="absolute left-0 top-0 flex h-[3mm] w-full">
+            {ONLINE_GROUPS.map((g) => <span key={g.name} className="flex-1" style={{ background: g.color }} />)}
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={LOGO} alt="Torch" loading="eager" className="absolute object-contain object-left" style={{ left: "10mm", top: "8mm", height: "12mm", width: "36mm" }} />
+          <p className="absolute text-right font-bold uppercase" style={{ right: "10mm", top: "10.5mm", fontSize: "13pt", color: ACCENT }}>Torch Catalog</p>
+          <div className="absolute" style={{ left: "10mm", right: "10mm", top: "24mm", borderTop: `0.4mm solid ${ACCENT}` }} />
+          <div className="absolute" style={{ left: "10mm", right: "10mm", top: "27mm" }}>
+            {rows.map((r, ri) =>
+              r.t === "b" ? (
+                <div key={ri} className="mb-[3mm] flex h-[11mm] items-center justify-center gap-[4mm] rounded-[3mm] px-[8mm]" style={{ background: gcolor(r.g) }}>
+                  <span className="h-[0.5mm] flex-1 bg-white" />
+                  <span className="font-bold text-white" style={{ fontSize: "14pt" }}>{r.g}</span>
+                  <span className="h-[0.5mm] flex-1 bg-white" />
+                </div>
+              ) : (
+                <div key={ri} className="mb-[3mm] grid grid-cols-4 gap-[3mm]">
+                  {r.items.map((p) => <PrintCard key={p.id} p={p} />)}
+                </div>
+              )
+            )}
+          </div>
+          <p className="absolute w-full text-center text-neutral-400" style={{ bottom: "4mm", fontSize: "7pt" }}>{pi + 2}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const sized = (url: string, w: number) => `${url}${url.includes("?") ? "&" : "?"}width=${w}`;
 const rupiah = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
@@ -234,6 +336,22 @@ export default function JastiperCatalog({ dataUrl }: { dataUrl: string }) {
   const [coll, setColl] = useState("");
   const [open, setOpen] = useState<JProduct | null>(null);
   const [printing, setPrinting] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+
+  // Foto di bawah layar dimuat malas (lazy) → belum ada saat dialog cetak terbuka dan tercetak kosong.
+  // Jadi: paksa semua foto dimuat, tunggu selesai (maks 25 dtk), baru buka dialog cetak.
+  const savePdf = async () => {
+    setPreparing(true);
+    flushSync(() => setPrinting(true)); // render halaman cetak (cover + halaman produk) sebelum foto ditunggu
+    await new Promise((r) => setTimeout(r, 100));
+    const imgs = [...document.querySelectorAll<HTMLImageElement>(".pp img")];
+    await Promise.race([
+      Promise.all(imgs.map((i) => (i.complete ? null : new Promise((res) => { i.addEventListener("load", res, { once: true }); i.addEventListener("error", res, { once: true }); })))),
+      new Promise((r) => setTimeout(r, 25000)),
+    ]);
+    setPreparing(false);
+    window.print();
+  };
 
   useEffect(() => {
     if (!dataUrl) { setError("Katalog belum tersedia."); return; }
@@ -244,7 +362,7 @@ export default function JastiperCatalog({ dataUrl }: { dataUrl: string }) {
   }, [dataUrl]);
 
   useEffect(() => {
-    const on = () => setPrinting(true), off = () => setPrinting(false);
+    const on = () => flushSync(() => setPrinting(true)), off = () => setPrinting(false); // Ctrl+P langsung ikut memakai tata letak cetak
     window.addEventListener("beforeprint", on);
     window.addEventListener("afterprint", off);
     return () => { window.removeEventListener("beforeprint", on); window.removeEventListener("afterprint", off); };
@@ -264,9 +382,9 @@ export default function JastiperCatalog({ dataUrl }: { dataUrl: string }) {
     `rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${on ? "bg-[var(--ac)] text-white" : "bg-[#ffffff] text-neutral-700 ring-1 ring-black/10 hover:ring-black/25"}`;
 
   return (
-    <div className="min-h-dvh bg-[#f6f5f2] text-neutral-900" style={{ ["--ac" as string]: ACCENT }}>
+    <div className="min-h-dvh bg-[#f6f5f2] text-neutral-900 print:bg-white" style={{ ["--ac" as string]: ACCENT }}>
       <style>{PRINT_CSS}</style>
-      <header className="sticky top-0 z-30 border-b border-black/5 bg-[#f6f5f2]/95 backdrop-blur print:static">
+      <header className="sticky top-0 z-30 border-b border-black/5 bg-[#f6f5f2]/95 backdrop-blur print:hidden">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={LOGO} alt="Torch" className="h-7 w-auto" />
@@ -278,13 +396,13 @@ export default function JastiperCatalog({ dataUrl }: { dataUrl: string }) {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari produk atau warna" className="h-10 w-full rounded-full border-0 bg-[#ffffff] pl-9 pr-3 text-sm ring-1 ring-black/10 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[var(--ac)]" />
           </label>
-          <button onClick={() => window.print()} aria-label="Simpan PDF" className="flex h-10 items-center gap-1.5 rounded-full bg-[#ffffff] px-3 text-xs font-semibold sm:px-4 ring-1 ring-black/10 hover:ring-black/25 print:hidden">
-            <Printer className="h-4 w-4" /> <span className="hidden sm:inline">Simpan PDF</span>
+          <button onClick={savePdf} disabled={preparing} aria-label="Simpan PDF" className="flex h-10 items-center gap-1.5 rounded-full bg-[#ffffff] px-3 text-xs font-semibold sm:px-4 ring-1 ring-black/10 hover:ring-black/25 print:hidden">
+            <Printer className="h-4 w-4" /> <span className="hidden sm:inline">{preparing ? "Menyiapkan foto…" : "Simpan PDF"}</span>
           </button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 pb-16 pt-4">
+      <main className="mx-auto max-w-7xl px-4 pb-16 pt-4 print:hidden">
         {data && (
           <div className="mb-5 flex flex-col gap-2 print:hidden">
             <div className="flex flex-wrap gap-1.5">
@@ -322,6 +440,8 @@ export default function JastiperCatalog({ dataUrl }: { dataUrl: string }) {
         ))}
         {data && <p className="mt-10 text-center text-[11px] text-neutral-400">Stok dapat berubah sewaktu-waktu · diperbarui setiap hari</p>}
       </main>
+
+      {printing && data && <PrintPages sections={sections} updated={data.updated} total={visible.length} />}
 
       {open && <Detail key={open.id} p={open} onClose={() => setOpen(null)} />}
     </div>
