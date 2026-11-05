@@ -1,4 +1,4 @@
-# Membuat ulang PDF Online Catalog & Clearance Catalog tiap hari di GitHub (bukan di Vercel),
+# Membuat ulang PDF Online, Clearance (PDF) dan data Jastiper (JSON) tiap hari di GitHub (bukan di Vercel),
 # lalu mengunggahnya ke Vercel Blob. Hemat CPU Vercel Hobby. Bisa juga dijalankan manual (tab Actions → Run workflow).
 #
 # Secrets yang dibutuhkan (Settings → Secrets and variables → Actions):
@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
     inputs:
       catalog:
-        description: "Kosongkan untuk semua, atau isi: online / clearance"
+        description: "Kosongkan untuk semua, atau isi: online / clearance / jastiper"
         required: false
         default: ""
 

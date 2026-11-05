@@ -12,12 +12,14 @@ import fs from "fs";
 import { CATALOG_CONFIGS } from "../lib/catalogs";
 import { generateCatalogBuffer } from "../lib/onlineCatalogPdf";
 import { getCatalogMeta } from "../lib/catalogVersion";
+import { JASTIPER_KEY, loadJastiperCatalog } from "../lib/jastiperCatalog";
 
 async function main() {
   const dry = process.env.DRY_RUN === "1";
-  const only = process.argv[2]; // opsional: "online" | "clearance"
+  const only = process.argv[2]; // opsional: "online" | "clearance" | "jastiper"
   const keys = Object.keys(CATALOG_CONFIGS).filter((k) => !only || k === only);
-  if (keys.length === 0) throw new Error(`Katalog tidak dikenal: ${only}`);
+  const withJastiper = !only || only === JASTIPER_KEY;
+  if (keys.length === 0 && !withJastiper) throw new Error(`Katalog tidak dikenal: ${only}`);
 
   // Jadwal kedua di hari yang sama tidak perlu membuat ulang bila yang pertama baru sukses
   // (hanya untuk run terjadwal; run manual / dry run selalu jalan).
@@ -56,6 +58,35 @@ async function main() {
       console.log(`✓ ${key}: ${kb} KB diunggah, versi ${version} (${((Date.now() - t0) / 1000).toFixed(1)} dtk)\n  ${url}`);
     } catch (e: any) {
       console.error(`✗ ${key}: ${e?.message || e}`);
+      failed++;
+    }
+  }
+
+  // Katalog Jastiper: hanya JSON kecil (tanpa PDF / tanpa unduh gambar) — foto diambil pengunjung langsung dari CDN Shopify.
+  if (withJastiper) {
+    const t0 = Date.now();
+    try {
+      const m = meta?.[JASTIPER_KEY];
+      const ageH = m && m.updated_by === "github-actions" ? (Date.now() - Date.parse(m.updated_at.replace(" ", "T").replace(/\+00$/, "Z"))) / 3600_000 : Infinity;
+      if (ageH < freshHours) {
+        console.log(`↷ ${JASTIPER_KEY}: dilewati — sudah diperbarui GitHub Actions ${ageH.toFixed(1)} jam lalu`);
+      } else {
+        const data = await loadJastiperCatalog();
+        if (!data) {
+          console.error(`✗ ${JASTIPER_KEY}: tidak ada produk ready — dilewati (data lama tetap dipakai)`);
+          failed++;
+        } else if (dry) {
+          fs.mkdirSync("tmp-catalog", { recursive: true });
+          fs.writeFileSync(`tmp-catalog/${JASTIPER_KEY}.json`, JSON.stringify(data));
+          console.log(`✓ ${JASTIPER_KEY}: ${data.products.length} produk → tmp-catalog/${JASTIPER_KEY}.json (DRY_RUN)`);
+        } else {
+          const { publishCatalogJson } = await import("../lib/catalogBlob");
+          const { version, url } = await publishCatalogJson(JASTIPER_KEY, "github-actions", JSON.stringify(data));
+          console.log(`✓ ${JASTIPER_KEY}: ${data.products.length} produk, versi ${version} (${((Date.now() - t0) / 1000).toFixed(1)} dtk)\n  ${url}`);
+        }
+      }
+    } catch (e: any) {
+      console.error(`✗ ${JASTIPER_KEY}: ${e?.message || e}`);
       failed++;
     }
   }
