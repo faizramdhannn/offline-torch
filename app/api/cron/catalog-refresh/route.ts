@@ -3,6 +3,8 @@ import { publishCatalogPdf, blobConfigured } from "@/lib/catalogBlob";
 import { bumpCatalogVersion, catalogPdfPath, getCatalogMeta, CATALOG_KEYS } from "@/lib/catalogVersion";
 import { CATALOG_CONFIGS } from "@/lib/catalogs";
 import { generateCatalogBuffer } from "@/lib/onlineCatalogPdf";
+import { JASTIPER_KEY, loadJastiperCatalog } from "@/lib/jastiperCatalog";
+import { publishCatalogJson } from "@/lib/catalogBlob";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -39,6 +41,20 @@ export async function GET(request: NextRequest) {
     } catch (e: any) {
       results[key] = e.message || "gagal";
     }
+  }
+  // Katalog Jastiper (JSON saja, ringan): cadangan yang sama — dilewati bila GitHub Actions sudah sukses dalam 6 jam.
+  try {
+    const m = meta[JASTIPER_KEY];
+    const fresh = m && m.updated_by === "github-actions" && Date.now() - Date.parse(m.updated_at.replace(" ", "T").replace(/\+00$/, "Z")) < 6 * 3600 * 1000;
+    if (fresh) results[JASTIPER_KEY] = "dilewati (sudah dibuat GitHub Actions)";
+    else if (!blobConfigured()) results[JASTIPER_KEY] = "Blob belum terhubung";
+    else {
+      const data = await loadJastiperCatalog();
+      if (data) { await publishCatalogJson(JASTIPER_KEY, "cron", JSON.stringify(data)); results[JASTIPER_KEY] = "blob"; }
+      else results[JASTIPER_KEY] = "tanpa produk, dilewati";
+    }
+  } catch (e: any) {
+    results[JASTIPER_KEY] = e.message || "gagal";
   }
   return NextResponse.json({ success: true, results });
 }

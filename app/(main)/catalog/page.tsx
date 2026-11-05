@@ -37,6 +37,12 @@ const CATALOGS: CatalogEntry[] = [
     path: "/clearance-catalog",
   },
   {
+    key: "jastiper",
+    name: "Jastiper Catalog",
+    description: "Katalog web untuk jastiper: pilihan warna (SOLD OUT bila habis) dan galeri foto detail — hanya produk yang ready; bisa disimpan jadi PDF.",
+    path: "/jastiper-catalog",
+  },
+  {
     key: "gundam",
     name: "Gundam Catalog",
     description: "Katalog A4 landscape Torch × Mobile Suit Gundam — cover, daftar isi, satu halaman per produk, halaman stiker.",
@@ -73,8 +79,8 @@ export default function CatalogPage() {
     setNotice("");
     setProgress("");
     try {
-      // 1) Utama: PDF dibuat di BROWSER ini lalu diunggah ke Blob (tanpa CPU Vercel).
-      try {
+      // 1) Utama: PDF dibuat di BROWSER ini lalu diunggah ke Blob (tanpa CPU Vercel). Jastiper tanpa PDF: langsung ke langkah 2.
+      if (entry.key !== "jastiper") try {
         const { buildCatalogPdfInBrowser, uploadCatalogPdf } = await import("@/lib/catalogPdfClient");
         const pdf = await buildCatalogPdfInBrowser(entry.key, setProgress);
         setProgress("Mengunggah PDF…");
@@ -95,8 +101,8 @@ export default function CatalogPage() {
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "Gagal refresh");
-      await fetch(`${entry.path}/pdf?v=${j.version}`, { cache: "no-store" }).then((r) => r.arrayBuffer()).catch(() => {});
-      setNotice(`${entry.name} diperbarui dari sheet (via server).`);
+      if (entry.key !== "jastiper") await fetch(`${entry.path}/pdf?v=${j.version}`, { cache: "no-store" }).then((r) => r.arrayBuffer()).catch(() => {});
+      setNotice(entry.key === "jastiper" ? `${entry.name} diperbarui dari sheet (${j.products} produk).` : `${entry.name} diperbarui dari sheet (via server).`);
       loadMeta();
     } catch (e: any) {
       setNotice(e.message || "Gagal refresh");

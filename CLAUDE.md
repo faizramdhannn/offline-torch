@@ -141,7 +141,7 @@ Kuota (30 hari) yang pernah hampir habis: **Fluid Active CPU 4 jam**, **Fast Ori
 ## 10. Subsistem khusus (ringkas)
 
 - **Store Monitor** (`/store-monitor`): pantau tablet/PC toko, musik YouTube per toko, jadwal, jam buka, pengumuman. Detail lengkap di [docs/STORE-MONITOR.md](docs/STORE-MONITOR.md).
-- **Katalog** (hanya 4): `/online-catalog` dan `/clearance-catalog` (+ `/pdf`, dari sheet) serta `/gundam-catalog` dan `/women-catalog` (file statis `public/katalog-*.html`, rewrite di `next.config.ts`); status di tabel `catalog_state` (versi → URL PDF berversi `?v=`). Menu Catalog (izin `canvasing`) berisi tombol refresh. Harga promo Clearance dihitung di `lib/catalogs.ts` (`promoPercent: 50`).
+- **Katalog** (hanya 5): `/online-catalog` dan `/clearance-catalog` (+ `/pdf`, dari sheet), `/jastiper-catalog` (katalog web dari sheet `jastiper_catalog`; JSON harian di Vercel Blob, `lib/jastiperCatalog.ts`; stok ≤ 0 tidak ditulis) serta `/gundam-catalog` dan `/women-catalog` (file statis `public/katalog-*.html`, rewrite di `next.config.ts`); status di tabel `catalog_state` (versi → URL PDF berversi `?v=`). Menu Catalog (izin `canvasing`) berisi tombol refresh. Harga promo Clearance dihitung di `lib/catalogs.ts` (`promoPercent: 50`).
 - **Profil wajib lengkap** (`lib/profileRules.ts`): semua role butuh nama/email/telepon/foto; Store & Merchant juga alamat (harus ada kode pos). Telepon dinormalisasi ke `62…`. Layout memaksa ke `/profile?required=1` bila belum lengkap.
 - **Gate Store**: Attendance gate & Daily Checklist gate hanya untuk role **store** (Merchant tidak kena gate).
 - **Badge pending sidebar** (`lib/pendingCounts.ts`): angka request menunggu, hanya untuk user yang boleh mengubah status; ikut `/api/auth/me`.
@@ -170,3 +170,4 @@ Kuota (30 hari) yang pernah hampir habis: **Fluid Active CPU 4 jam**, **Fast Ori
 - Jadwal GitHub Actions tidak presisi (bisa tertunda jam-jaman) → jadwal dimajukan + cron Vercel sebagai cadangan.
 - Wake Lock/YouTube/autoplay butuh interaksi pengguna; musik dihentikan browser saat layar mati/tab disembunyikan di HP/tablet.
 - Komponen yang di-import dari klien **tidak boleh** mengimpor `lib/neon.ts` (melempar error tanpa `DATABASE_URL`). Pisahkan logika murni ke file tanpa DB (contoh: `lib/musicSchedule.ts`, `lib/announceSchedule.ts`, `lib/storeHours.ts`).
+- `globals.css` membuat kelas `bg-white` **transparan** (gaya kaca) dan menimpanya di mode gelap → untuk halaman publik/modal yang harus solid pakai `bg-[#ffffff]` (contoh: `components/JastiperCatalog.tsx`).

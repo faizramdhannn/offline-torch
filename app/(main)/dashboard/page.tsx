@@ -174,8 +174,11 @@ export default function DashboardPage() {
         fetch(`/api/attendance/report?month=${month}`),
         fetch('/api/attendance/meta?type=taft_list'),
       ]);
-      const allReports: ReportRow[] = await reportRes.json();
-      const taftList: TaftEntry[]   = await metaRes.json();
+      // Respons gagal (401/500/timeout Sheets) berupa objek {error}, bukan array → anggap kosong.
+      const rawReports = reportRes.ok ? await reportRes.json().catch(() => null) : null;
+      const rawTafts   = metaRes.ok ? await metaRes.json().catch(() => null) : null;
+      const allReports: ReportRow[] = Array.isArray(rawReports) ? rawReports : [];
+      const taftList: TaftEntry[]   = Array.isArray(rawTafts) ? rawTafts : [];
       const todayRows = allReports.filter(r => r.date === today);
       const stores    = [...new Set(taftList.map(t => t.store_name))];
 
