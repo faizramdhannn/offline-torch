@@ -58,7 +58,7 @@ function PrintCard({ p }: { p: JProduct }) {
       <div className="h-[1.4mm] w-full" style={{ background: gcolor(p.group) }} />
       <div className="relative mt-[0.5mm] h-[29mm] w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {img && <img src={sized(img, 520)} alt="" loading="eager" decoding="sync" className="h-full w-full object-contain p-[1.5mm]" />}
+        {img && <img src={sized(img, 520)} alt="" loading="eager" decoding="sync" data-card="1" className="h-full w-full object-contain p-[1.5mm]" />}
         {p.collection && <span className="absolute left-[1.5mm] top-[1.5mm] rounded-full bg-neutral-900 px-[1.6mm] py-[0.4mm] text-[5.5pt] font-bold text-white">{p.collection}</span>}
         {n > 0 && <Badge n={n} className="absolute right-[1.5mm] top-[1.5mm] h-[9mm] w-[9mm] text-[7pt]" />}
       </div>
@@ -337,18 +337,41 @@ export default function JastiperCatalog({ dataUrl }: { dataUrl: string }) {
   const [open, setOpen] = useState<JProduct | null>(null);
   const [printing, setPrinting] = useState(false);
   const [preparing, setPreparing] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null); // kemajuan memuat foto produk sebelum PDF dibuka
 
   // Foto di bawah layar dimuat malas (lazy) → belum ada saat dialog cetak terbuka dan tercetak kosong.
-  // Jadi: paksa semua foto dimuat, tunggu selesai (maks 25 dtk), baru buka dialog cetak.
+  // Jadi: render halaman cetak, paksa semua foto dimuat sambil menampilkan bar kemajuan (n/total produk),
+  // dan setelah lengkap baru buka dialog "Simpan sebagai PDF" milik browser.
   const savePdf = async () => {
+    if (preparing) return;
     setPreparing(true);
     flushSync(() => setPrinting(true)); // render halaman cetak (cover + halaman produk) sebelum foto ditunggu
     await new Promise((r) => setTimeout(r, 100));
-    const imgs = [...document.querySelectorAll<HTMLImageElement>(".pp img")];
-    await Promise.race([
-      Promise.all(imgs.map((i) => (i.complete ? null : new Promise((res) => { i.addEventListener("load", res, { once: true }); i.addEventListener("error", res, { once: true }); })))),
-      new Promise((r) => setTimeout(r, 25000)),
-    ]);
+    const total = visible.length;
+    const cards = [...document.querySelectorAll<HTMLImageElement>(".pp img[data-card]")];
+    let done = total - cards.length; // produk tanpa foto dianggap selesai
+    setProgress({ done, total });
+    const bump = () => { done += 1; setProgress({ done: Math.min(done, total), total }); };
+    // Hitung berurutan: foto yang belum selesai ditunggu, yang sudah selesai dihitung cepat. Jeda kecil tiap beberapa produk
+    // supaya bar bergerak terlihat (di koneksi cepat semua foto bisa sudah selesai sebelum angka sempat tampil).
+    const step = Math.max(1, Math.ceil(cards.length / 40));
+    const work = (async () => {
+      for (let k = 0; k < cards.length; k++) {
+        const i = cards[k];
+        if (!i.complete) {
+          await new Promise((res) => {
+            i.addEventListener("load", res, { once: true });
+            i.addEventListener("error", res, { once: true });
+          });
+        }
+        bump();
+        if (k % step === 0) await new Promise((r) => setTimeout(r, 16));
+      }
+    })();
+    await Promise.race([work, new Promise((r) => setTimeout(r, 90000))]); // koneksi sangat lambat: lanjut walau belum lengkap
+    setProgress({ done: total, total });
+    await new Promise((r) => setTimeout(r, 500)); // tampilkan "selesai" sebentar
+    setProgress(null);
     setPreparing(false);
     window.print();
   };
@@ -440,6 +463,19 @@ export default function JastiperCatalog({ dataUrl }: { dataUrl: string }) {
         ))}
         {data && <p className="mt-10 text-center text-[11px] text-neutral-400">Stok dapat berubah sewaktu-waktu · diperbarui setiap hari</p>}
       </main>
+
+      {progress && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-4 sm:items-center print:hidden" role="status" aria-live="polite">
+          <div className="w-full max-w-sm rounded-2xl bg-[#ffffff] p-5 shadow-xl">
+            <p className="text-sm font-bold text-neutral-900">{progress.done >= progress.total ? "Foto lengkap — membuka dialog PDF…" : "Menyiapkan PDF…"}</p>
+            <p className="mt-0.5 text-xs text-neutral-500">Memuat foto produk ({progress.done}/{progress.total})</p>
+            <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-neutral-200">
+              <div className="h-full rounded-full transition-[width] duration-200" style={{ width: `${progress.total ? Math.round((progress.done / progress.total) * 100) : 100}%`, background: ACCENT }} />
+            </div>
+            <p className="mt-2 text-right text-[11px] font-semibold" style={{ color: ACCENT }}>{progress.total ? Math.round((progress.done / progress.total) * 100) : 100}%</p>
+          </div>
+        </div>
+      )}
 
       {printing && data && <PrintPages sections={sections} updated={data.updated} total={visible.length} />}
 
