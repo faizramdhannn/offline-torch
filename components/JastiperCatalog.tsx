@@ -60,7 +60,7 @@ function PrintCard({ p }: { p: JProduct }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {img && <img src={sized(img, 520)} alt="" loading="eager" decoding="sync" data-card="1" className="h-full w-full object-contain p-[1.5mm]" />}
         {p.collection && <span className="absolute left-[1.5mm] top-[1.5mm] rounded-full bg-neutral-900 px-[1.6mm] py-[0.4mm] text-[5.5pt] font-bold text-white">{p.collection}</span>}
-        {n > 0 && <Badge n={n} className="absolute right-[1.5mm] top-[1.5mm] h-[9mm] w-[9mm] text-[7pt]" />}
+        {n > 0 && <Badge n={n} className="absolute right-[1.5mm] top-[1.5mm] h-[9mm] w-[9mm] text-[7pt] !shadow-none !ring-0 border-[0.5mm] border-white" />}
       </div>
       <div className="px-[2mm] pt-[1mm]">
         <p className="line-clamp-2 text-[7.5pt] font-bold leading-[1.15] text-neutral-900" style={{ height: "6.6mm" }}>{p.name}</p>
@@ -78,7 +78,7 @@ function PrintCard({ p }: { p: JProduct }) {
   );
 }
 
-function PrintPages({ sections, updated, total }: { sections: { g: string; items: JProduct[] }[]; updated: string; total: number }) {
+function PrintPages({ sections, updated }: { sections: { g: string; items: JProduct[] }[]; updated: string }) {
   const pages = paginate(sections);
   const month = new Date(updated).toLocaleDateString("id-ID", { month: "long", year: "numeric", timeZone: "Asia/Jakarta" });
   const groups = sections.map((s) => s.g);
@@ -100,7 +100,6 @@ function PrintPages({ sections, updated, total }: { sections: { g: string; items
             <span key={g} className="rounded-full border-[0.5mm] border-white text-center font-bold text-white" style={{ background: gcolor(g), width: "27mm", fontSize: "7.5pt", lineHeight: "7mm", height: "8mm" }}>{g}</span>
           ))}
         </div>
-        <p className="absolute w-full text-center text-white/90" style={{ top: "188mm", fontSize: "9pt" }}>{total} produk ready · diperbarui {stamp(updated)}</p>
       </div>
 
       {pages.map((rows, pi) => (
@@ -145,7 +144,7 @@ const pct = (c: JColor) => (c.normal && c.price && c.normal > c.price ? Math.rou
 
 // Coretan tegas untuk warna habis: garis merah diagonal melewati seluruh bulatan.
 function Strike({ w = 22, t = 2 }: { w?: number; t?: number }) {
-  return <span className="pointer-events-none absolute left-1/2 top-1/2 rounded-full bg-red-600 shadow-[0_0_0_1px_rgba(255,255,255,0.9)]" style={{ width: w, height: t, transform: "translate(-50%,-50%) rotate(-45deg)" }} />;
+  return <span className="pointer-events-none absolute left-1/2 top-1/2 rounded-full border border-white/90 bg-red-600" style={{ width: w, height: t, transform: "translate(-50%,-50%) rotate(-45deg)" }} />;
 }
 
 function Badge({ n, className = "" }: { n: number; className?: string }) {
@@ -477,7 +476,7 @@ export default function JastiperCatalog({ dataUrl }: { dataUrl: string }) {
         </div>
       )}
 
-      {printing && data && <PrintPages sections={sections} updated={data.updated} total={visible.length} />}
+      {printing && data && <PrintPages sections={sections} updated={data.updated} />}
 
       {open && <Detail key={open.id} p={open} onClose={() => setOpen(null)} />}
     </div>
