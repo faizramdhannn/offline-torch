@@ -8,7 +8,7 @@ import type { DateEntry, TaftEntry, TimeCode, ScheduleRow } from "./types";
 import {
   DAYS, DAY_LABELS, CODE_COLORS, CODE_BG_CELL,
 } from "./constants";
-import { toTitleCase, getWeekDates, fmtDDMM, findCurrentDateRange } from "./utils";
+import { toTitleCase, getWeekDates, fmtDDMM, findCurrentDateRange, totalHours } from "./utils";
 
 interface WeeklyScheduleProps {
   user: any;
@@ -213,6 +213,9 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
                       )}
                     </th>
                   ))}
+                  <th className="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500 w-20 border-l border-gray-200">
+                    Total Jam
+                  </th>
                   <th className="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500 w-24 sticky right-0 bg-gray-50 z-10 border-l border-gray-200">
                     Aksi
                   </th>
@@ -222,7 +225,7 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
                 {storeGroups.map(({ storeName, tafts }) => (
                   <React.Fragment key={storeName}>
                     <tr className="bg-primary/5 border-y border-primary/10">
-                      <td colSpan={9} className="px-2 py-1 sticky left-0 bg-primary/5 z-10">
+                      <td colSpan={10} className="px-2 py-1 sticky left-0 bg-primary/5 z-10">
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] font-bold text-primary">{toTitleCase(storeName)}</span>
                           <span className="text-[10px] text-gray-500">{tafts.length} taft</span>
@@ -275,6 +278,15 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
                             );
                           })}
 
+                          <td className="px-2 py-1 text-center border-l border-gray-100">
+                            {(() => {
+                              const jam = totalHours(DAYS.map(d => isEdit ? editFormData[d] : (sched?.[d as keyof ScheduleRow] as string)), taft.store_name);
+                              return jam > 0
+                                ? <span className="text-[11px] font-bold text-gray-800">{jam} <span className="text-[9px] font-medium text-gray-500">jam</span></span>
+                                : <span className="text-gray-300 text-[10px]">—</span>;
+                            })()}
+                          </td>
+
                           <td className={`px-2 py-1 text-center sticky right-0 z-10 border-l border-gray-100 ${isEdit ? 'bg-amber-50/60' : 'bg-white'}`}>
                             {isEdit ? (
                               <div className="flex items-center justify-center gap-1">
@@ -306,6 +318,9 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
             {Object.entries(CODE_COLORS).map(([code, cls]) => (
               <span key={code} className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${cls}`}>{code}</span>
             ))}
+            <span className="ml-auto text-[9px] text-gray-500">
+              Jam kerja: P 8 · S 8 · M 8 · MF 10 · F 12 (Karawang, Purwokerto, Jogja: 13) · O, C, +, I, A = 0
+            </span>
           </div>
         </div>
       )}

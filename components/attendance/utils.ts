@@ -1,4 +1,5 @@
 import type { DateEntry } from "./types";
+import { WORK_HOURS, FULL_HOURS_SPECIAL, FULL_13H_STORES } from "./constants";
 
 // ─── Shared Attendance Utilities ────────────────────────────────────────────
 // Extracted verbatim from the original app/(main)/attendance/page.tsx.
@@ -118,3 +119,16 @@ export const toTitleCase = (str: string) =>
   str ? str.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()) : str;
 
 export const fmtRupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
+
+
+/** Jam kerja satu kode jadwal (P/S/M = 8, F = 12 atau 13 di Karawang/Purwokerto/Jogja, MF = 10, lainnya 0). */
+export function codeHours(code: string | undefined | null, storeName: string | undefined | null): number {
+  const c = String(code ?? '').trim().toUpperCase();
+  if (!c) return 0;
+  if (c === 'F' && FULL_13H_STORES.some(k => String(storeName ?? '').toLowerCase().includes(k))) return FULL_HOURS_SPECIAL;
+  return WORK_HOURS[c] ?? 0;
+}
+
+/** Total jam kerja dari daftar kode (mis. 7 hari jadwal mingguan). */
+export const totalHours = (codes: (string | undefined | null)[], storeName: string | undefined | null) =>
+  codes.reduce<number>((n, c) => n + codeHours(c, storeName), 0);

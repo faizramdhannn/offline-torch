@@ -48,6 +48,11 @@ export const RECAP_KEYS = [
 
 export const OVERTIME_RATE = 17500;
 
+// Jam kerja per kode jadwal. F (full) = 12 jam, kecuali toko di FULL_13H_STORES = 13 jam. Kode lain (O, C, +, I, A) = 0 jam.
+export const WORK_HOURS: Record<string, number> = { P: 8, S: 8, F: 12, MF: 10, M: 8, O: 0, C: 0, '+': 0, I: 0, A: 0 };
+export const FULL_HOURS_SPECIAL = 13;
+export const FULL_13H_STORES = ['karawang', 'purwokerto', 'jogja', 'yogya']; // dicocokkan sebagai bagian dari nama toko (huruf kecil)
+
 export const MONTH_SHORT_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 
 // Used by the Full Report tab's analytics dashboard (ReportDashboard / MiniBarChart)

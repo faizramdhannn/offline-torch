@@ -744,6 +744,7 @@ export default function StockPage() {
     v && String(v).trim() !== "" ? parseHarga(v) : "";
 
   const exportToExcel = () => {
+    const hasCollections = Object.keys(skuToBadges).length > 0; // sama dengan syarat kolom Badge di tabel
     const exportData = filteredData.map((item) => {
       // Urutan & kelengkapan kolom di sini SENGAJA disamakan persis dengan
       // kolom yang tampil di StockTable (termasuk Tier Product/Tier Phase
@@ -756,6 +757,8 @@ export default function StockPage() {
         "Tier Product": toProperCase(item.tier_product),
         "Tier Phase": toProperCase(item.tier_phase),
       };
+      // Collection = badge collection (Gundam, Watch, Metro Ride, dst) yang tampil di kolom Badge tabel; SKU di beberapa collection → dipisah koma.
+      if (hasCollections) base["Collection"] = (skuToBadges[item.sku] || []).map((b) => b.label).join(", ");
       if (selectedView === "store" || (selectedView === "pca" && user?.stock_pca_view)) base["Stock"] = toExportNumber(item.stock);
       if (selectedView === "store") base["Warehouse"] = item.warehouse;
       if (selectedView === "pca") base["Threshold"] = toExportNumber(item.threshold);
