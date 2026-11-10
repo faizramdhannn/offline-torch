@@ -549,3 +549,12 @@ html.dark .border-red-100, html.dark .border-red-200, html.dark .border-red-300 
 html.dark .border-amber-100, html.dark .border-amber-200, html.dark .border-amber-300,
 html.dark .border-yellow-200, html.dark .border-orange-100 { border-color: rgba(245,158,11,0.4) !important; }
 html.dark .border-purple-100, html.dark .border-purple-200 { border-color: rgba(168,85,247,0.35) !important; }
+
+/* Panel popup/modal harus SOLID agar isinya terbaca jelas (kelas bg-white global bersifat kaca transparan).
+   Ditaruh paling akhir supaya menang atas aturan .bg-white / html.dark .bg-white yang sama-sama !important. */
+.modal-solid {
+  background-color: #ffffff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html.dark .modal-solid { background-color: #24272a !important; }

@@ -651,9 +651,8 @@ export default function PettyCashPage() {
           title="Petty Cash"
           actions={
             <>
-              <Button variant="outline" size="icon" onClick={() => setShowInfoModal(true)} title="Category Information">
-                <Info className="h-4 w-4" />
-              </Button>
+              {/* size="icon" tidak merender children → ikon harus lewat prop icon */}
+              <Button variant="outline" size="icon" icon={Info} onClick={() => setShowInfoModal(true)} title="Category Information" aria-label="Informasi kategori" />
               {user.petty_cash_add && (
                 <Button icon={Plus} onClick={() => setShowAddModal(true)}>
                   Add Petty Cash
