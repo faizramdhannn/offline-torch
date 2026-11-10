@@ -16,6 +16,7 @@ const SPREADSHEET_MAP: Record<string, string> = {
   petty_cash_balance: process.env.SPREADSHEET_BALANCE || "",
   master_dropdown: process.env.SPREADSHEET_MASTER || "",
   master_item: process.env.SPREADSHEET_STOCK || "",
+  master_item_images: process.env.SPREADSHEET_STOCK || "", // tab master_item sampai kolom catalog_images (hanya untuk foto di baris stock yang diperluas)
   erp_stock_balance: process.env.SPREADSHEET_STOCK || "",
   request_store: process.env.SPREADSHEET_STORE || "",
   javelin: process.env.SPREADSHEET_STOCK || "",
@@ -127,6 +128,7 @@ const SHEET_RANGE: Record<string, string> = {
   pca_stock_yesterday: "A1:M",     // header sama persis dengan pca_stock
   erp_stock_balance: "A1:P",
   master_item: "A1:L",         // K = tier_product, L = tier_phase
+  master_item_images: "A1:O",  // sama dengan master_item + product_color, product_detail_color, catalog_images (link CDN dipisah ";")
   javelin: "A1:Z",
   last_update: "A1:D",         // biasanya cuma timestamp + beberapa kolom
   powerbi_threshold: "A1:O",
@@ -161,6 +163,7 @@ const SHEET_TIMEOUT: Record<string, number> = {
   pca_stock: 25000,
   erp_stock_balance: 25000,
   master_item: 25000,
+  master_item_images: 25000,
   invoices: 25000,
   invoice_items: 25000,
   master_invoice: 25000,
@@ -185,6 +188,7 @@ function getSheetRange(sheetName: string): string {
 // karena `range` yang dikirim ke Google Sheets API harus pakai nama tab asli.
 const SHEET_TAB_OVERRIDES: Record<string, string> = {
   affiliate_store_list: "store_list",
+  master_item_images: "master_item",
 };
 
 function getSheetTabName(sheetName: string): string {
@@ -279,6 +283,7 @@ const CACHE_TTL_OVERRIDES: Record<string, number> = {
   pca_stock: 300_000,
   erp_stock_balance: 300_000,
   master_item: 300_000,
+  master_item_images: 300_000,
   javelin: 300_000,
   powerbi_threshold: 300_000,
   last_update: 60_000,       // 1 menit — ini sering di-poll, tapi tetap cache

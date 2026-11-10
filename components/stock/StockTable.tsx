@@ -1,7 +1,8 @@
 "use client";
 
-import { Copy, Check, ImageOff, ChevronUp, ChevronDown, ChevronsUpDown, QrCode, Eye, Store } from "lucide-react";
-import { useState, Fragment } from "react";
+import { Copy, Check, ImageOff, ChevronUp, ChevronDown, ChevronsUpDown, QrCode, Eye, Store, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { useState, useEffect, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { cn, hasTextSelection } from "@/lib/utils";
 
@@ -56,6 +57,91 @@ interface StockTableProps {
 
 const NO_IMAGE_FALLBACK =
   'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="28" height="28"%3E%3Crect fill="%23ddd" width="28" height="28"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="9"%3ENo%3C/text%3E%3C/svg%3E';
+
+// Foto katalog (kolom catalog_images di master_item) — diambil sekali per SKU saat baris diperluas, lalu di-cache di browser.
+// Gambar langsung dari CDN Shopify (?width= supaya kecil), bukan lewat Vercel.
+const photoCache = new Map<string, string[]>();
+const thumb = (url: string, w: number) => `${url}${url.includes("?") ? "&" : "?"}width=${w}`;
+
+function SkuPhotos({ sku }: { sku: string }) {
+  const [imgs, setImgs] = useState<string[] | null>(photoCache.get(sku) ?? null);
+  const [open, setOpen] = useState<number | null>(null);
+  useEffect(() => {
+    const hit = photoCache.get(sku);
+    if (hit) { setImgs(hit); return; }
+    let off = false;
+    fetch(`/api/stock/images?sku=${encodeURIComponent(sku)}`)
+      .then((r) => (r.ok ? r.json() : { images: [] }))
+      .then((d) => {
+        const list: string[] = Array.isArray(d.images) ? d.images : [];
+        photoCache.set(sku, list);
+        if (!off) setImgs(list);
+      })
+      .catch(() => { if (!off) setImgs([]); });
+    return () => { off = true; };
+  }, [sku]);
+
+  if (imgs === null) return <p className="mt-2 text-[10px] text-gray-400">Memuat foto…</p>;
+  if (imgs.length === 0) return <p className="mt-2 text-[10px] text-gray-400">Belum ada foto katalog</p>;
+  return (
+    <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+      <div className="mb-1 text-[9px] uppercase tracking-wide text-gray-400">Foto Katalog ({imgs.length}) — klik untuk memperbesar</div>
+      <div className="flex flex-wrap gap-2">
+        {imgs.map((u, i) => (
+          <button
+            key={u}
+            type="button"
+            onClick={() => setOpen(i)}
+            aria-label={`Perbesar foto ${i + 1}`}
+            className="block h-24 w-24 overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:border-primary hover:shadow-md md:h-28 md:w-28"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={thumb(u, 300)} alt="" loading="lazy" className="h-full w-full object-contain" />
+          </button>
+        ))}
+      </div>
+      {open !== null && <PhotoViewer images={imgs} index={open} onIndex={setOpen} onClose={() => setOpen(null)} />}
+    </div>
+  );
+}
+
+// Pratinjau besar foto katalog: panah / tombol keyboard untuk pindah, Esc atau klik latar untuk tutup.
+function PhotoViewer({ images, index, onIndex, onClose }: { images: string[]; index: number; onIndex: (i: number) => void; onClose: () => void }) {
+  const go = (d: number) => onIndex((index + d + images.length) % images.length);
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight") go(1);
+      if (e.key === "ArrowLeft") go(-1);
+    };
+    window.addEventListener("keydown", k);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", k); document.body.style.overflow = prev; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, images.length]);
+
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-3 sm:p-8" onClick={onClose} role="dialog" aria-label="Foto katalog">
+      <button onClick={onClose} aria-label="Tutup" className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow"><X className="h-5 w-5" /></button>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={thumb(images[index], 1400)}
+        alt={`Foto katalog ${index + 1}`}
+        className="max-h-full max-w-full rounded-lg bg-[#ffffff] object-contain shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
+      {images.length > 1 && (
+        <>
+          <button onClick={(e) => { e.stopPropagation(); go(-1); }} aria-label="Foto sebelumnya" className="absolute left-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow sm:left-5"><ChevronLeft className="h-5 w-5" /></button>
+          <button onClick={(e) => { e.stopPropagation(); go(1); }} aria-label="Foto berikutnya" className="absolute right-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-800 shadow sm:right-5"><ChevronRight className="h-5 w-5" /></button>
+          <span className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white">{index + 1} / {images.length}</span>
+        </>
+      )}
+    </div>,
+    document.body
+  );
+}
 
 function SkuCell({ sku }: { sku: string }) {
   const [copied, setCopied] = useState(false);
@@ -485,6 +571,7 @@ export function StockTable({
                       </button>
                     )}
                   </div>
+                  <SkuPhotos sku={item.sku} />
                 </td>
               </tr>
             )}
@@ -598,6 +685,7 @@ export function StockTable({
                 <div className="text-[11px] text-gray-500">
                   {[item.category, item.grade, item.tier_product, item.tier_phase].filter(Boolean).map((v) => toProperCase(v)).join(" · ")}
                 </div>
+                <div className="w-full"><SkuPhotos sku={item.sku} /></div>
                 <div className="ml-auto flex items-center gap-2">
                   <button
                     onClick={() => router.push(`/stock/${encodeURIComponent(item.sku)}`)}

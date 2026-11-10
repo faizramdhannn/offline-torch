@@ -44,11 +44,11 @@ export function QRLabelPopup({
         style={{ width: "min(500px, 100%)" }}
       >
         {imageUrl && !imgError ? (
-          <div className="flex h-40 items-center justify-center overflow-hidden border-b border-gray-100 bg-gray-50">
+          <div className="flex h-72 items-center justify-center overflow-hidden border-b border-gray-100 bg-gray-50 sm:h-80">
             <img
               src={imageUrl}
               alt={item.sku}
-              className="max-h-40 max-w-full object-contain"
+              className="max-h-72 max-w-full object-contain sm:max-h-80"
               onError={() => setImgError(true)}
             />
           </div>
