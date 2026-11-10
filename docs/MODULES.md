@@ -40,7 +40,7 @@ Izin = kunci di `PERMISSION_KEYS` (`lib/users.ts`); penegakan di server ada di `
 | Invoice | `/invoice`, `/invoice/new`, `/invoice/[id]`, `/invoice/[id]/edit` | `invoice` (+`_create`, `_edit`, `_delete`, `_master` = pengaturan master, **`invoice_approval`** = approve/reject/void + lihat semua) | `invoice`, `invoice/action`, `invoice/{master,pdf,word}`, `master-item` | **neon**: `invoices`, `invoice_items`, `invoice_events`, `invoice_master` (sheet lama tidak dipakai lagi) |
 | Material Issue | `/material-issue` | `material_issue` / `material_issue_all` | `material-issue`, `material-issue-dropdown`, `master-item`, `push-notify` | sheet: `material_issue` |
 | Employee Discount | `/employee-discount` | `employee_discount` / `employee_discount_approval` | `employee-discount`, `employee-discount/upload`, `master-item` | sheet: `request_discount` |
-| Shipment | `/request-tracking` | `request_tracking` / `tracking_edit` | `request-tracking`, `store-directory`, `push-notify` | sheet: `request_tracking` |
+| Shipment | `/request-tracking` | `request_tracking` / `tracking_edit` | `request-tracking`, `store-directory`, `push-notify` | sheet: `request_tracking` | **Tanpa `tracking_edit`, request terlihat oleh pembuat (`request_by`), toko pengirim (`sender`), dan toko penerima (baris pertama `receiver`)** — dicocokkan lewat `lib/shipmentVisibility.ts` (huruf besar/kecil & awalan "Torch" diabaikan) |
 
 Angka merah di sidebar (pending) dihitung `lib/pendingCounts.ts` dan ikut `/api/auth/me`; hanya untuk user yang boleh mengubah status.
 

@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSheetData, appendSheetData, updateSheetRow, deleteSheetRows } from '@/lib/sheets';
 import { uploadToGoogleDrive } from '@/lib/drive';
 import { notifyUser } from '@/lib/notifications';
+import { canSeeShipment } from '@/lib/shipmentVisibility';
 
 async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
   try {
@@ -119,11 +120,9 @@ export async function GET(request: NextRequest) {
 
     if (isTrackingEdit) return jsonWithEtag(request, sorted);
 
-    const userFiltered = sorted.filter(
-  (row: any) =>
-    row.request_by === username ||
-    (userName && row.sender === userName),
-);
+    // Terlihat oleh pembuat request, toko pengirim, DAN toko penerima (lihat lib/shipmentVisibility.ts).
+    const me = username || userName;
+    const userFiltered = sorted.filter((row: any) => canSeeShipment(row, me));
     return jsonWithEtag(request, userFiltered);
   } catch (error) {
     console.error('Error fetching request tracking:', error);
