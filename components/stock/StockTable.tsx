@@ -1,9 +1,8 @@
 "use client";
 
-import { Copy, Check, ImageOff, ChevronUp, ChevronDown, ChevronsUpDown, QrCode, Eye, Store, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Copy, Check, ImageOff, ChevronUp, ChevronDown, ChevronsUpDown, QrCode, Store, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useState, useEffect, Fragment } from "react";
-import { useRouter } from "next/navigation";
 import { cn, hasTextSelection } from "@/lib/utils";
 
 interface StockItem {
@@ -380,7 +379,6 @@ export function StockTable({
 }: StockTableProps) {
   const thProps = { sortColumn, sortDirection, onSort };
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
-  const router = useRouter();
 
   const showStockColumn = selectedView === "store" || (selectedView === "pca" && showStockPca);
   const hasBadges = Object.keys(skuToBadges).length > 0;
@@ -437,11 +435,7 @@ export function StockTable({
             <tr
               onClick={() => {
                 if (hasTextSelection()) return;
-                if (isExpanded) {
-                  router.push(`/stock/${encodeURIComponent(item.sku)}`);
-                } else {
-                  setExpandedKey(rowKey);
-                }
+                setExpandedKey(isExpanded ? null : rowKey); // klik lagi = tutup (halaman detail /stock/[sku] sudah dihapus)
               }}
               className={cn(
                 "cursor-pointer border-b border-gray-50 transition-colors hover:bg-gray-50 active:bg-gray-100",
@@ -556,12 +550,6 @@ export function StockTable({
                         </div>
                       </>
                     )}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); router.push(`/stock/${encodeURIComponent(item.sku)}`); }}
-                      className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                    >
-                      <Eye className="h-3.5 w-3.5" /> Detail
-                    </button>
                     {canViewStoreBreakdown && onShowStoreBreakdown && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onShowStoreBreakdown(item); }}
@@ -687,12 +675,6 @@ export function StockTable({
                 </div>
                 <div className="w-full"><SkuPhotos sku={item.sku} /></div>
                 <div className="ml-auto flex items-center gap-2">
-                  <button
-                    onClick={() => router.push(`/stock/${encodeURIComponent(item.sku)}`)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 active:bg-gray-50"
-                  >
-                    <Eye className="h-3.5 w-3.5" /> Detail
-                  </button>
                   {canViewStoreBreakdown && onShowStoreBreakdown && (
                     <button
                       onClick={() => onShowStoreBreakdown(item)}

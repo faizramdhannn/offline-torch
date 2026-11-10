@@ -20,10 +20,6 @@ export async function GET(request: NextRequest) {
 
     let data: any[] = await getSheetData(type);
 
-    // Detail satu SKU (halaman /stock/[id]): jangan unduh seluruh sheet.
-    const sku = searchParams.get('sku');
-    if (sku) data = data.filter((r: any) => String(r.sku || r.SKU) === sku);
-
     const user = await sessionUser(request);
 
     // Store/Merchant melihat stok semua toko & merchant, tapi bukan gudang partner (Neka/Gramedia/Vega/Metro).
