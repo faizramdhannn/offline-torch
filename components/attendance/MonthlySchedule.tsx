@@ -225,7 +225,7 @@ export function MonthlySchedule({ isStoreUser, myStoreName }: Props) {
           {/* Desktop: tabel kalender */}
           <div className="hidden overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm md:block">
             <div className="overflow-x-auto">
-              <table data-stack="off" className="border-separate border-spacing-0 text-[11px]">
+              <table data-stack="off" className="w-full border-separate border-spacing-0 text-[11px]">
                 <thead>
                   <tr>
                     <th className="sticky left-0 z-20 min-w-[150px] border-b border-r border-gray-200 bg-[#f9fafb] px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500">Nama TAFT</th>
@@ -234,7 +234,7 @@ export function MonthlySchedule({ isStoreUser, myStoreName }: Props) {
                       const weekend = wi >= 5;
                       const isToday = fmtISO(d) === todayISO;
                       return (
-                        <th key={d.getTime()} className={`w-9 min-w-[36px] border-b border-gray-200 px-0 py-1.5 text-center ${isToday ? "bg-[#dbeafe] text-blue-700" : weekend ? "bg-[#fff1f2] text-rose-500" : "bg-[#f9fafb] text-gray-500"}`}>
+                        <th key={d.getTime()} className={`min-w-[30px] border-b border-gray-200 px-0 py-1.5 text-center ${isToday ? "bg-[#dbeafe] text-blue-700" : weekend ? "bg-[#fff1f2] text-rose-500" : "bg-[#f9fafb] text-gray-500"}`}>
                           <div className="text-[12px] font-bold leading-none">{d.getDate()}</div>
                           <div className="mt-0.5 text-[8px] font-medium uppercase leading-none">{DAY_LABELS[wi]}</div>
                           {(i === 0 || d.getDate() === 1) && <div className="mt-0.5 text-[8px] font-bold uppercase leading-none text-primary">{MONTH_SHORT_ID[d.getMonth()]}</div>}

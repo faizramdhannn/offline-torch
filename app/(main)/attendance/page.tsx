@@ -11,6 +11,8 @@ import { MonthlyReport } from "@/components/attendance/MonthlyReport";
 import { MonthlySchedule } from "@/components/attendance/MonthlySchedule";
 import { FullReport } from "@/components/attendance/FullReport";
 
+const SHOW_LEGACY_TABS = false;
+
 export default function AttendancePage() {
   const router = useRouter();
   const [user,        setUser]        = useState<any>(null);
@@ -44,8 +46,10 @@ export default function AttendancePage() {
   const tabs = [
     { key: 'weekly',  label: 'Weekly'  },
     { key: 'schedule', label: 'Jadwal Bulan' },
-    { key: 'monthly', label: 'Monthly' },
-    ...(user.attendance_report ? [{ key: 'report', label: 'Report' }] : []),
+    // Tab Monthly (import/recap) & Report disembunyikan atas permintaan pemilik; komponennya masih ada.
+    // Untuk menampilkan lagi: ubah SHOW_LEGACY_TABS menjadi true.
+    ...(SHOW_LEGACY_TABS ? [{ key: 'monthly', label: 'Monthly' }] : []),
+    ...(SHOW_LEGACY_TABS && user.attendance_report ? [{ key: 'report', label: 'Report' }] : []),
   ] as { key: 'weekly'|'schedule'|'monthly'|'report'; label: string }[];
 
   return (
