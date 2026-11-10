@@ -8,6 +8,7 @@ import { SectionHeader } from "@/components/shared/SectionHeader";
 import type { StoreEntry } from "@/components/attendance/types";
 import { WeeklySchedule } from "@/components/attendance/WeeklySchedule";
 import { MonthlyReport } from "@/components/attendance/MonthlyReport";
+import { MonthlySchedule } from "@/components/attendance/MonthlySchedule";
 import { FullReport } from "@/components/attendance/FullReport";
 
 export default function AttendancePage() {
@@ -15,7 +16,7 @@ export default function AttendancePage() {
   const [user,        setUser]        = useState<any>(null);
   const [isStoreUser, setIsStoreUser] = useState(false);
   const [myStoreName, setMyStoreName] = useState('');
-  const [activeTab,   setActiveTab]   = useState<'weekly'|'monthly'|'report'>('weekly');
+  const [activeTab,   setActiveTab]   = useState<'weekly'|'schedule'|'monthly'|'report'>('weekly');
   useSessionGuard();
 
   useEffect(() => {
@@ -42,9 +43,10 @@ export default function AttendancePage() {
 
   const tabs = [
     { key: 'weekly',  label: 'Weekly'  },
+    { key: 'schedule', label: 'Jadwal Bulan' },
     { key: 'monthly', label: 'Monthly' },
     ...(user.attendance_report ? [{ key: 'report', label: 'Report' }] : []),
-  ] as { key: 'weekly'|'monthly'|'report'; label: string }[];
+  ] as { key: 'weekly'|'schedule'|'monthly'|'report'; label: string }[];
 
   return (
     <div className="flex-1 overflow-auto page-bg">
@@ -77,6 +79,7 @@ export default function AttendancePage() {
         />
 
         {activeTab === 'weekly'  && <WeeklySchedule  user={user} isStoreUser={isStoreUser} myStoreName={myStoreName} />}
+        {activeTab === 'schedule' && <MonthlySchedule user={user} isStoreUser={isStoreUser} myStoreName={myStoreName} />}
         {activeTab === 'monthly' && <MonthlyReport   user={user} isStoreUser={isStoreUser} myStoreName={myStoreName} />}
         {activeTab === 'report'  && user.attendance_report && <FullReport user={user} />}
       </div>

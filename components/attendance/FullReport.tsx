@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import type { TaftEntry, DateEntry, ReportRow, ScheduleRow, SalesStat, StoreWagesEntry, GroupedByTaft } from "./types";
 import { DAYS, DAY_LABELS_FULL, CODE_COLORS, RECAP_KEYS, OVERTIME_RATE, MONTH_SHORT_ID } from "./constants";
 import {
-  toTitleCase, parseDateSafe, buildTaftDateRange,
+  toTitleCase, parseDateSafe, buildTaftDateRange, visiblePeriods,
 } from "./utils";
 import { SalesWagesChart } from "./SalesWagesChart";
 import { ReportDashboard } from "./ReportDashboard";
@@ -343,7 +343,7 @@ export function FullReport({ user }: FullReportProps) {
               className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] text-gray-700 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20"
             >
               <option value="">Pilih Periode</option>
-              {dateList.map(d => <option key={d.id} value={d.date_range}>{d.date_range}</option>)}
+              {visiblePeriods(dateList, selectedDateRange).map(d => <option key={d.id} value={d.date_range}>{d.date_range}</option>)}
             </select>
           </div>
         )}

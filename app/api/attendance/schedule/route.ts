@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const storeName = searchParams.get('store_name');
-    const dateRange = searchParams.get('date_range');
+    const dateRanges = searchParams.getAll('date_range').filter(Boolean); // boleh lebih dari satu (jadwal bulanan = beberapa minggu)
 
     const data = await getSheetData(SHEET);
     const filtered = data.filter((row: any) => row.id);
@@ -18,8 +18,9 @@ export async function GET(request: NextRequest) {
     if (storeName) {
       result = result.filter((r: any) => r.store_name?.toLowerCase() === storeName.toLowerCase());
     }
-    if (dateRange) {
-      result = result.filter((r: any) => r.date_range === dateRange);
+    if (dateRanges.length) {
+      const set = new Set(dateRanges);
+      result = result.filter((r: any) => set.has(r.date_range));
     }
 
     return jsonWithEtag(request, result);

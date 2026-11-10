@@ -8,7 +8,7 @@ import type { DateEntry, TaftEntry, TimeCode, ScheduleRow } from "./types";
 import {
   DAYS, DAY_LABELS, CODE_COLORS, CODE_BG_CELL,
 } from "./constants";
-import { toTitleCase, getWeekDates, fmtDDMM, findCurrentDateRange, totalHours } from "./utils";
+import { toTitleCase, getWeekDates, fmtDDMM, findCurrentDateRange, totalHours, totalOvertime, visiblePeriods } from "./utils";
 
 interface WeeklyScheduleProps {
   user: any;
@@ -164,7 +164,7 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
             className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[11px] text-gray-700 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20"
           >
             <option value="">Pilih Periode</option>
-            {dateList.map(d => (
+            {visiblePeriods(dateList, selectedDateRange).map(d => (
               <option key={d.id} value={d.date_range}>{d.date_range}</option>
             ))}
           </select>
@@ -216,6 +216,9 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
                   <th className="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500 w-20 border-l border-gray-200">
                     Total Jam
                   </th>
+                  <th className="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-orange-600 w-20 border-l border-gray-200">
+                    Lembur
+                  </th>
                   <th className="px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-gray-500 w-24 sticky right-0 bg-gray-50 z-10 border-l border-gray-200">
                     Aksi
                   </th>
@@ -225,7 +228,7 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
                 {storeGroups.map(({ storeName, tafts }) => (
                   <React.Fragment key={storeName}>
                     <tr className="bg-primary/5 border-y border-primary/10">
-                      <td colSpan={10} className="px-2 py-1 sticky left-0 bg-primary/5 z-10">
+                      <td colSpan={11} className="px-2 py-1 sticky left-0 bg-primary/5 z-10">
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] font-bold text-primary">{toTitleCase(storeName)}</span>
                           <span className="text-[10px] text-gray-500">{tafts.length} taft</span>
@@ -287,6 +290,15 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
                             })()}
                           </td>
 
+                          <td className="px-2 py-1 text-center border-l border-gray-100">
+                            {(() => {
+                              const lembur = totalOvertime(DAYS.map(d => isEdit ? editFormData[d] : (sched?.[d as keyof ScheduleRow] as string)), taft.store_name);
+                              return lembur > 0
+                                ? <span className="text-[11px] font-bold text-orange-600">{lembur} <span className="text-[9px] font-medium text-orange-400">jam</span></span>
+                                : <span className="text-gray-300 text-[10px]">—</span>;
+                            })()}
+                          </td>
+
                           <td className={`px-2 py-1 text-center sticky right-0 z-10 border-l border-gray-100 ${isEdit ? 'bg-amber-50/60' : 'bg-white'}`}>
                             {isEdit ? (
                               <div className="flex items-center justify-center gap-1">
@@ -319,7 +331,7 @@ export function WeeklySchedule({ user, isStoreUser, myStoreName }: WeeklySchedul
               <span key={code} className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${cls}`}>{code}</span>
             ))}
             <span className="ml-auto text-[9px] text-gray-500">
-              Jam kerja: P 8 · S 8 · M 8 · MF 10 · F 12 (Karawang, Purwokerto, Jogja: 13) · O, C, +, I, A = 0
+              Jam kerja: P 8 · S 8 · M 8 · MF 10 · F 12 (Karawang, Purwokerto, Jogja: 13) · O, C, +, I, A = 0 | Lembur: MF 2 · F 4 (Karawang, Purwokerto, Jogja: 5) · lainnya 0
             </span>
           </div>
         </div>

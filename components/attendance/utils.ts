@@ -1,5 +1,5 @@
 import type { DateEntry } from "./types";
-import { WORK_HOURS, FULL_HOURS_SPECIAL, FULL_13H_STORES } from "./constants";
+import { WORK_HOURS, FULL_HOURS_SPECIAL, FULL_13H_STORES, OVERTIME_HOURS, FULL_OVERTIME_SPECIAL } from "./constants";
 
 // ─── Shared Attendance Utilities ────────────────────────────────────────────
 // Extracted verbatim from the original app/(main)/attendance/page.tsx.
@@ -122,13 +122,102 @@ export const fmtRupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id
 
 
 /** Jam kerja satu kode jadwal (P/S/M = 8, F = 12 atau 13 di Karawang/Purwokerto/Jogja, MF = 10, lainnya 0). */
+const isFull13Store = (storeName: string | undefined | null) =>
+  FULL_13H_STORES.some(k => String(storeName ?? '').toLowerCase().includes(k));
+
 export function codeHours(code: string | undefined | null, storeName: string | undefined | null): number {
   const c = String(code ?? '').trim().toUpperCase();
   if (!c) return 0;
-  if (c === 'F' && FULL_13H_STORES.some(k => String(storeName ?? '').toLowerCase().includes(k))) return FULL_HOURS_SPECIAL;
+  if (c === 'F' && isFull13Store(storeName)) return FULL_HOURS_SPECIAL;
   return WORK_HOURS[c] ?? 0;
 }
 
 /** Total jam kerja dari daftar kode (mis. 7 hari jadwal mingguan). */
 export const totalHours = (codes: (string | undefined | null)[], storeName: string | undefined | null) =>
   codes.reduce<number>((n, c) => n + codeHours(c, storeName), 0);
+
+/** Jam lembur terjadwal satu kode (MF 2, F 4 — 5 di Karawang/Purwokerto/Jogja; P/S/M dan lainnya 0). */
+export function codeOvertime(code: string | undefined | null, storeName: string | undefined | null): number {
+  const c = String(code ?? '').trim().toUpperCase();
+  if (c === 'F' && isFull13Store(storeName)) return FULL_OVERTIME_SPECIAL;
+  return OVERTIME_HOURS[c] ?? 0;
+}
+
+export const totalOvertime = (codes: (string | undefined | null)[], storeName: string | undefined | null) =>
+  codes.reduce<number>((n, c) => n + codeOvertime(c, storeName), 0);
+
+/** Bulan "YYYY-MM" → daftar tanggal (hari 1 s.d. terakhir). */
+export function monthDates(month: string): Date[] {
+  const [y, m] = month.split('-').map(Number);
+  if (!y || !m) return [];
+  const last = new Date(y, m, 0).getDate();
+  return Array.from({ length: last }, (_, i) => new Date(y, m - 1, i + 1));
+}
+
+/** Kode jadwal untuk satu tanggal: cari minggu (week_start..week_end) yang memuat tanggal itu, ambil hari ke-n (Senin = 0). */
+export function weekSlotOf(date: Date, dateList: DateEntry[]): { dateRange: string; dayIndex: number } | null {
+  const t = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  for (const w of dateList) {
+    const a = parseDateSafe(w.week_start);
+    const b = parseDateSafe(w.week_end);
+    if (!a || !b) continue;
+    const start = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
+    const end = new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime();
+    if (t >= start && t <= end) {
+      const dayIndex = Math.round((t - start) / 86400000);
+      return dayIndex >= 0 && dayIndex < 7 ? { dateRange: w.date_range, dayIndex } : null;
+    }
+  }
+  return null;
+}
+
+/** Daftar bulan "YYYY-MM" yang tercakup daftar minggu (terbaru dulu). */
+export function monthsCovered(dateList: DateEntry[]): string[] {
+  const set = new Set<string>();
+  for (const w of dateList) {
+    const a = parseDateSafe(w.week_start);
+    const b = parseDateSafe(w.week_end);
+    if (!a || !b) continue;
+    for (let d = new Date(a); d <= b; d.setDate(d.getDate() + 1)) {
+      set.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+  }
+  return [...set].sort().reverse();
+}
+
+/** Rentang tanggal "YYYY-MM-DD" s.d. "YYYY-MM-DD" (inklusif) → daftar tanggal. Terbalik ditukar; maksimal `max` hari. */
+export function dateRangeDates(fromISO: string, toISO: string, max = 93): Date[] {
+  let a = parseDateSafe(fromISO);
+  let b = parseDateSafe(toISO);
+  if (!a || !b) return [];
+  if (a > b) [a, b] = [b, a];
+  const out: Date[] = [];
+  for (let d = new Date(a.getFullYear(), a.getMonth(), a.getDate()); d <= b && out.length < max; d.setDate(d.getDate() + 1)) {
+    out.push(new Date(d));
+  }
+  return out;
+}
+
+// ── Filter periode: yang sudah lebih dari 2 bulan lalu disembunyikan dari pilihan (datanya tetap ada) ──
+export const HIDE_PERIOD_AFTER_MONTHS = 2;
+
+function periodCutoff(now: Date): Date {
+  return new Date(now.getFullYear(), now.getMonth() - HIDE_PERIOD_AFTER_MONTHS, now.getDate());
+}
+
+/** Minggu (periode) yang masih ditampilkan di filter: berakhir 2 bulan terakhir atau lebih baru. `keep` = pilihan aktif, tetap tampil. */
+export function visiblePeriods(dateList: DateEntry[], keep = '', now: Date = new Date()): DateEntry[] {
+  const cut = periodCutoff(now);
+  return dateList.filter(w => {
+    if (keep && w.date_range === keep) return true;
+    const end = parseDateSafe(w.week_end);
+    return !end || end >= cut; // tanggal tak terbaca → jangan disembunyikan
+  });
+}
+
+/** Bulan "YYYY-MM" yang masih ditampilkan di filter: dari bulan 2 bulan lalu sampai seterusnya. */
+export function visibleMonths(months: string[], now: Date = new Date()): string[] {
+  const c = periodCutoff(now);
+  const key = `${c.getFullYear()}-${String(c.getMonth() + 1).padStart(2, '0')}`;
+  return months.filter(m => m >= key);
+}
