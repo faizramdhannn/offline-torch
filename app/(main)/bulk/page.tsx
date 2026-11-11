@@ -78,10 +78,10 @@ export default function BulkPage() {
   useEffect(() => {
     if (!user) return;
     fetch("/api/bulk/master").then((r) => (r.ok ? r.json() : EMPTY_MASTER)).then((m) => setMaster(m?.items ? m : EMPTY_MASTER)).catch(() => {});
-    if (user.bulk_order_all) {
+    {
       fetch("/api/store-directory").then((r) => (r.ok ? r.json() : [])).then((d) => {
         const list = Array.isArray(d) ? d : [];
-        setStores(list.map((s: any) => s.store_location).filter(Boolean));
+        if (user.bulk_order_all) setStores(list.map((s: any) => s.store_location).filter(Boolean)); // daftar toko di form hanya untuk admin
         setStorePhones(Object.fromEntries(list.filter((s: any) => s.store_location && s.phone_number).map((s: any) => [normStore(s.store_location), s.phone_number])));
       }).catch(() => {});
     }
@@ -186,7 +186,7 @@ export default function BulkPage() {
                 <table data-stack="off" className="w-full border-collapse">
                   <thead className="bg-gray-50">
                     <tr>
-                      {["Tanggal", "Toko", "Customer", "Institusi", "No. HP", "Item Code", "Item Name", "Kategori", "Qty", "Harga", "Net", "Reason Buy", "Reason Not Buy", "SO", "Note", ...(isAdmin ? ["Aksi"] : [])].map((h) => (
+                      {["Tanggal", "Toko", "Customer", "Institusi", "No. HP", "Item Code", "Item Name", "Kategori", "Qty", "Harga", "Net", "Reason Buy", "Reason Not Buy", "SO", "Note", "Aksi"].map((h) => (
                         <th key={h} className={`${thClass} ${h === "Qty" || h === "Harga" || h === "Net" ? "text-right" : h === "Aksi" ? "text-center" : ""}`} title={h === "Harga" ? "Gross: jumlah × harga normal tiap item" : h === "Net" ? "Net: jumlah × harga setelah diskon" : undefined}>{h}</th>
                       ))}
                     </tr>
@@ -218,7 +218,7 @@ export default function BulkPage() {
                           <td className={`${tdClass} max-w-[110px] truncate`} title={g.reason_not_buy}>{g.reason_not_buy ? <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">{g.reason_not_buy}</span> : <span className="text-gray-300">—</span>}</td>
                           {cell(g.sales_order, "max-w-[90px]", "whitespace-nowrap")}
                           {cell(g.note, "max-w-[140px]")}
-                          {isAdmin && (
+                          {(
                             <td className={`${tdClass} whitespace-nowrap text-center`}>
                               {isBulkBought(g) && <button onClick={() => sendWa(g)} title={`Kirim WA ke ${g.source_store}`} aria-label="Kirim WA ke toko" className="rounded p-1 text-gray-500 hover:bg-green-50 hover:text-green-600"><MessageCircle className="h-3.5 w-3.5" /></button>}
                               <button onClick={() => openEdit(g)} title="Edit" aria-label="Edit" className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-primary"><Pencil className="h-3.5 w-3.5" /></button>
@@ -244,7 +244,7 @@ export default function BulkPage() {
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
                         <Reason g={g} />
-                        {isAdmin && (
+                        {(
                           <>
                             {isBulkBought(g) && <button onClick={() => sendWa(g)} aria-label="Kirim WA ke toko" className="rounded p-1.5 text-gray-500 hover:bg-green-50 hover:text-green-600"><MessageCircle className="h-4 w-4" /></button>}
                             <button onClick={() => openEdit(g)} aria-label="Edit" className="rounded p-1.5 text-gray-500 hover:bg-gray-100"><Pencil className="h-4 w-4" /></button>

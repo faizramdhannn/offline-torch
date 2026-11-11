@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 
 // Sheet raw_data (A–P): id, source_store, item_code, item_name, item_category, item_qty, item_price, customer_name,
 // customer_institution, customer_phone_number, reason_buy, reason_not_buy, sales_order, note, created_at, created_by, update_at, update_by.
-// Satu input = beberapa baris ber-id (uuid) sama. Store/Merchant: hanya data tokonya sendiri. Bulk All: semua + edit + hapus.
+// Satu input = beberapa baris ber-id (uuid) sama. Store/Merchant: input, lihat, edit & hapus HANYA data tokonya sendiri. Bulk All: semua toko.
 
 const SHEET = 'raw_data';
 
@@ -72,12 +72,14 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Edit satu input (semua item ber-id sama) — hanya Bulk All. Baris baru ditambahkan DULU, baru baris lama dihapus
+// Edit satu input (semua item ber-id sama). Bulk All: semua input; akun toko (bulk_order): hanya input tokonya sendiri,
+// toko sumber dikunci ke tokonya. Baris baru ditambahkan DULU, baru baris lama dihapus
 // (kalau penambahan gagal, data lama tetap utuh). created_at & created_by asli dipertahankan.
 export async function PUT(request: NextRequest) {
   try {
     const user = await sessionUser(request);
-    if (!user || !isTrue(user.bulk_order_all)) return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 });
+    const all = !!user && isTrue(user.bulk_order_all);
+    if (!user || (!all && !isTrue(user.bulk_order))) return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 });
     const body = await request.json();
     const id = String(body.id || '').trim();
     if (!id) return NextResponse.json({ error: 'id wajib diisi' }, { status: 400 });
@@ -86,9 +88,11 @@ export async function PUT(request: NextRequest) {
     const oldRows = idRowNumbers(data, id);
     if (oldRows.length === 0) return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 });
     const first = data[oldRows[0] - 2];
+    if (!all && !canSeeBulkRow(first.source_store, user)) return NextResponse.json({ error: 'Akses ditolak: bukan data toko Anda' }, { status: 403 });
 
     const master = masterFromRows((await getSheetData('master_bulk')) as any[]);
-    const v = validateBulkInput(body, master);
+    const source_store = all ? String(body.source_store || '').trim() : String(user.name || user.user_name || '').trim();
+    const v = validateBulkInput({ ...body, source_store }, master);
     if (!v.ok) return NextResponse.json({ error: v.error }, { status: 400 });
 
     const createdAt = String(first.created_at || '') || jakartaNow();
@@ -103,17 +107,19 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// Hapus satu input (semua item ber-id sama) — hanya Bulk All.
+// Hapus satu input (semua item ber-id sama). Bulk All: semua; akun toko: hanya input tokonya sendiri.
 export async function DELETE(request: NextRequest) {
   try {
     const user = await sessionUser(request);
-    if (!user || !isTrue(user.bulk_order_all)) return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 });
+    const all = !!user && isTrue(user.bulk_order_all);
+    if (!user || (!all && !isTrue(user.bulk_order))) return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 });
     const id = (new URL(request.url).searchParams.get('id') || '').trim();
     if (!id) return NextResponse.json({ error: 'id wajib diisi' }, { status: 400 });
 
     const data = (await getSheetData(SHEET, { skipCache: true })) as any[];
     const rows = idRowNumbers(data, id);
     if (rows.length === 0) return NextResponse.json({ error: 'Data tidak ditemukan' }, { status: 404 });
+    if (!all && !canSeeBulkRow(data[rows[0] - 2].source_store, user)) return NextResponse.json({ error: 'Akses ditolak: bukan data toko Anda' }, { status: 403 });
     await deleteSheetRows(SHEET, rows);
     audit(request, 'DELETE', `Bulk order dihapus (${rows.length} baris)`, 'bulk', id);
     return NextResponse.json({ success: true, deleted: rows.length });

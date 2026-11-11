@@ -161,7 +161,8 @@ export const RULES: Rule[] = [
   need("/api/voucher", ["voucher"]),
   need("/api/affiliate", ["affiliate_view"]),
   need("/api/bulk", ["bulk_order", "bulk_order_all"]),
-  need("/api/bulk/orders", ["bulk_order_all"], ["PUT", "DELETE"]),
+  // PUT/DELETE: akun toko (bulk_order) hanya untuk data tokonya sendiri — kepemilikan dicek di route; Bulk All untuk semua.
+  need("/api/bulk/orders", ["bulk_order", "bulk_order_all"], ["PUT", "DELETE"]),
   need("/api/capture-attendance/capture", [], ["GET"], {
     privileged: [{ param: "all", any: ["attendance_store_all"] }],
     store: { param: "store_name", bypass: ["attendance_store_all"] },
