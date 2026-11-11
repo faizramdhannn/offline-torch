@@ -156,11 +156,12 @@ describe("baris sheet & pengelompokan", () => {
     const one = buildBulkWaMessage(mk([["SKU1", "NEO MOVA SLING BAG - BLACK", "500", "129000"]]));
     expect(one).toBe([
       "BULK Order Store Margonda", "", "Nama : Retno", "Instansi : ASPI", "No.tlp : 082210319806", "SO : #481227", "Kebutuhan : Seminar", "",
-      "Artikel :", "SKU1 - NEO MOVA SLING BAG - BLACK : 500pcs", "", "Harga : Rp. 129.000", "Diskon : -", "Qty : 500 pcs", "Harga gross : Rp. 64.500.000", "Harga net : Rp. 64.500.000",
+      "Artikel :", "1. SKU1 - NEO MOVA SLING BAG - BLACK : 500pcs", "", "Harga : Rp. 129.000", "Diskon : -", "Qty : 500 pcs", "Harga gross : Rp. 64.500.000", "Harga net : Rp. 64.500.000",
     ].join("\n"));
     expect(one).not.toMatch(/cc @/);
     const two = buildBulkWaMessage(mk([["A", "Tas A", "10", "100000"], ["B", "Tas B", "6", "50000"]]));
-    expect(two).toContain("A - Tas A : 10pcs (Rp. 100.000)"); // harga beda → tampil per item, tanpa baris "Harga :"
+    expect(two).toContain("1. A - Tas A : 10pcs (Rp. 100.000)");
+    expect(two).toContain("2. B - Tas B : 6pcs (Rp. 50.000)"); // harga beda → tampil per item, tanpa baris "Harga :"
     expect(two).not.toMatch(/^Harga :/m);
     expect(two).toContain("Harga gross : Rp. 1.300.000");
     expect(two).toContain("Harga net : Rp. 1.300.000");
@@ -203,5 +204,29 @@ describe("baris sheet & pengelompokan", () => {
     expect(buildBulkRows("u", def.value, "t", "me")[0].slice(5, 8)).toEqual([10, 200000, 200000]); // kosong → harga master
     expect(buildBulkRows("u", custom.value, "t", "me")[0].slice(5, 8)).toEqual([10, 150000, 135000]); // harga diubah, net = 150.000 − 10%
     expect(validateBulkInput({ ...base, items: [{ item_code: "A1", item_qty: 10, item_price: "0" }] }, m4).ok).toBe(false);
+  });
+
+  it("diskon per item: tiap item punya persen sendiri; kosong → diskon bawaan; WA menampilkan diskon per item", () => {
+    const m5 = masterFromRows([
+      { SKU: "A1", Product_name: "Tas A", Category: "Backpack", HPJ: "100000", reason_buy: "Keperluan Pribadi", reason_not_buy: "Stock Kosong" },
+      { SKU: "B1", Product_name: "Tas B", Category: "Backpack", HPJ: "100000", reason_buy: "", reason_not_buy: "" },
+      { SKU: "C1", Product_name: "Tas C", Category: "Backpack", HPJ: "100000", reason_buy: "", reason_not_buy: "" },
+    ]);
+    const r = validateBulkInput({
+      source_store: "Torch Margonda", customer_name: "A", customer_phone: "08129387232", reason_buy: "Keperluan Pribadi", sales_order: "#1", diskon: "2",
+      items: [{ item_code: "A1", item_qty: 10, diskon: "10" }, { item_code: "B1", item_qty: 10, diskon: "0" }, { item_code: "C1", item_qty: 10 }],
+    }, m5);
+    if (!r.ok) throw new Error(r.error);
+    const rows = buildBulkRows("u", r.value, "t", "me");
+    expect(rows.map((x) => x[7])).toEqual([90000, 100000, 98000]); // 10% | 0% (eksplisit 0 menang atas bawaan) | bawaan 2%
+    const cols = ["id","source_store","item_code","item_name","item_category","item_qty","item_price","item_net","customer_name","customer_institution","customer_phone_number","reason_buy","reason_not_buy","sales_order","note","created_at","created_by","update_at","update_by"];
+    const g = groupBulkRows(rows.map((row) => toBulkRow(Object.fromEntries(cols.map((c, i) => [c, row[i]])))))[0];
+    expect(g.total_net).toBe(10 * 90000 + 10 * 100000 + 10 * 98000);
+    const msg = buildBulkWaMessage(g);
+    expect(msg).toContain("1. A1 - Tas A : 10pcs (Rp. 100.000, diskon 10%)");
+    expect(msg).toContain("2. B1 - Tas B : 10pcs (Rp. 100.000)");
+    expect(msg).toContain("3. C1 - Tas C : 10pcs (Rp. 100.000, diskon 2%)");
+    expect(msg).toContain("Harga net : Rp. 2.880.000");
+    expect(validateBulkInput({ source_store: "X", customer_name: "A", customer_phone: "08129387232", reason_not_buy: "Stock Kosong", items: [{ item_code: "A1", item_qty: 6, diskon: "101" }] }, m5).ok).toBe(false);
   });
 });

@@ -53,8 +53,8 @@ export interface BulkInput {
   reason_not_buy?: string;
   sales_order?: string;
   note?: string;
-  diskon?: number | string; // persen (0–100), berlaku untuk semua item; kosong = 0
-  items?: { item_code?: string; item_qty?: number | string; item_price?: number | string }[];
+  diskon?: number | string; // persen (0–100) bawaan untuk item yang tidak punya diskon sendiri; kosong = 0
+  items?: { item_code?: string; item_qty?: number | string; item_price?: number | string; diskon?: number | string }[];
 }
 
 export interface BulkValid {
@@ -66,8 +66,7 @@ export interface BulkValid {
   reason_not_buy: string;
   sales_order: string;
   note: string;
-  diskon: number; // persen
-  items: { master: BulkMasterItem; qty: number; price: number }[]; // price = harga satuan gross yang dipakai (default harga master, boleh diubah)
+  items: { master: BulkMasterItem; qty: number; price: number; diskon: number }[]; // diskon (%) per item // price = harga satuan gross yang dipakai (default harga master, boleh diubah)
 }
 
 const PHONE_RE = /^62\d{9,13}$/;
@@ -111,7 +110,11 @@ export function validateBulkInput(input: BulkInput, master: BulkMaster): { ok: t
     const priceRaw = String(it.item_price ?? "").replace(/[^\d]/g, "");
     const price = priceRaw === "" ? m.price : parseInt(priceRaw, 10);
     if (!(price > 0)) return { ok: false, error: `Harga ${m.sku} harus lebih dari 0` };
-    items.push({ master: m, qty, price });
+    // Diskon per item (persen); kosong → diskon bawaan (input.diskon) → 0.
+    const dRaw = String(it.diskon ?? "").replace(",", ".").trim();
+    const itemDiskon = dRaw === "" ? diskon : Number(dRaw);
+    if (!isFinite(itemDiskon) || itemDiskon < 0 || itemDiskon > 100) return { ok: false, error: `Diskon ${m.sku} harus antara 0 dan 100 persen` };
+    items.push({ master: m, qty, price, diskon: itemDiskon });
   }
 
   return {
@@ -125,7 +128,6 @@ export function validateBulkInput(input: BulkInput, master: BulkMaster): { ok: t
       reason_not_buy: reason_not_buy ? canon(master.reasonNotBuy, reason_not_buy) : "",
       sales_order,
       note: str(input.note),
-      diskon,
       items,
     },
   };
@@ -138,9 +140,9 @@ export const netPrice = (gross: number, diskonPct: number) => Math.round(gross *
 export function buildBulkRows(
   id: string, v: BulkValid, createdAt: string, createdBy: string, updatedAt: string = createdAt, updatedBy: string = createdBy
 ): (string | number)[][] {
-  return v.items.map(({ master, qty, price }) => [
+  return v.items.map(({ master, qty, price, diskon }) => [
     id, v.source_store, master.sku, master.product_name, master.category, qty, price,
-    netPrice(price, v.diskon),
+    netPrice(price, diskon),
     v.customer_name, v.customer_institution, v.phone, v.reason_buy, v.reason_not_buy, v.sales_order, v.note, createdAt, createdBy, updatedAt, updatedBy,
   ]);
 }
@@ -371,11 +373,11 @@ export function buildBulkWaMessage(g: BulkGroup): string {
   const pct = (r: BulkRow) => (gross(r) > 0 ? Math.round((1 - net(r) / gross(r)) * 1000) / 10 : 0);
   const uniform = new Set(g.rows.map((r) => `${gross(r)}|${pct(r)}`)).size === 1; // harga & diskon sama untuk semua item
   lines.push("", "Artikel :");
-  for (const r of g.rows) {
+  g.rows.forEach((r, i) => {
     const code = r.item_code ? `${r.item_code} - ` : "";
     const detail = uniform ? "" : ` (${rp(gross(r))}${pct(r) > 0 ? `, diskon ${pct(r)}%` : ""})`;
-    lines.push(`${code}${r.item_name} : ${parseInt(r.item_qty, 10) || 0}pcs${detail}`);
-  }
+    lines.push(`${i + 1}. ${code}${r.item_name} : ${parseInt(r.item_qty, 10) || 0}pcs${detail}`); // bernomor per kode item
+  });
   lines.push("");
   if (uniform && gross(g.rows[0]) > 0) {
     lines.push(`Harga : ${rp(gross(g.rows[0]))}`, `Diskon : ${pct(g.rows[0]) > 0 ? `${pct(g.rows[0])}%` : "-"}`);
