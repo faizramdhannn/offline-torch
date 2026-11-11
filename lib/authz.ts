@@ -160,6 +160,8 @@ export const RULES: Rule[] = [
   need("/api/traffic-store", ["traffic_store", "report_store"]),
   need("/api/voucher", ["voucher"]),
   need("/api/affiliate", ["affiliate_view"]),
+  need("/api/bulk", ["bulk_order", "bulk_order_all"]),
+  need("/api/bulk/orders", ["bulk_order_all"], ["PUT", "DELETE"]),
   need("/api/capture-attendance/capture", [], ["GET"], {
     privileged: [{ param: "all", any: ["attendance_store_all"] }],
     store: { param: "store_name", bypass: ["attendance_store_all"] },

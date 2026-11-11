@@ -36,6 +36,14 @@ describe("aturan akses /api", () => {
     expect(rule("/api/invoice", "DELETE").any).toEqual(["invoice_delete", "invoice_approval"]);
   });
 
+  it("Bulk: akses menu & input; edit/hapus khusus bulk_order_all", () => {
+    expect(rule("/api/bulk/master", "GET").any).toEqual(["bulk_order", "bulk_order_all"]);
+    expect(rule("/api/bulk/orders", "GET").any).toEqual(["bulk_order", "bulk_order_all"]);
+    expect(rule("/api/bulk/orders", "POST").any).toEqual(["bulk_order", "bulk_order_all"]);
+    expect(rule("/api/bulk/orders", "PUT").any).toEqual(["bulk_order_all"]);
+    expect(rule("/api/bulk/orders", "DELETE").any).toEqual(["bulk_order_all"]);
+  });
+
   it("prefix terpanjang menang", () => {
     expect(rule("/api/invoice/master", "POST").any).toEqual(["invoice_master"]);
     expect(rule("/api/invoice/pic", "GET").any).toEqual(["invoice"]);

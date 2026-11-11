@@ -49,6 +49,8 @@ interface SidebarProps {
     daily_checklist_all?: boolean;
     affiliate_view?: boolean;
     jastiper?: boolean;
+    bulk_order?: boolean;
+    bulk_order_all?: boolean;
     pending?: { cancel_order?: number; material_issue?: number; employee_discount?: number; shipment?: number; invoice?: number };
   };
 }
@@ -98,7 +100,8 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     if (
       pathname.startsWith("/affiliate") ||
       pathname.startsWith("/customer") ||
-      pathname.startsWith("/jastiper")
+      pathname.startsWith("/jastiper") ||
+      pathname.startsWith("/bulk")
     )
       return "customer";
     return null;
@@ -125,7 +128,8 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     const isCustomerPath =
       pathname.startsWith("/affiliate") ||
       pathname.startsWith("/customer") ||
-      pathname.startsWith("/jastiper");
+      pathname.startsWith("/jastiper") ||
+      pathname.startsWith("/bulk");
 
     const wasRequestPath =
       prev === "/request-store" ||
@@ -137,7 +141,7 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
       prev === "/order-report" ||
       prev === "/sales";
     const wasCustomerPath =
-      prev.startsWith("/affiliate") || prev.startsWith("/customer") || prev.startsWith("/jastiper");
+      prev.startsWith("/affiliate") || prev.startsWith("/customer") || prev.startsWith("/jastiper") || prev.startsWith("/bulk");
 
     if (isRequestPath && !wasRequestPath) {
       setOpenGroup("request");
@@ -229,9 +233,10 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
   const hasAffiliateAccess = !!permissions.affiliate_view;
   const hasCustomerSegAccess = !!permissions.customer;
   const hasJastiperAccess = !!permissions.jastiper;
-  const showCustomerGroup = hasAffiliateAccess || hasCustomerSegAccess || hasJastiperAccess;
+  const hasBulkAccess = !!(permissions.bulk_order || permissions.bulk_order_all);
+  const showCustomerGroup = hasAffiliateAccess || hasCustomerSegAccess || hasJastiperAccess || hasBulkAccess;
   const isCustomerGroupActive =
-    pathname.startsWith("/affiliate") || pathname.startsWith("/customer") || pathname.startsWith("/jastiper");
+    pathname.startsWith("/affiliate") || pathname.startsWith("/customer") || pathname.startsWith("/jastiper") || pathname.startsWith("/bulk");
 
   const hasAnalyticsAccess = !!permissions.analytics_order;
   const hasOrderReportAccess = !!permissions.order_report;
@@ -696,8 +701,15 @@ export default function Sidebar({ userName, permissions }: SidebarProps) {
     </svg>
   );
 
+  const bulkIcon = (
+    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+    </svg>
+  );
+
   const customerItems = [
     { path: "/affiliate", label: "Affiliate", icon: affiliateIcon, show: hasAffiliateAccess },
+    { path: "/bulk", label: "Bulk", icon: bulkIcon, show: hasBulkAccess },
     { path: "/customer", label: "Customer Segmentation", icon: customerSegIcon, show: hasCustomerSegAccess },
     { path: "/jastiper", label: "Jastiper", icon: jastiperIcon, show: hasJastiperAccess },
   ];

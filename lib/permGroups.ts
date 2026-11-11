@@ -128,4 +128,12 @@ export const PERM_GROUPS: {
       { key: "affiliate_view", label: "Affiliate" },
     ],
   },
+  {
+    label: "Bulk Order",
+    color: "bg-amber-50",
+    fields: [
+      { key: "bulk_order", label: "Bulk (input & lihat data sendiri)" },
+      { key: "bulk_order_all", label: "Bulk All (lihat semua + tambah/edit/hapus)" },
+    ],
+  },
 ];

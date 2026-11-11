@@ -110,6 +110,10 @@ const SPREADSHEET_MAP: Record<string, string> = {
   master_data: process.env.SPREADSHEET_AFFILIATE || "",
   affiliate_store_list: process.env.SPREADSHEET_AFFILIATE || "",
   order_log_affiliate: process.env.SPREADSHEET_AFFILIATE || "",
+  // ✅ Bulk order (Customer → Bulk) — spreadsheet SPREADSHEET_BULK. Nama tab = kunci ("master_bulk", "raw_data") karena
+  // appendSheetData/deleteSheetRows memakai nama sheet apa adanya sebagai nama tab.
+  master_bulk: process.env.SPREADSHEET_BULK || "",
+  raw_data: process.env.SPREADSHEET_BULK || "",
 };
 
 // ✅ Batasi range kolom per sheet — hindari fetch sampai kolom CZ (104 kolom)
@@ -154,6 +158,8 @@ const SHEET_RANGE: Record<string, string> = {
   master_data: "A1:C",            // 3 kolom
   affiliate_store_list: "A1:C",   // 3 kolom
   order_log_affiliate: "A1:K",    // 11 kolom
+  master_bulk: "A1:F",            // Bulk: SKU, Product_name, Category, HPJ, reason_buy, reason_not_buy
+  raw_data: "A1:R",               // Bulk: id…note + created_at, created_by, update_at, update_by (lihat lib/bulkOrder.ts)
   activity_log: "A1:G",            // id, timestamp, user, method, activity_log, entity_type, entity_id
 };
 
