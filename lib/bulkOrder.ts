@@ -54,7 +54,7 @@ export interface BulkInput {
   sales_order?: string;
   note?: string;
   diskon?: number | string; // persen (0–100), berlaku untuk semua item; kosong = 0
-  items?: { item_code?: string; item_qty?: number | string }[];
+  items?: { item_code?: string; item_qty?: number | string; item_price?: number | string }[];
 }
 
 export interface BulkValid {
@@ -67,7 +67,7 @@ export interface BulkValid {
   sales_order: string;
   note: string;
   diskon: number; // persen
-  items: { master: BulkMasterItem; qty: number }[];
+  items: { master: BulkMasterItem; qty: number; price: number }[]; // price = harga satuan gross yang dipakai (default harga master, boleh diubah)
 }
 
 const PHONE_RE = /^62\d{9,13}$/;
@@ -107,7 +107,11 @@ export function validateBulkInput(input: BulkInput, master: BulkMaster): { ok: t
     if (!m) return { ok: false, error: `SKU ${str(it.item_code) || "(kosong)"} tidak ada di master` };
     const qty = Number(String(it.item_qty ?? "").replace(/[^\d]/g, ""));
     if (!Number.isInteger(qty) || qty <= 0) return { ok: false, error: `Qty ${m.sku} harus angka lebih dari 0` };
-    items.push({ master: m, qty });
+    // Harga satuan: boleh diisi/diubah per item; kosong → harga master (HPJ).
+    const priceRaw = String(it.item_price ?? "").replace(/[^\d]/g, "");
+    const price = priceRaw === "" ? m.price : parseInt(priceRaw, 10);
+    if (!(price > 0)) return { ok: false, error: `Harga ${m.sku} harus lebih dari 0` };
+    items.push({ master: m, qty, price });
   }
 
   return {
@@ -134,9 +138,9 @@ export const netPrice = (gross: number, diskonPct: number) => Math.round(gross *
 export function buildBulkRows(
   id: string, v: BulkValid, createdAt: string, createdBy: string, updatedAt: string = createdAt, updatedBy: string = createdBy
 ): (string | number)[][] {
-  return v.items.map(({ master, qty }) => [
-    id, v.source_store, master.sku, master.product_name, master.category, qty, master.price > 0 ? master.price : "",
-    master.price > 0 ? netPrice(master.price, v.diskon) : "",
+  return v.items.map(({ master, qty, price }) => [
+    id, v.source_store, master.sku, master.product_name, master.category, qty, price,
+    netPrice(price, v.diskon),
     v.customer_name, v.customer_institution, v.phone, v.reason_buy, v.reason_not_buy, v.sales_order, v.note, createdAt, createdBy, updatedAt, updatedBy,
   ]);
 }

@@ -193,4 +193,15 @@ describe("baris sheet & pengelompokan", () => {
     expect(msg).toContain("Harga net : Rp. 6.213.000");
     expect(validateBulkInput({ source_store: "X", customer_name: "A", customer_phone: "08129387232", reason_not_buy: "Stock Kosong", diskon: "120", items: [{ item_code: "A1", item_qty: 6 }] }, m3).ok).toBe(false);
   });
+
+  it("harga item boleh diubah (default harga master); disimpan sebagai gross & net dari harga itu", () => {
+    const m4 = masterFromRows([{ SKU: "A1", Product_name: "Tas A", Category: "Backpack", HPJ: "200000", reason_buy: "Keperluan Pribadi", reason_not_buy: "Stock Kosong" }]);
+    const base = { source_store: "Torch X", customer_name: "A", customer_phone: "08129387232", reason_not_buy: "Stock Kosong" };
+    const def = validateBulkInput({ ...base, items: [{ item_code: "A1", item_qty: 10 }] }, m4);
+    const custom = validateBulkInput({ ...base, diskon: "10", items: [{ item_code: "A1", item_qty: 10, item_price: "150.000" }] }, m4);
+    if (!def.ok || !custom.ok) throw new Error("x");
+    expect(buildBulkRows("u", def.value, "t", "me")[0].slice(5, 8)).toEqual([10, 200000, 200000]); // kosong → harga master
+    expect(buildBulkRows("u", custom.value, "t", "me")[0].slice(5, 8)).toEqual([10, 150000, 135000]); // harga diubah, net = 150.000 − 10%
+    expect(validateBulkInput({ ...base, items: [{ item_code: "A1", item_qty: 10, item_price: "0" }] }, m4).ok).toBe(false);
+  });
 });

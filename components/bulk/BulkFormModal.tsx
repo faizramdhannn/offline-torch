@@ -7,7 +7,7 @@ import { Button } from "@/components/shared/Button";
 import { normalizePhone } from "@/lib/profileRules";
 import { netPrice, type BulkGroup, type BulkMaster, type BulkMasterItem } from "@/lib/bulkOrder";
 
-interface Line { key: number; sku: string; qty: string }
+interface Line { key: number; sku: string; qty: string; price: string } // price: harga satuan gross (digit); default dari master, boleh diubah
 
 const rupiah = (n: number) => "Rp " + Math.round(n).toLocaleString("id-ID");
 const baseCls = "h-9 rounded-lg border border-gray-200 bg-white px-2.5 text-xs text-gray-800 outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/20";
@@ -65,7 +65,7 @@ export interface BulkFormProps {
 
 export function BulkFormModal({ open, onClose, master, isAdmin, defaultStore, stores, editing, onSaved }: BulkFormProps) {
   const keyRef = useRef(1);
-  const newLine = (sku = "", qty = ""): Line => ({ key: keyRef.current++, sku, qty });
+  const newLine = (sku = "", qty = "", price = ""): Line => ({ key: keyRef.current++, sku, qty, price });
   const [store, setStore] = useState("");
   const [name, setName] = useState("");
   const [institution, setInstitution] = useState("");
@@ -88,7 +88,7 @@ export function BulkFormModal({ open, onClose, master, isAdmin, defaultStore, st
       setName(editing.customer_name);
       setInstitution(editing.customer_institution);
       setPhone(editing.customer_phone_number);
-      setLines(editing.rows.map((r) => newLine(r.item_code, r.item_qty)));
+      setLines(editing.rows.map((r) => newLine(r.item_code, r.item_qty, r.item_price))); // harga tersimpan (bisa beda dari master) dipertahankan
       setReasonBuy(editing.reason_buy);
       setReasonNotBuy(editing.reason_not_buy);
       setSalesOrder(editing.sales_order);
@@ -108,9 +108,10 @@ export function BulkFormModal({ open, onClose, master, isAdmin, defaultStore, st
 
   const bySku = useMemo(() => new Map(master.items.map((i) => [i.sku.toUpperCase(), i])), [master.items]);
   const picked = (l: Line): BulkMasterItem | undefined => bySku.get(l.sku.toUpperCase());
-  const total = lines.reduce((n, l) => n + (picked(l)?.price ?? 0) * (parseInt(l.qty, 10) || 0), 0);
+  const unit = (l: Line) => parseInt(l.price, 10) || picked(l)?.price || 0; // harga satuan yang berlaku
+  const total = lines.reduce((n, l) => n + unit(l) * (parseInt(l.qty, 10) || 0), 0);
   const diskonNum = Number(diskon.replace(",", ".")) || 0;
-  const totalNet = lines.reduce((n, l) => n + netPrice(picked(l)?.price ?? 0, diskonNum) * (parseInt(l.qty, 10) || 0), 0);
+  const totalNet = lines.reduce((n, l) => n + netPrice(unit(l), diskonNum) * (parseInt(l.qty, 10) || 0), 0);
   const phoneNorm = normalizePhone(phone);
 
   const submit = async () => {
@@ -120,6 +121,7 @@ export function BulkFormModal({ open, onClose, master, isAdmin, defaultStore, st
     if (!phoneNorm || !/^62\d{9,13}$/.test(phoneNorm)) return setError("No. telepon customer tidak valid (contoh 0812xxxxxxxx)");
     if (lines.some((l) => !picked(l))) return setError("Pilih item dari daftar untuk setiap baris");
     if (lines.some((l) => !(parseInt(l.qty, 10) > 0))) return setError("Qty setiap item harus lebih dari 0");
+    if (lines.some((l) => !(unit(l) > 0))) return setError("Harga setiap item harus lebih dari 0");
     if (!reasonBuy && !reasonNotBuy) return setError("Pilih Reason Buy atau Reason Not Buy");
     if (reasonBuy && !salesOrder.trim()) return setError("Sales Order wajib diisi bila Reason Buy dipilih");
     if (diskon.trim() && !(diskonNum >= 0 && diskonNum <= 100)) return setError("Diskon harus antara 0 dan 100 persen");
@@ -132,7 +134,7 @@ export function BulkFormModal({ open, onClose, master, isAdmin, defaultStore, st
           ...(editing ? { id: editing.id } : {}),
           source_store: store, customer_name: name, customer_institution: institution, customer_phone: phone,
           reason_buy: reasonBuy, reason_not_buy: reasonNotBuy, sales_order: salesOrder, note, diskon,
-          items: lines.map((l) => ({ item_code: l.sku, item_qty: l.qty })),
+          items: lines.map((l) => ({ item_code: l.sku, item_qty: l.qty, item_price: l.price })),
         }),
       });
       const j = await res.json().catch(() => ({}));
@@ -203,9 +205,9 @@ export function BulkFormModal({ open, onClose, master, isAdmin, defaultStore, st
               const qty = parseInt(l.qty, 10) || 0;
               return (
                 <div key={l.key} className="rounded-xl border border-gray-200 p-2.5">
-                  <div className="flex items-start gap-2">
-                    <div className="min-w-0 flex-1">
-                      <ItemPicker master={master} value={l.sku} onPick={(sku) => setLines((p) => p.map((x) => (x.key === l.key ? { ...x, sku } : x)))} />
+                  <div className="flex flex-wrap items-start gap-2">
+                    <div className="min-w-0 basis-full sm:flex-1 sm:basis-0">
+                      <ItemPicker master={master} value={l.sku} onPick={(sku) => setLines((p) => p.map((x) => (x.key === l.key ? { ...x, sku, price: sku ? String(bySku.get(sku.toUpperCase())?.price ?? "") : "" } : x)))} />
                     </div>
                     <input
                       value={l.qty}
@@ -213,12 +215,19 @@ export function BulkFormModal({ open, onClose, master, isAdmin, defaultStore, st
                       inputMode="numeric" placeholder="Qty" aria-label={`Qty item ${idx + 1}`}
                       className={`${baseCls} w-20 shrink-0 text-center`}
                     />
+                    <input
+                      value={l.price}
+                      onChange={(e) => setLines((p) => p.map((x) => (x.key === l.key ? { ...x, price: e.target.value.replace(/[^\d]/g, "") } : x)))}
+                      inputMode="numeric" placeholder="Harga" aria-label={`Harga item ${idx + 1}`} title="Harga satuan (gross) — default dari master, boleh diubah"
+                      className={`${baseCls} w-28 shrink-0 text-right`}
+                    />
                     <button type="button" onClick={() => setLines((p) => (p.length > 1 ? p.filter((x) => x.key !== l.key) : p))} disabled={lines.length === 1} aria-label={`Hapus item ${idx + 1}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"><Trash2 className="h-4 w-4" /></button>
                   </div>
                   {m && (
                     <p className="mt-1.5 text-[11px] text-gray-500">
-                      <b className="text-gray-700">{m.product_name}</b> · {m.category || "-"} · {rupiah(m.price)}
-                      {qty > 0 && <> · Subtotal <b className="text-gray-700">{rupiah(m.price * qty)}</b></>}
+                      <b className="text-gray-700">{m.product_name}</b> · {m.category || "-"} · {rupiah(unit(l))}
+                      {unit(l) !== m.price && <span className="text-amber-600"> (harga master {rupiah(m.price)})</span>}
+                      {qty > 0 && <> · Subtotal <b className="text-gray-700">{rupiah(unit(l) * qty)}</b></>}
                     </p>
                   )}
                 </div>
