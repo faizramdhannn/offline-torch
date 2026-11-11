@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBulkReport, buildBulkRows, canSeeBulkRow, fmtCompactRp, groupBulkRows, masterFromRows, parsePrice, summarizeGroup, toBulkRow, validateBulkInput, type BulkInput } from "../lib/bulkOrder";
+import { buildBulkReport, buildBulkRows, buildBulkWaMessage, bulkWaLink, isBulkBought, canSeeBulkRow, fmtCompactRp, groupBulkRows, masterFromRows, parsePrice, summarizeGroup, toBulkRow, validateBulkInput, type BulkInput } from "../lib/bulkOrder";
 
 const master = masterFromRows([
   { SKU: "TUCGW615600RB", Product_name: "Nexus Backpack", Category: "Backpack", HPJ: "Rp1.079.200", reason_buy: "Harga bagus", reason_not_buy: "Terlalu mahal" },
@@ -64,16 +64,16 @@ describe("baris sheet & pengelompokan", () => {
     if (!r.ok) throw new Error("x");
     const rows = buildBulkRows("uuid-1", r.value, "11 Nov 2026, 09.00.00", "cirebon");
     expect(rows).toHaveLength(2);
-    expect(rows.every((x) => x[0] === "uuid-1" && x[7] === "Budi" && x[9] === "6281234567890" && x[12] === "SO-1")).toBe(true);
-    expect(rows[0].slice(2, 7)).toEqual(["TUCGW615600RB", "Nexus Backpack", "Backpack", 10, 1079200]); // qty & harga berupa angka
-    expect(rows[0]).toHaveLength(18);
-    expect(rows[0].slice(14)).toEqual(["11 Nov 2026, 09.00.00", "cirebon", "11 Nov 2026, 09.00.00", "cirebon"]); // update_* = created_* saat dibuat
+    expect(rows.every((x) => x[0] === "uuid-1" && x[8] === "Budi" && x[10] === "6281234567890" && x[13] === "SO-1")).toBe(true);
+    expect(rows[0].slice(2, 8)).toEqual(["TUCGW615600RB", "Nexus Backpack", "Backpack", 10, 1079200, 1079200]); // qty, harga & net berupa angka (tanpa diskon: net = gross)
+    expect(rows[0]).toHaveLength(19);
+    expect(rows[0].slice(15)).toEqual(["11 Nov 2026, 09.00.00", "cirebon", "11 Nov 2026, 09.00.00", "cirebon"]); // update_* = created_* saat dibuat
   });
 
   it("grup: total qty & nilai", () => {
     const r = validateBulkInput(base, master);
     if (!r.ok) throw new Error("x");
-    const cols = ["id","source_store","item_code","item_name","item_category","item_qty","item_price","customer_name","customer_institution","customer_phone_number","reason_buy","reason_not_buy","sales_order","note","created_at","created_by"];
+    const cols = ["id","source_store","item_code","item_name","item_category","item_qty","item_price","item_net","customer_name","customer_institution","customer_phone_number","reason_buy","reason_not_buy","sales_order","note","created_at","created_by"];
     const objs = buildBulkRows("u", r.value, "t", "me").map((row) => toBulkRow(Object.fromEntries(cols.map((c, i) => [c, row[i]]))));
     const g = groupBulkRows(objs);
     expect(g).toHaveLength(1);
@@ -89,7 +89,7 @@ describe("baris sheet & pengelompokan", () => {
     ]);
     const r = validateBulkInput({ ...base, reason_buy: "X", items: [{ item_code: "A1", item_qty: 2 }, { item_code: "A2", item_qty: 3 }, { item_code: "P1", item_qty: 4 }] }, m2);
     if (!r.ok) throw new Error(r.error);
-    const cols = ["id","source_store","item_code","item_name","item_category","item_qty","item_price","customer_name","customer_institution","customer_phone_number","reason_buy","reason_not_buy","sales_order","note","created_at","created_by"];
+    const cols = ["id","source_store","item_code","item_name","item_category","item_qty","item_price","item_net","customer_name","customer_institution","customer_phone_number","reason_buy","reason_not_buy","sales_order","note","created_at","created_by"];
     const g = groupBulkRows(buildBulkRows("u", r.value, "t", "me").map((row) => toBulkRow(Object.fromEntries(cols.map((c, i) => [c, row[i]]))))) [0];
     const s = summarizeGroup(g);
     expect(s.codes).toBe("A1;A2;P1");
@@ -114,7 +114,7 @@ describe("baris sheet & pengelompokan", () => {
       { SKU: "A1", Product_name: "Tas A", Category: "Backpack", HPJ: "100000", reason_buy: "Harga", reason_not_buy: "Mahal" },
       { SKU: "P1", Product_name: "Pouch", Category: "Travel Pouch", HPJ: "20000", reason_buy: "", reason_not_buy: "" },
     ]);
-    const cols = ["id","source_store","item_code","item_name","item_category","item_qty","item_price","customer_name","customer_institution","customer_phone_number","reason_buy","reason_not_buy","sales_order","note","created_at","created_by"];
+    const cols = ["id","source_store","item_code","item_name","item_category","item_qty","item_price","item_net","customer_name","customer_institution","customer_phone_number","reason_buy","reason_not_buy","sales_order","note","created_at","created_by"];
     const mkGroup = (id: string, store: string, phone: string, buy: boolean, at: string, items: { item_code: string; item_qty: number }[]) => {
       const r = validateBulkInput({ source_store: store, customer_name: "C" + id, customer_phone: phone, reason_buy: buy ? "Harga" : "", reason_not_buy: buy ? "" : "Mahal", sales_order: buy ? "SO" : "", items }, m2);
       if (!r.ok) throw new Error(r.error);
@@ -144,9 +144,53 @@ describe("baris sheet & pengelompokan", () => {
   });
 
   it("report: input dengan Sales Order tapi tanpa Reason Buy (data impor) tetap dihitung beli", () => {
-    const cols = ["id","source_store","item_code","item_name","item_category","item_qty","item_price","customer_name","customer_institution","customer_phone_number","reason_buy","reason_not_buy","sales_order","note","created_at","created_by"];
-    const row = (id: string, rb: string, rn: string, so: string) => toBulkRow(Object.fromEntries(cols.map((c, i) => [c, ["" + id, "Torch X", "S1", "Tas", "Backpack", "6", "10000", "C", "", "6281", rb, rn, so, "", "10 Nov 2026, 09.00.00", "system"][i]])));
+    const cols = ["id","source_store","item_code","item_name","item_category","item_qty","item_price","item_net","customer_name","customer_institution","customer_phone_number","reason_buy","reason_not_buy","sales_order","note","created_at","created_by"];
+    const row = (id: string, rb: string, rn: string, so: string) => toBulkRow(Object.fromEntries(cols.map((c, i) => [c, ["" + id, "Torch X", "S1", "Tas", "Backpack", "6", "10000", "10000", "C", "", "6281", rb, rn, so, "", "10 Nov 2026, 09.00.00", "system"][i]])));
     const r = buildBulkReport(groupBulkRows([row("a", "", "", "#1"), row("b", "", "Stock Kosong", ""), row("c", "Keperluan Pribadi", "", "SO"), row("d", "", "", "")]));
     expect(r.totals).toMatchObject({ inputs: 4, buy: 2, notBuy: 1 }); // d (belum ada SO/alasan) tidak dihitung beli
+  });
+
+  it("pesan WA ke toko: format form grup bulk, tanpa baris cc", () => {
+    const cols = ["id","source_store","item_code","item_name","item_category","item_qty","item_price","item_net","customer_name","customer_institution","customer_phone_number","reason_buy","reason_not_buy","sales_order","note","created_at","created_by"];
+    const mk = (items: [string, string, string, string][]) => groupBulkRows(items.map(([c, n, q, p]) => toBulkRow(Object.fromEntries(cols.map((k, i) => [k, ["u", "Torch Margonda", c, n, "Backpack", q, p, p, "Retno", "ASPI", "6282210319806", "Keperluan Seminar", "", "#481227", "", "t", "system"][i]])))))[0];
+    const one = buildBulkWaMessage(mk([["SKU1", "NEO MOVA SLING BAG - BLACK", "500", "129000"]]));
+    expect(one).toBe([
+      "BULK Order Store Margonda", "", "Nama : Retno", "Instansi : ASPI", "No.tlp : 082210319806", "SO : #481227", "Kebutuhan : Seminar", "",
+      "Artikel :", "SKU1 - NEO MOVA SLING BAG - BLACK : 500pcs", "", "Harga : Rp. 129.000", "Diskon : -", "Qty : 500 pcs", "Harga gross : Rp. 64.500.000", "Harga net : Rp. 64.500.000",
+    ].join("\n"));
+    expect(one).not.toMatch(/cc @/);
+    const two = buildBulkWaMessage(mk([["A", "Tas A", "10", "100000"], ["B", "Tas B", "6", "50000"]]));
+    expect(two).toContain("A - Tas A : 10pcs (Rp. 100.000)"); // harga beda → tampil per item, tanpa baris "Harga :"
+    expect(two).not.toMatch(/^Harga :/m);
+    expect(two).toContain("Harga gross : Rp. 1.300.000");
+    expect(two).toContain("Harga net : Rp. 1.300.000");
+  });
+
+  it("link WA ke nomor toko & penentuan terbeli", () => {
+    expect(bulkWaLink("6281211112222", "Halo A&B")).toBe("https://wa.me/6281211112222?text=Halo%20A%26B");
+    expect(bulkWaLink("0812-1111-2222", "x")).toBe("https://wa.me/6281211112222?text=x");
+    expect(bulkWaLink("", "x")).toBe("");
+    expect(isBulkBought({ reason_buy: "", reason_not_buy: "", sales_order: "#1" })).toBe(true);
+    expect(isBulkBought({ reason_buy: "Keperluan Pribadi", reason_not_buy: "", sales_order: "" })).toBe(true);
+    expect(isBulkBought({ reason_buy: "", reason_not_buy: "Stock Kosong", sales_order: "" })).toBe(false);
+    expect(isBulkBought({ reason_buy: "", reason_not_buy: "", sales_order: "" })).toBe(false);
+  });
+
+  it("diskon: item_net = harga × (1 − diskon%), total net & pesan WA menampilkan gross dan net", () => {
+    const m3 = masterFromRows([{ SKU: "A1", Product_name: "Tas A", Category: "Backpack", HPJ: "218000", reason_buy: "Keperluan Pribadi", reason_not_buy: "Stock Kosong" }]);
+    const r = validateBulkInput({ source_store: "Torch Margonda", customer_name: "Didik", customer_phone: "08129387232", reason_buy: "Keperluan Pribadi", sales_order: "#1", diskon: "5", items: [{ item_code: "A1", item_qty: 30 }] }, m3);
+    if (!r.ok) throw new Error(r.error);
+    const row = buildBulkRows("u", r.value, "t", "me")[0];
+    expect(row.slice(5, 8)).toEqual([30, 218000, 207100]); // 218.000 × 95%
+    const cols = ["id","source_store","item_code","item_name","item_category","item_qty","item_price","item_net","customer_name","customer_institution","customer_phone_number","reason_buy","reason_not_buy","sales_order","note","created_at","created_by","update_at","update_by"];
+    const g = groupBulkRows([toBulkRow(Object.fromEntries(cols.map((c, i) => [c, row[i]])))])[0];
+    expect(g.total_value).toBe(30 * 218000);
+    expect(g.total_net).toBe(6213000); // sama dengan "Harga net" di form grup (30 × 207.100)
+    const msg = buildBulkWaMessage(g);
+    expect(msg).toContain("Harga : Rp. 218.000");
+    expect(msg).toContain("Diskon : 5%");
+    expect(msg).toContain("Harga gross : Rp. 6.540.000"); // 30 × 218.000
+    expect(msg).toContain("Harga net : Rp. 6.213.000");
+    expect(validateBulkInput({ source_store: "X", customer_name: "A", customer_phone: "08129387232", reason_not_buy: "Stock Kosong", diskon: "120", items: [{ item_code: "A1", item_qty: 6 }] }, m3).ok).toBe(false);
   });
 });

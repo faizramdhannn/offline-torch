@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Package, Pencil, Plus, Trash2, Search } from "lucide-react";
+import { MessageCircle, Package, Pencil, Plus, Trash2, Search } from "lucide-react";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { SectionHeader } from "@/components/shared/SectionHeader";
 import { Button } from "@/components/shared/Button";
@@ -12,7 +12,8 @@ import Popup from "@/components/Popup";
 import { BulkFormModal } from "@/components/bulk/BulkFormModal";
 import { ItemsPopover } from "@/components/bulk/ItemsPopover";
 import { BulkReport } from "@/components/bulk/BulkReport";
-import { groupBulkRows, summarizeGroup, type BulkGroup, type BulkMaster, type BulkRow } from "@/lib/bulkOrder";
+import { buildBulkWaMessage, bulkWaLink, groupBulkRows, isBulkBought, summarizeGroup, type BulkGroup, type BulkMaster, type BulkRow } from "@/lib/bulkOrder";
+import { normStore } from "@/lib/shipmentVisibility";
 import { parsePrice } from "@/lib/bulkOrder";
 import { thClass, tdClass } from "@/components/shared/tableStyles";
 
@@ -37,6 +38,7 @@ export default function BulkPage() {
   const [master, setMaster] = useState<BulkMaster>(EMPTY_MASTER);
   const [rows, setRows] = useState<BulkRow[]>([]);
   const [stores, setStores] = useState<string[]>([]);
+  const [storePhones, setStorePhones] = useState<Record<string, string>>({}); // nama toko (dinormalkan) → nomor WA toko
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const [search, setSearch] = useState("");
@@ -77,7 +79,11 @@ export default function BulkPage() {
     if (!user) return;
     fetch("/api/bulk/master").then((r) => (r.ok ? r.json() : EMPTY_MASTER)).then((m) => setMaster(m?.items ? m : EMPTY_MASTER)).catch(() => {});
     if (user.bulk_order_all) {
-      fetch("/api/store-directory").then((r) => (r.ok ? r.json() : [])).then((d) => setStores((Array.isArray(d) ? d : []).map((s: any) => s.store_location).filter(Boolean))).catch(() => {});
+      fetch("/api/store-directory").then((r) => (r.ok ? r.json() : [])).then((d) => {
+        const list = Array.isArray(d) ? d : [];
+        setStores(list.map((s: any) => s.store_location).filter(Boolean));
+        setStorePhones(Object.fromEntries(list.filter((s: any) => s.store_location && s.phone_number).map((s: any) => [normStore(s.store_location), s.phone_number])));
+      }).catch(() => {});
     }
   }, [user]);
 
@@ -101,8 +107,14 @@ export default function BulkPage() {
   useEffect(() => { setPage(1); }, [search, storeFilter, reasonFilter, showAll]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageGroups = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const sum = useMemo(() => filtered.reduce((a, g) => ({ qty: a.qty + g.total_qty, value: a.value + g.total_value }), { qty: 0, value: 0 }), [filtered]);
+  const sum = useMemo(() => filtered.reduce((a, g) => ({ qty: a.qty + g.total_qty, value: a.value + g.total_value, net: a.net + g.total_net }), { qty: 0, value: 0, net: 0 }), [filtered]);
 
+  // Kirim WA ke nomor toko: membuka WhatsApp dengan pesan format grup bulk sudah terisi (admin tinggal menekan kirim).
+  const sendWa = (g: BulkGroup) => {
+    const link = bulkWaLink(storePhones[normStore(g.source_store)], buildBulkWaMessage(g));
+    if (!link) { notify(`Nomor WA ${g.source_store} belum ada di profil akunnya`, "error"); return; }
+    window.open(link, "_blank", "noopener,noreferrer");
+  };
   const openAdd = () => { setEditing(null); setFormOpen(true); };
   const openEdit = (g: BulkGroup) => { setEditing(g); setFormOpen(true); };
   const del = async (g: BulkGroup) => {
@@ -159,7 +171,7 @@ export default function BulkPage() {
           <label className="flex items-center gap-1.5 text-[11px] text-gray-600">
             <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Semua riwayat
           </label>
-          <span className="ml-auto text-[11px] text-gray-500">{filtered.length} input · {sum.qty.toLocaleString("id-ID")} pcs · <b className="text-gray-700">{rupiah(sum.value)}</b></span>
+          <span className="ml-auto text-[11px] text-gray-500">{filtered.length} input · {sum.qty.toLocaleString("id-ID")} pcs · gross {rupiah(sum.value)} · net <b className="text-gray-700">{rupiah(sum.net)}</b></span>
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -174,8 +186,8 @@ export default function BulkPage() {
                 <table data-stack="off" className="w-full border-collapse">
                   <thead className="bg-gray-50">
                     <tr>
-                      {["Tanggal", "Toko", "Customer", "Institusi", "No. HP", "Item Code", "Item Name", "Kategori", "Qty", "Harga", "Reason Buy", "Reason Not Buy", "SO", "Note", ...(isAdmin ? ["Aksi"] : [])].map((h) => (
-                        <th key={h} className={`${thClass} ${h === "Qty" || h === "Harga" ? "text-right" : h === "Aksi" ? "text-center" : ""}`} title={h === "Harga" ? "Total nilai = jumlah × harga tiap item" : undefined}>{h}</th>
+                      {["Tanggal", "Toko", "Customer", "Institusi", "No. HP", "Item Code", "Item Name", "Kategori", "Qty", "Harga", "Net", "Reason Buy", "Reason Not Buy", "SO", "Note", ...(isAdmin ? ["Aksi"] : [])].map((h) => (
+                        <th key={h} className={`${thClass} ${h === "Qty" || h === "Harga" || h === "Net" ? "text-right" : h === "Aksi" ? "text-center" : ""}`} title={h === "Harga" ? "Gross: jumlah × harga normal tiap item" : h === "Net" ? "Net: jumlah × harga setelah diskon" : undefined}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -201,12 +213,14 @@ export default function BulkPage() {
                           </td>
                           <td className={`${tdClass} whitespace-nowrap text-right font-semibold`}>{s.qty}</td>
                           <td className={`${tdClass} whitespace-nowrap text-right`}>{rupiah(s.value)}</td>
+                          <td className={`${tdClass} whitespace-nowrap text-right font-semibold ${s.net < s.value ? "text-emerald-700" : ""}`}>{rupiah(s.net)}</td>
                           <td className={`${tdClass} max-w-[110px] truncate`} title={g.reason_buy}>{g.reason_buy ? <span className="rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">{g.reason_buy}</span> : <span className="text-gray-300">—</span>}</td>
                           <td className={`${tdClass} max-w-[110px] truncate`} title={g.reason_not_buy}>{g.reason_not_buy ? <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">{g.reason_not_buy}</span> : <span className="text-gray-300">—</span>}</td>
                           {cell(g.sales_order, "max-w-[90px]", "whitespace-nowrap")}
                           {cell(g.note, "max-w-[140px]")}
                           {isAdmin && (
                             <td className={`${tdClass} whitespace-nowrap text-center`}>
+                              {isBulkBought(g) && <button onClick={() => sendWa(g)} title={`Kirim WA ke ${g.source_store}`} aria-label="Kirim WA ke toko" className="rounded p-1 text-gray-500 hover:bg-green-50 hover:text-green-600"><MessageCircle className="h-3.5 w-3.5" /></button>}
                               <button onClick={() => openEdit(g)} title="Edit" aria-label="Edit" className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-primary"><Pencil className="h-3.5 w-3.5" /></button>
                               <button onClick={() => del(g)} title="Hapus" aria-label="Hapus" className="rounded p-1 text-gray-500 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-3.5 w-3.5" /></button>
                             </td>
@@ -232,6 +246,7 @@ export default function BulkPage() {
                         <Reason g={g} />
                         {isAdmin && (
                           <>
+                            {isBulkBought(g) && <button onClick={() => sendWa(g)} aria-label="Kirim WA ke toko" className="rounded p-1.5 text-gray-500 hover:bg-green-50 hover:text-green-600"><MessageCircle className="h-4 w-4" /></button>}
                             <button onClick={() => openEdit(g)} aria-label="Edit" className="rounded p-1.5 text-gray-500 hover:bg-gray-100"><Pencil className="h-4 w-4" /></button>
                             <button onClick={() => del(g)} aria-label="Hapus" className="rounded p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
                           </>
@@ -242,7 +257,7 @@ export default function BulkPage() {
                       {g.rows.map((r, i) => (
                         <li key={i} className="flex justify-between gap-2">
                           <span className="min-w-0 truncate"><b className="text-gray-700">{r.item_code}</b> {r.item_name}</span>
-                          <span className="shrink-0 text-gray-600">{r.item_qty} × {rupiah(parsePrice(r.item_price))}</span>
+                          <span className="shrink-0 text-gray-600">{r.item_qty} × {rupiah(parsePrice(r.item_net || r.item_price))}</span>
                         </li>
                       ))}
                     </ul>

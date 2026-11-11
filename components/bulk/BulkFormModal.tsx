@@ -5,7 +5,7 @@ import { Plus, Trash2, ShoppingBag } from "lucide-react";
 import { Modal } from "@/components/shared/Modal";
 import { Button } from "@/components/shared/Button";
 import { normalizePhone } from "@/lib/profileRules";
-import type { BulkGroup, BulkMaster, BulkMasterItem } from "@/lib/bulkOrder";
+import { netPrice, type BulkGroup, type BulkMaster, type BulkMasterItem } from "@/lib/bulkOrder";
 
 interface Line { key: number; sku: string; qty: string }
 
@@ -75,6 +75,7 @@ export function BulkFormModal({ open, onClose, master, isAdmin, defaultStore, st
   const [reasonNotBuy, setReasonNotBuy] = useState("");
   const [salesOrder, setSalesOrder] = useState("");
   const [note, setNote] = useState("");
+  const [diskon, setDiskon] = useState(""); // persen, opsional
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -92,11 +93,15 @@ export function BulkFormModal({ open, onClose, master, isAdmin, defaultStore, st
       setReasonNotBuy(editing.reason_not_buy);
       setSalesOrder(editing.sales_order);
       setNote(editing.note);
+      // diskon diturunkan dari baris tersimpan (net vs gross); kosong bila tidak ada diskon
+      const r0 = editing.rows.find((r) => r.item_net && parseInt(r.item_price, 10) > 0);
+      const pct = r0 ? Math.round((1 - parseInt(r0.item_net, 10) / parseInt(r0.item_price, 10)) * 1000) / 10 : 0;
+      setDiskon(pct > 0 ? String(pct) : "");
     } else {
       setStore(isAdmin ? "" : defaultStore);
       setName(""); setInstitution(""); setPhone("");
       setLines([newLine()]);
-      setReasonBuy(""); setReasonNotBuy(""); setSalesOrder(""); setNote("");
+      setReasonBuy(""); setReasonNotBuy(""); setSalesOrder(""); setNote(""); setDiskon("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editing]);
@@ -104,6 +109,8 @@ export function BulkFormModal({ open, onClose, master, isAdmin, defaultStore, st
   const bySku = useMemo(() => new Map(master.items.map((i) => [i.sku.toUpperCase(), i])), [master.items]);
   const picked = (l: Line): BulkMasterItem | undefined => bySku.get(l.sku.toUpperCase());
   const total = lines.reduce((n, l) => n + (picked(l)?.price ?? 0) * (parseInt(l.qty, 10) || 0), 0);
+  const diskonNum = Number(diskon.replace(",", ".")) || 0;
+  const totalNet = lines.reduce((n, l) => n + netPrice(picked(l)?.price ?? 0, diskonNum) * (parseInt(l.qty, 10) || 0), 0);
   const phoneNorm = normalizePhone(phone);
 
   const submit = async () => {
@@ -115,6 +122,7 @@ export function BulkFormModal({ open, onClose, master, isAdmin, defaultStore, st
     if (lines.some((l) => !(parseInt(l.qty, 10) > 0))) return setError("Qty setiap item harus lebih dari 0");
     if (!reasonBuy && !reasonNotBuy) return setError("Pilih Reason Buy atau Reason Not Buy");
     if (reasonBuy && !salesOrder.trim()) return setError("Sales Order wajib diisi bila Reason Buy dipilih");
+    if (diskon.trim() && !(diskonNum >= 0 && diskonNum <= 100)) return setError("Diskon harus antara 0 dan 100 persen");
     setSaving(true);
     try {
       const res = await fetch("/api/bulk/orders", {
@@ -123,7 +131,7 @@ export function BulkFormModal({ open, onClose, master, isAdmin, defaultStore, st
         body: JSON.stringify({
           ...(editing ? { id: editing.id } : {}),
           source_store: store, customer_name: name, customer_institution: institution, customer_phone: phone,
-          reason_buy: reasonBuy, reason_not_buy: reasonNotBuy, sales_order: salesOrder, note,
+          reason_buy: reasonBuy, reason_not_buy: reasonNotBuy, sales_order: salesOrder, note, diskon,
           items: lines.map((l) => ({ item_code: l.sku, item_qty: l.qty })),
         }),
       });
@@ -147,7 +155,7 @@ export function BulkFormModal({ open, onClose, master, isAdmin, defaultStore, st
       maxWidth="max-w-3xl"
       footer={
         <div className="flex w-full items-center gap-2">
-          <span className="mr-auto text-xs text-gray-500">Total: <b className="text-gray-800">{rupiah(total)}</b></span>
+          <span className="mr-auto text-xs text-gray-500">Gross <b className="text-gray-800">{rupiah(total)}</b>{diskonNum > 0 && <> · Net <b className="text-gray-800">{rupiah(totalNet)}</b></>}</span>
           <Button variant="secondary" onClick={onClose} disabled={saving}>Batal</Button>
           <Button onClick={submit} loading={saving}>{editing ? "Simpan Perubahan" : "Simpan"}</Button>
         </div>
@@ -240,6 +248,11 @@ export function BulkFormModal({ open, onClose, master, isAdmin, defaultStore, st
               <input value={salesOrder} onChange={(e) => setSalesOrder(e.target.value)} className={inputCls} />
             </div>
           )}
+          <div>
+            <label className={labelCls}>Diskon (%) — opsional</label>
+            <input value={diskon} onChange={(e) => setDiskon(e.target.value.replace(/[^\d.,]/g, ""))} inputMode="decimal" placeholder="contoh 5" className={inputCls} />
+            {diskonNum > 0 && <p className="mt-0.5 text-[10px] text-gray-400">Harga net per item = harga dikurangi {diskonNum}%</p>}
+          </div>
           <div className="sm:col-span-2">
             <label className={labelCls}>Note</label>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className={`${inputCls} h-auto resize-none py-2`} />

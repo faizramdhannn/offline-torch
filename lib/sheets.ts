@@ -159,7 +159,7 @@ const SHEET_RANGE: Record<string, string> = {
   affiliate_store_list: "A1:C",   // 3 kolom
   order_log_affiliate: "A1:K",    // 11 kolom
   master_bulk: "A1:F",            // Bulk: SKU, Product_name, Category, HPJ, reason_buy, reason_not_buy
-  raw_data: "A1:R",               // Bulk: id…note + created_at, created_by, update_at, update_by (lihat lib/bulkOrder.ts)
+  raw_data: "A1:S",               // Bulk: id…item_price, item_net, customer_name…note, created_at, created_by, update_at, update_by (lihat lib/bulkOrder.ts)
   activity_log: "A1:G",            // id, timestamp, user, method, activity_log, entity_type, entity_id
 };
 

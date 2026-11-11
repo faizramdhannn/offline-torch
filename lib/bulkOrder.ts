@@ -7,7 +7,7 @@ import { parseIdDateTime } from "./idDate";
 
 // raw_data (urutan kolom sheet). created_at & created_by = tambahan di ujung kanan (disetujui pemilik).
 export const BULK_COLUMNS = [
-  "id", "source_store", "item_code", "item_name", "item_category", "item_qty", "item_price",
+  "id", "source_store", "item_code", "item_name", "item_category", "item_qty", "item_price", "item_net",
   "customer_name", "customer_institution", "customer_phone_number", "reason_buy", "reason_not_buy",
   "sales_order", "note", "created_at", "created_by", "update_at", "update_by",
 ] as const;
@@ -53,6 +53,7 @@ export interface BulkInput {
   reason_not_buy?: string;
   sales_order?: string;
   note?: string;
+  diskon?: number | string; // persen (0–100), berlaku untuk semua item; kosong = 0
   items?: { item_code?: string; item_qty?: number | string }[];
 }
 
@@ -65,6 +66,7 @@ export interface BulkValid {
   reason_not_buy: string;
   sales_order: string;
   note: string;
+  diskon: number; // persen
   items: { master: BulkMasterItem; qty: number }[];
 }
 
@@ -91,6 +93,10 @@ export function validateBulkInput(input: BulkInput, master: BulkMaster): { ok: t
   const sales_order = str(input.sales_order);
   if (reason_buy && !sales_order) return { ok: false, error: "Sales Order wajib diisi bila Reason Buy dipilih" };
 
+  const diskonRaw = String(input.diskon ?? "").replace(",", ".").trim();
+  const diskon = diskonRaw === "" ? 0 : Number(diskonRaw);
+  if (!isFinite(diskon) || diskon < 0 || diskon > 100) return { ok: false, error: "Diskon harus antara 0 dan 100 persen" };
+
   const rawItems = Array.isArray(input.items) ? input.items : [];
   if (rawItems.length === 0) return { ok: false, error: "Tambahkan minimal satu item" };
   const bySku = new Map(master.items.map((i) => [i.sku.toUpperCase(), i]));
@@ -115,10 +121,14 @@ export function validateBulkInput(input: BulkInput, master: BulkMaster): { ok: t
       reason_not_buy: reason_not_buy ? canon(master.reasonNotBuy, reason_not_buy) : "",
       sales_order,
       note: str(input.note),
+      diskon,
       items,
     },
   };
 }
+
+/** Harga satuan setelah diskon persen (dibulatkan ke rupiah). */
+export const netPrice = (gross: number, diskonPct: number) => Math.round(gross * (1 - diskonPct / 100));
 
 // Satu baris sheet per item (urutan = BULK_COLUMNS). item_qty & item_price ditulis sebagai ANGKA (bukan teks) supaya bisa dijumlah di Sheets.
 export function buildBulkRows(
@@ -126,6 +136,7 @@ export function buildBulkRows(
 ): (string | number)[][] {
   return v.items.map(({ master, qty }) => [
     id, v.source_store, master.sku, master.product_name, master.category, qty, master.price > 0 ? master.price : "",
+    master.price > 0 ? netPrice(master.price, v.diskon) : "",
     v.customer_name, v.customer_institution, v.phone, v.reason_buy, v.reason_not_buy, v.sales_order, v.note, createdAt, createdBy, updatedAt, updatedBy,
   ]);
 }
@@ -146,7 +157,8 @@ export interface BulkGroup {
   update_by: string;
   rows: BulkRow[];
   total_qty: number;
-  total_value: number;
+  total_value: number; // gross: jumlah × harga normal
+  total_net: number; // net: jumlah × harga setelah diskon (item_net; kosong → sama dengan gross)
 }
 
 // Kelompokkan baris per id (urutan kemunculan pertama dipertahankan); data customer diambil dari baris pertama.
@@ -160,7 +172,7 @@ export function groupBulkRows(rows: BulkRow[]): BulkGroup[] {
         id: r.id, source_store: r.source_store, customer_name: r.customer_name, customer_institution: r.customer_institution,
         customer_phone_number: r.customer_phone_number, reason_buy: r.reason_buy, reason_not_buy: r.reason_not_buy,
         sales_order: r.sales_order, note: r.note, created_at: r.created_at, created_by: r.created_by, update_at: r.update_at, update_by: r.update_by,
-        rows: [], total_qty: 0, total_value: 0,
+        rows: [], total_qty: 0, total_value: 0, total_net: 0,
       };
       map.set(r.id, g);
     }
@@ -168,6 +180,7 @@ export function groupBulkRows(rows: BulkRow[]): BulkGroup[] {
     const qty = parseInt(r.item_qty, 10) || 0;
     g.total_qty += qty;
     g.total_value += qty * parsePrice(r.item_price);
+    g.total_net += qty * (r.item_net ? parsePrice(r.item_net) : parsePrice(r.item_price));
   }
   return [...map.values()];
 }
@@ -182,7 +195,7 @@ export function toBulkRow(o: any): BulkRow {
 // Ringkasan satu input untuk tabel (1 baris per input): kode dipisah ";", nama & kategori berbentuk "<jumlah> x <teks>"
 // (kategori yang sama digabung & dijumlah), qty dijumlah, harga = total nilai (jumlah × harga tiap item).
 export interface BulkSummary {
-  codes: string; names: string; categories: string; qty: number; value: number;
+  codes: string; names: string; categories: string; qty: number; value: number; net: number;
   products: { code: string; name: string; qty: number }[]; // rincian untuk dropdown "N product"
   categoryList: { category: string; qty: number }[]; // rincian untuk dropdown "N category"
 }
@@ -199,6 +212,7 @@ export function summarizeGroup(g: BulkGroup): BulkSummary {
     categories: [...cats].map(([c, q]) => `${q} x ${c}`).join("; "),
     qty: g.total_qty,
     value: g.total_value,
+    net: g.total_net,
     products: g.rows.map((r) => ({ code: r.item_code, name: r.item_name, qty: qtyOf(r) })),
     categoryList: [...cats].map(([category, qty]) => ({ category, qty })),
   };
@@ -226,7 +240,7 @@ export function fmtCompactRp(n: number): string {
 }
 
 export interface BulkReport {
-  totals: { inputs: number; customers: number; qty: number; value: number; buy: number; notBuy: number; closingRate: number; avgValue: number };
+  totals: { inputs: number; customers: number; qty: number; value: number; net: number; buy: number; notBuy: number; closingRate: number; avgValue: number };
   trend: { key: string; label: string; inputs: number; value: number }[];
   trendUnit: "day" | "week";
   byStore: { store: string; inputs: number; qty: number; value: number; buy: number }[];
@@ -251,7 +265,7 @@ const shortLabel = (t: number) => { const d = new Date(t); return `${d.getDate()
 
 // Agregasi untuk grafik. `groups` = input (sudah difilter periode/toko oleh pemanggil). Tanpa tanggal terbaca → tidak masuk tren.
 export function buildBulkReport(groups: BulkGroup[]): BulkReport {
-  const totals = { inputs: groups.length, customers: 0, qty: 0, value: 0, buy: 0, notBuy: 0, closingRate: 0, avgValue: 0 };
+  const totals = { inputs: groups.length, customers: 0, qty: 0, value: 0, net: 0, buy: 0, notBuy: 0, closingRate: 0, avgValue: 0 };
   const phones = new Set<string>();
   const store = new Map<string, { inputs: number; qty: number; value: number; buy: number }>();
   const rb = new Map<string, number>();
@@ -264,6 +278,7 @@ export function buildBulkReport(groups: BulkGroup[]): BulkReport {
   for (const g of groups) {
     totals.qty += g.total_qty;
     totals.value += g.total_value;
+    totals.net += g.total_net;
     // "Beli" = Reason Buy atau Sales Order terisi (data impor punya SO tapi alasannya belum diisi tim store); "tidak beli" = Reason Not Buy terisi.
     const bought = !g.reason_not_buy && !!(g.reason_buy || g.sales_order);
     if (bought) totals.buy++;
@@ -328,4 +343,48 @@ export function buildBulkReport(groups: BulkGroup[]): BulkReport {
     byCategory: [...cat].map(([category, v]) => ({ category, ...v })).sort((a, b) => b.qty - a.qty),
     topCustomers: [...cust.values()].sort((a, b) => b.value - a.value).slice(0, 5),
   };
+}
+
+// ─── Pesan WhatsApp ke toko (format sama dengan form di grup WA "BULK Order") ───────────────────────────────────────
+/** Input dianggap terbeli bila Reason Buy atau Sales Order terisi dan bukan "tidak beli". */
+export const isBulkBought = (g: Pick<BulkGroup, "reason_buy" | "reason_not_buy" | "sales_order">) =>
+  !g.reason_not_buy && !!(g.reason_buy || g.sales_order);
+
+const rp = (n: number) => "Rp. " + Math.round(n).toLocaleString("id-ID");
+
+export function buildBulkWaMessage(g: BulkGroup): string {
+  const store = g.source_store.replace(/^\s*torch\s+/i, "").trim();
+  const phone = g.customer_phone_number.startsWith("62") ? "0" + g.customer_phone_number.slice(2) : g.customer_phone_number;
+  const kebutuhan = g.reason_buy.replace(/^keperluan\s+/i, "").trim();
+  const lines: string[] = [`BULK Order Store ${store}`, "", `Nama : ${g.customer_name}`];
+  if (g.customer_institution) lines.push(`Instansi : ${g.customer_institution}`);
+  if (phone) lines.push(`No.tlp : ${phone}`);
+  if (g.sales_order) lines.push(`SO : ${g.sales_order}`);
+  if (kebutuhan) lines.push(`Kebutuhan : ${kebutuhan}`);
+
+  const gross = (r: BulkRow) => parsePrice(r.item_price);
+  const net = (r: BulkRow) => (r.item_net ? parsePrice(r.item_net) : gross(r));
+  const pct = (r: BulkRow) => (gross(r) > 0 ? Math.round((1 - net(r) / gross(r)) * 1000) / 10 : 0);
+  const uniform = new Set(g.rows.map((r) => `${gross(r)}|${pct(r)}`)).size === 1; // harga & diskon sama untuk semua item
+  lines.push("", "Artikel :");
+  for (const r of g.rows) {
+    const code = r.item_code ? `${r.item_code} - ` : "";
+    const detail = uniform ? "" : ` (${rp(gross(r))}${pct(r) > 0 ? `, diskon ${pct(r)}%` : ""})`;
+    lines.push(`${code}${r.item_name} : ${parseInt(r.item_qty, 10) || 0}pcs${detail}`);
+  }
+  lines.push("");
+  if (uniform && gross(g.rows[0]) > 0) {
+    lines.push(`Harga : ${rp(gross(g.rows[0]))}`, `Diskon : ${pct(g.rows[0]) > 0 ? `${pct(g.rows[0])}%` : "-"}`);
+  }
+  // Harga gross = total sebelum diskon; Harga net = total setelah diskon (sama dengan "Harga net" di form grup)
+  lines.push(`Qty : ${g.total_qty} pcs`, `Harga gross : ${rp(g.total_value)}`, `Harga net : ${rp(g.total_net)}`);
+  return lines.join("\n");
+}
+
+/** Link wa.me ke nomor toko (62…) dengan pesan terisi; "" bila nomor tidak ada. */
+export function bulkWaLink(storePhone: string | undefined, message: string): string {
+  const d = String(storePhone ?? "").replace(/\D/g, "");
+  if (!d) return "";
+  const num = d.startsWith("62") ? d : d.startsWith("0") ? "62" + d.slice(1) : d.startsWith("8") ? "62" + d : d;
+  return `https://wa.me/${num}?text=${encodeURIComponent(message)}`;
 }

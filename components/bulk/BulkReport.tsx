@@ -112,7 +112,7 @@ export function BulkReport({ groups, showAll, onShowAll }: { groups: BulkGroup[]
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <StatCard icon={Receipt} label="Total Input" value={num(r.totals.inputs)} sublabel={`${num(r.totals.customers)} customer unik`} />
             <StatCard icon={Boxes} label="Total Qty" value={num(r.totals.qty)} sublabel="pcs semua item" tone="info" />
-            <StatCard icon={Wallet} label="Total Nilai" value={fmtCompactRp(r.totals.value)} sublabel={rupiah(r.totals.value)} tone="positive" />
+            <StatCard icon={Wallet} label="Total Nilai (Gross)" value={fmtCompactRp(r.totals.value)} sublabel={`Net ${fmtCompactRp(r.totals.net)}`} tone="positive" />
             <StatCard icon={Percent} label="Closing Rate" value={`${r.totals.closingRate}%`} sublabel={`${r.totals.buy} buy · ${r.totals.notBuy} not buy`} tone={r.totals.closingRate >= 50 ? "positive" : "warning"} />
             <StatCard icon={Users} label="Rata-rata / Input" value={fmtCompactRp(r.totals.avgValue)} sublabel={rupiah(r.totals.avgValue)} />
           </div>
