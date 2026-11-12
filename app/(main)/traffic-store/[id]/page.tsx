@@ -61,7 +61,7 @@ export default function TrafficStoreDetailPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/traffic-store");
+      const res = await fetch(`/api/traffic-store?id=${encodeURIComponent(id)}`);
       const result = await res.json();
       const list: TrafficEntry[] = Array.isArray(result) ? result : [];
       const found = list.find((r) => String(r.id) === String(id));

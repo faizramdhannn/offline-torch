@@ -123,15 +123,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch traffic data
-    // Cache 60 dtk (sheet besar, dibaca penuh tiap GET); ditulis ulang → di-invalidate di fungsi tulis.
-    const data = [...(await withCache('traffic_source_data', 60_000, () => getTrafficSheetData('traffic_source')))];
+    // Cache 3 mnt (sheet besar >10 MB, dibaca penuh tiap kali cache habis); ditulis ulang → di-invalidate di fungsi tulis.
+    const all = await withCache('traffic_source_data', 180_000, () => getTrafficSheetData('traffic_source'));
 
-    // Sort newest first by date (fallback to created_at if date is missing)
-    const sorted = data.sort((a: any, b: any) => {
-      const aTime = new Date(a.date || a.created_at || 0).getTime();
-      const bTime = new Date(b.date || b.created_at || 0).getTime();
-      return bTime - aTime;
-    });
+    // Detail satu baris (halaman /traffic-store/[id]): cukup cari id, tanpa mengirim/menyortir semuanya.
+    const idParam = searchParams.get('id');
+    if (idParam) {
+      const row = all.find((r: any) => String(r.id) === idParam);
+      if (!row) return NextResponse.json([]);
+      const { __rowIndex, ...rest } = row as any;
+      return jsonWithEtag(request, [rest]);
+    }
 
     // Sheet ini 16 rb+ baris (>10 MB) dan terus bertambah — kirim hanya rentang tanggal yang diminta.
     // Tanpa ?from/?to: 30 hari terakhir. Hanya ?to: 30 hari sebelum tanggal itu.
@@ -143,13 +145,18 @@ export async function GET(request: NextRequest) {
       const end = toParam ? new Date(toParam + 'T00:00:00Z') : new Date();
       fromParam = isoDay(new Date(end.getTime() - 30 * 24 * 3600 * 1000));
     }
-    const windowed = sorted.filter((r: any) => {
+    // Filter dulu (murah), baru urutkan hanya baris yang lolos — bukan menyortir 16 rb+ baris.
+    const windowed = all.filter((r: any) => {
       const d = dayOf(r);
       return d >= fromParam && (!toParam || d <= toParam);
     });
 
+    // Terbaru dulu menurut tanggal (cadangan created_at). Waktu dihitung sekali per baris.
+    const keyed = windowed.map((r: any) => ({ r, t: new Date(r.date || r.created_at || 0).getTime() }));
+    keyed.sort((a, b) => b.t - a.t);
+
     // __rowIndex is an internal detail for locating rows on edit/delete — don't leak it to the client.
-    const publicData = windowed.map(({ __rowIndex, ...rest }: any) => rest);
+    const publicData = keyed.map(({ r: { __rowIndex, ...rest } }: any) => rest);
 
     return jsonWithEtag(request, publicData);
   } catch (error) {
