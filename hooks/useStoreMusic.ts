@@ -86,6 +86,10 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
     // Alasan yang ditampilkan di dashboard saat musik belum berbunyi (bukan sekadar "menunggu")
     let blocked = false;
     let lastError = 0;
+    // Statistik gangguan (sejak pemutar dibuat) untuk dashboard: berapa kali macet buffering & error video.
+    let bufCount = 0;
+    let errCount = 0;
+    let prevState = -2;
     const note = (state: string): string => {
       if (state === "playing" || state === "buffering") return "";
       if (!ready) return "Pemutar YouTube belum siap (diblokir ekstensi/jaringan, atau masih dimuat)";
@@ -109,6 +113,7 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
           playlist: want.playlist?.name || "",
           volume: want.volume, muted: want.muted, shuffle: want.shuffle,
           note: note(state),
+          stats: { buf: bufCount, err: errCount },
         },
       });
     };
@@ -321,7 +326,9 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
       const YT = await loadYouTubeApi();
       if (cancelled) return;
       const wrap = document.createElement("div");
-      wrap.style.cssText = "position:fixed;left:-10000px;top:0;width:200px;height:200px;pointer-events:none";
+      // Tetap di dalam layar (hampir transparan, di belakang konten): iframe yang diletakkan jauh di luar layar
+      // diperlambat/dihentikan oleh sebagian browser tablet, yang membuat suara putus-putus.
+      wrap.style.cssText = "position:fixed;left:0;bottom:0;width:200px;height:200px;opacity:0.01;z-index:-1;pointer-events:none;overflow:hidden";
       const inner = document.createElement("div");
       wrap.appendChild(inner);
       document.body.appendChild(wrap);
@@ -330,10 +337,22 @@ export function useStoreMusic(user: { role?: string } | null | undefined) {
         playerVars: { autoplay: 1, controls: 0, playsinline: 1, rel: 0 },
         events: {
           onReady: () => { ready = true; load(); },
-          onStateChange: () => { applyShuffleStart(); if (player.getPlayerState() === 1) { lastError = 0; blocked = false; setNeedTap(false); } report(); },
+          onStateChange: () => {
+            applyShuffleStart();
+            const st = player.getPlayerState();
+            // Macet di tengah lagu (sedang berbunyi lalu buffering) = tanda internet toko tersendat.
+            if (st === 3 && prevState === 1) bufCount++;
+            prevState = st;
+            if (st === 1) {
+              lastError = 0; blocked = false; setNeedTap(false);
+              // Pemutar tersembunyi cukup kecil: minta kualitas terendah (hemat kuota/Wi-Fi; hanya saran, YouTube boleh mengabaikan).
+              try { player.setPlaybackQuality("small"); } catch {}
+            }
+            report();
+          },
           onAutoplayBlocked: () => setBlocked(true),
           // video tidak boleh disematkan / tidak ada → lompat ke lagu berikutnya
-          onError: (e: any) => { lastError = Number(e?.data) || 1; report(); try { player.nextVideo(); } catch {} },
+          onError: (e: any) => { lastError = Number(e?.data) || 1; errCount++; report(); try { player.nextVideo(); } catch {} },
         },
       });
       (player as any).__wrap = wrap;

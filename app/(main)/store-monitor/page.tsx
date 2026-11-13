@@ -487,6 +487,11 @@ export default function StoreMonitorPage() {
                           <p className="mb-2 truncate text-gray-500">
                             {tl?.music?.title ? <span className="inline-flex items-center gap-1">{tl.music.state === "playing" ? <PlayIcon width={11} height={11} /> : <PauseIcon width={11} height={11} />}<span className="truncate">{tl.music.title}</span></span> : tl ? (tl.music?.note ? <span className="text-amber-600">{tl.music.note}</span> : m?.playing ? "Menunggu pemutaran…" : "Tidak memutar") : "Perangkat pemutar offline"}
                           </p>
+                          {((tl?.music?.stats?.buf ?? 0) > 0 || (tl?.music?.stats?.err ?? 0) > 0) && (
+                            <p className="-mt-1 mb-2 text-[11px] text-amber-600" title="Dihitung sejak pemutar di perangkat ini dimulai. Sering buffering = internet toko tersendat; error = ada video yang tidak bisa diputar.">
+                              Gangguan: {tl?.music?.stats?.buf ?? 0}× buffering · {tl?.music?.stats?.err ?? 0}× error video
+                            </p>
+                          )}
                           <select value={m?.playlist_id ?? ""} disabled={!live_ || lock || musicOff} onChange={(e) => e.target.value && send("music", target, { action: "load", playlist_id: Number(e.target.value) })} className="mb-2 w-full rounded-md border border-gray-200 bg-white px-2 py-2 text-xs md:py-1.5">
                             <option value="">— playlist —</option>
                             {playlists.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
