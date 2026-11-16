@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { BulkFilterBar } from "@/components/bulk/BulkFilterBar";
+import { applyBulkFilters, bulkFilterOptions, emptyBulkFilters } from "@/lib/bulkFilter";
 import { Boxes, Percent, Receipt, Users, Wallet } from "lucide-react";
 import {
   Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -9,20 +11,11 @@ import { StatCard } from "@/components/shared/StatCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { CHART_PALETTE, chartAxisTick, chartGridStroke, chartTooltipStyle } from "@/components/shared/chartStyles";
 import { buildBulkReport, fmtCompactRp, type BulkGroup } from "@/lib/bulkOrder";
-import { parseIdDateTime } from "@/lib/idDate";
 
 const PIE_COLORS = ["#0f766e", "#be123c", "#f59e0b", "#a855f7", "#22c55e", "#1f2937", "#ef4444", "#64748b", "#0ea5e9", "#84cc16"];
 const rupiah = (n: number) => "Rp " + Math.round(n).toLocaleString("id-ID");
 const num = (n: number) => n.toLocaleString("id-ID");
 const cut = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
-
-const PERIODS: { key: string; label: string; days: number }[] = [
-  { key: "7", label: "7 hari", days: 7 },
-  { key: "30", label: "30 hari", days: 30 },
-  { key: "60", label: "60 hari", days: 60 },
-  { key: "90", label: "90 hari", days: 90 },
-  { key: "all", label: "Semua data dimuat", days: 0 },
-];
 
 function ChartCard({ title, subtitle, actions, children, className = "" }: { title: string; subtitle?: string; actions?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
@@ -72,41 +65,38 @@ function Donut({ data, nameKey, valueKey, valueLabel }: { data: any[]; nameKey: 
 }
 
 export function BulkReport({ groups, showAll, onShowAll }: { groups: BulkGroup[]; showAll: boolean; onShowAll: (v: boolean) => void }) {
-  const [period, setPeriod] = useState("30");
-  const [store, setStore] = useState("");
+  const [filters, setFilters] = useState(() => emptyBulkFilters("30"));
   const [storeMetric, setStoreMetric] = useState<"value" | "inputs" | "qty">("value");
 
-  const stores = useMemo(() => [...new Set(groups.map((g) => g.source_store))].sort(), [groups]);
-  const filtered = useMemo(() => {
-    const days = PERIODS.find((p) => p.key === period)?.days ?? 0;
-    const since = days ? Date.now() - days * 86400000 : 0;
-    return groups.filter((g) => (!store || g.source_store === store) && (!since || parseIdDateTime(g.created_at) >= since));
-  }, [groups, period, store]);
+  const options = useMemo(() => bulkFilterOptions(groups), [groups]);
+  // narrow: filter Item/Kategori menyempitkan sampai tingkat item, jadi grafik produk/kategori & qty/nilai ikut menyempit.
+  const filtered = useMemo(() => applyBulkFilters(groups, filters, { narrow: true }), [groups, filters]);
   const r = useMemo(() => buildBulkReport(filtered), [filtered]);
 
-  const fieldCls = "h-8 rounded-lg border border-gray-200 bg-white px-2 text-[11px] text-gray-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20";
   const metricLabel = { value: "Nilai", inputs: "Jumlah input", qty: "Qty" } as const;
   const fmtMetric = (v: number) => (storeMetric === "value" ? fmtCompactRp(v) : num(v));
   const storeData = r.byStore.slice(0, 10);
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white p-2.5 shadow-sm">
-        <select value={period} onChange={(e) => setPeriod(e.target.value)} className={fieldCls} aria-label="Periode">
-          {PERIODS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-        </select>
-        <select value={store} onChange={(e) => setStore(e.target.value)} className={fieldCls} aria-label="Toko">
-          <option value="">Semua toko</option>
-          {stores.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <label className="flex items-center gap-1.5 text-[11px] text-gray-600" title="Secara bawaan hanya 120 hari terakhir yang dimuat">
-          <input type="checkbox" checked={showAll} onChange={(e) => onShowAll(e.target.checked)} /> Muat semua riwayat
-        </label>
-        <span className="ml-auto text-[11px] text-gray-400">{r.totals.inputs} input dianalisis</span>
-      </div>
+      <BulkFilterBar
+        filters={filters}
+        onChange={setFilters}
+        options={options}
+        isAdmin
+        defaultPeriod="30"
+        extra={
+          <>
+            <label className="flex items-center gap-1.5 text-[11px] text-gray-600" title="Secara bawaan hanya 120 hari terakhir yang dimuat">
+              <input type="checkbox" checked={showAll} onChange={(e) => onShowAll(e.target.checked)} /> Muat semua riwayat
+            </label>
+            <span className="ml-auto text-[11px] text-gray-400">{r.totals.inputs} input dianalisis</span>
+          </>
+        }
+      />
 
       {r.totals.inputs === 0 ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"><EmptyState title="Belum ada data untuk periode ini" description="Ubah periode atau toko di atas." /></div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"><EmptyState title="Tidak ada data yang cocok" description="Ubah atau reset filter di atas." /></div>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">

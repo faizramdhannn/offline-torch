@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MessageCircle, Package, Pencil, Plus, Trash2, Search } from "lucide-react";
+import { MessageCircle, Package, Pencil, Plus, Trash2 } from "lucide-react";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { SectionHeader } from "@/components/shared/SectionHeader";
 import { Button } from "@/components/shared/Button";
@@ -12,6 +12,8 @@ import Popup from "@/components/Popup";
 import { BulkFormModal } from "@/components/bulk/BulkFormModal";
 import { ItemsPopover } from "@/components/bulk/ItemsPopover";
 import { BulkReport } from "@/components/bulk/BulkReport";
+import { BulkFilterBar } from "@/components/bulk/BulkFilterBar";
+import { applyBulkFilters, bulkFilterOptions, emptyBulkFilters } from "@/lib/bulkFilter";
 import { buildBulkWaMessage, bulkWaLink, groupBulkRows, isBulkBought, summarizeGroup, type BulkGroup, type BulkMaster, type BulkRow } from "@/lib/bulkOrder";
 import { normStore } from "@/lib/shipmentVisibility";
 import { parsePrice } from "@/lib/bulkOrder";
@@ -41,9 +43,7 @@ export default function BulkPage() {
   const [storePhones, setStorePhones] = useState<Record<string, string>>({}); // nama toko (dinormalkan) → nomor WA toko
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
-  const [search, setSearch] = useState("");
-  const [storeFilter, setStoreFilter] = useState("");
-  const [reasonFilter, setReasonFilter] = useState<"" | "buy" | "not_buy">("");
+  const [filters, setFilters] = useState(() => emptyBulkFilters());
   const [page, setPage] = useState(1);
   const [view, setView] = useState<"data" | "report">("data"); // tab Report hanya untuk Bulk All
   const [formOpen, setFormOpen] = useState(false);
@@ -90,21 +90,10 @@ export default function BulkPage() {
   useEffect(() => { if (user) loadRows(showAll); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [user, showAll]);
 
   const groups = useMemo(() => groupBulkRows(rows), [rows]);
-  const storeOptions = useMemo(() => [...new Set(groups.map((g) => g.source_store))].sort(), [groups]);
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return groups.filter((g) => {
-      if (storeFilter && g.source_store !== storeFilter) return false;
-      if (reasonFilter === "buy" && !(g.reason_buy || g.sales_order) ) return false;
-      if (reasonFilter === "not_buy" && !g.reason_not_buy) return false;
-      if (!q) return true;
-      const hay = [g.source_store, g.customer_name, g.customer_institution, g.customer_phone_number, g.sales_order, g.note, g.reason_buy, g.reason_not_buy,
-        ...g.rows.flatMap((r) => [r.item_code, r.item_name, r.item_category])].join(" ").toLowerCase();
-      return hay.includes(q);
-    });
-  }, [groups, search, storeFilter, reasonFilter]);
+  const filterOptions = useMemo(() => bulkFilterOptions(groups), [groups]);
+  const filtered = useMemo(() => applyBulkFilters(groups, filters), [groups, filters]);
 
-  useEffect(() => { setPage(1); }, [search, storeFilter, reasonFilter, showAll]);
+  useEffect(() => { setPage(1); }, [filters, showAll]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageGroups = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const sum = useMemo(() => filtered.reduce((a, g) => ({ qty: a.qty + g.total_qty, value: a.value + g.total_value, net: a.net + g.total_net }), { qty: 0, value: 0, net: 0 }), [filtered]);
@@ -126,7 +115,6 @@ export default function BulkPage() {
 
   if (!user) return null;
 
-  const fieldCls = "h-8 rounded-lg border border-gray-200 bg-white px-2 text-[11px] text-gray-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/20";
 
   return (
     <div className="flex-1 overflow-auto page-bg">
@@ -152,27 +140,20 @@ export default function BulkPage() {
         {isAdmin && view === "report" ? (
           loading ? <p className="py-16 text-center text-xs text-gray-400">Memuat…</p> : <BulkReport groups={groups} showAll={showAll} onShowAll={setShowAll} />
         ) : (<>
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200 bg-white p-2.5 shadow-sm">
-          <label className="relative min-w-[200px] flex-1 sm:max-w-xs">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari customer, SKU, SO, note…" className={`${fieldCls} w-full pl-8`} />
-          </label>
-          {isAdmin && (
-            <select value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)} className={fieldCls} aria-label="Filter toko">
-              <option value="">Semua toko</option>
-              {storeOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          )}
-          <select value={reasonFilter} onChange={(e) => setReasonFilter(e.target.value as any)} className={fieldCls} aria-label="Filter alasan">
-            <option value="">Semua alasan</option>
-            <option value="buy">Beli (Reason buy / SO)</option>
-            <option value="not_buy">Tidak beli (Reason not buy)</option>
-          </select>
-          <label className="flex items-center gap-1.5 text-[11px] text-gray-600">
-            <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Semua riwayat
-          </label>
-          <span className="ml-auto text-[11px] text-gray-500">{filtered.length} input · {sum.qty.toLocaleString("id-ID")} pcs · gross {rupiah(sum.value)} · net <b className="text-gray-700">{rupiah(sum.net)}</b></span>
-        </div>
+        <BulkFilterBar
+          filters={filters}
+          onChange={setFilters}
+          options={filterOptions}
+          isAdmin={isAdmin}
+          extra={
+            <>
+              <label className="flex items-center gap-1.5 text-[11px] text-gray-600" title="Secara bawaan hanya 120 hari terakhir yang dimuat">
+                <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Semua riwayat
+              </label>
+              <span className="ml-auto text-[11px] text-gray-500">{filtered.length} input · {sum.qty.toLocaleString("id-ID")} pcs · gross {rupiah(sum.value)} · net <b className="text-gray-700">{rupiah(sum.net)}</b></span>
+            </>
+          }
+        />
 
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           {loading ? (
