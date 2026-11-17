@@ -13,7 +13,7 @@ import { FilterBar } from "@/components/shared/FilterBar";
 import { BadgeManagerModal } from "@/components/customer/BadgeManagerModal";
 import { ImportCsvModal } from "@/components/customer/ImportCsvModal";
 import { FollowupMessageModal } from "@/components/customer/FollowupMessageModal";
-import { ExportModal } from "@/components/customer/ExportModal";
+import { ExportModal, type ExportMode } from "@/components/customer/ExportModal";
 import { CopyButton } from "@/components/request-tracking/DomainBadges";
 import { CheckCircle2, Circle, MessageCircle, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { idbGet, idbSet, isCacheFresh } from "@/lib/idbCache";
@@ -329,13 +329,30 @@ export default function CustomerPage() {
     }
   };
 
-  const handleExport = async (from: string, to: string) => {
+  // Ringkasan filter aktif (ditampilkan di dialog Export supaya jelas apa yang akan diunduh).
+  const exportFilterSummary = (() => {
+    const out: string[] = [];
+    if (debouncedQuery) out.push(`Cari: ${debouncedQuery}`);
+    if (selectedStores.length) out.push(`Store: ${selectedStores.join(", ")}`);
+    if (selectedBadges.length) out.push(`Badge: ${selectedBadges.map((k) => badgeMap[k]?.label || k).join(", ")}`);
+    if (valueMin || valueMax) out.push(`Value: ${valueMin || "0"} – ${valueMax || "∞"}`);
+    if (orderMin || orderMax) out.push(`Order: ${orderMin || "0"} – ${orderMax || "∞"}`);
+    return out;
+  })();
+
+  // Export mengikuti filter yang sedang aktif di halaman (server memakai logika filter & lingkup toko yang sama dengan daftar).
+  const handleExport = async (mode: ExportMode, from: string, to: string) => {
     setExporting(true);
     try {
-      const params = new URLSearchParams();
-      if (from) params.set("from", from);
-      if (to) params.set("to", to);
-      const response = await fetch(`/api/customer/export?${params}`);
+      const params = new URLSearchParams(buildListQuery(user.user_name, !!user.user_setting));
+      params.delete("page");
+      params.delete("limit");
+      params.set("export", mode);
+      if (mode === "orders") {
+        if (from) params.set("from", from);
+        if (to) params.set("to", to);
+      }
+      const response = await fetch(`/api/customer?${params}`);
       const result = await response.json();
 
       if (!response.ok) {
@@ -344,18 +361,19 @@ export default function CustomerPage() {
       }
 
       if (!result.data || result.data.length === 0) {
-        showMessage("Tidak ada data untuk rentang tanggal ini", "error");
+        showMessage("Tidak ada data yang cocok dengan filter", "error");
         return;
       }
 
       const ws = XLSX.utils.json_to_sheet(result.data);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Order Customer");
-      const suffix = from || to ? `_${from || "awal"}_${to || "akhir"}` : "";
-      XLSX.writeFile(wb, `customer_order_export${suffix}.xlsx`);
+      XLSX.utils.book_append_sheet(wb, ws, mode === "customers" ? "Customer" : "Order Customer");
+      const stamp = new Date().toISOString().slice(0, 10);
+      const suffix = mode === "orders" && (from || to) ? `_${from || "awal"}_${to || "akhir"}` : `_${stamp}`;
+      XLSX.writeFile(wb, `${mode === "customers" ? "customer_export" : "customer_order_export"}${suffix}.xlsx`);
 
       setShowExportModal(false);
-      await logActivity("GET", "Exported customer order data");
+      await logActivity("GET", `Exported ${mode === "customers" ? "customer list" : "customer order data"} (${result.data.length} baris, filter: ${exportFilterSummary.join("; ") || "tanpa filter"})`);
     } catch (error) {
       showMessage("Gagal export data", "error");
     } finally {
@@ -538,7 +556,7 @@ return (
                 <button
                   onClick={() => setShowExportModal(true)}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  title="Export data order lengkap ke XLSX"
+                  title="Export customer (sesuai filter) ke XLSX"
                 >
                   Export
                 </button>
@@ -1153,6 +1171,8 @@ return (
           exporting={exporting}
           onClose={() => setShowExportModal(false)}
           onExport={handleExport}
+          filterSummary={exportFilterSummary}
+          totalCustomers={totalItems}
         />
       )}
     </div>

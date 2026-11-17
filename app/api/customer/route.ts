@@ -1,4 +1,4 @@
-import { actorName } from '@/lib/authz';
+import { actorName, sessionUser } from '@/lib/authz';
 import { scopedParams } from "@/lib/authz";
 import { NextRequest, NextResponse } from 'next/server';
 import { sql, ensureCustomerSchema } from '@/lib/neon';
@@ -72,7 +72,9 @@ export async function GET(request: NextRequest) {
     const searchParams = scopedParams(request);
     const username = searchParams.get('username');
     const view = searchParams.get('view') || 'list';
-    const fullAccess = searchParams.get('fullAccess') === 'true';
+    // Akses semua toko ditentukan SERVER dari sesi (izin Settings), bukan dari parameter yang dikirim browser —
+    // kalau tidak, akun toko bisa menambahkan ?fullAccess=true sendiri untuk melihat/mengekspor semua toko.
+    const fullAccess = (await sessionUser(request))?.user_setting === 'TRUE';
 
     if (!username) {
       return NextResponse.json({ error: 'Username is required' }, { status: 400 });
@@ -242,6 +244,95 @@ export async function GET(request: NextRequest) {
 
     const countQuery = `${aggCte} SELECT COUNT(*)::int AS total FROM agg WHERE ${outerWhere}`;
     const countParams = [...params];
+
+    // ─── Export (XLSX di browser): filter & lingkup toko SAMA dengan daftar di layar, tanpa paginasi ──
+    //  export=customers → satu baris per customer (telepon, nama, jumlah order, pcs, nilai, ...)
+    //  export=orders    → detail order per item untuk customer yang lolos filter (+ rentang tanggal from/to)
+    const exportMode = searchParams.get('export');
+    if (exportMode === 'customers' || exportMode === 'orders') {
+      const custRows = (await sql(
+        `${aggCte} SELECT * FROM agg WHERE ${outerWhere} ORDER BY ${sortKey} ${sortDir} NULLS LAST LIMIT 100000`,
+        countParams
+      )) as any[];
+      const labelByKey = new Map<string, string>(badgeDefs.map((b: any) => [b.badge_key, b.label]));
+      const badgeText = (store: string, phone: string, totalOrder: number) =>
+        badgesForRow(store, phone, totalOrder).map((k) => labelByKey.get(k) || k).join(', ');
+
+      if (exportMode === 'customers') {
+        const out = custRows.map((r: any) => {
+          const totalOrder = Number(r.total_order) || 0;
+          const totalValue = Number(r.total_value) || 0;
+          return {
+            'No. Telepon': r.phone_number || '',
+            Customer: r.customer_name || '',
+            Email: r.email || '',
+            Store: r.location_store || '',
+            Badge: badgeText(r.location_store, r.phone_number, totalOrder),
+            'Jumlah Order': totalOrder,
+            'Total Qty (pcs)': Number(r.total_qty) || 0,
+            'Total Value': Math.round(totalValue),
+            'Rata-rata / Order': totalOrder ? Math.round(totalValue / totalOrder) : 0,
+            'Pembelian Pertama': formatDate(r.first_purchase),
+            'Pembelian Terakhir': formatDate(r.last_purchase),
+          };
+        });
+        return NextResponse.json({ data: out, total: out.length });
+      }
+
+      if (custRows.length === 0) return NextResponse.json({ data: [], total: 0 });
+      const keys = custRows.map((r: any) => bulkKey(r.location_store, r.phone_number));
+      const orderCountByKey = new Map<string, number>(custRows.map((r: any) => [bulkKey(r.location_store, r.phone_number), Number(r.total_order) || 0]));
+      const from = searchParams.get('from') || null;
+      const to = searchParams.get('to') || null;
+      const orders = (await sql`
+        SELECT
+          sales_order, store_name, location, customer_name, email, phone,
+          financial_status, fulfillment_status, currency,
+          subtotal, shipping, taxes, total,
+          discount_code, discount_amount,
+          payment_method, risk_level, source, tags, notes,
+          created_at, paid_at, line_items
+        FROM shopify_orders
+        WHERE lower(financial_status) = 'paid' AND phone IS NOT NULL AND phone <> ''
+          AND (store_name || '||' || phone) = ANY(${keys})
+          AND (${from}::date IS NULL OR created_at >= ${from}::date)
+          AND (${to}::date IS NULL OR created_at < (${to}::date + INTERVAL '1 day'))
+        ORDER BY created_at ASC NULLS LAST
+      `) as any[];
+
+      const out: Record<string, any>[] = [];
+      for (const o of orders) {
+        const lineItems = Array.isArray(o.line_items) ? o.line_items : [];
+        const base = {
+          'Sales Order': o.sales_order,
+          Store: o.store_name,
+          Location: o.location,
+          Customer: o.customer_name,
+          Email: o.email,
+          Phone: o.phone,
+          Badge: badgeText(o.store_name, o.phone, orderCountByKey.get(bulkKey(o.store_name, o.phone)) || 0),
+          'Financial Status': o.financial_status,
+          'Fulfillment Status': o.fulfillment_status,
+          Currency: o.currency,
+          Subtotal: Number(o.subtotal) || 0,
+          Shipping: Number(o.shipping) || 0,
+          Taxes: Number(o.taxes) || 0,
+          Total: Number(o.total) || 0,
+          'Discount Code': o.discount_code,
+          'Discount Amount': Number(o.discount_amount) || 0,
+          'Payment Method': o.payment_method,
+          'Risk Level': o.risk_level,
+          Source: o.source,
+          Tags: o.tags,
+          Notes: o.notes,
+          'Created At': o.created_at,
+          'Paid At': o.paid_at,
+        };
+        if (lineItems.length === 0) { out.push({ ...base, SKU: '', 'Item Name': '', Qty: '', 'Item Price': '' }); continue; }
+        for (const li of lineItems) out.push({ ...base, SKU: li.sku || '', 'Item Name': li.name || '', Qty: li.quantity ?? '', 'Item Price': li.price ?? '' });
+      }
+      return NextResponse.json({ data: out, total: custRows.length });
+    }
 
     const limitPh = ph(limit, 'int');
     const offsetPh = ph(offset, 'int');
