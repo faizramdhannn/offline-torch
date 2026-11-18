@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MessageCircle, Package, Pencil, Plus, Trash2 } from "lucide-react";
+import { Download, MessageCircle, Package, Pencil, Plus, Trash2 } from "lucide-react";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { SectionHeader } from "@/components/shared/SectionHeader";
 import { Button } from "@/components/shared/Button";
@@ -13,6 +13,7 @@ import { BulkFormModal } from "@/components/bulk/BulkFormModal";
 import { ItemsPopover } from "@/components/bulk/ItemsPopover";
 import { BulkReport } from "@/components/bulk/BulkReport";
 import { BulkFilterBar } from "@/components/bulk/BulkFilterBar";
+import { bulkRawRows, bulkRecapRows } from "@/lib/bulkExport";
 import { applyBulkFilters, bulkFilterOptions, emptyBulkFilters } from "@/lib/bulkFilter";
 import { buildBulkWaMessage, bulkWaLink, groupBulkRows, isBulkBought, summarizeGroup, type BulkGroup, type BulkMaster, type BulkRow } from "@/lib/bulkOrder";
 import { normStore } from "@/lib/shipmentVisibility";
@@ -46,6 +47,7 @@ export default function BulkPage() {
   const [filters, setFilters] = useState(() => emptyBulkFilters());
   const [page, setPage] = useState(1);
   const [view, setView] = useState<"data" | "report">("data"); // tab Report hanya untuk Bulk All
+  const [exporting, setExporting] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<BulkGroup | null>(null);
   const [popup, setPopup] = useState({ show: false, message: "", type: "success" as "success" | "error" });
@@ -104,6 +106,37 @@ export default function BulkPage() {
     if (!link) { notify(`Nomor WA ${g.source_store} belum ada di profil akunnya`, "error"); return; }
     window.open(link, "_blank", "noopener,noreferrer");
   };
+  // Export XLSX mengikuti filter di layar. Rekap "berapa kali bulk" butuh seluruh riwayat, jadi bila baru 120 hari yang
+  // dimuat, riwayat lengkap diambil dulu (satu panggilan) lalu filter yang sama diterapkan.
+  const exportXlsx = async () => {
+    setExporting(true);
+    try {
+      let src = groups;
+      if (!showAll) {
+        const res = await fetch("/api/bulk/orders?all=1");
+        const d = await res.json();
+        if (!res.ok || !Array.isArray(d)) { notify(d?.error || "Gagal memuat riwayat untuk export", "error"); return; }
+        src = groupBulkRows(d);
+      }
+      const data = applyBulkFilters(src, filters);
+      if (data.length === 0) { notify("Tidak ada data yang cocok dengan filter", "error"); return; }
+      const XLSX = await import("xlsx");
+      const wb = XLSX.utils.book_new();
+      const sheet = (rows: Record<string, any>[], name: string, widths: number[]) => {
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws["!cols"] = widths.map((wch) => ({ wch }));
+        XLSX.utils.book_append_sheet(wb, ws, name);
+      };
+      sheet(bulkRawRows(data), "Data Mentah", [38, 18, 16, 28, 16, 8, 12, 12, 20, 18, 16, 16, 16, 12, 24, 22, 14, 22, 14]);
+      sheet(bulkRecapRows(data), "Rekap Customer", [24, 16, 22, 12, 10, 44, 10, 10, 12, 14, 14, 14, 14]);
+      XLSX.writeFile(wb, `bulk_export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      notify(`Export selesai: ${data.length} input`);
+    } catch {
+      notify("Gagal export data", "error");
+    } finally {
+      setExporting(false);
+    }
+  };
   const openAdd = () => { setEditing(null); setFormOpen(true); };
   const openEdit = (g: BulkGroup) => { setEditing(g); setFormOpen(true); };
   const del = async (g: BulkGroup) => {
@@ -132,6 +165,7 @@ export default function BulkPage() {
                   ))}
                 </div>
               )}
+              <Button icon={Download} variant="secondary" onClick={exportXlsx} disabled={exporting || loading}>{exporting ? "Mengexport…" : "Export"}</Button>
               <Button icon={Plus} onClick={openAdd}>Tambah Bulk</Button>
             </>
           }

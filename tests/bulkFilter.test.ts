@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { groupBulkRows, toBulkRow } from "../lib/bulkOrder";
+import { bulkRawRows, bulkRecapRows } from "../lib/bulkExport";
 import { activeFilterCount, applyBulkFilters, bulkFilterOptions, emptyBulkFilters, periodRange } from "../lib/bulkFilter";
 
 const row = (o: Record<string, any>) => toBulkRow({
@@ -73,5 +74,34 @@ describe("filter bulk", () => {
     expect(o.items.map((x) => x.value)).toEqual(["S1", "S2"]);
     expect(o.categories.map((x) => x.value)).toEqual(["Backpack", "Pouch"]);
     expect(o.reasonNotBuy.map((x) => x.value)).toEqual(["Terlalu mahal"]);
+  });
+});
+
+describe("export bulk", () => {
+  it("sheet mentah: satu baris per item, angka sebagai angka", () => {
+    const raw = bulkRawRows(groups);
+    expect(raw).toHaveLength(4);
+    expect(raw[0].item_qty).toBe(10);
+    expect(raw[0].item_price).toBe(100000);
+    expect(raw[0].item_net).toBe(90000);
+    expect(raw[0].source_store).toBe("Torch Cirebon");
+  });
+  it("rekap customer: berapa kali bulk & di toko mana", () => {
+    const more = groupBulkRows([
+      row({ id: "x1", customer_phone_number: "6281", source_store: "Torch Cirebon", reason_buy: "ok", sales_order: "SO-9" }),
+      row({ id: "x2", customer_phone_number: "6281", source_store: "Torch Margonda", reason_not_buy: "mahal", created_at: "2 Nov 2026, 10.00.00" }),
+      row({ id: "x3", customer_phone_number: "6281", source_store: "Torch Cirebon", reason_buy: "ok", created_at: "5 Nov 2026, 10.00.00" }),
+      row({ id: "y1", customer_name: "Sari", customer_phone_number: "6282", source_store: "Torch Jogja" }),
+    ]);
+    const rec = bulkRecapRows(more);
+    expect(rec).toHaveLength(2);
+    expect(rec[0]["No. HP"]).toBe("6281");
+    expect(rec[0]["Jumlah Bulk (input)"]).toBe(3);
+    expect(rec[0]["Jumlah Toko"]).toBe(2);
+    expect(rec[0]["Toko (jumlah bulk)"]).toBe("Torch Cirebon (2×); Torch Margonda (1×)");
+    expect(rec[0]["Beli (closing)"]).toBe(2);
+    expect(rec[0]["Tidak Beli"]).toBe(1);
+    expect(rec[0]["Total Qty (pcs)"]).toBe(30);
+    expect(rec[1].Customer).toBe("Sari");
   });
 });
