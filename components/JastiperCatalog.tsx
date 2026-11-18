@@ -133,21 +133,21 @@ function PrintPages({ sections, updated }: { sections: { g: string; items: JProd
   );
 }
 
-const sized = (url: string, w: number) => `${url}${url.includes("?") ? "&" : "?"}width=${w}`;
+export const sized = (url: string, w: number) => `${url}${url.includes("?") ? "&" : "?"}width=${w}`;
 const rupiah = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
-const stamp = (iso: string) =>
+export const stamp = (iso: string) =>
   new Date(iso).toLocaleString("id-ID", { timeZone: "Asia/Jakarta", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(".", ":") + " WIB";
 
 const totalStock = (p: JProduct) => p.colors.reduce((n, c) => n + (c.soldOut ? 0 : c.stock ?? 0), 0);
 
-const pct = (c: JColor) => (c.normal && c.price && c.normal > c.price ? Math.round((1 - c.price / c.normal) * 100) : 0);
+export const pct = (c: JColor) => (c.normal && c.price && c.normal > c.price ? Math.round((1 - c.price / c.normal) * 100) : 0);
 
 // Coretan tegas untuk warna habis: garis merah diagonal melewati seluruh bulatan.
 function Strike({ w = 22, t = 2 }: { w?: number; t?: number }) {
   return <span className="pointer-events-none absolute left-1/2 top-1/2 rounded-full border border-white/90 bg-red-600" style={{ width: w, height: t, transform: "translate(-50%,-50%) rotate(-45deg)" }} />;
 }
 
-function Badge({ n, className = "" }: { n: number; className?: string }) {
+export function Badge({ n, className = "" }: { n: number; className?: string }) {
   if (!n) return null;
   return (
     <span className={`flex flex-col items-center justify-center rounded-full bg-red-600 font-extrabold leading-none text-white shadow-md ring-2 ring-white ${className}`}>
@@ -157,21 +157,21 @@ function Badge({ n, className = "" }: { n: number; className?: string }) {
   );
 }
 
-function firstReady(p: JProduct): JColor {
+export function firstReady(p: JProduct): JColor {
   return p.colors.find((c) => !c.soldOut) ?? p.colors[0];
 }
 
-function Price({ c, size = "sm" }: { c: JColor; size?: "sm" | "lg" }) {
+export function Price({ c, size = "sm", red = false }: { c: JColor; size?: "sm" | "lg"; red?: boolean }) {
   if (!c.price) return <span className="text-xs text-neutral-400">Hubungi kami</span>;
   return (
     <span className="jc-price flex flex-wrap items-baseline gap-x-1.5">
-      <span className={`${size === "lg" ? "text-3xl" : "text-base"} font-extrabold`} style={{ color: ACCENT }}>{rupiah(c.price)}</span>
+      <span className={`${size === "lg" ? "text-3xl" : "text-base"} font-extrabold`} style={{ color: red && c.normal ? "#dc2626" : ACCENT }}>{rupiah(c.price)}</span>
       {c.normal ? <span className={`${size === "lg" ? "text-sm" : "text-[11px]"} text-neutral-400 line-through`}>{rupiah(c.normal)}</span> : null}
     </span>
   );
 }
 
-function Dots({ colors, max = 6 }: { colors: JColor[]; max?: number }) {
+export function Dots({ colors, max = 6 }: { colors: JColor[]; max?: number }) {
   const shown = colors.slice(0, max);
   return (
     <span className="flex items-center gap-1.5">
@@ -227,7 +227,7 @@ function Card({ p, eager, onOpen }: { p: JProduct; eager: boolean; onOpen: () =>
   );
 }
 
-function Detail({ p, onClose }: { p: JProduct; onClose: () => void }) {
+export function Detail({ p, onClose, simple = false }: { p: JProduct; onClose: () => void; simple?: boolean }) {
   const [ci, setCi] = useState(() => Math.max(0, p.colors.findIndex((c) => !c.soldOut)));
   const [ii, setIi] = useState(0);
   const color = p.colors[ci];
@@ -293,11 +293,11 @@ function Detail({ p, onClose }: { p: JProduct; onClose: () => void }) {
 
         <div className="flex shrink-0 flex-col gap-4 bg-[#ffffff] p-5 md:w-1/2 md:overflow-y-auto md:p-7">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: ACCENT }}>{p.group}{p.collection ? ` · ${p.collection}` : ""}</p>
+            {!simple && <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: ACCENT }}>{p.group}{p.collection ? ` · ${p.collection}` : ""}</p>}
             <h2 className="mt-1 pr-10 text-xl font-bold leading-snug text-neutral-900 md:pr-0">{p.name}</h2>
           </div>
-          {!color.soldOut && <Price c={color} size="lg" />}
-          {!color.soldOut && color.stock != null && (
+          {!color.soldOut && <Price c={color} size="lg" red={simple} />}
+          {!simple && !color.soldOut && color.stock != null && (
             <p className="-mt-2 text-sm font-semibold text-emerald-700">Stok {color.name}: {color.stock.toLocaleString("id-ID")}</p>
           )}
           <div>
@@ -315,7 +315,7 @@ function Detail({ p, onClose }: { p: JProduct; onClose: () => void }) {
                     {c.soldOut && <Strike w={30} t={3} />}
                   </span>
                   <span className={c.soldOut ? "text-neutral-400 line-through decoration-red-600 decoration-2" : ""}>{c.name}</span>
-                  {!c.soldOut && c.stock != null && <span className="text-[10px] text-neutral-500">{c.stock.toLocaleString("id-ID")}</span>}
+                  {!simple && !c.soldOut && c.stock != null && <span className="text-[10px] text-neutral-500">{c.stock.toLocaleString("id-ID")}</span>}
                   {c.soldOut && <span className="rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-white">SOLD OUT</span>}
                 </button>
               ))}

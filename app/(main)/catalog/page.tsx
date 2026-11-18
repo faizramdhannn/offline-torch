@@ -43,6 +43,12 @@ const CATALOGS: CatalogEntry[] = [
     path: "/jastiper-catalog",
   },
   {
+    key: "revo",
+    name: "Revo Catalog",
+    description: "Katalog web bazaar IHLS Revo Mall Bekasi (25 Nov – 6 Des 2026): kartu 3 × 3 per halaman dengan warna, harga normal, harga coret, dan diskon. Dari sheet revo_catalog — tanpa refresh harian, klik Refresh setelah sheet diubah.",
+    path: "/revo-catalog",
+  },
+  {
     key: "gundam",
     name: "Gundam Catalog",
     description: "Katalog A4 landscape Torch × Mobile Suit Gundam — cover, daftar isi, satu halaman per produk, halaman stiker.",
@@ -73,6 +79,7 @@ export default function CatalogPage() {
   useEffect(() => { loadMeta(); }, []);
 
   const [progress, setProgress] = useState("");
+  const JSON_CATALOGS = ["jastiper", "revo"]; // katalog web (JSON), tanpa PDF
   const refreshCatalog = async (entry: CatalogEntry) => {
     if (!user) return;
     setRefreshing(entry.key);
@@ -80,7 +87,7 @@ export default function CatalogPage() {
     setProgress("");
     try {
       // 1) Utama: PDF dibuat di BROWSER ini lalu diunggah ke Blob (tanpa CPU Vercel). Jastiper tanpa PDF: langsung ke langkah 2.
-      if (entry.key !== "jastiper") try {
+      if (!JSON_CATALOGS.includes(entry.key)) try {
         const { buildCatalogPdfInBrowser, uploadCatalogPdf } = await import("@/lib/catalogPdfClient");
         const pdf = await buildCatalogPdfInBrowser(entry.key, setProgress);
         setProgress("Mengunggah PDF…");
@@ -101,8 +108,8 @@ export default function CatalogPage() {
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "Gagal refresh");
-      if (entry.key !== "jastiper") await fetch(`${entry.path}/pdf?v=${j.version}`, { cache: "no-store" }).then((r) => r.arrayBuffer()).catch(() => {});
-      setNotice(entry.key === "jastiper" ? `${entry.name} diperbarui dari sheet (${j.products} produk).` : `${entry.name} diperbarui dari sheet (via server).`);
+      if (!JSON_CATALOGS.includes(entry.key)) await fetch(`${entry.path}/pdf?v=${j.version}`, { cache: "no-store" }).then((r) => r.arrayBuffer()).catch(() => {});
+      setNotice(JSON_CATALOGS.includes(entry.key) ? `${entry.name} diperbarui dari sheet (${j.products} produk).` : `${entry.name} diperbarui dari sheet (via server).`);
       loadMeta();
     } catch (e: any) {
       setNotice(e.message || "Gagal refresh");

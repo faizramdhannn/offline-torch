@@ -3,6 +3,7 @@ import { sessionUser } from "@/lib/authz";
 import { audit } from "@/lib/audit";
 import { bumpCatalogVersion, getCatalogMeta, CATALOG_KEYS } from "@/lib/catalogVersion";
 import { JASTIPER_KEY, loadJastiperCatalog } from "@/lib/jastiperCatalog";
+import { REVO_KEY, loadRevoCatalog } from "@/lib/revoCatalog";
 import { blobConfigured, publishCatalogJson } from "@/lib/catalogBlob";
 
 export const dynamic = "force-dynamic";
@@ -20,11 +21,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Akses ditolak: butuh akses setting" }, { status: 403 });
     }
     // Katalog Jastiper: tanpa PDF — server hanya membaca sheet (1 panggilan) lalu menyimpan JSON kecil ke Blob.
-    if (key === JASTIPER_KEY) {
+    // Revo: sama persis, tapi hanya lewat refresh manual ini (tanpa jadwal harian).
+    if (key === JASTIPER_KEY || key === REVO_KEY) {
       if (!blobConfigured()) return NextResponse.json({ error: "Vercel Blob belum terhubung" }, { status: 500 });
-      const data = await loadJastiperCatalog();
-      if (!data) return NextResponse.json({ error: "Sheet jastiper_catalog kosong / tidak ada produk ready" }, { status: 422 });
-      const { version } = await publishCatalogJson(JASTIPER_KEY, user.user_name, JSON.stringify(data));
+      const sheet = key === REVO_KEY ? "revo_catalog" : "jastiper_catalog";
+      const data = key === REVO_KEY ? await loadRevoCatalog() : await loadJastiperCatalog();
+      if (!data) return NextResponse.json({ error: `Sheet ${sheet} kosong / tidak ada produk ready` }, { status: 422 });
+      const { version } = await publishCatalogJson(key, user.user_name, JSON.stringify(data));
       audit(request, "UPDATE", `Refresh katalog ${key} (${data.products.length} produk)`, "catalog", key);
       return NextResponse.json({ success: true, version, products: data.products.length });
     }

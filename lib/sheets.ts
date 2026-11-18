@@ -90,6 +90,7 @@ const SPREADSHEET_MAP: Record<string, string> = {
   online_catalog: process.env.SPREADSHEET_CATALOG || "",
   clearance_catalog: process.env.SPREADSHEET_CATALOG || "",
   jastiper_catalog: process.env.SPREADSHEET_CATALOG || "",
+  revo_catalog: process.env.SPREADSHEET_CATALOG || "",
   // ✅ Step ERP — satu spreadsheet, satu tab per type (lihat lib/stepErpConfig.ts)
   material_request_store: process.env.SPREADSHEET_STEP_ERP || "",
   stock_entry_store: process.env.SPREADSHEET_STEP_ERP || "",
@@ -126,6 +127,7 @@ const SHEET_RANGE: Record<string, string> = {
   clearance_catalog: "A1:G", // sama dengan online_catalog
   online_catalog: "A1:G", // id, artikel, category, color, stock, image_url, price
   jastiper_catalog: "A1:P", // sku, item_name, display_name, tier_product, collection_product, artikel, warna, kategori, harga_normal, diskon, harga_tampil, foto_utama, semua_foto, stok, habis, product_tampil
+  revo_catalog: "A1:P", // sama dengan jastiper_catalog
   result_stock: "A1:M",       // ~36 kolom — sheet stok besar, batasi (L = tier_product, M = tier_phase)
   pca_stock: "A1:M",           // ~26 kolom (L = tier_product, M = tier_phase)
   result_stock_yesterday: "A1:M", // header sama persis dengan result_stock

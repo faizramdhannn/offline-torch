@@ -58,3 +58,14 @@ describe("katalog jastiper", () => {
     expect(JSON.stringify(d)).not.toMatch(/Smart/);
   });
 });
+
+describe("katalog revo", () => {
+  it("memakai penyusun yang sama dengan jastiper (stok ≤ 0 dibuang, product_tampil FALSE dibuang)", async () => {
+    const { buildRevoCatalog, REVO_SHEET } = await import("../lib/revoCatalog");
+    const row = (o: any) => ({ artikel: "Tas A", display_name: "Tas A", kategori: "Backpack", warna: "Hitam", harga_normal: "200000", harga_tampil: "150000", foto_utama: "https://x/a.jpg", stok: "3", ...o });
+    const d = buildRevoCatalog([row({}), row({ warna: "Biru", stok: "0" }), row({ artikel: "Tas B", display_name: "Tas B", product_tampil: "FALSE" })]);
+    expect(d.products.map((p) => p.name)).toEqual(["Tas A"]);
+    expect(d.products[0].colors.find((c) => c.name === "Hitam")).toMatchObject({ price: 150000, normal: 200000 });
+    expect(REVO_SHEET).toBe("revo_catalog");
+  });
+});
