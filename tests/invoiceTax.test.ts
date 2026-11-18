@@ -29,3 +29,18 @@ describe("PPN: harga sudah termasuk PPN", () => {
     expect(r.lines[0].unit_excl).toBeCloseTo(359459.46, 2);
   });
 });
+
+import { pph21Amount, netPayable } from "@/lib/invoiceTax";
+describe("PPh 22", () => {
+  it("1,5% dari DPP (tanpa PPN), dipotong dari total", () => {
+    const bd = taxBreakdown([{ qty: 1, unit_price: 1110000 }], 11);
+    const p = pph21Amount(bd.dpp, 1.5);
+    expect(bd.dpp).toBe(1000000);
+    expect(p).toBe(15000);
+    expect(netPayable(bd.total, p)).toBe(1095000);
+  });
+  it("tanpa PPN: dasar = total harga; tarif 0 = tanpa potongan", () => {
+    expect(pph21Amount(1000000, 1.5)).toBe(15000);
+    expect(pph21Amount(1000000, 0)).toBe(0);
+  });
+});

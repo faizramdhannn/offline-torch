@@ -1,6 +1,6 @@
 import { sql, ensureOnce } from "./neon";
 import { terbilang } from "./terbilang";
-import { taxBreakdown } from "./invoiceTax";
+import { taxBreakdown, pph21Amount, netPayable, PPH21_RATE } from "./invoiceTax";
 import { canView, type Actor, type InvoiceAction, type InvoiceStatus } from "./invoiceFlow";
 import type { UserRow } from "./users";
 
@@ -10,7 +10,7 @@ import type { UserRow } from "./users";
 let schemaReady: Promise<void> | null = null;
 export function ensureInvoiceSchema(): Promise<void> {
   if (!schemaReady) {
-    schemaReady = ensureOnce("invoices", "v2", async () => {
+    schemaReady = ensureOnce("invoices", "v3", async () => {
       await sql`
         CREATE TABLE IF NOT EXISTS invoice_master (
           id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
@@ -63,6 +63,8 @@ export function ensureInvoiceSchema(): Promise<void> {
         )
       `;
       await sql`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS tax_mode TEXT NOT NULL DEFAULT 'legacy'`; // 'legacy' = PPN hanya info (dokumen lama); 'inclusive' = harga sudah termasuk PPN
+      await sql`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS pph21_percent NUMERIC NOT NULL DEFAULT 0`; // PPh 22 (1,5% dari DPP), dipotong dari total
+      await sql`ALTER TABLE invoices ADD COLUMN IF NOT EXISTS pph21_amount NUMERIC NOT NULL DEFAULT 0`;
       await sql`CREATE INDEX IF NOT EXISTS invoices_owner_idx ON invoices (created_by, created_at DESC)`;
       await sql`CREATE INDEX IF NOT EXISTS invoices_status_idx ON invoices (status)`;
       await sql`CREATE INDEX IF NOT EXISTS invoices_number_idx ON invoices (invoice_number)`;
@@ -104,14 +106,14 @@ export function ensureInvoiceSchema(): Promise<void> {
 const SELECT_INVOICE = `
   invoice_id, invoice_number, doc_type, invoice_date, customer_name, customer_address,
   subtotal::float8 AS subtotal, tax_percent::float8 AS tax_percent, tax_amount::float8 AS tax_amount, grand_total::float8 AS grand_total,
-  amount_in_words, status, tax_mode, use_signature, signature_store, signature_pic,
+  pph21_percent::float8 AS pph21_percent, pph21_amount::float8 AS pph21_amount, amount_in_words, status, tax_mode, use_signature, signature_store, signature_pic,
   created_by, created_at, updated_by, updated_at, submitted_by, submitted_at, approved_by, approved_at,
   reject_note, rejected_by, rejected_at, void_note, voided_by, voided_at`;
 
 export interface InvoiceRow {
   invoice_id: string; invoice_number: string; doc_type: string; invoice_date: string;
   customer_name: string; customer_address: string;
-  subtotal: number; tax_percent: number; tax_amount: number; grand_total: number; amount_in_words: string;
+  subtotal: number; tax_percent: number; tax_amount: number; grand_total: number; pph21_percent: number; pph21_amount: number; amount_in_words: string;
   status: InvoiceStatus; tax_mode: string; use_signature: boolean; signature_store: string; signature_pic: string;
   created_by: string; created_at: string; updated_by: string; updated_at: string;
   submitted_by: string; submitted_at: string | null; approved_by: string; approved_at: string | null;
@@ -176,6 +178,7 @@ export interface InvoiceInput {
   customer_name?: string;
   customer_address?: string;
   tax_percent?: number;
+  use_pph21?: boolean;
   use_signature?: boolean;
   signature_store?: string;
   signature_pic?: string;
@@ -184,7 +187,7 @@ export interface InvoiceInput {
 
 export interface NormalizedInvoice {
   doc_type: "invoice" | "quotation"; invoice_number: string; invoice_date: string; customer_name: string; customer_address: string;
-  tax_percent: number; use_signature: boolean; signature_store: string; signature_pic: string;
+  tax_percent: number; pph21_percent: number; pph21_amount: number; use_signature: boolean; signature_store: string; signature_pic: string;
   items: { product_name: string; variant: string; qty: number; unit_price: number; total_price: number }[];
   subtotal: number; tax_amount: number; grand_total: number; amount_in_words: string;
 }
@@ -212,15 +215,18 @@ export function normalizeInput(b: InvoiceInput): { ok: true; v: NormalizedInvoic
   const subtotal = bd.dpp;
   const tax_amount = bd.ppn;
   const grand_total = bd.total;
+  // PPh 22 = 1,5% × DPP, dipotong dari total yang dibayar (grand_total tetap total harga)
+  const pph21_percent = b.use_pph21 ? PPH21_RATE : 0;
+  const pph21_amount = pph21Amount(bd.dpp, pph21_percent);
   return {
     ok: true,
     v: {
       doc_type, invoice_number, invoice_date, customer_name,
       customer_address: String(b.customer_address || "").slice(0, 500),
-      tax_percent, use_signature: !!b.use_signature,
+      tax_percent, pph21_percent, pph21_amount, use_signature: !!b.use_signature,
       signature_store: String(b.signature_store || "").slice(0, 100),
       signature_pic: String(b.signature_pic || "").slice(0, 100),
-      items, subtotal, tax_amount, grand_total, amount_in_words: terbilang(grand_total),
+      items, subtotal, tax_amount, grand_total, amount_in_words: terbilang(netPayable(grand_total, pph21_amount)),
     },
   };
 }
@@ -247,10 +253,10 @@ export async function createInvoice(v: NormalizedInvoice, by: string): Promise<s
   await ensureInvoiceSchema();
   const id = `${Date.now()}${Math.floor(Math.random() * 100).toString().padStart(2, "0")}`;
   await sql`
-    INSERT INTO invoices (invoice_id, invoice_number, doc_type, invoice_date, customer_name, customer_address, subtotal, tax_percent, tax_amount, grand_total,
+    INSERT INTO invoices (invoice_id, invoice_number, doc_type, invoice_date, customer_name, customer_address, subtotal, tax_percent, tax_amount, grand_total, pph21_percent, pph21_amount,
                           amount_in_words, status, tax_mode, use_signature, signature_store, signature_pic, created_by, updated_by)
     VALUES (${id}, ${v.doc_type === "quotation" ? "" : v.invoice_number}, ${v.doc_type}, ${v.invoice_date}, ${v.customer_name}, ${v.customer_address},
-            ${v.subtotal}, ${v.tax_percent}, ${v.tax_amount}, ${v.grand_total}, ${v.amount_in_words}, 'draft', 'inclusive', ${v.use_signature},
+            ${v.subtotal}, ${v.tax_percent}, ${v.tax_amount}, ${v.grand_total}, ${v.pph21_percent}, ${v.pph21_amount}, ${v.amount_in_words}, 'draft', 'inclusive', ${v.use_signature},
             ${v.signature_store}, ${v.signature_pic}, ${by}, ${by})`;
   await writeItems(id, v.items);
   await addEvent(id, "created", by, "", "draft");
@@ -262,7 +268,7 @@ export async function updateInvoice(id: string, v: NormalizedInvoice, by: string
   await sql`
     UPDATE invoices SET invoice_number = ${v.doc_type === "quotation" ? "" : v.invoice_number}, doc_type = ${v.doc_type}, invoice_date = ${v.invoice_date},
       customer_name = ${v.customer_name}, customer_address = ${v.customer_address}, subtotal = ${v.subtotal}, tax_percent = ${v.tax_percent},
-      tax_amount = ${v.tax_amount}, grand_total = ${v.grand_total}, amount_in_words = ${v.amount_in_words}, tax_mode = 'inclusive', use_signature = ${v.use_signature},
+      tax_amount = ${v.tax_amount}, grand_total = ${v.grand_total}, pph21_percent = ${v.pph21_percent}, pph21_amount = ${v.pph21_amount}, amount_in_words = ${v.amount_in_words}, tax_mode = 'inclusive', use_signature = ${v.use_signature},
       signature_store = ${v.signature_store}, signature_pic = ${v.signature_pic}, updated_by = ${by}, updated_at = now()
     WHERE invoice_id = ${id}`;
   await writeItems(id, v.items);

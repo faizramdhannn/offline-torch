@@ -40,7 +40,7 @@ export default function NewInvoicePage() {
           const q = src.invoice;
           setInitial({
             doc_type: "invoice", invoice_number: "", customer_name: q.customer_name, customer_address: q.customer_address,
-            tax_percent: q.tax_percent, use_signature: q.use_signature, signature_store: q.signature_store, signature_pic: q.signature_pic,
+            tax_percent: q.tax_percent, use_pph21: (q.pph21_percent || 0) > 0, use_signature: q.use_signature, signature_store: q.signature_store, signature_pic: q.signature_pic,
             items: (src.items || []).map((i: any) => ({ product_name: i.product_name, variant: i.variant, qty: i.qty, unit_price: i.unit_price })),
           });
           setFromLabel(q.customer_name);

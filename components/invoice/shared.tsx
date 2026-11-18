@@ -6,7 +6,7 @@ import { STATUS_LABEL } from "@/lib/invoiceFlow";
 export interface InvoiceDoc {
   invoice_id: string; invoice_number: string; doc_type: "invoice" | "quotation"; invoice_date: string;
   customer_name: string; customer_address: string;
-  subtotal: number; tax_percent: number; tax_amount: number; grand_total: number; amount_in_words: string;
+  subtotal: number; tax_percent: number; tax_amount: number; grand_total: number; pph21_percent?: number; pph21_amount?: number; amount_in_words: string;
   status: "draft" | "submitted" | "approved" | "void" | "deleted";
   tax_mode?: string;
   item_count?: number;

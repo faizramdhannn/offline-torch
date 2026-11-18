@@ -337,6 +337,19 @@ export async function POST(request: NextRequest) {
       y += tRowH;
     }
 
+    // Baris PPh 22 (dipotong dari total)
+    const pph21 = Number(invoice.pph21_amount) || 0;
+    if (pph21 > 0) {
+      setFill(doc, '#f0f4fa');
+      doc.rect(totBlockX, y, totBlockW, tRowH, 'F');
+      setTextCol(doc, TEXT_GRAY);
+      setFont(doc, 'normal');
+      doc.setFontSize(8);
+      doc.text(`PPh 22 (${Number(invoice.pph21_percent)}%)`, totLblEnd, y + 5, { align: 'right' });
+      doc.text('- ' + formatRupiah(pph21), totValEnd, y + 5, { align: 'right' });
+      y += tRowH;
+    }
+
     y += 2;
 
     // Total Pembayaran
@@ -346,7 +359,7 @@ export async function POST(request: NextRequest) {
     setFont(doc, 'bold');
     doc.setFontSize(9);
     doc.text('Total Pembayaran', margin + cW * 0.35, y + 6, { align: 'center' });
-    doc.text(formatRupiah(invoice.grand_total), W - margin - 2, y + 6, { align: 'right' });
+    doc.text(formatRupiah(invoice.grand_total - pph21), W - margin - 2, y + 6, { align: 'right' });
     y += tRowH + 2 + 8;
 
     // ── TERBILANG ─────────────────────────────────────────────────────────────

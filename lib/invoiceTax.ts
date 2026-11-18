@@ -33,3 +33,12 @@ export function displayItems<T extends { qty: number; unit_price: number; total_
   const bd = taxBreakdown(items, doc.tax_percent);
   return items.map((it, i) => ({ ...it, unit_price: Math.round(bd.lines[i].unit_excl * 100) / 100, total_price: bd.lines[i].total_excl }));
 }
+
+// PPh 22: tarif × DPP (harga TANPA PPN; bila PPN tidak dicentang DPP = total harga). Dipotong dari total pembayaran:
+//   dibayar = total − PPh 22. `grand_total` di database tetap total harga (tidak berubah).
+export const PPH21_RATE = 1.5;
+export function pph21Amount(dpp: number, ratePercent: number): number {
+  const r = Math.max(0, Number(ratePercent) || 0);
+  return r > 0 ? Math.round((Number(dpp) || 0) * r / 100) : 0;
+}
+export const netPayable = (grandTotal: number, pph21: number) => (Number(grandTotal) || 0) - (Number(pph21) || 0);
