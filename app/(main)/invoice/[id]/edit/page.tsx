@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
+import Popup from "@/components/Popup";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import InvoiceForm, { type InvoiceFormValues } from "@/components/invoice/InvoiceForm";
 import type { InvoiceDoc, InvoiceLine, MasterInvoice, MasterItem } from "@/components/invoice/shared";
@@ -38,13 +40,16 @@ export default function EditInvoicePage() {
     }).catch(() => setState("missing"));
   }, [id, router]);
 
+  const qc = useQueryClient();
+  const [done, setDone] = useState(false);
   const save = async (v: InvoiceFormValues) => {
     setSaving(true);
     setError("");
     try {
       const r = await fetch("/api/invoice", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...v, invoice_id: id }) });
       if (!r.ok) { setError((await r.json().catch(() => ({}))).error || "Gagal menyimpan"); return; }
-      router.push(`/invoice/${id}`);
+      qc.invalidateQueries({ queryKey: ["invoice"] });
+      setDone(true); // popup sukses dulu; pindah halaman saat ditutup
     } finally {
       setSaving(false);
     }
@@ -62,6 +67,7 @@ export default function EditInvoicePage() {
   return (
     <div className="p-4 md:p-6">
       <div className="mb-4"><Link href={`/invoice/${id}`} className="text-xs text-gray-500 hover:underline">← Kembali</Link><h1 className="mt-1 text-xl font-bold text-primary">Ubah dokumen</h1>{doc.status !== "draft" && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">Dokumen berstatus <b>{doc.status === "submitted" ? "Need Approval" : doc.status === "void" ? "Void" : "Approved"}</b>. Perubahan Anda langsung berlaku dan tercatat di riwayat{doc.status === "approved" ? "; PDF/Word yang dibuat ulang akan memakai isi terbaru" : ""}.</p>}</div>
+      <Popup show={done} message="Perubahan tersimpan" type="success" onClose={() => router.push(`/invoice/${id}`)} />
       <InvoiceForm lockedStore={lockedStore} mode="edit" initial={{ ...doc, items: doc.items }} master={master} masterItems={items} saving={saving} error={error} onSave={save} onCancel={() => router.push(`/invoice/${id}`)} />
     </div>
   );

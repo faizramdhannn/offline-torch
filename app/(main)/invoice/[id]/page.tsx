@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
+import { useQueryClient } from "@tanstack/react-query";
 import Popup from "@/components/Popup";
+import { ConfirmationDialog } from "@/components/shared/ConfirmationDialog";
 import {
   EventTimeline, StatusBadge, StatusStepper, docLabel, fmtDate, fmtDateTime, rupiah,
   rupiahDec, type InvoiceDoc, type InvoiceEvent, type InvoiceLine,
@@ -20,10 +22,13 @@ export default function InvoiceDocumentPage() {
   useSessionGuard();
   const [d, setD] = useState<Detail | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "missing">("loading");
+  const qc = useQueryClient();
   const [busy, setBusy] = useState("");
   const [noteFor, setNoteFor] = useState<"reject" | "void" | "restore" | null>(null);
   const [note, setNote] = useState("");
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [ask, setAsk] = useState<{ action: Action; title: string; description?: string; label: string; danger?: boolean } | null>(null);
+  const [goList, setGoList] = useState(false); // setelah popup "dihapus" ditutup → kembali ke daftar
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [canCreate, setCanCreate] = useState(false);
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
@@ -43,10 +48,12 @@ export default function InvoiceDocumentPage() {
   const act = async (action: Action, withNote = "") => {
     setBusy(action);
     try {
+      qc.invalidateQueries({ queryKey: ["invoice"] }); // status berubah → daftar di cache dianggap basi
       if (action === "delete") {
         const r = await fetch(`/api/invoice?id=${id}`, { method: "DELETE" });
         if (!r.ok) { setToast({ msg: (await r.json().catch(() => ({}))).error || "Gagal menghapus", type: "error" }); return; }
-        router.push("/invoice");
+        setToast({ msg: "Draft dihapus", type: "success" });
+        setGoList(true);
         return;
       }
       const r = await fetch("/api/invoice/action", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ invoice_id: id, action, note: withNote }) });
@@ -119,14 +126,14 @@ export default function InvoiceDocumentPage() {
         {/* Aksi (desktop) */}
         <div className="hidden flex-wrap gap-2 md:flex">
           {d.can_edit && <Link href={`/invoice/${id}/edit`} className={ghost}>Ubah</Link>}
-          {has("recall") && <button disabled={!!busy} onClick={() => confirm("Tarik kembali ke Draft?") && act("recall")} className={ghost}>Tarik kembali</button>}
-          {has("delete") && <button disabled={!!busy} onClick={() => confirm("Hapus draft ini?") && act("delete")} className={`${ghost} text-red-600`}>Hapus</button>}
+          {has("recall") && <button disabled={!!busy} onClick={() => setAsk({ action: "recall", title: "Tarik kembali ke Draft?", description: undefined, label: "Tarik kembali", danger: false })} className={ghost}>Tarik kembali</button>}
+          {has("delete") && <button disabled={!!busy} onClick={() => setAsk({ action: "delete", title: "Hapus draft ini?", description: "Draft yang dihapus tidak bisa dikembalikan.", label: "Hapus", danger: true })} className={`${ghost} text-red-600`}>Hapus</button>}
           {has("reject") && <button disabled={!!busy} onClick={() => setNoteFor("reject")} className={`${ghost} text-red-600`}>Reject</button>}
           {has("void") && <button disabled={!!busy} onClick={() => setNoteFor("void")} className={`${ghost} text-red-600`}>Void</button>}
           {has("restore") && <button disabled={!!busy} onClick={() => setNoteFor("restore")} className={`${btn} bg-green-600 text-white hover:bg-green-700`}>Kembalikan ke Approved</button>}
           {inv.doc_type === "quotation" && inv.status === "approved" && canCreate && <Link href={`/invoice/new?from=${id}`} className={ghost}>Jadikan Invoice</Link>}
-          {has("submit") && <button disabled={!!busy} onClick={() => confirm("Ajukan dokumen ini untuk di-approve? Setelah diajukan, dokumen tidak bisa diubah.") && act("submit")} className={solid}>Ajukan (Need Approval)</button>}
-          {has("approve") && <button disabled={!!busy} onClick={() => confirm("Approve dokumen ini?") && act("approve")} className={`${btn} bg-green-600 text-white hover:bg-green-700`}>Approve</button>}
+          {has("submit") && <button disabled={!!busy} onClick={() => setAsk({ action: "submit", title: "Ajukan dokumen ini?", description: "Setelah diajukan, dokumen tidak bisa diubah.", label: "Ajukan", danger: false })} className={solid}>Ajukan (Need Approval)</button>}
+          {has("approve") && <button disabled={!!busy} onClick={() => setAsk({ action: "approve", title: "Approve dokumen ini?", description: undefined, label: "Approve", danger: false })} className={`${btn} bg-green-600 text-white hover:bg-green-700`}>Approve</button>}
         </div>
       </div>
 
@@ -181,7 +188,7 @@ export default function InvoiceDocumentPage() {
               <div className="flex justify-between"><dt className="text-gray-500">{inv.tax_percent > 0 && inv.tax_mode === "inclusive" ? "Subtotal (tanpa PPN)" : "Subtotal"}</dt><dd>{rupiah(inv.subtotal)}</dd></div>
               {inv.tax_percent > 0 && <div className="flex justify-between"><dt className="text-gray-500">PPN{inv.tax_mode === "inclusive" ? "" : " (info)"}</dt><dd className={inv.tax_mode === "inclusive" ? "" : "text-gray-500"}>{rupiah(inv.tax_amount)}</dd></div>}
               <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-semibold"><dt>Total</dt><dd>{rupiah(inv.grand_total)}</dd></div>
-              {(inv.pph21_amount || 0) > 0 && <div className="flex justify-between"><dt className="text-gray-500">PPh 22 ({inv.pph21_percent}%)</dt><dd>- {rupiah(inv.pph21_amount || 0)}</dd></div>}
+              {(inv.pph21_amount || 0) > 0 && <div className="flex justify-between"><dt className="text-gray-500">PPh 22 ({String(inv.pph21_percent).replace(".", ",")}%)</dt><dd>- {rupiah(inv.pph21_amount || 0)}</dd></div>}
               {(inv.pph21_amount || 0) > 0 && <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-semibold"><dt>Total dibayar</dt><dd>{rupiah(inv.grand_total - (inv.pph21_amount || 0))}</dd></div>}
             </dl>
             <p className="mt-2 text-xs italic text-gray-500">Terbilang: {inv.amount_in_words}</p>
@@ -218,18 +225,18 @@ export default function InvoiceDocumentPage() {
       <div className="fixed inset-x-0 bottom-0 z-30 flex flex-wrap gap-2 border-t border-gray-200 bg-white/95 p-3 backdrop-blur md:hidden">
         {d.can_edit && <Link href={`/invoice/${id}/edit`} className={`${ghost} flex-1`}>Ubah</Link>}
         {inv.doc_type === "quotation" && inv.status === "approved" && canCreate && <Link href={`/invoice/new?from=${id}`} className={`${ghost} flex-1`}>Jadikan Invoice</Link>}
-        {has("recall") && <button disabled={!!busy} onClick={() => confirm("Tarik kembali ke Draft?") && act("recall")} className={`${ghost} flex-1`}>Tarik kembali</button>}
-        {has("delete") && <button disabled={!!busy} onClick={() => confirm("Hapus draft ini?") && act("delete")} className={`${ghost} flex-1 text-red-600`}>Hapus</button>}
+        {has("recall") && <button disabled={!!busy} onClick={() => setAsk({ action: "recall", title: "Tarik kembali ke Draft?", description: undefined, label: "Tarik kembali", danger: false })} className={`${ghost} flex-1`}>Tarik kembali</button>}
+        {has("delete") && <button disabled={!!busy} onClick={() => setAsk({ action: "delete", title: "Hapus draft ini?", description: "Draft yang dihapus tidak bisa dikembalikan.", label: "Hapus", danger: true })} className={`${ghost} flex-1 text-red-600`}>Hapus</button>}
         {has("reject") && <button disabled={!!busy} onClick={() => setNoteFor("reject")} className={`${ghost} flex-1 text-red-600`}>Reject</button>}
         {has("void") && <button disabled={!!busy} onClick={() => setNoteFor("void")} className={`${ghost} flex-1 text-red-600`}>Void</button>}
         {has("restore") && <button disabled={!!busy} onClick={() => setNoteFor("restore")} className={`${btn} flex-1 bg-green-600 text-white`}>Kembalikan ke Approved</button>}
-        {has("submit") && <button disabled={!!busy} onClick={() => confirm("Ajukan dokumen ini untuk di-approve? Setelah diajukan, dokumen tidak bisa diubah.") && act("submit")} className={`${solid} flex-1`}>Ajukan</button>}
-        {has("approve") && <button disabled={!!busy} onClick={() => confirm("Approve dokumen ini?") && act("approve")} className={`${btn} flex-1 bg-green-600 text-white`}>Approve</button>}
+        {has("submit") && <button disabled={!!busy} onClick={() => setAsk({ action: "submit", title: "Ajukan dokumen ini?", description: "Setelah diajukan, dokumen tidak bisa diubah.", label: "Ajukan", danger: false })} className={`${solid} flex-1`}>Ajukan</button>}
+        {has("approve") && <button disabled={!!busy} onClick={() => setAsk({ action: "approve", title: "Approve dokumen ini?", description: undefined, label: "Approve", danger: false })} className={`${btn} flex-1 bg-green-600 text-white`}>Approve</button>}
       </div>
 
       {noteFor && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={() => setNoteFor(null)}>
-          <div className="w-full max-w-md rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-solid w-full max-w-md rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="mb-1 text-sm font-semibold text-gray-800">{noteFor === "reject" ? "Reject (kembalikan ke Draft)" : noteFor === "restore" ? "Kembalikan ke Approved" : "Void dokumen"}</h3>
             <p className="mb-3 text-xs text-gray-500">{noteFor === "reject" ? "Tim toko akan melihat alasan ini, memperbaiki, lalu mengajukan ulang." : noteFor === "restore" ? "Dokumen Void menjadi Approved lagi (PDF/Word tersedia kembali). Riwayat void tetap tercatat." : "Dokumen Approved dibatalkan; nomor tetap tercatat. Hanya Super Admin yang bisa mengembalikannya."}</p>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={500} placeholder="Alasan (wajib)" className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
@@ -240,7 +247,8 @@ export default function InvoiceDocumentPage() {
           </div>
         </div>
       )}
-      <Popup show={!!toast} message={toast?.msg || ""} type={toast?.type || "success"} onClose={() => setToast(null)} />
+      <Popup show={!!toast} message={toast?.msg || ""} type={toast?.type || "success"} onClose={() => { setToast(null); if (goList) router.push("/invoice"); }} />
+      <ConfirmationDialog open={!!ask} title={ask?.title || ""} description={ask?.description} confirmLabel={ask?.label} danger={ask?.danger} loading={!!busy} onCancel={() => setAsk(null)} onConfirm={() => { const a = ask!.action; setAsk(null); act(a); }} />
     </div>
   );
 }

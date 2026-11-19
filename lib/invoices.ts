@@ -1,6 +1,7 @@
 import { sql, ensureOnce } from "./neon";
 import { terbilang } from "./terbilang";
-import { taxBreakdown, pph21Amount, netPayable, PPH21_RATE } from "./invoiceTax";
+import { invoiceInputSchema } from "./invoiceSchema";
+import { taxBreakdown, pph21Amount, netPayable, PPH_RATES } from "./invoiceTax";
 import { canView, type Actor, type InvoiceAction, type InvoiceStatus } from "./invoiceFlow";
 import type { UserRow } from "./users";
 
@@ -178,7 +179,7 @@ export interface InvoiceInput {
   customer_name?: string;
   customer_address?: string;
   tax_percent?: number;
-  use_pph21?: boolean;
+  pph21_percent?: number; // 0 = tanpa PPh 22; 1,5 atau 2
   use_signature?: boolean;
   signature_store?: string;
   signature_pic?: string;
@@ -193,39 +194,31 @@ export interface NormalizedInvoice {
 }
 
 export function normalizeInput(b: InvoiceInput): { ok: true; v: NormalizedInvoice } | { ok: false; error: string } {
-  const doc_type = b.doc_type === "quotation" ? "quotation" : "invoice";
-  const customer_name = String(b.customer_name || "").trim().slice(0, 200);
-  const invoice_date = String(b.invoice_date || "").slice(0, 10);
-  if (!customer_name) return { ok: false, error: "Nama customer wajib diisi" };
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(invoice_date)) return { ok: false, error: "Tanggal tidak valid" };
-  const invoice_number = String(b.invoice_number || "").trim().slice(0, 60);
+  // Bentuk & batas input divalidasi zod (lib/invoiceSchema.ts); di sini tinggal aturan bisnis + hitung.
+  const parsed = invoiceInputSchema.safeParse(b ?? {});
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message || "Data tidak valid" };
+  const p = parsed.data;
+  const { doc_type, customer_name, invoice_date, invoice_number } = p;
   if (doc_type === "invoice" && !invoice_number) return { ok: false, error: "Nomor invoice wajib diisi" };
-  const items = (Array.isArray(b.items) ? b.items : []).slice(0, 200).map((it) => {
-    const qty = Number(it.qty), unit = Number(it.unit_price);
-    return { product_name: String(it.product_name || "").trim().slice(0, 300), variant: String(it.variant || "").slice(0, 100), qty, unit_price: unit, total_price: Math.round(qty * unit) };
-  });
-  if (!items.length) return { ok: false, error: "Minimal satu item" };
-  if (items.some((it) => !it.product_name)) return { ok: false, error: "Nama produk wajib diisi" };
-  if (items.some((it) => !Number.isFinite(it.qty) || !Number.isFinite(it.unit_price) || !(it.qty > 0) || !(it.unit_price >= 0))) {
-    return { ok: false, error: "Qty harus > 0 dan harga tidak boleh negatif" };
-  }
-  const tax_percent = Math.max(0, Math.min(100, Number(b.tax_percent) || 0));
+  const items = p.items.map((it) => ({ ...it, total_price: Math.round(it.qty * it.unit_price) }));
+  const tax_percent = p.tax_percent;
   // Harga barang SUDAH TERMASUK PPN. Dengan PPN dicentang: subtotal = DPP (tanpa PPN), PPN = total − DPP, total tetap = total harga.
   const bd = taxBreakdown(items, tax_percent);
   const subtotal = bd.dpp;
   const tax_amount = bd.ppn;
   const grand_total = bd.total;
-  // PPh 22 = 1,5% × DPP, dipotong dari total yang dibayar (grand_total tetap total harga)
-  const pph21_percent = b.use_pph21 ? PPH21_RATE : 0;
+  // PPh 22 = tarif (1,5% / 2%) × DPP, dipotong dari total yang dibayar (grand_total tetap total harga)
+  const rate = p.pph21_percent;
+  const pph21_percent = (PPH_RATES as readonly number[]).includes(rate) ? rate : 0;
   const pph21_amount = pph21Amount(bd.dpp, pph21_percent);
   return {
     ok: true,
     v: {
       doc_type, invoice_number, invoice_date, customer_name,
-      customer_address: String(b.customer_address || "").slice(0, 500),
-      tax_percent, pph21_percent, pph21_amount, use_signature: !!b.use_signature,
-      signature_store: String(b.signature_store || "").slice(0, 100),
-      signature_pic: String(b.signature_pic || "").slice(0, 100),
+      customer_address: p.customer_address,
+      tax_percent, pph21_percent, pph21_amount, use_signature: p.use_signature,
+      signature_store: p.signature_store,
+      signature_pic: p.signature_pic,
       items, subtotal, tax_amount, grand_total, amount_in_words: terbilang(netPayable(grand_total, pph21_amount)),
     },
   };

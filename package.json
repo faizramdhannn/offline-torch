@@ -13,6 +13,7 @@
     "@googleapis/drive": "^22.0.0",
     "@googleapis/sheets": "^14.0.0",
     "@neondatabase/serverless": "^0.10.4",
+    "@tanstack/react-query": "^5.108.0",
     "@vercel/blob": "^2.8.1",
     "ably": "^2.29.0",
     "bcryptjs": "^2.4.3",
@@ -39,7 +40,8 @@
     "unpdf": "^1.6.1",
     "web-push": "^3.6.7",
     "xlsx": "^0.18.5",
-    "xlsx-js-style": "^1.2.0"
+    "xlsx-js-style": "^1.2.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

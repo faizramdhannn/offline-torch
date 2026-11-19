@@ -4,6 +4,8 @@ import "./globals.css";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { SidebarProvider } from "@/context/SidebarContext";
 import ResponsiveTables from "@/components/ResponsiveTables";
+import DialogHost from "@/components/DialogHost";
+import QueryProvider from "@/components/QueryProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -71,8 +73,9 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeProvider>
           <SidebarProvider>
-            {children}
+            <QueryProvider>{children}</QueryProvider>
             <ResponsiveTables />
+            <DialogHost />
           </SidebarProvider>
         </ThemeProvider>
       </body>

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
+import Popup from "@/components/Popup";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import InvoiceForm, { type InvoiceFormValues } from "@/components/invoice/InvoiceForm";
 import type { MasterInvoice, MasterItem } from "@/components/invoice/shared";
@@ -40,7 +42,7 @@ export default function NewInvoicePage() {
           const q = src.invoice;
           setInitial({
             doc_type: "invoice", invoice_number: "", customer_name: q.customer_name, customer_address: q.customer_address,
-            tax_percent: q.tax_percent, use_pph21: (q.pph21_percent || 0) > 0, use_signature: q.use_signature, signature_store: q.signature_store, signature_pic: q.signature_pic,
+            tax_percent: q.tax_percent, pph21_percent: q.pph21_percent || 0, use_signature: q.use_signature, signature_store: q.signature_store, signature_pic: q.signature_pic,
             items: (src.items || []).map((i: any) => ({ product_name: i.product_name, variant: i.variant, qty: i.qty, unit_price: i.unit_price })),
           });
           setFromLabel(q.customer_name);
@@ -50,6 +52,8 @@ export default function NewInvoicePage() {
       .finally(() => setReady(true));
   }, [router, from]);
 
+  const qc = useQueryClient();
+  const [doneId, setDoneId] = useState("");
   const save = async (v: InvoiceFormValues) => {
     setSaving(true);
     setError("");
@@ -57,7 +61,8 @@ export default function NewInvoicePage() {
       const r = await fetch("/api/invoice", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(v) });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) { setError(d.error || "Gagal menyimpan"); return; }
-      router.push(`/invoice/${d.invoice_id}`);
+      qc.invalidateQueries({ queryKey: ["invoice"] });
+      setDoneId(d.invoice_id); // popup sukses dulu; pindah halaman saat ditutup
     } finally {
       setSaving(false);
     }
@@ -67,6 +72,7 @@ export default function NewInvoicePage() {
   return (
     <div className="p-4 md:p-6">
       <div className="mb-4"><Link href="/invoice" className="text-xs text-gray-500 hover:underline">← Kembali</Link><h1 className="mt-1 text-xl font-bold text-primary">{fromLabel ? "Invoice dari Quotation" : "Dokumen baru"}</h1>{fromLabel && <p className="mt-1 text-xs text-gray-500">Isi disalin dari Quotation {fromLabel}. Lengkapi nomor invoice, periksa isinya, lalu simpan sebagai Draft.</p>}</div>
+      <Popup show={!!doneId} message="Dokumen tersimpan sebagai Draft" type="success" onClose={() => router.push(`/invoice/${doneId}`)} />
       <InvoiceForm lockedStore={lockedStore} key={fromLabel || "new"} mode="create" initial={initial} master={master} masterItems={items} saving={saving} error={error} onSave={save} onCancel={() => router.push("/invoice")} />
     </div>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -18,15 +19,15 @@ const FILTERS: { key: string; label: string }[] = [
 ];
 const PER_PAGE = 20;
 
+const NO_DOCS: InvoiceDoc[] = [];
+const NO_MASTER: MasterInvoice = {};
+
 export default function InvoicePage() {
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
   useSessionGuard();
   const [user, setUser] = useState<any>(null);
-  const [docs, setDocs] = useState<InvoiceDoc[]>([]);
-  const [master, setMaster] = useState<MasterInvoice>({});
-  const [loading, setLoading] = useState(true);
   const [q, setQ] = useState(sp.get("q") ?? "");
   const [status, setStatus] = useState(sp.get("status") ?? "all");
   const [type, setType] = useState(sp.get("type") ?? "all");
@@ -42,20 +43,16 @@ export default function InvoicePage() {
     setUser(u);
   }, [router]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [a, b] = await Promise.all([fetch("/api/invoice", { cache: "no-store" }), fetch("/api/invoice/master", { cache: "no-store" })]);
-      const list = await a.json();
-      setDocs(Array.isArray(list) ? list : []);
-      setMaster((await b.json()) || {});
-    } catch {
-      setToast({ msg: "Gagal memuat data", type: "error" });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-  useEffect(() => { if (user) load(); }, [user, load]);
+  // Daftar & master di-cache TanStack Query (60 dtk): kembali dari detail/edit tampil instan tanpa memanggil server lagi.
+  // Setelah ada perubahan (simpan/aksi) cache "invoice" di-invalidate sehingga daftar selalu mutakhir.
+  const qc = useQueryClient();
+  const listQ = useQuery({ queryKey: ["invoice", "list"], enabled: !!user, queryFn: async () => { const l = await (await fetch("/api/invoice", { cache: "no-store" })).json(); return (Array.isArray(l) ? l : []) as InvoiceDoc[]; } });
+  const masterQ = useQuery({ queryKey: ["invoice", "master"], enabled: !!user, queryFn: async () => ((await (await fetch("/api/invoice/master", { cache: "no-store" })).json()) || {}) as MasterInvoice });
+  const docs = listQ.data ?? NO_DOCS;
+  const master = masterQ.data ?? NO_MASTER;
+  const loading = listQ.isLoading || masterQ.isLoading;
+  const load = () => qc.invalidateQueries({ queryKey: ["invoice"] });
+  useEffect(() => { if (listQ.isError || masterQ.isError) setToast({ msg: "Gagal memuat data", type: "error" }); }, [listQ.isError, masterQ.isError]);
 
   useEffect(() => {
     const p = new URLSearchParams();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { taxBreakdown, pph21Amount, netPayable, PPH21_RATE } from "@/lib/invoiceTax";
+import { taxBreakdown, pph21Amount, netPayable, PPH_RATES } from "@/lib/invoiceTax";
 import { TORCH_STORES, rupiah, type InvoiceLine, type MasterInvoice, type MasterItem } from "./shared";
 
 export interface InvoiceFormValues {
@@ -11,7 +11,7 @@ export interface InvoiceFormValues {
   customer_name: string;
   customer_address: string;
   tax_percent: number;
-  use_pph21?: boolean;
+  pph21_percent?: number;
   use_signature: boolean;
   signature_store: string;
   signature_pic: string;
@@ -46,7 +46,7 @@ function ProductPicker({ value, items, onChange, onPick }: { value: string; item
         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
       />
       {open && list.length > 0 && (
-        <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+        <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto modal-solid rounded-lg border border-gray-200 bg-white shadow-lg">
           {list.map((m) => (
             <li key={m.SKU}>
               <button type="button" onClick={() => { onPick(m); setOpen(false); }} className="flex w-full items-start justify-between gap-3 px-3 py-2 text-left text-xs hover:bg-gray-50">
@@ -80,7 +80,8 @@ export default function InvoiceForm({
   const [date, setDate] = useState(initial?.invoice_date || today());
   const [customer, setCustomer] = useState(initial?.customer_name || "");
   const [address, setAddress] = useState(initial?.customer_address || "");
-  const [usePph21, setUsePph21] = useState(!!(initial as any)?.pph21_percent || !!(initial as any)?.use_pph21);
+  const [usePph21, setUsePph21] = useState((initial?.pph21_percent || 0) > 0);
+  const [pphRate, setPphRate] = useState<number>(initial?.pph21_percent || PPH_RATES[0]);
   const [usePPN, setUsePPN] = useState(initial ? (initial.tax_percent || 0) > 0 : !!master.default_use_ppn);
   const [useSign, setUseSign] = useState(initial ? !!initial.use_signature : !!master.default_use_signature);
   const [signStore, setSignStore] = useState(lockedStore || initial?.signature_store || "");
@@ -99,16 +100,16 @@ export default function InvoiceForm({
   // Harga barang sudah termasuk PPN: dengan PPN dicentang, dokumen menampilkan harga tanpa PPN (DPP) + PPN; total tetap.
   const bd = taxBreakdown(lines, usePPN ? ppnRate : 0);
   const subtotal = bd.total;
-  const pph21 = usePph21 ? pph21Amount(bd.dpp, PPH21_RATE) : 0;
+  const pph21 = usePph21 ? pph21Amount(bd.dpp, pphRate) : 0;
   const setLine = (i: number, p: Partial<InvoiceLine>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...p } : l)));
 
   const values = (): InvoiceFormValues => ({
     doc_type: docType, invoice_number: number.trim(), invoice_date: date, customer_name: customer.trim(), customer_address: address.trim(),
-    tax_percent: usePPN ? ppnRate : 0, use_pph21: usePph21, use_signature: useSign, signature_store: useSign ? signStore : "", signature_pic: useSign ? signPic : "",
+    tax_percent: usePPN ? ppnRate : 0, pph21_percent: usePph21 ? pphRate : 0, use_signature: useSign, signature_store: useSign ? signStore : "", signature_pic: useSign ? signPic : "",
     items: lines.filter((l) => l.product_name.trim() || l.unit_price > 0).map((l) => ({ ...l, product_name: l.product_name.trim() })),
   });
 
-  const card = "rounded-xl border border-gray-200 bg-white p-4 md:p-5";
+  const card = "modal-solid rounded-xl border border-gray-200 bg-white p-4 md:p-5";
   const label = "mb-1 block text-xs font-medium text-gray-600";
   const input = "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm";
 
@@ -197,8 +198,15 @@ export default function InvoiceForm({
           </label>
           <label className="mt-3 flex items-start gap-2 text-sm text-gray-700">
             <input type="checkbox" className="mt-1" checked={usePph21} onChange={(e) => setUsePph21(e.target.checked)} />
-            <span>PPh 22 {PPH21_RATE}%<span className="block text-xs text-gray-400">Dihitung dari subtotal tanpa PPN (DPP) dan dipotong dari total pembayaran.</span></span>
+            <span>PPh 22<span className="block text-xs text-gray-400">Dihitung dari subtotal tanpa PPN (DPP) dan dipotong dari total pembayaran.</span></span>
           </label>
+          {usePph21 && (
+            <div className="ml-6 mt-2 flex gap-2">
+              {PPH_RATES.map((r) => (
+                <button key={r} type="button" onClick={() => setPphRate(r)} className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${pphRate === r ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>{String(r).replace(".", ",")}%</button>
+              ))}
+            </div>
+          )}
           <label className="mt-3 flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" checked={useSign} onChange={(e) => setUseSign(e.target.checked)} /> Gunakan tanda tangan
           </label>
@@ -234,13 +242,13 @@ export default function InvoiceForm({
 
       {/* Ringkasan + aksi (kanan di desktop, bar bawah di HP) */}
       <aside className="hidden lg:block">
-        <div className="sticky top-4 space-y-3 rounded-xl border border-gray-200 bg-white p-5">
+        <div className="modal-solid sticky top-4 space-y-3 rounded-xl border border-gray-200 bg-white p-5">
           <h2 className="text-sm font-semibold text-gray-800">Ringkasan</h2>
           <dl className="space-y-1.5 text-sm">
             <div className="flex justify-between"><dt className="text-gray-500">{usePPN ? "Subtotal (tanpa PPN)" : "Subtotal"}</dt><dd>{rupiah(bd.dpp)}</dd></div>
             {usePPN && <div className="flex justify-between"><dt className="text-gray-500">PPN</dt><dd>{rupiah(bd.ppn)}</dd></div>}
             <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-semibold"><dt>Total</dt><dd>{rupiah(subtotal)}</dd></div>
-            {usePph21 && <div className="flex justify-between"><dt className="text-gray-500">PPh 22 ({PPH21_RATE}%)</dt><dd>- {rupiah(pph21)}</dd></div>}
+            {usePph21 && <div className="flex justify-between"><dt className="text-gray-500">PPh 22 ({String(pphRate).replace(".", ",")}%)</dt><dd>- {rupiah(pph21)}</dd></div>}
             {usePph21 && <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-semibold"><dt>Total dibayar</dt><dd>{rupiah(netPayable(subtotal, pph21))}</dd></div>}
           </dl>
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
@@ -252,7 +260,7 @@ export default function InvoiceForm({
         </div>
       </aside>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 p-3 backdrop-blur lg:hidden">
+      <div className="modal-solid fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white p-3 lg:hidden">
         {error && <p className="mb-2 rounded-lg bg-red-50 px-3 py-1.5 text-xs text-red-600">{error}</p>}
         <div className="mb-2 flex items-center justify-between text-sm"><span className="text-gray-500">Total</span><span className="font-semibold">{rupiah(subtotal)}</span></div>
         <button type="button" disabled={saving} onClick={() => onSave(values())} className="w-full rounded-lg bg-gray-900 py-2.5 text-sm font-medium text-white disabled:opacity-50">

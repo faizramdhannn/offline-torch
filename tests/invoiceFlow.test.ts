@@ -104,3 +104,18 @@ describe("terbilang", () => {
     expect(terbilang(111)).toBe("Seratus Sebelas Rupiah");
   });
 });
+
+describe("normalizeInput (zod)", () => {
+  const ok = { customer_name: "PT A", invoice_date: "2026-11-19", invoice_number: "INV-1", items: [{ product_name: "Tas", qty: 2, unit_price: 100 }] };
+  it("menolak dengan pesan Indonesia", () => {
+    expect(normalizeInput({ ...ok, customer_name: " " } as any)).toEqual({ ok: false, error: "Nama customer wajib diisi" });
+    expect(normalizeInput({ ...ok, invoice_date: "19/11/2026" } as any)).toEqual({ ok: false, error: "Tanggal tidak valid" });
+    expect(normalizeInput({ ...ok, items: [] } as any)).toEqual({ ok: false, error: "Minimal satu item" });
+    expect(normalizeInput({ ...ok, items: [{ product_name: "Tas", qty: 0, unit_price: 5 }] } as any)).toEqual({ ok: false, error: "Qty harus > 0 dan harga tidak boleh negatif" });
+    expect(normalizeInput({ ...ok, invoice_number: "" } as any)).toEqual({ ok: false, error: "Nomor invoice wajib diisi" });
+  });
+  it("angka berupa string tetap diterima dan total dihitung", () => {
+    const r = normalizeInput({ ...ok, items: [{ product_name: "Tas", qty: "3", unit_price: "299000" }] } as any);
+    expect(r.ok && r.v.grand_total).toBe(897000);
+  });
+});
