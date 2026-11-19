@@ -345,7 +345,7 @@ export async function POST(request: NextRequest) {
       setTextCol(doc, TEXT_GRAY);
       setFont(doc, 'normal');
       doc.setFontSize(8);
-      doc.text(`PPh 22 (${Number(invoice.pph21_percent)}%)`, totLblEnd, y + 5, { align: 'right' });
+      doc.text(`PPh 22 (${String(Number(invoice.pph21_percent)).replace('.', ',')}%)`, totLblEnd, y + 5, { align: 'right' });
       doc.text('- ' + formatRupiah(pph21), totValEnd, y + 5, { align: 'right' });
       y += tRowH;
     }

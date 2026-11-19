@@ -37,6 +37,7 @@ export function displayItems<T extends { qty: number; unit_price: number; total_
 // PPh 22: tarif × DPP (harga TANPA PPN; bila PPN tidak dicentang DPP = total harga). Dipotong dari total pembayaran:
 //   dibayar = total − PPh 22. `grand_total` di database tetap total harga (tidak berubah).
 export const PPH21_RATE = 1.5;
+export const PPH_RATES = [1.5, 2] as const; // pilihan tarif PPh 22 di form
 export function pph21Amount(dpp: number, ratePercent: number): number {
   const r = Math.max(0, Number(ratePercent) || 0);
   return r > 0 ? Math.round((Number(dpp) || 0) * r / 100) : 0;

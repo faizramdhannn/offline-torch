@@ -44,3 +44,7 @@ describe("PPh 22", () => {
     expect(pph21Amount(1000000, 0)).toBe(0);
   });
 });
+it("PPh 22 tarif 2% (contoh Rp 90.000.000)", () => {
+  const bd = taxBreakdown([{ qty: 1, unit_price: 90000000 }], 11);
+  expect(pph21Amount(bd.dpp, 2)).toBe(1621622);
+});

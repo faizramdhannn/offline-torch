@@ -345,7 +345,7 @@ export async function POST(request: NextRequest) {
       ));
     }
     const pph21 = Number(invoice.pph21_amount) || 0;
-    if (pph21 > 0) totalRows.push(totalRow(`PPh 22 (${Number(invoice.pph21_percent)}%)`, '- ' + formatRupiah(pph21)));
+    if (pph21 > 0) totalRows.push(totalRow(`PPh 22 (${String(Number(invoice.pph21_percent)).replace('.', ',')}%)`, '- ' + formatRupiah(pph21)));
     totalRows.push(totalRow('Total Pembayaran', formatRupiah(invoice.grand_total - pph21), true));
 
     children.push(new Table({
