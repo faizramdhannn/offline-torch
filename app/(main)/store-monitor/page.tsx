@@ -1,5 +1,6 @@
 "use client";
 
+import { askConfirm, askPrompt } from "@/lib/dialog";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/context/UserContext";
 import CommandLog from "@/components/store-monitor/CommandLog";
@@ -194,26 +195,26 @@ export default function StoreMonitorPage() {
 
   const doAnnounce = (target: Record<string, unknown>, label: string) => setAnnounce({ target, label });
   const rename = async (d: Device) => {
-    const label = prompt("Nama perangkat", d.label || "");
+    const label = await askPrompt("Nama perangkat", d.label || "");
     if (label === null) return;
     await fetch("/api/devices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device_id: d.device_id, label }) });
     loadAll();
   };
   const setPlayer = async (d: Device) => {
-    if (!confirm(`Jadikan ${d.label || (d.kind === "tablet" ? "Tablet" : "PC")} ${d.store_name} pemutar musik? Perangkat lain di toko ini berhenti memutar.`)) return;
+    if (!await askConfirm(`Jadikan ${d.label || (d.kind === "tablet" ? "Tablet" : "PC")} ${d.store_name} pemutar musik? Perangkat lain di toko ini berhenti memutar.`)) return;
     const r = await fetch("/api/devices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device_id: d.device_id, music_player: true }) });
     flash(r.ok ? "Pemutar musik diganti" : "Gagal");
     setTimeout(loadAll, 800);
   };
   const disconnect = async (d: Device) => {
-    if (!confirm(`Putuskan ${d.label || d.kind} ${d.store_name}? Perangkat ini di-logout paksa; akun & perangkat lain tidak terpengaruh.`)) return;
+    if (!await askConfirm(`Putuskan ${d.label || d.kind} ${d.store_name}? Perangkat ini di-logout paksa; akun & perangkat lain tidak terpengaruh.`)) return;
     const r = await fetch("/api/devices", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device_id: d.device_id }) });
     flash(r.ok ? "Perangkat diputus" : "Gagal");
     loadAll();
   };
   // Reset login massal (Super Admin): perangkat toko di-logout & harus login ulang. Perangkat offline keluar saat terhubung lagi.
   const resetDevices = async () => {
-    if (!confirm(`Reset login perangkat ${scopeLabel}? Semua perangkat toko di-logout dan harus login ulang (perangkat yang sedang offline keluar saat terhubung lagi).`)) return;
+    if (!await askConfirm(`Reset login perangkat ${scopeLabel}? Semua perangkat toko di-logout dan harus login ulang (perangkat yang sedang offline keluar saat terhubung lagi).`)) return;
     const r = await fetch("/api/devices", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify(selected.size ? { user_names: [...selected] } : { all: true }) });
     const d = await r.json().catch(() => ({}));
     flash(r.ok ? `${d.devices ?? 0} perangkat di ${d.stores ?? 0} toko direset` : d.error || "Gagal mereset", 4000);
@@ -288,7 +289,7 @@ export default function StoreMonitorPage() {
           <option value="">Pilih grup toko…</option>
           {groups.map((g) => <option key={g.name} value={g.name}>{g.name} ({g.users.length})</option>)}
         </select>
-        <select defaultValue="" disabled={!live_} onChange={(e) => { const p = presets.find((x) => x.name === e.target.value); if (p && confirm(`Terapkan preset "${p.name}" ke ${scopeLabel}?`)) { send("music", scopeTarget(), { action: "preset", playlist_id: p.playlist_id, volume: p.volume, shuffle: p.shuffle }); afterSheet(); } e.target.value = ""; }} className={sel}>
+        <select defaultValue="" disabled={!live_} onChange={async (e) => { const p = presets.find((x) => x.name === e.target.value); if (p && await askConfirm(`Terapkan preset "${p.name}" ke ${scopeLabel}?`)) { send("music", scopeTarget(), { action: "preset", playlist_id: p.playlist_id, volume: p.volume, shuffle: p.shuffle }); afterSheet(); } e.target.value = ""; }} className={sel}>
           <option value="">Terapkan preset…</option>
           {presets.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
         </select>
@@ -296,8 +297,8 @@ export default function StoreMonitorPage() {
           <option value="">Ganti playlist…</option>
           {playlists.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
-        <button className={b} disabled={!live_} onClick={() => { if (confirm(`Nonaktifkan musik ${scopeLabel}? Musik berhenti dan jadwal tidak berjalan sampai diaktifkan lagi.`)) { send("music", scopeTarget(), { action: "disable" }); afterSheet(); } }}>Nonaktifkan musik</button>
-        <button className={b} disabled={!live_} onClick={() => { if (confirm(`Aktifkan kembali musik ${scopeLabel}? Jadwal/jam buka berjalan lagi.`)) { send("music", scopeTarget(), { action: "enable" }); afterSheet(); } }}>Aktifkan musik</button>
+        <button className={b} disabled={!live_} onClick={async () => { if (await askConfirm(`Nonaktifkan musik ${scopeLabel}? Musik berhenti dan jadwal tidak berjalan sampai diaktifkan lagi.`)) { send("music", scopeTarget(), { action: "disable" }); afterSheet(); } }}>Nonaktifkan musik</button>
+        <button className={b} disabled={!live_} onClick={async () => { if (await askConfirm(`Aktifkan kembali musik ${scopeLabel}? Jadwal/jam buka berjalan lagi.`)) { send("music", scopeTarget(), { action: "enable" }); afterSheet(); } }}>Aktifkan musik</button>
         <button className={b} disabled={!live_} onClick={() => { send("music", scopeTarget(), { action: "play" }); afterSheet(); }}><PlayIcon /> Play</button>
         <button className={b} disabled={!live_} onClick={() => { send("music", scopeTarget(), { action: "pause" }); afterSheet(); }}><PauseIcon /> Pause</button>
         <button className={b} disabled={!live_} onClick={() => { send("music", scopeTarget(), { action: "mute", muted: true }); afterSheet(); }}><MuteIcon /> Mute</button>
@@ -306,7 +307,7 @@ export default function StoreMonitorPage() {
         <button className={b} disabled={!live_} onClick={() => { send("music", scopeTarget(), { action: "shuffle", shuffle: false }); afterSheet(); }}><ShuffleIcon /> Acak: mati</button>
         <button className={b} disabled={!live_ || !isSuper} onClick={() => { afterSheet(); doAnnounce(scopeTarget(), scopeLabel); }}><MegaphoneIcon /> Pengumuman</button>
         <button className={b} onClick={() => { afterSheet(); setEditing({ title: scopeLabel, users: selected.size ? [...selected] : stores.map((s) => s.user_name) }); }}><CalendarIcon /> Jadwal</button>
-        <button className={b} disabled={!live_ || !isSuper} onClick={() => { if (confirm(`Muat ulang perangkat ${scopeLabel}?`)) { send("reload", scopeTarget()); afterSheet(); } }}><RefreshIcon /> Reload</button>
+        <button className={b} disabled={!live_ || !isSuper} onClick={async () => { if (await askConfirm(`Muat ulang perangkat ${scopeLabel}?`)) { send("reload", scopeTarget()); afterSheet(); } }}><RefreshIcon /> Reload</button>
         <button className={b} disabled={!isSuper} onClick={() => { afterSheet(); resetDevices(); }}><PowerIcon /> Reset login</button>
         <button className={b} onClick={() => { afterSheet(); setEditingHours({ title: scopeLabel, users: selected.size ? [...selected] : stores.map((s) => s.user_name) }); }}>Jam buka</button>
         <button className={b} onClick={() => { afterSheet(); setManaging(true); }}>Kelola preset & grup</button>
@@ -422,7 +423,7 @@ export default function StoreMonitorPage() {
                         {isAdminAcct ? <span className="mt-0.5 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Admin · musik manual</span> : !info.open && <span className="mt-0.5 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">Tutup sekarang</span>}
                         {nowPlaying && <span className={`mt-0.5 block truncate text-[11px] md:hidden ${tl?.music?.note ? "text-amber-600" : "text-gray-500"}`}>{nowPlaying}</span>}
                       </button>
-                      <button className={`${btn} shrink-0`} disabled={!live_ || !isSuper} onClick={() => confirm(`Muat ulang ${s.name}?`) && send("reload", target)} aria-label="Reload"><RefreshIcon /></button>
+                      <button className={`${btn} shrink-0`} disabled={!live_ || !isSuper} onClick={async () => await askConfirm(`Muat ulang ${s.name}?`) && send("reload", target)} aria-label="Reload"><RefreshIcon /></button>
                       <button className="shrink-0 p-1 text-gray-400 md:hidden" aria-label={open ? "Tutup" : "Buka"} onClick={() => setExpanded((p) => { const n = new Set(p); n.has(s.user_name) ? n.delete(s.user_name) : n.add(s.user_name); return n; })}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={open ? "rotate-180" : ""}><path d="M6 9l6 6 6-6" /></svg>
                       </button>
@@ -433,7 +434,7 @@ export default function StoreMonitorPage() {
                       <div className="mb-3 flex items-center justify-between text-xs">
                         <span className="text-gray-500">{isAdminAcct ? "Akun Admin" : info.open ? "Buka sekarang" : "Tutup sekarang"}</span>
                         <button
-                          onClick={() => confirm(musicOff ? `Aktifkan kembali musik ${s.name}? Jadwal/jam buka berjalan lagi.` : `Nonaktifkan musik ${s.name}? Musik berhenti dan jadwal tidak berjalan sampai diaktifkan lagi.`) && send("music", target, { action: musicOff ? "enable" : "disable" })}
+                          onClick={async () => await askConfirm(musicOff ? `Aktifkan kembali musik ${s.name}? Jadwal/jam buka berjalan lagi.` : `Nonaktifkan musik ${s.name}? Musik berhenti dan jadwal tidak berjalan sampai diaktifkan lagi.`) && send("music", target, { action: musicOff ? "enable" : "disable" })}
                           disabled={!live_ || lock}
                           className={`rounded-md border px-2.5 py-1 text-[11px] font-medium disabled:opacity-40 ${musicOff ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-gray-200 bg-white text-gray-600"}`}
                         >{musicOff ? "Aktifkan musik" : "Nonaktifkan musik"}</button>

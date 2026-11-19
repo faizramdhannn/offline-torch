@@ -12,7 +12,7 @@ export default function MasterSettingsModal({ initial, onSave, onClose }: { init
   const label = "mb-1 block text-xs font-medium text-gray-600";
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={onClose}>
-      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-solid max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-xl" onClick={(e) => e.stopPropagation()}>
         <h3 className="mb-4 text-sm font-semibold text-gray-800">Pengaturan master dokumen</h3>
         <div className="space-y-3">
           <div><label className={label}>Nama perusahaan</label><input value={m.company_name || ""} onChange={(e) => up({ company_name: e.target.value })} className={field} /></div>

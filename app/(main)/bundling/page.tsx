@@ -1,5 +1,6 @@
 "use client";
 
+import { askConfirm } from "@/lib/dialog";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -387,7 +388,7 @@ export default function BundlingPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Yakin ingin menghapus bundling ini?")) return;
+    if (!await askConfirm("Yakin ingin menghapus bundling ini?")) return;
     try {
       const response = await fetch(`/api/bundling?id=${id}`, { method: "DELETE" });
       if (response.ok) {
@@ -474,7 +475,7 @@ export default function BundlingPage() {
 
   // Update harga SEMUA bundling sekaligus (berguna kalau banyak HPJ berubah bersamaan)
   const handleUpdateAllPrices = async () => {
-    if (!confirm("Update harga SEMUA bundling berdasarkan HPJ master item terbaru?")) return;
+    if (!await askConfirm("Update harga SEMUA bundling berdasarkan HPJ master item terbaru?")) return;
     setBulkUpdating(true);
     try {
       const freshMaster = await fetchLatestMasterItems();
@@ -582,7 +583,7 @@ export default function BundlingPage() {
   // Hapus semua bundling yang dicentang
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
-    if (!confirm(`Yakin ingin menghapus ${selectedIds.length} bundling terpilih?`)) return;
+    if (!await askConfirm(`Yakin ingin menghapus ${selectedIds.length} bundling terpilih?`)) return;
     setSelectionBusy(true);
     try {
       for (const id of selectedIds) {

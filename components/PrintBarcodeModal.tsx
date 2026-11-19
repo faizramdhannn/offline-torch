@@ -1,5 +1,6 @@
 "use client";
 
+import { notify } from "@/lib/dialog";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { QRCodeCanvas } from "qrcode.react";
 
@@ -293,7 +294,7 @@ export default function PrintBarcodeModal({ items, onClose }: Props) {
       doc.save(`qr_label_${selectedPaper.label.toLowerCase()}_${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch (err) {
       console.error("PDF error:", err);
-      alert("Gagal generate PDF. Pastikan jspdf sudah terinstall: npm install jspdf");
+      notify("Gagal generate PDF. Pastikan jspdf sudah terinstall: npm install jspdf");
     } finally {
       setGenerating(false);
     }

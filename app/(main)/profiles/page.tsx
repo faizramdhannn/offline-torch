@@ -1,5 +1,6 @@
 "use client";
 
+import { askConfirm } from "@/lib/dialog";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, UserCog, X, Save, Loader2, Plus, Trash2, ShieldCheck, LogOut, UserPlus, KeyRound, Archive } from "lucide-react";
@@ -55,7 +56,7 @@ export default function ProfilesPage() {
   // ── Reset password ──
   const [resetResult, setResetResult] = useState("");
   const resetPassword = async (target: { user_name: string; name: string }) => {
-    if (!confirm(`Reset password ${target.name}? Semua sesinya akan di-logout.`)) return;
+    if (!await askConfirm(`Reset password ${target.name}? Semua sesinya akan di-logout.`)) return;
     const res = await fetch("/api/profiles/password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_name: target.user_name }) });
     const j = await res.json();
     if (!res.ok) { setErr(j.error || "Gagal reset password"); return; }
@@ -70,7 +71,7 @@ export default function ProfilesPage() {
     if (res.ok) setSnaps(await res.json());
   };
   const backupAction = async (body: any) => {
-    if (body.action === "restore" && !confirm(`Pulihkan user & role dari snapshot #${body.id}? Snapshot "sebelum pemulihan" dibuat otomatis.`)) return;
+    if (body.action === "restore" && !await askConfirm(`Pulihkan user & role dari snapshot #${body.id}? Snapshot "sebelum pemulihan" dibuat otomatis.`)) return;
     const res = await fetch("/api/profiles/backup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const j = await res.json();
     setNotice(res.ok ? (body.action === "restore" ? `Dipulihkan: ${j.users} user, ${j.roles} role${j.skipped ? ` (${j.skipped} dilewati)` : ""}.` : `Snapshot #${j.id} dibuat.`) : j.error || "Gagal");
@@ -82,7 +83,7 @@ export default function ProfilesPage() {
     const msg = target
       ? `Paksa logout ${target.name}?`
       : "Paksa logout SEMUA akun kecuali Super Admin? Mereka harus login ulang.";
-    if (!confirm(msg)) return;
+    if (!await askConfirm(msg)) return;
     const res = await fetch("/api/profiles/logout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -129,7 +130,7 @@ export default function ProfilesPage() {
   };
 
   const removeRole = async (key: string) => {
-    if (!confirm("Hapus role ini?")) return;
+    if (!await askConfirm("Hapus role ini?")) return;
     const res = await fetch("/api/roles", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ actor, key }) });
     const j = await res.json();
     if (!res.ok) { setErr(j.error); return; }

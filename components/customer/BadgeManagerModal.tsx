@@ -1,5 +1,6 @@
 "use client";
 
+import { askConfirm, notify } from "@/lib/dialog";
 import { compressImageFile } from "@/lib/compressImage";
 import { useEffect, useRef, useState } from "react";
 import { CustomerBadge } from "@/types";
@@ -53,7 +54,7 @@ export function BadgeManagerModal({ onClose, onChanged }: BadgeManagerModalProps
 
   const handleNewLogoFile = async (file: File) => {
     if (file.type !== "image/png" && file.type !== "image/jpeg") {
-      alert("Logo hanya boleh PNG atau JPG");
+      notify("Logo hanya boleh PNG atau JPG");
       return;
     }
     setNewLogoDataUrl(await fileToDataUrl(file));
@@ -82,7 +83,7 @@ export function BadgeManagerModal({ onClose, onChanged }: BadgeManagerModalProps
 
   const handleLogoUpload = async (id: number, file: File) => {
     if (file.type !== "image/png" && file.type !== "image/jpeg") {
-      alert("Logo hanya boleh PNG atau JPG");
+      notify("Logo hanya boleh PNG atau JPG");
       return;
     }
     const dataUrl = await fileToDataUrl(file);
@@ -101,7 +102,7 @@ export function BadgeManagerModal({ onClose, onChanged }: BadgeManagerModalProps
   };
 
   const handleLogoRemove = async (id: number) => {
-    if (!confirm("Hapus gambar badge ini?")) return;
+    if (!await askConfirm("Hapus gambar badge ini?")) return;
     setSavingId(id);
     try {
       await fetch("/api/customer/badges", {
@@ -147,7 +148,7 @@ export function BadgeManagerModal({ onClose, onChanged }: BadgeManagerModalProps
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Hapus badge collection ini?")) return;
+    if (!await askConfirm("Hapus badge collection ini?")) return;
     await fetch(`/api/customer/badges?id=${id}`, { method: "DELETE" });
     await load();
     onChanged();
@@ -169,7 +170,7 @@ export function BadgeManagerModal({ onClose, onChanged }: BadgeManagerModalProps
       });
       const result = await res.json();
       if (!res.ok) {
-        alert(result.error || "Gagal menambah badge");
+        notify(result.error || "Gagal menambah badge");
         return;
       }
       setNewLabel("");

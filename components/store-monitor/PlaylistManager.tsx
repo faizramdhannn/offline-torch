@@ -1,5 +1,6 @@
 "use client";
 
+import { askConfirm, askPrompt } from "@/lib/dialog";
 import { useState } from "react";
 import type { Playlist } from "./types";
 
@@ -31,8 +32,8 @@ export default function PlaylistManager({ playlists, onChanged }: { playlists: P
               <p className="font-medium text-gray-700">{p.name}</p>
               <a href={p.url} target="_blank" rel="noreferrer" className="block truncate text-gray-400 hover:underline">{p.url}</a>
             </div>
-            <button onClick={() => { const n = prompt("Nama playlist", p.name); if (n) call("PUT", { id: p.id, name: n, url: p.url }); }} className="text-gray-500">Ubah nama</button>
-            <button onClick={() => confirm(`Hapus playlist "${p.name}"? Jadwal yang memakainya ikut terhapus.`) && call("DELETE", { id: p.id })} className="text-red-500">Hapus</button>
+            <button onClick={async () => { const n = await askPrompt("Nama playlist", p.name); if (n) call("PUT", { id: p.id, name: n, url: p.url }); }} className="text-gray-500">Ubah nama</button>
+            <button onClick={async () => await askConfirm(`Hapus playlist "${p.name}"? Jadwal yang memakainya ikut terhapus.`) && call("DELETE", { id: p.id })} className="text-red-500">Hapus</button>
           </li>
         ))}
       </ul>

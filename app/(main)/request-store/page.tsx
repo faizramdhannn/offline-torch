@@ -1,5 +1,6 @@
 "use client";
 
+import { askConfirm } from "@/lib/dialog";
 import { visiblePoll } from "@/lib/poll";
 import HistoryToggle from "@/components/shared/HistoryToggle";
 import { withHistory } from "@/lib/historyFlag";
@@ -327,7 +328,7 @@ export default function RequestStorePage() {
 
   // ─── Delete ───────────────────────────────────────────────────────────────
   const handleDelete = async (item: RequestItem) => {
-    if (!confirm("Cancel dan hapus request ini?")) return;
+    if (!await askConfirm("Cancel dan hapus request ini?")) return;
     try {
       const res = await fetch(`/api/request-store?id=${item.id}`, { method: "DELETE" });
       if (res.ok) {

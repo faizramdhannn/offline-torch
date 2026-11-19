@@ -1,5 +1,6 @@
 "use client";
 
+import { askConfirm } from "@/lib/dialog";
 import { visiblePoll } from "@/lib/poll";
 import HistoryToggle from "@/components/shared/HistoryToggle";
 import { withHistory } from "@/lib/historyFlag";
@@ -1072,7 +1073,7 @@ export default function MaterialIssuePage() {
     const label = groupItems.length > 1
       ? `Hapus semua ${groupItems.length} item dalam group ini?`
       : "Hapus item ini?";
-    if (!confirm(label)) return;
+    if (!await askConfirm(label)) return;
     try {
       // Clear seluruh group dalam satu request, sama seperti pada handleEdit.
       const res = await fetch(`/api/material-issue?id=${encodeURIComponent(groupId)}`, { method: "DELETE" });

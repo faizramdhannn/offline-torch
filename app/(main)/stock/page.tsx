@@ -1,5 +1,6 @@
 "use client";
 
+import { askConfirm } from "@/lib/dialog";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useSearchShortcut } from "@/hooks/useSearchShortcut";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -479,7 +480,7 @@ export default function StockPage() {
  
 
   const handleRefreshJavelin = async () => {
-    if (!confirm("Refresh Javelin data? This may take a few minutes.")) return;
+    if (!await askConfirm("Refresh Javelin data? This may take a few minutes.")) return;
     setRefreshing(true);
     try {
       const response = await fetch("/api/stock/javelin-refresh", { method: "POST" });

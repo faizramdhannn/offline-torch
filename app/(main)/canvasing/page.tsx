@@ -1,5 +1,6 @@
 "use client";
 
+import { askConfirm } from "@/lib/dialog";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useSortableTable } from "@/hooks/useSortableTable";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -365,7 +366,7 @@ export default function CanvasingPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this entry?")) return;
+    if (!await askConfirm("Are you sure you want to delete this entry?")) return;
     try {
       const response = await fetch(`/api/canvasing?id=${id}`, {
         method: "DELETE",

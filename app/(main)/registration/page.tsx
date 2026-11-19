@@ -1,5 +1,6 @@
 "use client";
 
+import { askConfirm } from "@/lib/dialog";
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -160,7 +161,7 @@ export default function RegistrationPage() {
   };
 
   const handleReject = async (id: string) => {
-    if (!confirm("Apakah Anda yakin ingin menolak registrasi ini?")) return;
+    if (!await askConfirm("Apakah Anda yakin ingin menolak registrasi ini?")) return;
     try {
       const response = await fetch("/api/registration", {
         method: "PUT",

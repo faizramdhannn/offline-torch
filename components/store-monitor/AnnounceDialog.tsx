@@ -1,5 +1,6 @@
 "use client";
 
+import { askPrompt } from "@/lib/dialog";
 import { useState } from "react";
 import type { Template } from "./localLists";
 
@@ -37,8 +38,8 @@ export default function AnnounceDialog({
           <label className="flex items-center gap-1">Tampil <input type="number" min={5} max={600} value={seconds} onChange={(e) => setSeconds(Number(e.target.value))} className={`${input} w-16`} /> detik</label>
           <button
             disabled={!text.trim()}
-            onClick={() => {
-              const name = prompt("Nama template (mis. Toko tutup 15 menit)");
+            onClick={async () => {
+              const name = await askPrompt("Nama template (mis. Toko tutup 15 menit)");
               if (name?.trim()) onTemplates([...templates.filter((x) => x.name !== name.trim()), { name: name.trim().slice(0, 40), text: text.trim(), seconds }]);
             }}
             className="ml-auto underline disabled:opacity-40"

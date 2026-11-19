@@ -1,5 +1,6 @@
 "use client";
 
+import { askConfirm } from "@/lib/dialog";
 import { useCallback, useEffect, useState } from "react";
 import { describeRule, RECURRENCE_LABEL, type AnnounceRule, type Recurrence } from "@/lib/announceSchedule";
 import type { Group, Template } from "./localLists";
@@ -85,7 +86,7 @@ export default function AnnounceSchedule({
                   <button onClick={() => setTesting(testing?.id === r.id ? null : { id: r.id, user: stores[0]?.user_name || "" })} className="rounded-md px-2 py-2 text-[11px] text-gray-400 hover:text-gray-700">Uji</button>
                   <button onClick={() => setEditing(r)} className="rounded-md p-2 text-gray-400 hover:text-gray-700" aria-label="Ubah"><PencilIcon /></button>
                   <button onClick={() => setEditing({ ...r, id: 0, name: r.name ? `${r.name} (salinan)` : "" })} className="rounded-md px-2 py-2 text-[11px] text-gray-400 hover:text-gray-700">Gandakan</button>
-                  <button onClick={() => confirm("Hapus pengumuman terjadwal ini?") && call("DELETE", { id: r.id })} className="rounded-md px-2 py-2 text-[11px] text-red-400 hover:text-red-600">Hapus</button>
+                  <button onClick={async () => await askConfirm("Hapus pengumuman terjadwal ini?") && call("DELETE", { id: r.id })} className="rounded-md px-2 py-2 text-[11px] text-red-400 hover:text-red-600">Hapus</button>
                 </div>
               </div>
               {testing?.id === r.id && (
