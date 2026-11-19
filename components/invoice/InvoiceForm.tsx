@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { taxBreakdown, pph21Amount, netPayable, PPH_RATES } from "@/lib/invoiceTax";
+import { taxBreakdown, pph21Amount, paymentBreakdown, PPH_RATES } from "@/lib/invoiceTax";
 import { TORCH_STORES, rupiah, type InvoiceLine, type MasterInvoice, type MasterItem } from "./shared";
 
 export interface InvoiceFormValues {
@@ -12,6 +12,8 @@ export interface InvoiceFormValues {
   customer_address: string;
   tax_percent: number;
   pph21_percent?: number;
+  ppn_by_customer?: boolean;
+  pph_by_customer?: boolean;
   use_signature: boolean;
   signature_store: string;
   signature_pic: string;
@@ -82,6 +84,8 @@ export default function InvoiceForm({
   const [address, setAddress] = useState(initial?.customer_address || "");
   const [usePph21, setUsePph21] = useState((initial?.pph21_percent || 0) > 0);
   const [pphRate, setPphRate] = useState<number>(initial?.pph21_percent || PPH_RATES[0]);
+  const [ppnByCust, setPpnByCust] = useState(!!initial?.ppn_by_customer);
+  const [pphByCust, setPphByCust] = useState(initial?.pph_by_customer !== false);
   const [usePPN, setUsePPN] = useState(initial ? (initial.tax_percent || 0) > 0 : !!master.default_use_ppn);
   const [useSign, setUseSign] = useState(initial ? !!initial.use_signature : !!master.default_use_signature);
   const [signStore, setSignStore] = useState(lockedStore || initial?.signature_store || "");
@@ -101,11 +105,12 @@ export default function InvoiceForm({
   const bd = taxBreakdown(lines, usePPN ? ppnRate : 0);
   const subtotal = bd.total;
   const pph21 = usePph21 ? pph21Amount(bd.dpp, pphRate) : 0;
+  const pay = paymentBreakdown({ grand_total: subtotal, tax_amount: bd.ppn, pph21_amount: pph21, ppn_by_customer: usePPN && ppnByCust, pph_by_customer: pphByCust });
   const setLine = (i: number, p: Partial<InvoiceLine>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...p } : l)));
 
   const values = (): InvoiceFormValues => ({
     doc_type: docType, invoice_number: number.trim(), invoice_date: date, customer_name: customer.trim(), customer_address: address.trim(),
-    tax_percent: usePPN ? ppnRate : 0, pph21_percent: usePph21 ? pphRate : 0, use_signature: useSign, signature_store: useSign ? signStore : "", signature_pic: useSign ? signPic : "",
+    tax_percent: usePPN ? ppnRate : 0, pph21_percent: usePph21 ? pphRate : 0, ppn_by_customer: usePPN && ppnByCust, pph_by_customer: pphByCust, use_signature: useSign, signature_store: useSign ? signStore : "", signature_pic: useSign ? signPic : "",
     items: lines.filter((l) => l.product_name.trim() || l.unit_price > 0).map((l) => ({ ...l, product_name: l.product_name.trim() })),
   });
 
@@ -194,11 +199,17 @@ export default function InvoiceForm({
           <h2 className="mb-3 text-sm font-semibold text-gray-800">Pajak & tanda tangan</h2>
           <label className="flex items-start gap-2 text-sm text-gray-700">
             <input type="checkbox" className="mt-1" checked={usePPN} onChange={(e) => setUsePPN(e.target.checked)} />
-            <span>Tampilkan PPN {ppnRate}%<span className="block text-xs text-gray-400">Harga barang sudah termasuk PPN. Jika dicentang, dokumen menampilkan harga tanpa PPN, lalu PPN {ppnRate}%; total pembayaran tetap sama.</span></span>
+            <span>Tampilkan PPN {ppnRate}%<span className="block text-xs text-gray-400">Harga barang sudah termasuk PPN. Jika dicentang, dokumen menampilkan harga tanpa PPN, lalu PPN {ppnRate}%; total harga tetap sama.</span></span>
           </label>
+          {usePPN && (
+            <label className="ml-6 mt-2 flex items-start gap-2 text-sm text-gray-700">
+              <input type="checkbox" className="mt-1" checked={ppnByCust} onChange={(e) => setPpnByCust(e.target.checked)} />
+              <span>PPN dibayar customer<span className="block text-xs text-gray-400">Customer menyetor PPN sendiri ke negara, jadi PPN dikurangi dari total pembayaran ke kita. Tidak dicentang = PPN kita yang tanggung.</span></span>
+            </label>
+          )}
           <label className="mt-3 flex items-start gap-2 text-sm text-gray-700">
             <input type="checkbox" className="mt-1" checked={usePph21} onChange={(e) => setUsePph21(e.target.checked)} />
-            <span>PPh 22<span className="block text-xs text-gray-400">Dihitung dari subtotal tanpa PPN (DPP) dan dipotong dari total pembayaran.</span></span>
+            <span>PPh 22<span className="block text-xs text-gray-400">Dihitung dari subtotal tanpa PPN (DPP).</span></span>
           </label>
           {usePph21 && (
             <div className="ml-6 mt-2 flex gap-2">
@@ -206,6 +217,12 @@ export default function InvoiceForm({
                 <button key={r} type="button" onClick={() => setPphRate(r)} className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${pphRate === r ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>{String(r).replace(".", ",")}%</button>
               ))}
             </div>
+          )}
+          {usePph21 && (
+            <label className="ml-6 mt-2 flex items-start gap-2 text-sm text-gray-700">
+              <input type="checkbox" className="mt-1" checked={pphByCust} onChange={(e) => setPphByCust(e.target.checked)} />
+              <span>PPh 22 dibayar customer<span className="block text-xs text-gray-400">Customer memotong/menyetor PPh sendiri, jadi PPh dikurangi dari total pembayaran ke kita. Tidak dicentang = PPh kita yang tanggung.</span></span>
+            </label>
           )}
           <label className="mt-3 flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" checked={useSign} onChange={(e) => setUseSign(e.target.checked)} /> Gunakan tanda tangan
@@ -246,10 +263,10 @@ export default function InvoiceForm({
           <h2 className="text-sm font-semibold text-gray-800">Ringkasan</h2>
           <dl className="space-y-1.5 text-sm">
             <div className="flex justify-between"><dt className="text-gray-500">{usePPN ? "Subtotal (tanpa PPN)" : "Subtotal"}</dt><dd>{rupiah(bd.dpp)}</dd></div>
-            {usePPN && <div className="flex justify-between"><dt className="text-gray-500">PPN</dt><dd>{rupiah(bd.ppn)}</dd></div>}
+            {usePPN && <div className="flex justify-between"><dt className="text-gray-500">PPN{pay.ppnCut > 0 ? " (dibayar customer)" : ""}</dt><dd>{pay.ppnCut > 0 ? "- " : ""}{rupiah(bd.ppn)}</dd></div>}
             <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-semibold"><dt>Total</dt><dd>{rupiah(subtotal)}</dd></div>
-            {usePph21 && <div className="flex justify-between"><dt className="text-gray-500">PPh 22 ({String(pphRate).replace(".", ",")}%)</dt><dd>- {rupiah(pph21)}</dd></div>}
-            {usePph21 && <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-semibold"><dt>Total dibayar</dt><dd>{rupiah(netPayable(subtotal, pph21))}</dd></div>}
+            {usePph21 && <div className="flex justify-between"><dt className="text-gray-500">PPh 22 ({String(pphRate).replace(".", ",")}%){pay.pphCut > 0 ? " (dibayar customer)" : ""}</dt><dd>{pay.pphCut > 0 ? "- " : ""}{rupiah(pph21)}</dd></div>}
+            {pay.net !== subtotal && <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-semibold"><dt>Total dibayar</dt><dd>{rupiah(pay.net)}</dd></div>}
           </dl>
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
           <button type="button" disabled={saving} onClick={() => onSave(values())} className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50">

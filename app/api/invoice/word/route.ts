@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sessionUser } from '@/lib/authz';
 import { actorOf, getMaster, getVisibleInvoice } from '@/lib/invoices';
-import { displayItems } from '@/lib/invoiceTax';
+import { displayItems, paymentBreakdown } from '@/lib/invoiceTax';
 import { fitBox, imageSize } from '@/lib/imageSize';
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
@@ -337,16 +337,17 @@ export async function POST(request: NextRequest) {
     children.push(new Paragraph({ spacing: { before: 100 }, children: [] }));
 
     // ── TOTALS ────────────────────────────────────────────────────────────────
+    const pay = paymentBreakdown(invoice);
     const totalRows: TableRow[] = [totalRow('SubTotal', formatRupiah(invoice.subtotal))];
     if (hasPPN) {
       totalRows.push(totalRow(
-        "PPN (info)",
-        formatRupiah(invoice.tax_amount)
+        pay.ppnCut > 0 ? "PPN (dibayar customer)" : "PPN (info)",
+        (pay.ppnCut > 0 ? '- ' : '') + formatRupiah(invoice.tax_amount)
       ));
     }
     const pph21 = Number(invoice.pph21_amount) || 0;
-    if (pph21 > 0) totalRows.push(totalRow(`PPh 22 (${String(Number(invoice.pph21_percent)).replace('.', ',')}%)`, '- ' + formatRupiah(pph21)));
-    totalRows.push(totalRow('Total Pembayaran', formatRupiah(invoice.grand_total - pph21), true));
+    if (pph21 > 0) totalRows.push(totalRow(`PPh 22 (${String(Number(invoice.pph21_percent)).replace('.', ',')}%)${pay.pphCut > 0 ? ', dibayar customer' : ''}`, (pay.pphCut > 0 ? '- ' : '') + formatRupiah(pph21)));
+    totalRows.push(totalRow('Total Pembayaran', formatRupiah(pay.net), true));
 
     children.push(new Table({
       width: { size: PAGE_WIDTH, type: WidthType.DXA },

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { taxBreakdown } from "@/lib/invoiceTax";
+import { taxBreakdown, paymentBreakdown } from "@/lib/invoiceTax";
 
 describe("PPN: harga sudah termasuk PPN", () => {
   it("tanpa PPN: tidak ada perubahan", () => {
@@ -47,4 +47,27 @@ describe("PPh 22", () => {
 it("PPh 22 tarif 2% (contoh Rp 90.000.000)", () => {
   const bd = taxBreakdown([{ qty: 1, unit_price: 90000000 }], 11);
   expect(pph21Amount(bd.dpp, 2)).toBe(1621622);
+});
+
+describe("paymentBreakdown (pajak dibayar customer)", () => {
+  // Ethera 159.000 × 86, diskon 6% → harga satuan 149.460, total 12.853.560 (incl. PPN 11%)
+  const items = [{ qty: 86, unit_price: 149460 }];
+  const bd = taxBreakdown(items, 11);
+  const pph = pph21Amount(bd.dpp, 1.5);
+  const base = { grand_total: bd.total, tax_amount: bd.ppn, pph21_amount: pph };
+  it("hitungan dasar", () => {
+    expect(bd.total).toBe(12853560);
+    expect(pph).toBe(173697);
+  });
+  it("PPN & PPh dibayar customer → total − PPN − PPh", () => {
+    const r = paymentBreakdown({ ...base, ppn_by_customer: true, pph_by_customer: true });
+    expect(r.net).toBe(bd.total - bd.ppn - pph);
+    expect(r.net).toBe(11406087);
+  });
+  it("bawaan (dokumen lama): hanya PPh yang mengurangi", () => {
+    expect(paymentBreakdown(base).net).toBe(12853560 - 173697);
+  });
+  it("ditanggung kita → tidak mengurangi", () => {
+    expect(paymentBreakdown({ ...base, ppn_by_customer: false, pph_by_customer: false }).net).toBe(12853560);
+  });
 });

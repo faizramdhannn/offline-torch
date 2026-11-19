@@ -21,6 +21,8 @@ export const invoiceInputSchema = z.object({
   customer_address: text(500, false),
   tax_percent: z.any().optional().transform((v) => Math.max(0, Math.min(100, Number(v) || 0))),
   pph21_percent: z.any().optional().transform((v) => Number(v) || 0),
+  ppn_by_customer: z.any().optional().transform((v) => v === true),
+  pph_by_customer: z.any().optional().transform((v) => v !== false), // bawaan: customer yang potong PPh
   use_signature: z.any().optional().transform((v) => !!v),
   signature_store: text(100, false),
   signature_pic: text(100, false),

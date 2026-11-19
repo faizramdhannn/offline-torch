@@ -1,5 +1,6 @@
 "use client";
 
+import { paymentBreakdown } from "@/lib/invoiceTax";
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -106,6 +107,7 @@ export default function InvoiceDocumentPage() {
   if (state === "missing" || !d) return <div className="p-6 text-sm text-gray-500">Dokumen tidak ditemukan. <Link href="/invoice" className="underline">Kembali ke daftar</Link></div>;
 
   const inv = d.invoice;
+  const pay = paymentBreakdown(inv);
   const has = (a: Action) => d.actions.includes(a);
   const title = inv.doc_type === "quotation" ? "Quotation" : `Invoice ${inv.invoice_number || ""}`;
   const btn = "inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50";
@@ -186,10 +188,10 @@ export default function InvoiceDocumentPage() {
             </table>
             <dl className="mt-3 ml-auto max-w-xs space-y-1.5 text-sm">
               <div className="flex justify-between"><dt className="text-gray-500">{inv.tax_percent > 0 && inv.tax_mode === "inclusive" ? "Subtotal (tanpa PPN)" : "Subtotal"}</dt><dd>{rupiah(inv.subtotal)}</dd></div>
-              {inv.tax_percent > 0 && <div className="flex justify-between"><dt className="text-gray-500">PPN{inv.tax_mode === "inclusive" ? "" : " (info)"}</dt><dd className={inv.tax_mode === "inclusive" ? "" : "text-gray-500"}>{rupiah(inv.tax_amount)}</dd></div>}
+              {inv.tax_percent > 0 && <div className="flex justify-between"><dt className="text-gray-500">PPN{inv.tax_mode === "inclusive" ? (pay.ppnCut > 0 ? " (dibayar customer)" : "") : " (info)"}</dt><dd className={inv.tax_mode === "inclusive" ? "" : "text-gray-500"}>{pay.ppnCut > 0 ? "- " : ""}{rupiah(inv.tax_amount)}</dd></div>}
               <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-semibold"><dt>Total</dt><dd>{rupiah(inv.grand_total)}</dd></div>
-              {(inv.pph21_amount || 0) > 0 && <div className="flex justify-between"><dt className="text-gray-500">PPh 22 ({String(inv.pph21_percent).replace(".", ",")}%)</dt><dd>- {rupiah(inv.pph21_amount || 0)}</dd></div>}
-              {(inv.pph21_amount || 0) > 0 && <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-semibold"><dt>Total dibayar</dt><dd>{rupiah(inv.grand_total - (inv.pph21_amount || 0))}</dd></div>}
+              {(inv.pph21_amount || 0) > 0 && <div className="flex justify-between"><dt className="text-gray-500">PPh 22 ({String(inv.pph21_percent).replace(".", ",")}%){pay.pphCut > 0 ? " (dibayar customer)" : ""}</dt><dd>{pay.pphCut > 0 ? "- " : ""}{rupiah(inv.pph21_amount || 0)}</dd></div>}
+              {pay.net !== inv.grand_total && <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-semibold"><dt>Total dibayar</dt><dd>{rupiah(pay.net)}</dd></div>}
             </dl>
             <p className="mt-2 text-xs italic text-gray-500">Terbilang: {inv.amount_in_words}</p>
           </section>

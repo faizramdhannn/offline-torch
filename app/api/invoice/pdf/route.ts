@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sessionUser } from '@/lib/authz';
 import { actorOf, getMaster, getVisibleInvoice } from '@/lib/invoices';
-import { displayItems } from '@/lib/invoiceTax';
+import { displayItems, paymentBreakdown } from '@/lib/invoiceTax';
 import { dataUriToBuffer, fitBox, imageSize } from '@/lib/imageSize';
 import jsPDF from 'jspdf';
 
@@ -325,6 +325,9 @@ export async function POST(request: NextRequest) {
     doc.text(formatRupiah(invoice.subtotal), totValEnd, y + 5, { align: 'right' });
     y += tRowH;
 
+    // Pembayaran: PPN/PPh yang disetor customer sendiri dikurangkan dari total (lihat paymentBreakdown)
+    const pay = paymentBreakdown(invoice);
+
     // Baris PPN
     if (hasPPN) {
       setFill(doc, '#f0f4fa');
@@ -332,8 +335,8 @@ export async function POST(request: NextRequest) {
       setTextCol(doc, TEXT_GRAY);
       setFont(doc, 'normal');
       doc.setFontSize(8);
-      doc.text("PPN", totLblEnd, y + 5, { align: 'right' });
-      doc.text(formatRupiah(invoice.tax_amount), totValEnd, y + 5, { align: 'right' });
+      doc.text(pay.ppnCut > 0 ? 'PPN (dibayar customer)' : 'PPN', totLblEnd, y + 5, { align: 'right' });
+      doc.text((pay.ppnCut > 0 ? '- ' : '') + formatRupiah(invoice.tax_amount), totValEnd, y + 5, { align: 'right' });
       y += tRowH;
     }
 
@@ -345,8 +348,8 @@ export async function POST(request: NextRequest) {
       setTextCol(doc, TEXT_GRAY);
       setFont(doc, 'normal');
       doc.setFontSize(8);
-      doc.text(`PPh 22 (${String(Number(invoice.pph21_percent)).replace('.', ',')}%)`, totLblEnd, y + 5, { align: 'right' });
-      doc.text('- ' + formatRupiah(pph21), totValEnd, y + 5, { align: 'right' });
+      doc.text(`PPh 22 (${String(Number(invoice.pph21_percent)).replace('.', ',')}%)${pay.pphCut > 0 ? ', dibayar customer' : ''}`, totLblEnd, y + 5, { align: 'right' });
+      doc.text((pay.pphCut > 0 ? '- ' : '') + formatRupiah(pph21), totValEnd, y + 5, { align: 'right' });
       y += tRowH;
     }
 
@@ -359,7 +362,7 @@ export async function POST(request: NextRequest) {
     setFont(doc, 'bold');
     doc.setFontSize(9);
     doc.text('Total Pembayaran', margin + cW * 0.35, y + 6, { align: 'center' });
-    doc.text(formatRupiah(invoice.grand_total - pph21), W - margin - 2, y + 6, { align: 'right' });
+    doc.text(formatRupiah(pay.net), W - margin - 2, y + 6, { align: 'right' });
     y += tRowH + 2 + 8;
 
     // ── TERBILANG ─────────────────────────────────────────────────────────────

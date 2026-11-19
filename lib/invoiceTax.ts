@@ -43,3 +43,14 @@ export function pph21Amount(dpp: number, ratePercent: number): number {
   return r > 0 ? Math.round((Number(dpp) || 0) * r / 100) : 0;
 }
 export const netPayable = (grandTotal: number, pph21: number) => (Number(grandTotal) || 0) - (Number(pph21) || 0);
+
+// Siapa yang menyetor pajak ke negara. "Dibayar customer" = customer menyetor sendiri, jadi dikurangi dari pembayaran
+// ke kita (total pajak). Bila tidak, pajak ditanggung kita dan tidak mengurangi pembayaran.
+//   PPN   : bawaan kita yang tanggung (ppn_by_customer = false)
+//   PPh 22: bawaan customer yang potong (pph_by_customer = true) — sama dengan dokumen lama
+export interface PayDoc { grand_total: number; tax_amount?: number; pph21_amount?: number; ppn_by_customer?: boolean; pph_by_customer?: boolean }
+export function paymentBreakdown(d: PayDoc) {
+  const ppnCut = d.ppn_by_customer ? Math.max(0, Number(d.tax_amount) || 0) : 0;
+  const pphCut = d.pph_by_customer === false ? 0 : Math.max(0, Number(d.pph21_amount) || 0);
+  return { ppnCut, pphCut, net: (Number(d.grand_total) || 0) - ppnCut - pphCut };
+}
