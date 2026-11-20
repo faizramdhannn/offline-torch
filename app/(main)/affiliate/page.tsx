@@ -23,7 +23,8 @@ import {
   AffiliateStoreListItem,
   AffiliateOrder,
 } from "@/types";
-import { Plus, Pencil, Trash2, Download, ScanLine, QrCode } from "lucide-react";
+import { Modal } from "@/components/shared/Modal";
+import { Plus, Pencil, Trash2, Download, ScanLine, QrCode, Eye } from "lucide-react";
 
 // Font kartu affiliate (juga dipakai di canvas saat download).
 const onest = Onest({ subsets: ["latin"], weight: ["500", "700", "800"], display: "swap" });
@@ -195,7 +196,7 @@ function ListAffiliateTab({ affiliates }: { affiliates: MasterAffiliate[] }) {
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
   // Direktori toko (nama + alamat) untuk kartu download: affiliate_store "karawang" → "Torch Karawang" + alamatnya.
-  const [directory, setDirectory] = useState<{ store_location: string; address: string }[]>([]);
+  const [directory, setDirectory] = useState<{ store_location: string; address: string; phone_number?: string }[]>([]);
   useEffect(() => {
     fetch("/api/store-directory").then((r) => (r.ok ? r.json() : [])).then((d) => setDirectory(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
@@ -204,11 +205,12 @@ function ListAffiliateTab({ affiliates }: { affiliates: MasterAffiliate[] }) {
     (n || "").trim().toLowerCase().replace(/^torch\s+/, "").replace(/\b(jogjakarta|jogja|yogya)\b/g, "yogyakarta").replace(/\s+/g, " ");
   const storeInfo = (name: string) => {
     const key = cityKey(name);
-    if (!key) return { name: "", address: "" };
+    if (!key) return { name: "", address: "", phone: "" };
     const hit = directory.find((d) => cityKey(d.store_location) === key);
     return {
       name: hit?.store_location || `Torch ${key.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1))}`,
-      address: hit?.address || "",
+      address: SHORT_ADDRESS[key] || SHORT_ADDRESS[cityKey(hit?.store_location || "")] || hit?.address || "",
+      phone: hit?.phone_number || "",
     };
   };
 
@@ -264,14 +266,34 @@ function ListAffiliateTab({ affiliates }: { affiliates: MasterAffiliate[] }) {
   );
 }
 
-function AffiliateCard({ affiliate, store }: { affiliate: MasterAffiliate; store: { name: string; address: string } }) {
+// Alamat singkat untuk banner voucher (kunci = nama kota/toko huruf kecil tanpa "torch"). Toko yang tidak ada di sini
+// memakai alamat lengkap dari profil. Tambah/ubah di sini bila ada toko baru.
+const SHORT_ADDRESS: Record<string, string> = {
+  bandung: "Jl. Lembong No. 30, Braga",
+  lembong: "Jl. Lembong No. 30, Braga",
+  karawang: "Jl. Kertabumi No.37",
+  cirebon: "Jl. Siliwangi No.112",
+  yogyakarta: "Jogja City Mall Lantai UG Unit No.48",
+  lampung: "Jl. P. Antasari No.67A, Tj. Baru",
+  "bandar lampung": "Jl. P. Antasari No.67A, Tj. Baru",
+  margonda: "Jl. Margonda Raya No.192",
+  depok: "Jl. Margonda Raya No.192",
+  pekalongan: "Jl. Urip Sumoharjo No.236",
+  purwokerto: "Jl. Profesor DR. HR Boenyamin No.4",
+  surabaya: "Jl. Raya Manyar No.06, Baratajaya",
+};
+
+function AffiliateCard({ affiliate, store }: { affiliate: MasterAffiliate; store: { name: string; address: string; phone: string } }) {
   const [downloading, setDownloading] = useState(false);
+  // QR voucher = chat WhatsApp ke toko (wa.me/62…); tanpa nomor toko → kode voucher saja.
+  const waDigits = (store.phone || "").replace(/\D/g, "");
+  const waLink = waDigits ? `https://wa.me/${waDigits}` : affiliate.affiliate_code || "";
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileName = `Affiliate_${(affiliate.affiliate_name || "unknown").replace(/\s+/g, "_")}_${affiliate.affiliate_code || ""}.png`;
 
   // Download = banner voucher (public/affiliate-card.webp, 1654×827): "Kode Voucher : X" di kotak putih, "Klaim kode
   // vouchernya di Store …" + alamat di bawahnya, QR di kanan. Teks digambar di canvas dengan font Onest.
-  const handleDownload = async () => {
-    setDownloading(true);
-    try {
+  const buildImage = async (): Promise<string> => {
       const qrCanvas = document.getElementById(`affiliate-qr-hd-${affiliate.id}`) as HTMLCanvasElement | null;
       if (!qrCanvas) throw new Error("QR canvas not found");
 
@@ -316,8 +338,12 @@ function AffiliateCard({ affiliate, store }: { affiliate: MasterAffiliate; store
       };
       let y = 672;
       if (store.name) {
-        ctx.font = `700 21px ${ff}`;
-        for (const l of wrap(`Klaim kode vouchernya di Store ${store.name}`, 380)) { ctx.fillText(l, 1005, y); y += 29; }
+        // Satu baris: "Klaim kode vouchernya di Store <nama toko>"; font mengecil bila terlalu panjang, baru turun baris.
+        const claim = `Klaim kode vouchernya di Store ${store.name}`;
+        let cs = 21;
+        ctx.font = `700 ${cs}px ${ff}`;
+        while (ctx.measureText(claim).width > 430 && cs > 15) { cs -= 1; ctx.font = `700 ${cs}px ${ff}`; }
+        for (const l of wrap(claim, 430)) { ctx.fillText(l, 1005, y); y += cs + 8; }
         y += 4;
       }
       if (store.address) {
@@ -326,22 +352,47 @@ function AffiliateCard({ affiliate, store }: { affiliate: MasterAffiliate; store
         lines.slice(0, 3).forEach((l, i) => { ctx.fillText(lines.length > 3 && i === 2 ? `${l}…` : l, 1005, y); y += 26; });
       }
 
-      const tile = 178, tx = 1405, ty = 640;
+      const tile = 124, tx = 1459, ty = 652;
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
       ctx.roundRect(tx, ty, tile, tile, 14);
       ctx.fill();
-      ctx.drawImage(qrCanvas, tx + 9, ty + 9, tile - 18, tile - 18);
+      ctx.drawImage(qrCanvas, tx + 7, ty + 7, tile - 14, tile - 14);
+      // Logo Torch di tengah QR (level H tahan ±30% tertutup; lebar logo ±38% QR). Gagal muat → QR polos.
+      try {
+        const logo = new Image();
+        logo.crossOrigin = "anonymous";
+        await new Promise<void>((ok, bad) => { logo.onload = () => ok(); logo.onerror = () => bad(new Error("logo")); logo.src = "https://i.ibb.co.com/dJBmqq1S/TORCH-LOGOS.png"; });
+        const lw = (tile - 14) * 0.38, lh = lw * (logo.naturalHeight / logo.naturalWidth), pad = 3;
+        const cx = tx + tile / 2, cy = ty + tile / 2;
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.roundRect(cx - lw / 2 - pad, cy - lh / 2 - pad, lw + pad * 2, lh + pad * 2, 4);
+        ctx.fill();
+        ctx.drawImage(logo, cx - lw / 2, cy - lh / 2, lw, lh);
+      } catch { /* abaikan */ }
       ctx.restore();
 
-      const link = document.createElement("a");
-      link.href = canvas.toDataURL("image/png");
-      link.download = `Affiliate_${(affiliate.affiliate_name || "unknown").replace(/\s+/g, "_")}_${affiliate.affiliate_code || ""}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      return canvas.toDataURL("image/png");
+  };
+
+  const saveUrl = (url: string) => {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const run = async (mode: "download" | "preview") => {
+    setDownloading(true);
+    try {
+      const url = await buildImage();
+      if (mode === "preview") setPreviewUrl(url);
+      else saveUrl(url);
     } catch (err) {
-      console.error("Failed to download affiliate card:", err);
+      console.error("Failed to build affiliate card:", err);
     } finally {
       setDownloading(false);
     }
@@ -351,7 +402,7 @@ function AffiliateCard({ affiliate, store }: { affiliate: MasterAffiliate; store
     <GlassCard className={`flex items-center gap-4 ${onest.className}`}>
       <div className="flex-shrink-0">
         {/* QR resolusi tinggi (tersembunyi) khusus untuk gambar download */}
-        <QRCodeCanvas id={`affiliate-qr-hd-${affiliate.id}`} value={affiliate.affiliate_code || ""} size={400} level="H" className="hidden" />
+        <QRCodeCanvas id={`affiliate-qr-hd-${affiliate.id}`} value={waLink} size={400} level="H" className="hidden" />
         <QRCodeCanvas
           id={`affiliate-qr-${affiliate.id}`}
           value={affiliate.affiliate_code || ""}
@@ -378,17 +429,29 @@ function AffiliateCard({ affiliate, store }: { affiliate: MasterAffiliate; store
             {[affiliate.affiliate_job, affiliate.affiliate_instantion, affiliate.affiliate_store].filter(Boolean).join(" · ")}
           </p>
         )}
-        <Button
-          size="sm"
-          variant="outline"
-          icon={Download}
-          className="mt-2"
-          onClick={handleDownload}
-          loading={downloading}
-        >
-          Download
-        </Button>
+        <div className="mt-2 flex gap-2">
+          <Button size="sm" variant="outline" icon={Eye} onClick={() => run("preview")} loading={downloading}>
+            Preview
+          </Button>
+          <Button size="sm" variant="outline" icon={Download} onClick={() => run("download")} disabled={downloading}>
+            Download
+          </Button>
+        </div>
       </div>
+      <Modal
+        open={!!previewUrl}
+        onClose={() => setPreviewUrl(null)}
+        title="Preview Voucher"
+        maxWidth="max-w-3xl"
+        footer={
+          <Button size="sm" icon={Download} onClick={() => previewUrl && saveUrl(previewUrl)}>
+            Download
+          </Button>
+        }
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {previewUrl && <img src={previewUrl} alt="Preview voucher" className="w-full rounded-lg" />}
+      </Modal>
     </GlassCard>
   );
 }
