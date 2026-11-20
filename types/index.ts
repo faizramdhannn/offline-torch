@@ -172,9 +172,7 @@ export interface MasterAffiliate {
   affiliate_name: string;
   affiliate_number: string;
   affiliate_code: string;
-  affiliate_domicile: string;
-  affiliate_address: string;
-  affiliate_born: string;
+  affiliate_instantion: string; // typo "instantion" memang nama kolom di sheet (instansi)
   affiliate_job: string;
   affiliate_store: string;
 }
@@ -312,9 +310,7 @@ export interface AffiliateMaster {
   affiliate_name: string;
   affiliate_number: string;
   affiliate_code: string;
-  affiliate_domicile: string;
-  affiliate_address: string;
-  affiliate_born: string;
+  affiliate_instantion: string; // typo "instantion" memang nama kolom di sheet (instansi)
   affiliate_job: string;
   affiliate_store: string;
 }

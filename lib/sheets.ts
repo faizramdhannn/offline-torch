@@ -156,7 +156,7 @@ const SHEET_RANGE: Record<string, string> = {
   schedule_report: "A1:AJ",
   daily_sales: "A1:AJ",
   target_sales: "A1:AJ",
-  master_affiliate: "A1:L",       // 12 kolom
+  master_affiliate: "A1:L",       // 9 kolom: id, affliate_register, affiliate_email, affiliate_name, affiliate_number, affiliate_code, affiliate_instantion, affiliate_job, affiliate_store
   master_data: "A1:C",            // 3 kolom
   affiliate_store_list: "A1:C",   // 3 kolom
   order_log_affiliate: "A1:K",    // 11 kolom

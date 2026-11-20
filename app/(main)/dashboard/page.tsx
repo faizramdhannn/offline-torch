@@ -10,16 +10,16 @@ import {
   Activity,
   CircleAlert,
   Clock3,
-  Zap,
 } from "lucide-react";
 
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { SummaryCard } from "@/components/dashboard/SummaryCard";
 import { SectionCard } from "@/components/dashboard/SectionCard";
 import { ShiftCard } from "@/components/dashboard/ShiftCard";
-import { QuickAction } from "@/components/dashboard/QuickAction";
 import { StoreTable } from "@/components/dashboard/StoreTable";
 import { EmptyState } from "@/components/dashboard/EmptyState";
+import { PendingActions, useDashboardSummary, pendingTotal } from "@/components/dashboard/PendingActions";
+import { AttendanceStatus } from "@/components/dashboard/AttendanceStatus";
 import { CardSkeletonRow } from "@/components/dashboard/LoadingSkeleton";
 
 interface ActivityLog {
@@ -124,6 +124,7 @@ export default function DashboardPage() {
   const [todayActivityCount, setTodayActivityCount] = useState(0);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   useSessionGuard();
+  const summary = useDashboardSummary();
 
   // Absensi hari ini (dari report)
   const [todayReport, setTodayReport] = useState<{
@@ -254,6 +255,7 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
   const handleRefreshAll = async () => {
     setIsRefreshing(true);
     await Promise.all([
+      summary.refetch(),
       fetchActivityLogs(),
       fetchStoreAddresses(),
       fetchTodayAttendance(),
@@ -278,12 +280,17 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
   );
   const activeStoreCount = activeStoreNames.size;
 
-  // Attendance Today = berapa store AKTIF yang sudah capture attendance hari
-  // ini, dari total store aktif (bukan lagi dari daftar toko di taft_list).
-  const attendanceTodayCount = todayReport.filter(
-    (store) => activeStoreNames.has(normalizeStoreName(store.store)) && store.tafts.some(t => t.code)
-  ).length;
-  const totalStoreCount = activeStoreCount;
+  // Attendance Today = toko ber-role STORE (merchant tidak capture) yang sudah Capture Attendance (buka) hari ini,
+  // dari sheet attendance_store lewat /api/dashboard/summary — bukan dari laporan shift staf (schedule_report).
+  const captureByStore = new Map((summary.data?.capture || []).map((c) => [normalizeStoreName(c.store), c]));
+  const captureStores = storeAddresses.filter(
+    (s) => (!s.status || s.status.trim().toLowerCase() === "active") && s.role !== "merchant"
+  );
+  const attendanceRows = captureStores
+    .map((s) => { const c = captureByStore.get(normalizeStoreName(s.store_location)); return { store: s.store_location, open: c?.open || "", close: c?.close || "" }; })
+    .sort((a, b) => Number(!!a.open) - Number(!!b.open)); // yang belum buka di atas
+  const attendanceTodayCount = attendanceRows.filter((r) => r.open).length;
+  const totalStoreCount = attendanceRows.length;
   const totalTaftToday = todayReport.reduce((sum, store) => sum + store.tafts.length, 0);
   const pendingShiftCount = todaySchedules.reduce(
     (sum, s) => sum + s.tafts.filter((t) => !t.code).length,
@@ -307,16 +314,19 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
         <DashboardHeader
           dayLabel={todayLabel}
           dateLabel={dateLabel}
+          userName={user.name || user.user_name}
+          pendingTotal={pendingTotal(summary.data)}
           onRefresh={handleRefreshAll}
           isRefreshing={isRefreshing}
         />
 
         {/* ── Summary Cards ──────────────────────────────────────── */}
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <SummaryCard
             label="Attendance Today"
             value={attendanceTodayCount}
             suffix={totalStoreCount ? `/${totalStoreCount} store` : ""}
+            progress={totalStoreCount ? attendanceTodayCount / totalStoreCount : 0}
             icon={UserCheck}
             accent="green"
             delay={0}
@@ -349,6 +359,12 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
             accent="gray"
             delay={0.16}
           />
+        </div>
+
+        {/* ── Perlu tindakan (pending dari menu lain, 1 panggilan ter-cache) ── */}
+        <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <PendingActions className="lg:col-span-2" />
+          <AttendanceStatus rows={attendanceRows} loading={summary.isLoading || !storeAddresses.length} />
         </div>
 
         {/* ── Today's Shift — full-width bento row ─────────────────── */}
@@ -392,17 +408,8 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
           </SectionCard>
         </div>
 
-        {/* ── Quick Action + Store Location — bento row (1/3 + 2/3) ── */}
-        <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="lg:col-span-1">
-            <SectionCard title="Quick Action" icon={Zap} accent="orange" noPadding className="h-full">
-              <div className="p-4">
-                <QuickAction />
-              </div>
-            </SectionCard>
-          </div>
-
-          <div className="lg:col-span-2">
+        {/* ── Store Location ── */}
+        <div className="mb-6">
           <SectionCard title="Store Location" icon={StoreIcon} accent="purple">
             <StoreTable
               stores={storeAddresses.filter((s) => !s.status || s.status.trim().toLowerCase() === "active")}
@@ -411,7 +418,6 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
               onRefresh={fetchStoreAddresses}
             />
           </SectionCard>
-          </div>
         </div>
 
       </div>

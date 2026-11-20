@@ -144,6 +144,7 @@ export const RULES: Rule[] = [
   need("/api/petty-cash", ["petty_cash_add"], ["POST", "PUT", "DELETE"]),
   need("/api/petty-cash/history", ["petty_cash"]),
   need("/api/petty-cash/balance", ["petty_cash_balance"], ["POST", "PUT", "DELETE"]),
+  need("/api/dashboard", ["dashboard"]),
   need("/api/qr-code", ["dashboard"]),
   need("/api/request-store", ["request", "edit_request"]),
   need("/api/request-tracking", ["request_tracking", "tracking_edit"], undefined, {

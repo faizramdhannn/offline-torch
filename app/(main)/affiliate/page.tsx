@@ -7,6 +7,7 @@ import { SortableTh } from "@/components/shared/SortableTh";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { hasTextSelection } from "@/lib/utils";
 import { QRCodeCanvas } from "qrcode.react";
+import { Onest } from "next/font/google";
 import Popup from "@/components/Popup";
 import { Button } from "@/components/shared/Button";
 import { SearchShortcutHint } from "@/components/shared/SearchShortcutHint";
@@ -23,6 +24,9 @@ import {
   AffiliateOrder,
 } from "@/types";
 import { Plus, Pencil, Trash2, Download, ScanLine, QrCode } from "lucide-react";
+
+// Font kartu affiliate (juga dipakai di canvas saat download).
+const onest = Onest({ subsets: ["latin"], weight: ["500", "700", "800"], display: "swap" });
 
 type MainTab = "list" | "orders" | "report" | "master";
 type ReportSubTab = "affiliate" | "store";
@@ -190,6 +194,23 @@ function ListAffiliateTab({ affiliates }: { affiliates: MasterAffiliate[] }) {
   const searchParams = useSearchParams();
   const { ref: searchRef, shortcutLabel } = useSearchShortcut();
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
+  // Direktori toko (nama + alamat) untuk kartu download: affiliate_store "karawang" → "Torch Karawang" + alamatnya.
+  const [directory, setDirectory] = useState<{ store_location: string; address: string }[]>([]);
+  useEffect(() => {
+    fetch("/api/store-directory").then((r) => (r.ok ? r.json() : [])).then((d) => setDirectory(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+  // Samakan ejaan kota yang sering beda antara form affiliate dan nama akun toko (jogja/yogya/jogjakarta → yogyakarta).
+  const cityKey = (n: string) =>
+    (n || "").trim().toLowerCase().replace(/^torch\s+/, "").replace(/\b(jogjakarta|jogja|yogya)\b/g, "yogyakarta").replace(/\s+/g, " ");
+  const storeInfo = (name: string) => {
+    const key = cityKey(name);
+    if (!key) return { name: "", address: "" };
+    const hit = directory.find((d) => cityKey(d.store_location) === key);
+    return {
+      name: hit?.store_location || `Torch ${key.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1))}`,
+      address: hit?.address || "",
+    };
+  };
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -205,7 +226,9 @@ function ListAffiliateTab({ affiliates }: { affiliates: MasterAffiliate[] }) {
       (a) =>
         (a.affiliate_name || "").toLowerCase().includes(q) ||
         (a.affiliate_code || "").toLowerCase().includes(q) ||
-        (a.affiliate_email || "").toLowerCase().includes(q)
+        (a.affiliate_email || "").toLowerCase().includes(q) ||
+        (a.affiliate_instantion || "").toLowerCase().includes(q) ||
+        (a.affiliate_store || "").toLowerCase().includes(q)
     );
   }, [affiliates, search]);
 
@@ -219,7 +242,7 @@ function ListAffiliateTab({ affiliates }: { affiliates: MasterAffiliate[] }) {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari nama, kode, atau email affiliate..."
+            placeholder="Cari nama, kode, email, instansi, atau toko..."
             className="w-full px-2 py-1.5 pr-11 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
           />
           <SearchShortcutHint label={shortcutLabel} />
@@ -233,7 +256,7 @@ function ListAffiliateTab({ affiliates }: { affiliates: MasterAffiliate[] }) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((a, i) => (
-            <AffiliateCard key={a.id || i} affiliate={a} />
+            <AffiliateCard key={a.id || i} affiliate={a} store={storeInfo(a.affiliate_store)} />
           ))}
         </div>
       )}
@@ -241,54 +264,78 @@ function ListAffiliateTab({ affiliates }: { affiliates: MasterAffiliate[] }) {
   );
 }
 
-function AffiliateCard({ affiliate }: { affiliate: MasterAffiliate }) {
+function AffiliateCard({ affiliate, store }: { affiliate: MasterAffiliate; store: { name: string; address: string } }) {
   const [downloading, setDownloading] = useState(false);
 
-  const handleDownload = () => {
+  // Download = banner voucher (public/affiliate-card.webp, 1654×827): "Kode Voucher : X" di kotak putih, "Klaim kode
+  // vouchernya di Store …" + alamat di bawahnya, QR di kanan. Teks digambar di canvas dengan font Onest.
+  const handleDownload = async () => {
     setDownloading(true);
     try {
-      const qrCanvas = document.getElementById(
-        `affiliate-qr-${affiliate.id}`
-      ) as HTMLCanvasElement | null;
+      const qrCanvas = document.getElementById(`affiliate-qr-hd-${affiliate.id}`) as HTMLCanvasElement | null;
       if (!qrCanvas) throw new Error("QR canvas not found");
 
-      const width = 500;
-      const height = 220;
+      const ff = onest.style.fontFamily;
+      await Promise.all([document.fonts.load(`700 40px ${ff}`, "Kode"), document.fonts.load(`800 30px ${ff}`, "Torch"), document.fonts.load(`500 20px ${ff}`, "Alamat")]);
+      const img = new Image();
+      await new Promise<void>((ok, bad) => { img.onload = () => ok(); img.onerror = () => bad(new Error("banner")); img.src = "/affiliate-card.webp"; });
+
       const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
       const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("Canvas context not available");
+      if (!ctx) throw new Error("no canvas");
+      ctx.drawImage(img, 0, 0);
 
-      // Background card
+      // Semua koordinat di bawah dalam skala banner 1654×827; di-scale otomatis bila banner diganti ke ukuran lain (rasio 2:1).
+      const k = img.naturalWidth / 1654;
+      ctx.save();
+      ctx.scale(k, k);
+
+      // Kotak putih kode voucher (x 1005–1587, y 541–620; ikon keranjang di kiri ±1080)
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#0b2a3a";
+      let size = 40;
+      const codeText = `Kode Voucher : ${affiliate.affiliate_code || "-"}`;
+      ctx.font = `700 ${size}px ${ff}`;
+      while (ctx.measureText(codeText).width > 460 && size > 20) { size -= 2; ctx.font = `700 ${size}px ${ff}`; }
+      ctx.fillText(codeText, 1100, 581);
+
+      // Teks klaim + alamat toko (kiri-bawah kotak); QR di kanan
+      ctx.textBaseline = "alphabetic";
       ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, width, height);
-      ctx.strokeStyle = "#e5e7eb";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(1, 1, width - 2, height - 2);
+      const wrap = (text: string, maxW: number) => {
+        const out: string[] = [];
+        let line = "";
+        for (const word of text.split(/\s+/).filter(Boolean)) {
+          const t = line ? `${line} ${word}` : word;
+          if (ctx.measureText(t).width > maxW && line) { out.push(line); line = word; } else line = t;
+        }
+        if (line) out.push(line);
+        return out;
+      };
+      let y = 672;
+      if (store.name) {
+        ctx.font = `700 21px ${ff}`;
+        for (const l of wrap(`Klaim kode vouchernya di Store ${store.name}`, 380)) { ctx.fillText(l, 1005, y); y += 29; }
+        y += 4;
+      }
+      if (store.address) {
+        ctx.font = `500 20px ${ff}`;
+        const lines = wrap(store.address, 380);
+        lines.slice(0, 3).forEach((l, i) => { ctx.fillText(lines.length > 3 && i === 2 ? `${l}…` : l, 1005, y); y += 26; });
+      }
 
-      // QR on the left
-      const qrSize = 180;
-      const qrPad = 20;
-      ctx.drawImage(qrCanvas, qrPad, (height - qrSize) / 2, qrSize, qrSize);
+      const tile = 178, tx = 1405, ty = 640;
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.roundRect(tx, ty, tile, tile, 14);
+      ctx.fill();
+      ctx.drawImage(qrCanvas, tx + 9, ty + 9, tile - 18, tile - 18);
+      ctx.restore();
 
-      // Text on the right
-      const textX = qrPad + qrSize + 30;
-      ctx.fillStyle = "#111827";
-      ctx.font = "bold 22px sans-serif";
-      ctx.fillText(affiliate.affiliate_name || "-", textX, height / 2 - 10);
-
-      ctx.fillStyle = "#6b7280";
-      ctx.font = "16px sans-serif";
-      ctx.fillText(affiliate.affiliate_number || "-", textX, height / 2 + 20);
-
-      ctx.fillStyle = "#2563eb";
-      ctx.font = "600 14px sans-serif";
-      ctx.fillText(affiliate.affiliate_code || "-", textX, height / 2 + 45);
-
-      const dataUrl = canvas.toDataURL("image/png");
       const link = document.createElement("a");
-      link.href = dataUrl;
+      link.href = canvas.toDataURL("image/png");
       link.download = `Affiliate_${(affiliate.affiliate_name || "unknown").replace(/\s+/g, "_")}_${affiliate.affiliate_code || ""}.png`;
       document.body.appendChild(link);
       link.click();
@@ -301,8 +348,10 @@ function AffiliateCard({ affiliate }: { affiliate: MasterAffiliate }) {
   };
 
   return (
-    <GlassCard className="flex items-center gap-4">
+    <GlassCard className={`flex items-center gap-4 ${onest.className}`}>
       <div className="flex-shrink-0">
+        {/* QR resolusi tinggi (tersembunyi) khusus untuk gambar download */}
+        <QRCodeCanvas id={`affiliate-qr-hd-${affiliate.id}`} value={affiliate.affiliate_code || ""} size={400} level="H" className="hidden" />
         <QRCodeCanvas
           id={`affiliate-qr-${affiliate.id}`}
           value={affiliate.affiliate_code || ""}
@@ -324,6 +373,11 @@ function AffiliateCard({ affiliate }: { affiliate: MasterAffiliate }) {
         <p className="text-sm font-semibold text-gray-800 truncate">{affiliate.affiliate_name}</p>
         <p className="text-xs text-gray-500 truncate">{affiliate.affiliate_number}</p>
         <p className="text-xs font-medium text-primary truncate">{affiliate.affiliate_code}</p>
+        {(affiliate.affiliate_job || affiliate.affiliate_instantion || affiliate.affiliate_store) && (
+          <p className="mt-0.5 text-[11px] text-gray-400 truncate">
+            {[affiliate.affiliate_job, affiliate.affiliate_instantion, affiliate.affiliate_store].filter(Boolean).join(" · ")}
+          </p>
+        )}
         <Button
           size="sm"
           variant="outline"

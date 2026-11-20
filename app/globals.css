@@ -585,3 +585,46 @@ html.dark .absolute.bg-white:is(.shadow-lg, .shadow-xl, .shadow-2xl),
 html.dark .fixed.bg-white\/95, html.dark .sticky.bg-white\/95 {
   background-color: #24272a !important;
 }
+
+/* ───────── Dashboard "command center" (profesional + futuristik) ───────── */
+@keyframes cc-pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(1.5); } }
+@keyframes cc-sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.cc-live-dot { display: inline-block; width: 7px; height: 7px; border-radius: 9999px; background: #34d399; box-shadow: 0 0 8px #34d399; animation: cc-pulse 2s ease-in-out infinite; }
+.cc-num { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
+.cc-hero {
+  position: relative; overflow: hidden; border-radius: 24px; color: #fff;
+  background: linear-gradient(135deg, #0a1117 0%, #0f212b 48%, #0c3b49 100%);
+  border: 1px solid rgba(164,216,255,.18);
+  box-shadow: 0 18px 50px -20px rgba(8,47,60,.7);
+}
+.cc-hero::before { /* grid teknis, memudar ke kiri-bawah */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image: linear-gradient(rgba(164,216,255,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(164,216,255,.08) 1px, transparent 1px);
+  background-size: 34px 34px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 90% at 85% 20%, #000 0%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 90% at 85% 20%, #000 0%, transparent 75%);
+}
+.cc-hero::after { /* cahaya cyan */
+  content: ""; position: absolute; right: -90px; top: -110px; width: 320px; height: 320px; pointer-events: none;
+  background: radial-gradient(circle, rgba(34,211,238,.28) 0%, transparent 68%);
+}
+.cc-hero-sweep { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.cc-hero-sweep::after { content: ""; position: absolute; inset: 0; width: 40%; background: linear-gradient(90deg, transparent, rgba(164,216,255,.07), transparent); animation: cc-sweep 7s linear infinite; }
+.cc-chip { display: inline-flex; align-items: center; gap: .4rem; border-radius: 9999px; padding: .25rem .7rem; font-size: 11px; font-weight: 500; color: rgba(255,255,255,.85); background: rgba(255,255,255,.08); border: 1px solid rgba(164,216,255,.2); }
+
+.cc-panel {
+  position: relative; border-radius: 18px;
+  background: rgba(255,255,255,.9); border: 1px solid rgba(15,23,42,.07);
+  box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 14px 34px -14px rgba(15,23,42,.16);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.cc-panel::before { /* garis aksen tipis di tepi atas */
+  content: ""; position: absolute; left: 20px; right: 20px; top: 0; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--cc-line, #0ea5b7), transparent); opacity: .75;
+}
+html.dark .cc-panel { background: rgba(20,26,31,.86); border-color: rgba(164,216,255,.13); box-shadow: 0 14px 34px -14px rgba(0,0,0,.6); }
+.cc-kpi:hover { box-shadow: 0 0 0 1px var(--cc-line, #0ea5b7), 0 16px 34px -14px rgba(14,165,183,.35); }
+.cc-label { font-size: 10.5px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: #6b7280; }
+html.dark .cc-label { color: #94a3b8; }
+@media (prefers-reduced-motion: reduce) { .cc-live-dot, .cc-hero-sweep::after { animation: none; } }

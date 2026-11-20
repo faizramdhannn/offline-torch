@@ -104,7 +104,7 @@ export function QuickAction() {
         >
           <Link
             href={action.href}
-            className="flex flex-col items-center gap-1 rounded-xl border border-white/40 bg-white/50 px-1.5 py-2.5 text-center shadow-sm backdrop-blur-sm transition-shadow duration-200 hover:shadow-lg hover:bg-white/70"
+            className="flex flex-col items-center gap-1 rounded-xl border border-gray-200/70 bg-gray-50/70 px-1.5 py-2.5 text-center transition-colors duration-200 hover:border-cyan-400/60 hover:bg-cyan-50/40"
           >
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
               <action.icon className="h-3.5 w-3.5 text-primary" />
