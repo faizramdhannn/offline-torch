@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { HeroMascot } from "./HeroMascot";
 
 interface DashboardHeaderProps {
   dayLabel: string;
@@ -38,6 +39,7 @@ export function DashboardHeader({ dayLabel, dateLabel, userName, pendingTotal, o
   return (
     <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: "easeOut" }} className="cc-hero mb-5 px-5 py-6 sm:px-8 sm:py-7">
       <div className="cc-hero-sweep" />
+      <HeroMascot />
       <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">

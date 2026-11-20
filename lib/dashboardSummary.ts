@@ -20,6 +20,19 @@ const isTrue = (v: unknown) => v === "TRUE";
 const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
 const oldestFirst = (a: PendingItem, b: PendingItem) => (parseIdDateTime(a.created_at) || 0) - (parseIdDateTime(b.created_at) || 0);
 
+// Capture Attendance (attendance_store) pada tanggal tertentu (WIB, YYYY-MM-DD); baris terakhir per toko yang dipakai.
+export async function computeCapture(date: string): Promise<CaptureToday[]> {
+  const rows: any[] = await getSheetData("attendance_store");
+  const byStore = new Map<string, CaptureToday>();
+  for (const r of rows) {
+    if (!r.store_name) continue;
+    const openTs = String(r.open_timestamp || "");
+    if (tsToISO(openTs) !== date && !String(r.created_at || "").startsWith(date) && tsToISO(String(r.created_at || "")) !== date) continue;
+    byStore.set(String(r.store_name), { store: String(r.store_name), open: tsToTime(openTs), close: tsToTime(String(r.close_timestamp || "")) });
+  }
+  return [...byStore.values()];
+}
+
 export async function computeDashboardSummary(user: UserRow): Promise<DashboardSummary> {
   const lists: DashboardSummary["lists"] = {};
   const jobs: Promise<void>[] = [];
@@ -48,19 +61,7 @@ export async function computeDashboardSummary(user: UserRow): Promise<DashboardS
   }
   // Absensi toko (capture) hari ini — semua toko, untuk pemegang izin dashboard (route ini sudah dibatasi izin itu).
   let capture: CaptureToday[] = [];
-  jobs.push(
-    getSheetData("attendance_store").then((rows: any[]) => {
-      const today = todayWIB();
-      const byStore = new Map<string, CaptureToday>();
-      for (const r of rows) {
-        if (!r.store_name) continue;
-        const openTs = String(r.open_timestamp || "");
-        if (tsToISO(openTs) !== today && !String(r.created_at || "").startsWith(today) && tsToISO(String(r.created_at || "")) !== today) continue;
-        byStore.set(String(r.store_name), { store: String(r.store_name), open: tsToTime(openTs), close: tsToTime(String(r.close_timestamp || "")) });
-      }
-      capture = [...byStore.values()];
-    })
-  );
+  jobs.push(computeCapture(todayWIB()).then((c) => { capture = c; }));
   const [pending] = await Promise.all([computePending(user), ...jobs]);
   return { pending, lists, capture };
 }

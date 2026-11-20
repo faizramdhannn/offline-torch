@@ -2,6 +2,7 @@
 
 import { useSessionGuard } from "@/hooks/useSessionGuard";
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
   UserCheck,
@@ -282,15 +283,34 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
 
   // Attendance Today = toko ber-role STORE (merchant tidak capture) yang sudah Capture Attendance (buka) hari ini,
   // dari sheet attendance_store lewat /api/dashboard/summary — bukan dari laporan shift staf (schedule_report).
-  const captureByStore = new Map((summary.data?.capture || []).map((c) => [normalizeStoreName(c.store), c]));
+  const todayWib = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+  const [attDate, setAttDate] = useState(todayWib);
+  // Hari ini ikut /api/dashboard/summary (tanpa panggilan tambahan); tanggal lain = satu panggilan ringan, di-cache 5 menit.
+  const otherDay = useQuery<{ store: string; open: string; close: string }[]>({
+    queryKey: ["dashboard", "capture", attDate],
+    enabled: attDate !== todayWib,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const r = await fetch(`/api/dashboard/capture?date=${attDate}`);
+      if (!r.ok) throw new Error("gagal");
+      return r.json();
+    },
+  });
+  const captureData = attDate === todayWib ? summary.data?.capture : otherDay.data;
+  const captureLoading = attDate === todayWib ? summary.isLoading : otherDay.isLoading;
   const captureStores = storeAddresses.filter(
     (s) => (!s.status || s.status.trim().toLowerCase() === "active") && s.role !== "merchant"
   );
-  const attendanceRows = captureStores
-    .map((s) => { const c = captureByStore.get(normalizeStoreName(s.store_location)); return { store: s.store_location, open: c?.open || "", close: c?.close || "" }; })
-    .sort((a, b) => Number(!!a.open) - Number(!!b.open)); // yang belum buka di atas
-  const attendanceTodayCount = attendanceRows.filter((r) => r.open).length;
-  const totalStoreCount = attendanceRows.length;
+  const rowsFor = (capture?: { store: string; open: string; close: string }[]) => {
+    const byStore = new Map((capture || []).map((c) => [normalizeStoreName(c.store), c]));
+    return captureStores
+      .map((s) => { const c = byStore.get(normalizeStoreName(s.store_location)); return { store: s.store_location, open: c?.open || "", close: c?.close || "" }; })
+      .sort((a, b) => Number(!!a.open) - Number(!!b.open)); // yang belum buka di atas
+  };
+  const attendanceRows = rowsFor(captureData); // kartu Absensi Toko (tanggal pilihan)
+  const todayRows = rowsFor(summary.data?.capture); // KPI "Attendance Today" selalu hari ini
+  const attendanceTodayCount = todayRows.filter((r) => r.open).length;
+  const totalStoreCount = todayRows.length;
   const totalTaftToday = todayReport.reduce((sum, store) => sum + store.tafts.length, 0);
   const pendingShiftCount = todaySchedules.reduce(
     (sum, s) => sum + s.tafts.filter((t) => !t.code).length,
@@ -364,7 +384,7 @@ const schedules: ScheduleRow[] = Array.isArray(schedRaw) ? schedRaw : (schedRaw?
         {/* ── Perlu tindakan (pending dari menu lain, 1 panggilan ter-cache) ── */}
         <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
           <PendingActions className="lg:col-span-2" />
-          <AttendanceStatus rows={attendanceRows} loading={summary.isLoading || !storeAddresses.length} />
+          <AttendanceStatus rows={attendanceRows} loading={captureLoading || !storeAddresses.length} date={attDate} today={todayWib} onDateChange={setAttDate} />
         </div>
 
         {/* ── Today's Shift — full-width bento row ─────────────────── */}
