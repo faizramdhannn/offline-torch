@@ -23,28 +23,37 @@ function parseValueOrder(v: string | undefined | null): number {
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, affiliate_code } = await request.json();
+    const body = await request.json();
+    // `identifier` = email ATAU no. telepon (`email` tetap diterima untuk klien lama)
+    const email = body.identifier ?? body.email;
+    const affiliate_code = body.affiliate_code;
 
     if (!email || !affiliate_code) {
       return NextResponse.json(
-        { error: 'Email dan kode affiliate wajib diisi' },
+        { error: 'Email/no. telepon dan kode affiliate wajib diisi' },
         { status: 400 }
       );
     }
 
-    const emailNorm = String(email).trim().toLowerCase();
+    const idNorm = String(email).trim().toLowerCase();
+    // Telepon: ambil angka saja, 0812… / +62812… / 62812… dianggap sama (kunci = 8xx…).
+    const phoneKey = (v: any) => String(v || '').replace(/\D/g, '').replace(/^(62|0)+/, '');
+    const isEmail = idNorm.includes('@');
+    const idPhone = phoneKey(idNorm);
     const codeNorm = String(affiliate_code).trim().toLowerCase();
 
     const masterAffiliate = await getSheetData('master_affiliate');
     const affiliate = masterAffiliate.find(
       (r: any) =>
         (r.affiliate_code || '').trim().toLowerCase() === codeNorm &&
-        (r.affiliate_email || '').trim().toLowerCase() === emailNorm
+        (isEmail
+          ? (r.affiliate_email || '').trim().toLowerCase() === idNorm
+          : idPhone.length >= 8 && phoneKey(r.affiliate_number) === idPhone)
     );
 
     if (!affiliate) {
       return NextResponse.json(
-        { error: 'Email atau kode affiliate tidak ditemukan' },
+        { error: 'Email/no. telepon atau kode affiliate tidak ditemukan' },
         { status: 404 }
       );
     }

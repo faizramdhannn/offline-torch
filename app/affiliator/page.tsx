@@ -117,7 +117,7 @@ export default function AffiliatorPublicPage() {
       const res = await fetch("/api/affiliate/public", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, affiliate_code: affiliateCode }),
+        body: JSON.stringify({ identifier: email, affiliate_code: affiliateCode }),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "Gagal memuat data");
@@ -219,16 +219,17 @@ export default function AffiliatorPublicPage() {
 
           <div className="af-card">
             <h1 className="af-heading">Cek Performa Affiliate</h1>
-            <p className="af-subheading">Masukkan email dan kode affiliate Anda untuk melihat riwayat order dan komisi.</p>
+            <p className="af-subheading">Masukkan email atau no. telepon dan kode affiliate Anda untuk melihat riwayat order dan komisi.</p>
 
             <form onSubmit={handleSubmit}>
               <div className="af-field">
-                <label className="af-label">Email</label>
+                <label className="af-label">Email atau No. Telepon</label>
                 <input
-                  type="email"
+                  type="text"
+                  inputMode="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nama@email.com"
+                  placeholder="nama@email.com atau 0812xxxxxxx"
                   className="af-input"
                   required
                 />
